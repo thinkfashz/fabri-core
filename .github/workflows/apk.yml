@@ -1,0 +1,80 @@
+name: APK
+
+# Compila FABRI-CORE en la nube. Dos variantes:
+#   · lite → pipeline sin Gradle (aapt2 + kotlinc + d8 + apksigner). Rápida y estable.
+#   · full → app Kotlin+Compose completa con Gradle. Puede tardar y no bloquea.
+#
+# El teléfono también puede compilar la lite (`bash build-fast.sh`), pero aquí
+# no hay restarts de contenedor ni límites de RAM: es la vía recomendada.
+
+on:
+  push:
+    branches: [master, main]
+    paths:
+      - 'fast/**'
+      - 'app/**'
+      - 'build-fast.sh'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle.properties'
+      - '.github/workflows/apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk-lite:
+    name: APK lite (sin Gradle)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Platform 34 + build-tools 34.0.0
+        run: sdkmanager --install "platforms;android-34" "build-tools;34.0.0" > /dev/null
+      - name: Compilar
+        run: |
+          chmod +x build-fast.sh
+          VERIFY=1 bash build-fast.sh
+      - name: Resumen
+        run: |
+          echo "### APK lite" >> $GITHUB_STEP_SUMMARY
+          ls -lh out/fabri-core-lite.apk >> $GITHUB_STEP_SUMMARY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fabri-core-lite.apk
+          path: out/fabri-core-lite.apk
+      - name: Publicar en la release (tags v*)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: out/fabri-core-lite.apk
+          body: |
+            FABRI-CORE · APK lite compilada en la nube (GitHub Actions).
+            Pipeline sin Gradle: aapt2 + kotlinc + d8 + apksigner.
+
+  apk-full:
+    name: APK completa (Kotlin + Compose)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.9'
+      - name: Compilar (debug)
+        run: gradle --no-daemon --stacktrace assembleDebug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fabri-core-full-debug.apk
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: warn

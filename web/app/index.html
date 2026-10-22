@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>FABRI-CORE · consola autónoma</title>
+<meta name="description" content="FABRI-CORE en el navegador: panel, chat con agente, consola SQL real, memoria con FTS5 y flujos en vivo. Funciona offline.">
+<meta name="theme-color" content="#08090A">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icons/icon-192.png" sizes="192x192">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+<div class="wrap">
+
+  <header class="topbar">
+    <div class="mark" aria-hidden="true"></div>
+    <div class="brand">
+      <b>FABRI-CORE</b>
+      <span id="ver">web · v1.0</span>
+    </div>
+    <div class="live" id="live"><i class="dot"></i><span id="liveTxt">en línea</span></div>
+  </header>
+
+  <main>
+    <div class="offline-bar" id="offBar">Sin conexión — la app sigue funcionando con los datos locales.</div>
+
+    <!-- ══════════════ PANEL ══════════════ -->
+    <section class="screen on" id="s-panel">
+      <p class="eyebrow">Panel principal</p>
+      <h1>Estado del núcleo</h1>
+      <p class="sub">Cada cifra sale de tu navegador: base SQLite local, mensajes guardados y memoria indexada.</p>
+
+      <div class="kpi-grid">
+        <div class="stat accent"><div class="k">Memorias</div><div class="v" id="kMem">0</div><div class="d" id="kMemD">sin registros</div></div>
+        <div class="stat"><div class="k">Mensajes</div><div class="v" id="kMsg">0</div><div class="d">guardados en SQLite</div></div>
+        <div class="stat"><div class="k">Base local</div><div class="v" id="kDb">0 KB</div><div class="d" id="kDbD">persistida en IndexedDB</div></div>
+        <div class="stat"><div class="k">Búsqueda</div><div class="v" id="kFts" style="font-size:19px">…</div><div class="d" id="kFtsD">comprobando FTS5</div></div>
+      </div>
+
+      <div class="card">
+        <div class="eyebrow">Módulos</div>
+        <div class="row"><div class="grow"><div class="t">SQLite en el navegador</div><div class="s">sql.js (WASM) · 13 tablas del contrato</div></div><span class="badge ok" id="bDb">activo</span></div>
+        <div class="row"><div class="grow"><div class="t">Índice de texto completo</div><div class="s" id="ftsSub">FTS5 comprobado en runtime</div></div><span class="badge" id="bFts">…</span></div>
+        <div class="row"><div class="grow"><div class="t">Agente</div><div class="s">función Go en Vercel · /api/agent</div></div><span class="badge" id="bAg">…</span></div>
+        <div class="row"><div class="grow"><div class="t">Modo offline</div><div class="s">service worker con caché del shell</div></div><span class="badge ok" id="bSw">listo</span></div>
+      </div>
+
+      <div class="card">
+        <div class="eyebrow">Acento</div>
+        <div class="chips" id="themes" style="padding-bottom:0"></div>
+      </div>
+
+      <div class="card">
+        <div class="eyebrow">Instalación</div>
+        <p class="hint" style="margin:2px 0 12px">Instálala como app: queda en la pantalla de inicio y arranca sin red.</p>
+        <button class="btn primary block" id="btnInstall">Instalar FABRI-CORE</button>
+        <div class="sep"></div>
+        <button class="btn ghost block sm" id="btnReset">Borrar datos locales</button>
+      </div>
+    </section>
+
+    <!-- ══════════════ CHAT ══════════════ -->
+    <section class="screen" id="s-chat">
+      <p class="eyebrow">Agente</p>
+      <h1>Chat IA</h1>
+      <p class="sub">El agente corre en la función Go de Vercel. Si no hay clave configurada, te lo dice en vez de inventar.</p>
+      <div class="log" id="log"></div>
+      <textarea class="field" id="chatIn" rows="2" placeholder="Pregúntale algo al núcleo…"></textarea>
+      <button class="btn primary block" id="btnSend" style="margin-top:10px">Enviar</button>
+      <p class="hint" style="margin-top:10px">Cada mensaje se guarda en tu SQLite local: nada se envía a otro servidor que el del agente.</p>
+    </section>
+
+    <!-- ══════════════ CONSOLA ══════════════ -->
+    <section class="screen" id="s-sql">
+      <p class="eyebrow">Consola</p>
+      <h1>SQL real</h1>
+      <p class="sub">La misma base que usa la app. Aquí sí se ejecuta de verdad.</p>
+      <div class="chips" id="sqlQuick"></div>
+      <textarea class="field mono" id="sqlIn" rows="3">SELECT kind, content, provenance FROM memory_items ORDER BY id DESC LIMIT 10;</textarea>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn primary" id="btnRun" style="flex:1">Ejecutar</button>
+        <button class="btn ghost sm" id="btnSchema">Ver tablas</button>
+      </div>
+      <div class="console-out" id="sqlOut" style="margin-top:12px"></div>
+      <div id="sqlTbl" style="margin-top:10px"></div>
+    </section>
+
+    <!-- ══════════════ MEMORIA ══════════════ -->
+    <section class="screen" id="s-mem">
+      <p class="eyebrow">Memoria</p>
+      <h1>Lo que recuerda</h1>
+      <p class="sub">Hechos durables con procedencia. La búsqueda usa FTS5 cuando el motor lo trae.</p>
+      <div class="chips" id="memKinds"></div>
+      <textarea class="field" id="memIn" rows="2" placeholder="Hecho durable que quieras recordar…"></textarea>
+      <input class="field" id="memProv" placeholder="Procedencia (ej. conversación, doc, web)" style="margin-top:8px">
+      <button class="btn primary block" id="btnMem" style="margin-top:10px">Guardar en memoria</button>
+      <div class="sep"></div>
+      <input class="field" id="memQ" placeholder="Buscar en la memoria…">
+      <div id="memList" style="margin-top:12px"></div>
+    </section>
+
+    <!-- ══════════════ FLUJOS ══════════════ -->
+    <section class="screen" id="s-flow">
+      <p class="eyebrow">Cerebro</p>
+      <h1>Flujos en vivo</h1>
+      <p class="sub">El grafo se anima con eventos reales: cada escritura en la base, cada consulta y cada llamada al agente lo mueven.</p>
+      <div class="graph-box"><canvas id="graph"></canvas></div>
+      <div class="event-log" id="evLog"></div>
+      <div class="card" style="margin-top:14px">
+        <div class="eyebrow">Ruta de un dato</div>
+        <p class="hint">UI → API Go → SQLite → FTS5 → memoria → agente. Si un salto no ocurre, el evento no aparece: nada de animaciones de relleno.</p>
+      </div>
+    </section>
+  </main>
+
+  <nav class="nav">
+    <div class="nav-in">
+      <button class="on" data-go="panel"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="2"/><rect x="14" y="3" width="7" height="5" rx="2"/><rect x="14" y="12" width="7" height="9" rx="2"/><rect x="3" y="16" width="7" height="5" rx="2"/></svg><span>Panel</span></button>
+      <button data-go="chat"><svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-8 8H8l-4 2 1.5-4.5A8 8 0 1 1 21 12Z"/></svg><span>Chat</span></button>
+      <button data-go="sql"><svg viewBox="0 0 24 24"><path d="m4 6 8 4 8-4-8-4-8 4Z"/><path d="m4 12 8 4 8-4"/><path d="m4 18 8 4 8-4"/></svg><span>SQL</span></button>
+      <button data-go="mem"><svg viewBox="0 0 24 24"><path d="M12 3a4 4 0 0 0-4 4v1a4 4 0 0 0 0 8v1a4 4 0 0 0 8 0v-1a4 4 0 0 0 0-8V7a4 4 0 0 0-4-4Z"/></svg><span>Memoria</span></button>
+      <button data-go="flow"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="2.5"/><circle cx="19" cy="6" r="2.5"/><circle cx="19" cy="18" r="2.5"/><path d="M7.5 12h4a3 3 0 0 0 3-3V8.5"/><path d="M7.5 12h4a3 3 0 0 1 3 3v.5"/></svg><span>Flujos</span></button>
+    </div>
+  </nav>
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="./vendor/sql-wasm.js"></script>
+<script src="./app.js"></script>
+</body>
+</html>

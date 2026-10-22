@@ -1,19 +1,20 @@
-# Build de la APK en la nube
+# Compilación en la nube
 
-`apk.yml` es el workflow de GitHub Actions que compila FABRI-CORE (debug + release) y
-publica la APK como artefacto y en las releases.
+La APK se compila en **GitHub Actions** (`.github/workflows/apk.yml`), en dos variantes:
 
-**Por qué está aquí y no en `.github/workflows/`**: el token de GitHub de este equipo es una
-OAuth App **sin el scope `workflow`**, y GitHub rechaza el push de archivos de workflow con
-ese token. Para activarlo:
+| Job | Qué compila | Cuándo |
+|---|---|---|
+| `apk-lite` | pipeline sin Gradle (`build-fast.sh`): aapt2 + kotlinc + d8 + apksigner | siempre; ~2 min |
+| `apk-full` | app Kotlin + Compose completa con Gradle 8.9 / AGP 8.7.3 | siempre; no bloquea |
 
-```sh
-# 1) con un token que sí tenga el scope (PAT fine-grained o OAuth App con workflow):
-cp docs/ci/apk.yml .github/workflows/apk.yml
-git add .github/workflows/apk.yml && git commit -m "ci: build de APK en la nube" && git push
+La APK lite queda como artefacto de la ejecución y, si el push es un tag `v*`, se adjunta
+a la release. También se puede lanzar a mano: **Actions → APK → Run workflow**.
 
-# 2) o desde la UI de GitHub: Settings → Actions → New workflow → pegar el contenido
-```
+## Por qué no se compila en el teléfono
 
-**La vía rápida**: la nube compila en ~3-5 min; el teléfono tarda 10-25 min (Gradle+Compose
-en ARM, con el contenedor reiniciándose). La APK llega como artefacto de la workflow.
+`python/proot` + Gradle = fase de configuración de 20+ minutos y el daemon muere cuando
+el contenedor se reinicia (cada pocos minutos). Además, los binarios del SDK en
+`/root/android-sdk` son **x86-64** y no corren en ARM.
+
+La vía local existe igual (`bash build-fast.sh`, ~4 min) usando las herramientas ARM de
+Termux y el compilador Kotlin de la caché de Gradle. El script detecta la plataforma.
