@@ -215,3 +215,14 @@ Kotlin medía 4-10 min en las mismas condiciones. Java es 2-5× más rápido y e
 ### Pendiente
 Que el usuario abra la 2.0-java y mande `boot.log` (o la captura de Ajustes).
 Si la Java tampoco abre, el problema es del instalador/Play Protect, no del código.
+
+### Distribución e instalación (2026-10-22)
+- APK publicada y **copiada al teléfono**: `/sdcard/Download/FABRI-CORE-2.0-java.apk`
+  (md5 `eb1214b7ba0f37d71cde1311b4b7c5bc`, idéntica a `out/fabri-core-java.apk`).
+- **No se puede instalar por comando**: `pm install` desde Termux falla con
+  `SecurityException: doCreateSession ... uid u0a643` (no es el uid `shell`).
+  Tampoco puede leer `/sdcard` directamente. Se instala **tocando el archivo** en
+  Descargas (el sistema pide confirmación) o con `adb install -r` desde un PC.
+- Dependencias locales fijadas en `fast/java/DEPS.md` y verificables con
+  `bash build-java.sh --check` (hoy: todo ✓, salida 0). Paquetes Termux:
+  `openjdk-21` (javac/keytool), `aapt2`, `d8`, `apksigner`, `aapt` (zipalign), `zip`.

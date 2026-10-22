@@ -23,6 +23,38 @@ KS=$PROJECT/fast/debug.keystore
 APK=$OUT/fabri-core-java.apk
 T0=$(date +%s)
 
+# ── comprobación de dependencias locales (--check) ───────────────────────────
+MISSING=0
+dep() {
+  local name=$1 path=$2 what=$3
+  if [ -x "$path" ] || command -v "$path" >/dev/null 2>&1; then
+    printf "  ✓ %-10s %s\n" "$name" "$(command -v "$path" 2>/dev/null || echo "$path")"
+  else
+    printf "  ✗ %-10s FALTA · %s\n" "$name" "$what"
+    MISSING=1
+  fi
+}
+check_deps() {
+  echo "Dependencias del build Java"
+  dep javac javac "pkg install openjdk-21"
+  dep keytool keytool "pkg install openjdk-21"
+  dep aapt2 "$BT/aapt2" "pkg install aapt2"
+  dep d8 "$BT/d8" "pkg install d8"
+  dep apksigner "$BT/apksigner" "pkg install apksigner"
+  dep zipalign "$BT/zipalign" "pkg install aapt"
+  dep zip zip "pkg install zip"
+  if [ -f "$ANDROID_JAR" ]; then
+    printf "  ✓ %-10s %s\n" "android.jar" "$ANDROID_JAR"
+  else
+    printf "  ✗ %-10s FALTA · platforms/android-34/android.jar del SDK\n" "android.jar"
+    MISSING=1
+  fi
+  [ "$MISSING" = "0" ] && echo "Todo listo." || echo "Falta algo: ver fast/java/DEPS.md"
+  return "$MISSING"
+}
+if [ "${1:-}" = "--check" ]; then check_deps; exit $?; fi
+check_deps >/dev/null || { check_deps; exit 1; }
+
 ms() { echo $(( ($(date +%s%N) - $1) / 1000000 )); }
 step() { echo "· $*"; }
 
