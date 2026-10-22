@@ -32,3 +32,6 @@ backend/*.log
 # Sistema
 .DS_Store
 Thumbs.db
+
+# El workflow de GitHub Actions requiere el scope "workflow" en el token:
+# se versiona en docs/ci/apk.yml y se copia a .github/workflows/ cuando se pueda.
