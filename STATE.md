@@ -14,7 +14,7 @@ chat contra un agente y grafo de flujos.
 | PWA | https://fabri-core-web.vercel.app/app/ |
 | API Go (salud) | https://fabri-core-web.vercel.app/api/health |
 | Repo (público) | https://github.com/thinkfashz/fabri-core |
-| Release con la APK | https://github.com/thinkfashz/fabri-core/releases/tag/v1.0.0 |
+| Release con la APK | https://github.com/thinkfashz/fabri-core/releases/tag/v1.1.0 |
 | Descarga directa | https://github.com/thinkfashz/fabri-core/releases/latest/download/fabri-core-lite.apk |
 
 ## Hecho
@@ -66,3 +66,55 @@ roto de esta red (`fetch failed` / `EAI_AGAIN sentry.io`).
   igual en FTS3, 4 y 5.
 - `snippet()` con marcadores `[[H]]/[[/H]]` y escape posterior: así el resaltado no
   inyecta HTML.
+
+## 22-10-2026 · v1.1 (APK + PWA) y capa de nube
+
+### APK 1.1.0-lite (88 KB, firmada v2+v3) — publicada
+Reescritura completa en `fast/lite/` (Db, Sec, Ui, Agent, MainActivity):
+
+- Login local real: PBKDF2-HMAC-SHA256 120k + token de sesión guardado **solo como SHA-256**, con vencimiento.
+- Consola que ejecuta `/system/bin/sh` de verdad (20 s de tope) + comandos propios: `sql`, `tables`, `fts`, `logs`, `files`, `export`.
+- Base v3 con usuarios, sesiones, claves, logs, auditoría, métricas, permisos, archivos, comandos, hojas.
+- Integraciones de 9 proveedores; claves cifradas con **AES-256-GCM del Android Keystore**.
+- Permisos con estado real (INTERNET, red, notificaciones, almacenamiento) y explicación del sandbox.
+- Export `.xlsx` real con `java.util.zip` a Descargas/FABRI-CORE.
+- Guarda anti-crash: pantalla de error con la traza + `crash.txt`.
+- Manifiesto ampliado; `build-fast.sh` compila `fast/lite/*.kt`.
+
+**Lección de build**: d8 pasó de ~50 s a **631 s** con dos builds compitiendo en paralelo.
+Nunca lanzar dos `build-fast.sh` a la vez; esperar a que muera el `K2JVMCompiler`.
+
+### PWA v1.1 — en producción y verificada
+Nuevos módulos en `web/app/`:
+
+| Archivo | Qué aporta |
+|---|---|
+| `core-sec.js` | `CoreAuth` (PBKDF2 120k, sesiones con token hasheado) + `CoreVault` (AES-256-GCM con clave del dispositivo en IndexedDB, catálogo de 9 proveedores, `ping` y `ask` directos al proveedor) |
+| `core-xlsx.js` | `.xlsx` OOXML real escrito a mano (ZIP store + CRC32) y CSV |
+| `core-pro.js` | Pantallas Datos (analítica real, barras, export), IA (bóveda + chat), Cuenta (planes, cuota, sesiones, permisos, nube) y la puerta de login |
+| `app.js` | `window.Fabri` (API para los módulos), `log/audit/metric`, navegación por hash **después** de abrir la base |
+| `index.html` | 8 pestañas, overlay de login, scripts |
+| `sw.js` | caché `fcore-v2` con los módulos nuevos |
+
+Prueba Playwright en producción (`/tmp/opencode/test-pro.mjs`), **0 errores de consola**:
+login `dueno@fabri.cl` → 20 tablas / 11 filas / FTS4 → descarga `fabri-api_keys-*.xlsx`
+→ 9 proveedores → planes Local/Prueba/Pro → cuota `148 KB / 5 MB` → sesión persiste tras recargar.
+
+### Nube: código listo, almacenamiento bloqueado por facturación
+- `api/auth/index.go` y `api/sync/index.go` (Go stdlib, PBKDF2 propio). Guardan en
+  Vercel Blob un sobre **ya cifrado** en el navegador: el servidor nunca ve texto plano.
+- `/api/health` ahora informa `cloud`.
+- **Trampa de Vercel Go**: todos los `api/*.go` se compilan como **un solo paquete**;
+  cuatro `func Handler` = `Handler redeclared`. Cada función va en **su carpeta**:
+  `api/auth/index.go` → `/api/auth`, `api/sync/index.go` → `/api/sync`.
+- Bloqueo real: el plan free ya usó su único Blob store (`fabrick-panel-state`, **suspended**)
+  y `vercel blob create-store` responde `usage threshold limit is reached (400)`.
+  Los endpoints devuelven **501 con instrucciones**, nunca simulan cuentas.
+- Sigue bloqueado GitHub Actions: `account is locked due to a billing issue`
+  (<https://github.com/settings/billing>).
+
+### Pendiente
+1. Resolver facturación de Vercel → crear Blob privado → redeploy: `/api/auth` y `/api/sync`
+   pasan a 200 sin tocar código.
+2. Con la nube activa: botón de sincronizar en Cuenta (el sobre cifrado ya está definido).
+3. Instalar la APK: si había una versión previa con otra firma, **desinstalar primero**.

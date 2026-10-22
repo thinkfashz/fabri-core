@@ -2,7 +2,9 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
     "api/agent.go": { "maxDuration": 30 },
-    "api/health.go": { "maxDuration": 10 }
+    "api/health.go": { "maxDuration": 10 },
+    "api/auth/index.go": { "maxDuration": 15 },
+    "api/sync/index.go": { "maxDuration": 15 }
   },
   "headers": [
     {

@@ -19,9 +19,15 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		agent = "configured"
 	}
 
+	cloud := "sin configurar"
+	if os.Getenv("BLOB_READ_WRITE_TOKEN") != "" {
+		cloud = "lista"
+	}
+
 	_ = json.NewEncoder(w).Encode(map[string]any{
 		"ok":      true,
 		"agent":   agent,
+		"cloud":   cloud,
 		"runtime": "go " + runtime.Version(),
 		"time":    time.Now().UTC().Format(time.RFC3339),
 	})
