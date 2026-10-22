@@ -18,7 +18,7 @@
   const fmtSize = b => b < 1024 ? b + ' B' : b < 1048576 ? (b / 1024).toFixed(1) + ' KB' : (b / 1048576).toFixed(1) + ' MB';
 
   /* ── estado ───────────────────────────────────────────────────────────── */
-  const S = { db: null, fts: false, theme: localStorage.getItem('fcore.theme') || 'lime', events: [],
+  const S = { db: null, ftsModo: 'like', theme: localStorage.getItem('fcore.theme') || 'lime', events: [],
               installEvt: null, saveTimer: null, kind: 'hecho', busy: false };
 
   const THEMES = {
@@ -118,29 +118,25 @@
     S.db = bytes ? new SQL.Database(new Uint8Array(bytes)) : new SQL.Database();
     S.db.run(SCHEMA);
 
-    // FTS5 se comprueba, no se asume
-    try {
-      const r = one("SELECT sqlite_compileoption_used('ENABLE_FTS5') AS v");
-      S.fts = !!(r && Number(r.v) === 1);
-    } catch (_) { S.fts = false; }
-
-    if (S.fts) {
-      try {
-        S.db.run(`CREATE VIRTUAL TABLE IF NOT EXISTS memory_fts USING fts5(content, kind UNINDEXED, content='memory_items', content_rowid='id')`);
-        S.db.run(`CREATE TRIGGER IF NOT EXISTS memory_ai AFTER INSERT ON memory_items BEGIN
-                    INSERT INTO memory_fts(rowid, content, kind) VALUES (new.id, new.content, new.kind); END`);
-        S.db.run(`CREATE TRIGGER IF NOT EXISTS memory_ad AFTER DELETE ON memory_items BEGIN
-                    INSERT INTO memory_fts(memory_fts, rowid, content, kind) VALUES ('delete', old.id, old.content, old.kind); END`);
-        S.db.run(`CREATE TRIGGER IF NOT EXISTS memory_au AFTER UPDATE ON memory_items BEGIN
-                    INSERT INTO memory_fts(memory_fts, rowid, content, kind) VALUES ('delete', old.id, old.content, old.kind);
-                    INSERT INTO memory_fts(rowid, content, kind) VALUES (new.id, new.content, new.kind); END`);
-        // si la tabla ya existía con filas previas, reconstruye el índice
-        S.db.run(`INSERT INTO memory_fts(memory_fts) VALUES('rebuild')`);
-      } catch (e) { S.fts = false; }
-    }
+    // Índice de texto completo: no se asume. El sql.js estándar trae FTS3/4 (no FTS5),
+    // así que se intenta de mayor a menor y la UI informa cuál quedó activo.
+    try { S.db.run(`CREATE VIRTUAL TABLE IF NOT EXISTS memory_fts USING fts5(content, rid, kind)`); } catch (_) {}
+    try { S.db.run(`CREATE VIRTUAL TABLE IF NOT EXISTS memory_fts USING fts4(content, rid, kind)`); } catch (_) {}
+    const ddl = (one("SELECT sql FROM sqlite_master WHERE name='memory_fts'") || {}).sql || '';
+    S.ftsModo = /fts5/i.test(ddl) ? 'fts5' : /fts4|fts3/i.test(ddl) ? 'fts4' : 'like';
 
     if (!bytes) await seed();
+    if (S.ftsModo !== 'like') reindexar();
     save();
+  }
+
+  // El índice se reconstruye desde la tabla real: así nunca queda desincronizado
+  // (los triggers de FTS varían entre versiones; esto funciona en FTS3, 4 y 5).
+  function reindexar() {
+    try {
+      S.db.run('DELETE FROM memory_fts');
+      S.db.run('INSERT INTO memory_fts(content, rid, kind) SELECT content, id, kind FROM memory_items');
+    } catch (_) { S.ftsModo = 'like'; }
   }
 
   async function seed() {
@@ -160,18 +156,21 @@
   function renderPanel() {
     const mem = one('SELECT COUNT(*) c FROM memory_items')?.c || 0;
     const msg = one('SELECT COUNT(*) c FROM messages')?.c || 0;
-    const rs = one('SELECT COUNT(*) c FROM memory_fts')?.c;
     const size = S.db.export().length;
+    const etq = S.ftsModo === 'like' ? 'LIKE' : S.ftsModo.toUpperCase();
+    const conIndice = S.ftsModo !== 'like';
 
     $('#kMem').textContent = mem;
     $('#kMemD').textContent = mem ? 'con procedencia' : 'sin registros';
     $('#kMsg').textContent = msg;
     $('#kDb').textContent = fmtSize(size);
-    $('#kFts').textContent = S.fts ? 'FTS5' : 'LIKE';
-    $('#kFtsD').textContent = S.fts ? 'índice de texto completo' : 'orden por fecha, sin índice';
-    const b = $('#bFts'); b.textContent = S.fts ? 'activo' : 'no disponible';
-    b.className = 'badge ' + (S.fts ? 'ok' : 'warn');
-    $('#ftsSub').textContent = S.fts ? 'FTS5 disponible en este navegador' : 'este motor no trae FTS5: búsqueda por LIKE';
+    $('#kFts').textContent = etq;
+    $('#kFtsD').textContent = conIndice ? 'índice de texto completo' : 'orden por fecha, sin índice';
+    const b = $('#bFts'); b.textContent = conIndice ? 'activo' : 'no disponible';
+    b.className = 'badge ' + (conIndice ? 'ok' : 'warn');
+    $('#ftsSub').textContent = conIndice
+      ? 'índice ' + etq + ' comprobado en runtime'
+      : 'este motor no trae FTS: búsqueda por LIKE';
     $('#bDb').textContent = 'activo';
     fetch('/api/health').then(r => r.json()).then(j => {
       const b = $('#bAg');
@@ -257,9 +256,9 @@
     let rows;
     const qs = (qtext || '').trim();
     if (qs) {
-      if (S.fts) {
+      if (S.ftsModo !== 'like') {
         try {
-          rows = q("SELECT m.id, m.kind, m.content, m.provenance, m.verified, snippet(memory_fts, 0, '<b>', '</b>', '…', 12) s FROM memory_fts f JOIN memory_items m ON m.id = f.rowid WHERE memory_fts MATCH ? ORDER BY rank LIMIT 40", [qs]);
+          rows = q("SELECT m.id, m.kind, m.content, m.provenance, m.verified, snippet(memory_fts, 0, '[[H]]', '[[/H]]', '…', 12) s FROM memory_fts f JOIN memory_items m ON m.id = CAST(f.rid AS INTEGER) WHERE memory_fts MATCH ? ORDER BY m.id DESC LIMIT 40", [qs]);
         } catch (_) {
           rows = q('SELECT * FROM memory_items WHERE content LIKE ? ORDER BY id DESC LIMIT 40', ['%' + qs + '%']);
         }
@@ -278,7 +277,7 @@
           ${r.verified ? '<span class="badge ok">verificado</span>' : '<span class="badge warn">por verificar</span>'}
           <span class="mono" style="font-size:10px;color:var(--tx4);margin-left:auto">#${r.id}</span>
         </div>
-        <div style="font-size:13.5px;line-height:1.5">${r.s ? r.s.replace(/&lt;/g, '<').replace(/&gt;/g, '>') : esc(r.content)}</div>
+        <div style="font-size:13.5px;line-height:1.5">${r.s ? esc(r.s).replace(/\[\[H\]\]/g, '<b>').replace(/\[\[\/H\]\]/g, '</b>') : esc(r.content)}</div>
         <div class="hint" style="margin-top:6px">${esc(r.provenance || 'sin procedencia')}</div>
       </div>`).join('');
   }
@@ -287,8 +286,14 @@
     const c = $('#memIn').value.trim(); if (!c) return toast('Escribe el hecho primero');
     run('INSERT INTO memory_items(kind, content, provenance, verified, created_at) VALUES(?,?,?,?,?)',
         [S.kind, c, $('#memProv').value.trim() || 'web', 0, now()]);
+    if (S.ftsModo !== 'like') {
+      try {
+        const id = one('SELECT last_insert_rowid() id').id;
+        run('INSERT INTO memory_fts(content, rid, kind) VALUES(?,?,?)', [c, id, S.kind]);
+      } catch (_) {}
+    }
     $('#memIn').value = ''; $('#memProv').value = '';
-    ev(S.fts ? 'fts5' : 'sql', 'memoria indexada');
+    ev(S.ftsModo === 'like' ? 'sql' : 'fts5', 'memoria indexada');
     save(); renderMem(); refreshAll(); toast('Guardado en memoria');
   }
 
@@ -427,8 +432,10 @@
     try {
       await IDB.open();
       await initDb();
-      $('#ver').textContent = 'web · v1.0 · ' + (S.fts ? 'FTS5' : 'LIKE');
-      renderPanel(); renderMem(); go(hash && document.getElementById('s-' + hash) ? hash : 'panel');
+      $('#ver').textContent = 'web · v1.0 · ' + (S.ftsModo === 'like' ? 'LIKE' : S.ftsModo.toUpperCase());
+      // un fallo de una vista no debe tumbar el arranque
+      const safe = fn => { try { fn(); } catch (e) { console.error(e); ev('error', String(e.message).slice(0, 40)); } };
+      safe(renderPanel); safe(renderMem); go(hash && document.getElementById('s-' + hash) ? hash : 'panel');
       pushMsg('assistant', 'Listo. Esta consola corre entera en tu navegador: la base es SQLite real y sobrevive a las recargas. Pregúntame algo o abre la consola SQL.');
       ev('api', 'núcleo iniciado');
     } catch (e) {

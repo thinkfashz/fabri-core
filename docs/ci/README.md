@@ -18,3 +18,20 @@ el contenedor se reinicia (cada pocos minutos). Además, los binarios del SDK en
 
 La vía local existe igual (`bash build-fast.sh`, ~4 min) usando las herramientas ARM de
 Termux y el compilador Kotlin de la caché de Gradle. El script detecta la plataforma.
+
+## Estado real de GitHub Actions (22-10-2026)
+
+El workflow **arranca pero no corre**:
+
+```
+The job was not started because your account is locked due to a billing issue.
+```
+
+No es el YAML (un workflow mínimo falla igual, y en un repo público el runner sí
+responde): es la **cuenta** de GitHub. Se arregla en la web, una sola vez:
+
+1. <https://github.com/settings/billing> → revisar pago pendiente / añadir método.
+2. Volver a **Actions → APK → Run workflow**.
+
+Mientras eso no esté resuelto, la vía que funciona es la local:
+`bash build-fast.sh` (~4 min, APK firmada en `out/`).
