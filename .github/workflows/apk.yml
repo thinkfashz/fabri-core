@@ -1,0 +1,58 @@
+name: Build APK
+
+# Build de FABRI-CORE en la nube (el móvil es lento para Gradle+Compose).
+# La APK sale como artefacto de la workflow y además se publica en la release.
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Gradle cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle.kts') }}
+          restore-keys: gradle-${{ runner.os }}-
+
+      - name: Build (debug + release sin firmar)
+        run: |
+          chmod +x gradlew || true
+          ./gradlew --no-daemon --max-workers=2 --stacktrace assembleDebug
+          ./gradlew --no-daemon --max-workers=2 assembleRelease || echo "release sin clave: se publica la debug"
+
+      - name: Subir artefactos
+        uses: actions/upload-artifact@v4
+        with:
+          name: fabri-core-apk
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            app/build/outputs/apk/release/*.apk
+          if-no-files-found: warn
+
+      - name: Publicar en la release (solo tags)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: app/build/outputs/apk/debug/*.apk
+          body: |
+            FAPRI-CORE · build desde la nube.
+            (La build local en el teléfono es posible pero lenta: Gradle+Compose en ARM.)
