@@ -102,7 +102,7 @@ step "1/5 recursos (aapt2)"
   --manifest "$PROJECT/fast/AndroidManifest.xml" \
   --java "$OUT/gen" \
   --min-sdk-version 26 --target-sdk-version 34 \
-  --version-code 1 --version-name 1.0.0-lite \
+  --version-code 1 --version-name 1.1.0-lite \
   "$OUT/compiled/res.zip" || die "aapt2 link falló"
 
 # ── 2/5 kotlin ───────────────────────────────────────────────────────────────
@@ -111,7 +111,7 @@ step "2/5 kotlin (compilador embebido, sin daemon)"
   -no-stdlib -nowarn -jvm-target 17 \
   -classpath "$ANDROID_JAR:$KSTD:$KANN" \
   -d "$OUT/classes" \
-  "$PROJECT/fast/lite/LiteActivity.kt" \
+  "$PROJECT"/fast/lite/*.kt \
   "$OUT/gen" 2>&1 | grep -vE "jansi|Failed to load native|WARNING: linker" || true
 [ -n "$(find "$OUT/classes" -name '*.class' -print -quit)" ] || die "kotlinc no generó clases"
 

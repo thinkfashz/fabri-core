@@ -1,9 +1,10 @@
 /* FABRI-CORE · service worker
    Shell cache-first (arranca sin red), navegación network-first con respaldo,
    y /api siempre a la red (un agente cacheado sería una mentira). */
-const V = 'fcore-v1';
+const V = 'fcore-v2';
 const SHELL = [
   './', './index.html', './styles.css', './app.js',
+  './core-xlsx.js', './core-sec.js', './core-pro.js',
   './manifest.webmanifest', './vendor/sql-wasm.js', './vendor/sql-wasm.wasm',
   './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png'
 ];

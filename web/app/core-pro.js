@@ -1,0 +1,459 @@
+/* FABRI-CORE · pantallas profesionales: Datos, IA, Cuenta.
+ * Todo se calcula con la base real del navegador; nada simulado.
+ */
+(function () {
+  'use strict';
+
+  const F = () => window.Fabri;
+  const $ = s => document.querySelector(s);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  function bytes(n) {
+    n = Number(n) || 0;
+    if (n >= 1 << 30) return (n / (1 << 30)).toFixed(2) + ' GB';
+    if (n >= 1 << 20) return (n / (1 << 20)).toFixed(1) + ' MB';
+    if (n >= 1024) return (n / 1024).toFixed(0) + ' KB';
+    return n + ' B';
+  }
+  const num = n => (Number(n) || 0).toLocaleString('es-CL');
+
+  function kpi(label, value, accent) {
+    return `<div class="card" style="padding:14px">
+      <div class="eyebrow" style="font-size:9.5px">${esc(label)}</div>
+      <div style="font-size:22px;font-weight:800;letter-spacing:-.02em;${accent ? 'color:var(--accent)' : ''}">${esc(value)}</div>
+    </div>`;
+  }
+
+  function bars(data, color) {
+    const max = Math.max(1, ...data.map(d => d.v));
+    return `<div style="display:flex;flex-direction:column;gap:7px">` + data.map(d => `
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="mono" style="width:96px;font-size:10.5px;color:var(--tx2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(d.k)}</div>
+        <div style="flex:1;height:9px;border-radius:4px;background:rgba(255,255,255,.05);overflow:hidden">
+          <div style="height:100%;width:${Math.max(2, (d.v / max) * 100)}%;background:${color || 'var(--accent)'};border-radius:4px"></div>
+        </div>
+        <div class="mono" style="width:52px;text-align:right;font-size:10.5px">${num(d.v)}</div>
+      </div>`).join('') + `</div>`;
+  }
+
+  function table(cols, rows, max) {
+    if (!cols.length) return '<div class="empty">Sin columnas</div>';
+    return `<div class="tbl-wrap" style="max-height:340px;overflow:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:11.5px">
+        <thead><tr>${cols.map(c => `<th style="text-align:left;padding:7px 8px;color:var(--tx2);font-weight:700;position:sticky;top:0;background:#171a1e">${esc(c)}</th>`).join('')}</tr></thead>
+        <tbody>${(rows || []).slice(0, max || 80).map((r, i) => `<tr style="background:${i % 2 ? 'rgba(255,255,255,.02)' : 'transparent'}">${r.map(v => `<td style="padding:6px 8px;border-bottom:1px solid rgba(34,38,44,.6);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(v)}</td>`).join('')}</tr>`).join('')}</tbody>
+      </table></div>`;
+  }
+
+  function tableList() {
+    const f = F();
+    try {
+      return f.q("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '%_fts%' ORDER BY name")
+        .map(r => r.name);
+    } catch (_) { return []; }
+  }
+
+  /* ── DATOS ─────────────────────────────────────────────────────────────── */
+  function renderDatos() {
+    const f = F();
+    const host = $('#pro-datos');
+    if (!host) return;
+    if (!f.S || !f.S.db) return;
+    const tabs = tableList();
+    const counts = tabs.map(t => {
+      let c = 0;
+      try { c = Number(f.one(`SELECT COUNT(*) c FROM "${t}"`).c) || 0; } catch (_) {}
+      return { k: t, v: c };
+    });
+    const totalRows = counts.reduce((a, b) => a + b.v, 0);
+    const size = f.S.db.export().length;
+
+    const dias = (() => {
+      try {
+        return f.q(`SELECT date(at/1000,'unixepoch','localtime') d, COUNT(*) c FROM logs GROUP BY d ORDER BY d DESC LIMIT 14`)
+          .reverse().map(r => ({ k: r.d.slice(5), v: Number(r.c) }));
+      } catch (_) { return []; }
+    })();
+
+    const tags = (() => {
+      try {
+        return f.q('SELECT tag, COUNT(*) c FROM logs GROUP BY tag ORDER BY c DESC LIMIT 8')
+          .map(r => ({ k: r.tag, v: Number(r.c) }));
+      } catch (_) { return []; }
+    })();
+
+    const sel = tabs.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join('');
+
+    host.innerHTML = `
+      <div class="kpi-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:10px">
+        ${kpi('Base local', bytes(size), true)}
+        ${kpi('Tablas', tabs.length)}
+        ${kpi('Filas', num(totalRows))}
+        ${kpi('Búsqueda', f.S.ftsModo === 'like' ? 'LIKE' : f.S.ftsModo.toUpperCase(), true)}
+      </div>
+
+      <div class="card" style="margin-bottom:10px">
+        <div class="eyebrow" style="margin-bottom:8px">Filas por tabla</div>
+        ${bars(counts.filter(c => c.v > 0).sort((a, b) => b.v - a.v))}
+      </div>
+
+      ${dias.length ? `<div class="card" style="margin-bottom:10px">
+        <div class="eyebrow" style="margin-bottom:8px">Eventos por día (14 días)</div>
+        ${bars(dias, '#5AD9E8')}
+      </div>` : ''}
+
+      ${tags.length ? `<div class="card" style="margin-bottom:10px">
+        <div class="eyebrow" style="margin-bottom:8px">Eventos por módulo</div>
+        ${bars(tags, '#B39DFF')}
+      </div>` : ''}
+
+      <div class="card" style="margin-bottom:10px">
+        <div class="eyebrow" style="margin-bottom:8px">Exportar a Excel</div>
+        <div class="row" style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">
+          <select id="expT" class="field" style="flex:1;min-width:140px">${sel}</select>
+          <button class="btn" id="expX">XLSX</button>
+          <button class="btn ghost" id="expC">CSV</button>
+        </div>
+        <p class="hint" style="margin-top:8px">.xlsx real (OOXML) generado en el navegador, sin servidores ni librerías.</p>
+      </div>
+
+      <div class="card">
+        <div class="eyebrow" style="margin-bottom:8px">Vista previa</div>
+        <div id="expPrev" class="hint">Elige una tabla…</div>
+      </div>
+    `;
+
+    const preview = t => {
+      try {
+        const r = f.q(`SELECT * FROM "${t}" LIMIT 25`);
+        const cols = r.length ? Object.keys(r[0]) : [];
+        $('#expPrev').innerHTML = table(cols, r.map(o => cols.map(c => o[c])));
+      } catch (e) { $('#expPrev').textContent = 'Error: ' + e.message; }
+    };
+    $('#expT').onchange = e => preview(e.target.value);
+    preview(tabs[0] || '');
+
+    $('#expX').onclick = () => {
+      const t = $('#expT').value;
+      try {
+        const r = f.q(`SELECT * FROM "${t}"`);
+        const cols = r.length ? Object.keys(r[0]) : [];
+        const rows = r.map(o => cols.map(c => o[c] == null ? '' : String(o[c])));
+        const b = XLSXW.build([{ name: t, cols, rows }]);
+        XLSXW.download(b, `fabri-${t}-${Date.now()}.xlsx`);
+        f.run('INSERT INTO files(name, size, mime, kind, at) VALUES(?,?,?,?,?)',
+          [`fabri-${t}.xlsx`, b.length, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', t, Date.now()]);
+        f.save(); f.metric('exportaciones', 1);
+        f.toast(`${t}: ${rows.length} filas exportadas`);
+      } catch (e) { f.toast('No pude exportar: ' + e.message); }
+    };
+    $('#expC').onclick = () => {
+      const t = $('#expT').value;
+      try {
+        const r = f.q(`SELECT * FROM "${t}"`);
+        const cols = r.length ? Object.keys(r[0]) : [];
+        XLSXW.download(XLSXW.csv(cols, r.map(o => cols.map(c => o[c] == null ? '' : o[c]))), `fabri-${t}-${Date.now()}.csv`);
+        f.toast('CSV listo');
+      } catch (e) { f.toast('No pude exportar: ' + e.message); }
+    };
+  }
+
+  /* ── IA ────────────────────────────────────────────────────────────────── */
+  function renderIA() {
+    const f = F();
+    const host = $('#pro-ia');
+    if (!host) return;
+    if (!f.S || !f.S.db) return;
+    const V = window.CoreVault;
+    const saved = V.list();
+    let sel = V.PROVIDERS[0];
+
+    host.innerHTML = `
+      <div class="card" style="margin-bottom:10px">
+        <div class="eyebrow" style="margin-bottom:6px">Bóveda de claves</div>
+        <p class="hint">Se cifran con AES-256-GCM y una clave del dispositivo (IndexedDB). La clave en claro nunca se guarda ni se muestra.</p>
+        <div id="iaSaved" style="margin-top:10px"></div>
+      </div>
+
+      <div class="card" style="margin-bottom:10px">
+        <div class="eyebrow" style="margin-bottom:8px">Agregar proveedor</div>
+        <div class="chips" id="iaProv" style="display:flex;gap:6px;overflow-x:auto;padding-bottom:4px"></div>
+        <div id="iaForm" style="margin-top:10px"></div>
+      </div>
+
+      <div class="card">
+        <div class="eyebrow" style="margin-bottom:8px">Preguntar</div>
+        <textarea id="iaQ" class="field" rows="3" placeholder="Pregunta al agente. Usa la primera clave activa."></textarea>
+        <div class="row" style="display:flex;gap:7px;margin-top:8px">
+          <button class="btn" id="iaSend">Enviar</button>
+          <button class="btn ghost" id="iaClear">Limpiar</button>
+        </div>
+        <div id="iaOut" class="console-out" style="margin-top:10px;display:none"></div>
+      </div>
+    `;
+
+    const drawSaved = () => {
+      const list = V.list();
+      $('#iaSaved').innerHTML = list.length ? list.map(k => `
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid rgba(34,38,44,.6)">
+          <div style="flex:1">
+            <div style="font-weight:700;font-size:12.5px">${esc((V.provider(k.provider) || {}).name || k.provider)}</div>
+            <div class="mono" style="font-size:10.5px;color:var(--tx2)">${esc(k.masked)} · ${esc(k.model || '')}</div>
+          </div>
+          <button class="btn ghost" data-ping="${k.id}" style="padding:6px 10px;font-size:11px">Probar</button>
+          <button class="btn ghost" data-del="${k.id}" style="padding:6px 10px;font-size:11px">Borrar</button>
+        </div>`).join('') : '<div class="hint">Todavía no hay claves guardadas.</div>';
+
+      host.querySelectorAll('[data-del]').forEach(b => b.onclick = () => {
+        V.remove(Number(b.dataset.del)); drawSaved(); f.toast('Clave revocada');
+      });
+      host.querySelectorAll('[data-ping]').forEach(b => b.onclick = async () => {
+        const k = V.list().find(x => x.id === Number(b.dataset.ping));
+        if (!k) return;
+        b.textContent = '…';
+        const s = await V.secret(k.id);
+        const [ok, msg] = s ? await V.ping(k.provider, k.base_url, s) : [false, 'No pude descifrar la clave'];
+        b.textContent = ok ? '✓ ok' : '✗ falla';
+        f.toast((ok ? '✓ ' : '✗ ') + msg);
+        setTimeout(() => { b.textContent = 'Probar'; }, 2500);
+      });
+    };
+
+    const drawForm = () => {
+      $('#iaProv').innerHTML = V.PROVIDERS.map(p =>
+        `<button class="chip${p.id === sel.id ? ' on' : ''}" data-p="${p.id}">
+           ${esc(p.name)}${p.free ? ' · <b style="color:var(--accent)">free</b>' : ''}
+         </button>`).join('');
+      host.querySelectorAll('[data-p]').forEach(b => b.onclick = () => {
+        sel = V.provider(b.dataset.p); drawForm();
+      });
+
+      $('#iaForm').innerHTML = `
+        <input id="iaKey" class="field" type="password" placeholder="pega la API key de ${esc(sel.name)}" style="margin-bottom:7px">
+        <input id="iaModel" class="field" value="${esc(sel.models[0])}" placeholder="modelo" style="margin-bottom:7px">
+        <input id="iaBase" class="field" value="${esc(sel.base)}" placeholder="base URL" style="margin-bottom:7px">
+        <div class="hint" style="margin-bottom:8px">Clave en ${esc(sel.docs)} · ${sel.free ? 'tiene plan gratuito' : 'de pago'}</div>
+        <div class="row" style="display:flex;gap:7px">
+          <button class="btn" id="iaSave">Guardar cifrada</button>
+          <button class="btn ghost" id="iaPing">Probar sin guardar</button>
+        </div>`;
+
+      $('#iaSave').onclick = async () => {
+        const key = $('#iaKey').value.trim();
+        if (key.length < 8) return f.toast('Pega la clave primero');
+        await V.save(sel.id, key, $('#iaBase').value.trim(), $('#iaModel').value.trim(), sel.name);
+        $('#iaKey').value = '';
+        drawSaved(); f.toast('Clave cifrada y guardada');
+      };
+      $('#iaPing').onclick = async () => {
+        const key = $('#iaKey').value.trim();
+        if (key.length < 8) return f.toast('Pega la clave primero');
+        const b = $('#iaPing'); b.disabled = true; b.textContent = '…';
+        const [ok, msg] = await V.ping(sel.id, $('#iaBase').value.trim(), key);
+        b.disabled = false; b.textContent = 'Probar sin guardar';
+        f.toast((ok ? '✓ ' : '✗ ') + msg);
+      };
+    };
+
+    drawSaved();
+    drawForm();
+
+    $('#iaClear').onclick = () => { $('#iaOut').style.display = 'none'; $('#iaOut').textContent = ''; };
+    $('#iaSend').onclick = async () => {
+      const prompt = $('#iaQ').value.trim();
+      if (!prompt) return f.toast('Escribe la pregunta');
+      const k = V.list()[0];
+      if (!k) return f.toast('Guarda una clave primero');
+      const out = $('#iaOut');
+      out.style.display = 'block';
+      out.textContent = 'consultando ' + ((V.provider(k.provider) || {}).name || k.provider) + '…';
+      const secret = await V.secret(k.id);
+      if (!secret) { out.textContent = 'No pude descifrar la clave'; return; }
+      const r = await V.ask(k.provider, k.base_url, k.model, secret, prompt);
+      out.textContent = r.text + (r.ok ? '' : '');
+      out.style.color = r.ok ? '' : 'var(--warn, #FFC857)';
+      try {
+        f.run('INSERT INTO messages(role, content, provenance, created_at) VALUES(?,?,?,?)',
+          ['user', prompt, 'web', Date.now()]);
+        f.run('INSERT INTO messages(role, content, provenance, created_at) VALUES(?,?,?,?)',
+          ['assistant', r.text, `${k.provider} · ${r.ms} ms`, Date.now()]);
+        f.save(); f.metric('consultas_ia', 1);
+      } catch (_) {}
+    };
+  }
+
+  /* ── CUENTA + PLANES + PERMISOS ────────────────────────────────────────── */
+  const PLANS = [
+    { id: 'local', name: 'Local', price: '$0', mb: 5, ai: 0, users: 1, note: 'Todo en tu dispositivo. Sin cuenta, sin nube.' },
+    { id: 'prueba', name: 'Prueba', price: '$0 · 15 días', mb: 25, ai: 200, users: 1, note: 'Nube activa mientras dure la prueba.' },
+    { id: 'pro', name: 'Pro', price: 'a medida', mb: 250, ai: 5000, users: 5, note: 'Para equipos y volúmenes reales.' }
+  ];
+
+  async function renderCuenta() {
+    const f = F();
+    const host = $('#pro-cuenta');
+    if (!host) return;
+    if (!f.S || !f.S.db) return;
+    const u = await window.CoreAuth.current();
+    const size = f.S.db.export().length;
+    const aiCalls = (() => { try { return Number(f.one("SELECT COALESCE(SUM(value),0) v FROM metrics WHERE name='consultas_ia'").v) || 0; } catch (_) { return 0; } })();
+    const ses = window.CoreAuth.sessions();
+
+    let est = { usage: 0, quota: 0 };
+    try { est = await navigator.storage.estimate(); } catch (_) {}
+    const persisted = (navigator.storage && navigator.storage.persisted) ? await navigator.storage.persisted() : false;
+    const notif = ('Notification' in window) ? Notification.permission : 'no soportado';
+
+    const plan = PLANS[0];
+    const pct = Math.min(100, Math.round((size / (plan.mb * 1024 * 1024)) * 100));
+
+    host.innerHTML = `
+      <div class="card" style="margin-bottom:10px">
+        <div class="eyebrow" style="margin-bottom:6px">Cuenta del dispositivo</div>
+        <div style="font-size:16px;font-weight:800">${esc(u ? u.email : 'sin sesión')}</div>
+        <div class="hint">${u ? esc(u.role) + ' · uid #' + u.id : ''} · sesión con token hasheado (SHA-256)</div>
+        <div class="row" style="display:flex;gap:7px;margin-top:10px">
+          <button class="btn ghost" id="cuLogout">Cerrar sesión</button>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:10px">
+        <div class="eyebrow" style="margin-bottom:8px">Plan y cuota</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px">
+          ${PLANS.map(p => `<div class="card" style="padding:10px;${p.id === plan.id ? 'border-color:rgba(200,245,66,.45)' : ''}">
+            <div style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:${p.id === plan.id ? 'var(--accent)' : 'var(--tx2)'}">${esc(p.name)}</div>
+            <div class="mono" style="font-size:10.5px;margin:4px 0">${esc(p.price)}</div>
+            <div class="hint" style="font-size:10px">${p.mb} MB · ${p.ai} IA</div>
+          </div>`).join('')}
+        </div>
+        <div style="margin-top:12px">
+          <div class="hint" style="display:flex;justify-content:space-between"><span>Uso de tu cuota</span><span class="mono">${bytes(size)} / ${plan.mb} MB</span></div>
+          <div style="height:9px;border-radius:5px;background:rgba(255,255,255,.06);overflow:hidden;margin-top:6px">
+            <div style="height:100%;width:${Math.max(2, pct)}%;background:${pct > 85 ? '#FF6B6B' : 'var(--accent)'}"></div>
+          </div>
+          <div class="hint" style="margin-top:6px">Llamadas a IA este dispositivo: <b class="mono">${num(aiCalls)}</b> · plan ${esc(plan.name)}</div>
+        </div>
+        <p class="hint" style="margin-top:10px">Los planes son límites reales de esta app, no un cobro: no hay pasarela de pago conectada.
+        La nube se habilita cuando configures el almacenamiento del servidor (ver más abajo).</p>
+      </div>
+
+      <div class="card" style="margin-bottom:10px">
+        <div class="eyebrow" style="margin-bottom:8px">Almacenamiento y permisos del navegador</div>
+        <div class="hint">Origen: <span class="mono">${esc(location.origin)}</span></div>
+        <div class="hint">Espacio usado por el sitio: <span class="mono">${bytes(est.usage || 0)}</span>${est.quota ? ' de ' + bytes(est.quota) : ''}</div>
+        <div class="hint">Persistencia: <b>${persisted ? 'concedida' : 'no concedida'}</b> · Notificaciones: <b>${esc(notif)}</b></div>
+        <div class="row" style="display:flex;gap:7px;margin-top:9px;flex-wrap:wrap">
+          <button class="btn ghost" id="cuPersist">Pedir persistencia</button>
+          <button class="btn ghost" id="cuNotif">Pedir notificaciones</button>
+          <button class="btn ghost" id="cuInstall">Instalar app</button>
+        </div>
+        <p class="hint" style="margin-top:8px">En el navegador no existe un sandbox de procesos: no hay shell real. La consola SQL sí ejecuta SQLite de verdad.</p>
+      </div>
+
+      <div class="card" style="margin-bottom:10px">
+        <div class="eyebrow" style="margin-bottom:8px">Sesiones</div>
+        ${ses.length ? table(['#', 'correo', 'dispositivo', 'inicio', 'vence', 'estado'],
+      ses.map(s => [s.id, s.email, (s.device || '').slice(0, 28), new Date(s.created_at).toLocaleString('es-CL'),
+      new Date(s.expires_at).toLocaleDateString('es-CL'), s.revoked ? 'revocada' : 'activa'])) : '<div class="hint">Sin sesiones.</div>'}
+      </div>
+
+      <div class="card">
+        <div class="eyebrow" style="margin-bottom:8px">Nube</div>
+        <div id="cuCloud" class="hint">Consultando /api/health…</div>
+        <button class="btn ghost" id="cuReset" style="margin-top:10px;border-color:rgba(255,107,107,.4);color:#FF6B6B">Borrar datos locales</button>
+      </div>
+    `;
+
+    $('#cuLogout').onclick = async () => {
+      await window.CoreAuth.logout();
+      location.reload();
+    };
+    $('#cuPersist').onclick = async () => {
+      try {
+        const ok = await navigator.storage.persist();
+        f.toast(ok ? 'Persistencia concedida' : 'El navegador no la concedió');
+        renderCuenta();
+      } catch (e) { f.toast('No disponible: ' + e.message); }
+    };
+    $('#cuNotif').onclick = async () => {
+      try {
+        const p = await Notification.requestPermission();
+        f.toast('Notificaciones: ' + p);
+        renderCuenta();
+      } catch (e) { f.toast('No disponible: ' + e.message); }
+    };
+    $('#cuInstall').onclick = async () => {
+      if (f.S.installEvt) { f.S.installEvt.prompt(); await f.S.installEvt.userChoice; f.S.installEvt = null; }
+      else f.toast('Menú del navegador → “Agregar a pantalla de inicio”');
+    };
+    $('#cuReset').onclick = async () => {
+      if (!confirm('¿Borrar la base local, las claves y las cuentas de este navegador?')) return;
+      await window.IDB.clear();
+      localStorage.removeItem('fcore.token');
+      location.reload();
+    };
+
+    try {
+      const r = await fetch('/api/health', { cache: 'no-store' });
+      if (!(r.headers.get('content-type') || '').includes('json')) throw new Error('el servidor no devolvió JSON (HTTP ' + r.status + ')');
+      const j = await r.json();
+      $('#cuCloud').innerHTML = `Servidor: <b>${esc(j.runtime || '?')}</b> · agente: <b>${esc(j.agent || '?')}</b> · nube: <b>${esc(j.cloud || 'no configurada')}</b>`;
+    } catch (e) {
+      $('#cuCloud').textContent = 'Sin respuesta del servidor: ' + e.message;
+    }
+  }
+
+  /* ── LOGIN ─────────────────────────────────────────────────────────────── */
+  async function gate() {
+    const f = F();
+    const u = await window.CoreAuth.current();
+    if (u) { document.getElementById('login').classList.remove('on'); return u; }
+    const first = window.CoreAuth.count() === 0;
+    const host = document.getElementById('login');
+    host.classList.add('on');
+    host.innerHTML = `
+      <div style="max-width:360px;margin:0 auto;padding:24px 20px">
+        <div class="brand" style="margin-bottom:18px"><i></i>FABRI-CORE</div>
+        <h2 style="font-size:22px;margin-bottom:6px">${first ? 'Crea la cuenta del dispositivo' : 'Entra a FABRI-CORE'}</h2>
+        <p class="hint" style="margin-bottom:16px">${first
+        ? 'La cuenta y sus sesiones viven en esta base SQLite, no en un servidor.'
+        : 'La sesión se guarda como token en tu navegador.'}</p>
+        <input id="lgEmail" class="field" placeholder="correo@dominio.cl" autocomplete="username" style="margin-bottom:8px">
+        ${first ? '<input id="lgName" class="field" placeholder="tu nombre" style="margin-bottom:8px">' : ''}
+        <input id="lgPass" class="field" type="password" placeholder="contraseña (mínimo 8)" autocomplete="current-password" style="margin-bottom:8px">
+        ${first ? '<input id="lgPass2" class="field" type="password" placeholder="repite la contraseña" style="margin-bottom:8px">' : ''}
+        <div id="lgErr" class="hint" style="color:#FF6B6B;margin-bottom:8px"></div>
+        <button class="btn" id="lgGo" style="width:100%">${first ? 'Crear cuenta' : 'Entrar'}</button>
+        <p class="hint" style="margin-top:14px">PBKDF2-SHA256 · 120.000 iteraciones · sal única. Si olvidas la contraseña, la única salida es borrar los datos locales.</p>
+      </div>`;
+
+    return new Promise(resolve => {
+      const go = async () => {
+        const email = $('#lgEmail').value.trim();
+        const pass = $('#lgPass').value;
+        try {
+          if (first) {
+            if (pass !== $('#lgPass2').value) throw new Error('Las contraseñas no coinciden');
+            await window.CoreAuth.register(email, $('#lgName').value, pass);
+          } else {
+            await window.CoreAuth.login(email, pass);
+          }
+          host.classList.remove('on');
+          resolve(await window.CoreAuth.current());
+        } catch (e) {
+          $('#lgErr').textContent = e.message;
+        }
+      };
+      $('#lgGo').onclick = go;
+      ['lgPass', 'lgPass2'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
+      });
+    });
+  }
+
+  window.Pro = {
+    renderDatos, renderIA, renderCuenta, gate,
+    PLANS
+  };
+})();

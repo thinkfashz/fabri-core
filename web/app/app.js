@@ -80,6 +80,16 @@
     clear() { return new Promise(res => { const t = IDB.db.transaction('kv', 'readwrite').objectStore('kv').clear(); t.onsuccess = () => res(); }); }
   };
 
+  function log(level, tag, msg) {
+    try { run('INSERT INTO logs(level, tag, message, at) VALUES(?,?,?,?)', [level, tag, String(msg).slice(0, 2000), Date.now()]); } catch (_) {}
+  }
+  function audit(actor, action, detail) {
+    try { run('INSERT INTO audit(actor, action, detail, at) VALUES(?,?,?,?)', [actor, action, detail, Date.now()]); } catch (_) {}
+  }
+  function metric(name, value) {
+    try { run('INSERT INTO metrics(name, value, at) VALUES(?,?,?)', [name, value, Date.now()]); } catch (_) {}
+  }
+
   function save() {
     clearTimeout(S.saveTimer);
     S.saveTimer = setTimeout(async () => {
@@ -363,6 +373,9 @@
     if (id === 'mem') renderMem($('#memQ').value);
     if (id === 'flow') { Graph.init(); Graph.wake(); }
     if (id === 'sql') { $('#sqlIn').focus(); }
+    if (id === 'datos') Pro.renderDatos();
+    if (id === 'ia') Pro.renderIA();
+    if (id === 'cuenta') Pro.renderCuenta();
     history.replaceState(null, '', '#' + id);
   }
 
@@ -390,7 +403,6 @@
     // nav
     $$('.nav button').forEach(b => b.onclick = () => go(b.dataset.go));
     const hash = location.hash.replace('#', '');
-    if (hash && document.getElementById('s-' + hash)) go(hash);
 
     // eventos UI
     $('#btnSend').onclick = sendChat;
@@ -432,10 +444,14 @@
     try {
       await IDB.open();
       await initDb();
-      $('#ver').textContent = 'web · v1.0 · ' + (S.ftsModo === 'like' ? 'LIKE' : S.ftsModo.toUpperCase());
+      CoreAuth.init();
+      const user = await Pro.gate();
+      window.Fabri.user = user;
+      $('#ver').textContent = 'web · v1.1 · ' + (S.ftsModo === 'like' ? 'LIKE' : S.ftsModo.toUpperCase());
       // un fallo de una vista no debe tumbar el arranque
       const safe = fn => { try { fn(); } catch (e) { console.error(e); ev('error', String(e.message).slice(0, 40)); } };
-      safe(renderPanel); safe(renderMem); go(hash && document.getElementById('s-' + hash) ? hash : 'panel');
+      safe(renderPanel); safe(renderMem);
+      go(hash && document.getElementById('s-' + hash) ? hash : 'panel');
       pushMsg('assistant', 'Listo. Esta consola corre entera en tu navegador: la base es SQLite real y sobrevive a las recargas. Pregúntame algo o abre la consola SQL.');
       ev('api', 'núcleo iniciado');
     } catch (e) {
@@ -444,6 +460,9 @@
       console.error(e);
     }
   }
+
+  // API para los módulos (auth, bóveda, datos, IA)
+  window.Fabri = { S, q, one, run, save, toast, ev, log, audit, metric, go, refreshAll, IDB };
 
   document.addEventListener('DOMContentLoaded', boot);
 })();
