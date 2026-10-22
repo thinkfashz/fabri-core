@@ -118,3 +118,43 @@ login `dueno@fabri.cl` → 20 tablas / 11 filas / FTS4 → descarga `fabri-api_k
    pasan a 200 sin tocar código.
 2. Con la nube activa: botón de sincronizar en Cuenta (el sobre cifrado ya está definido).
 3. Instalar la APK: si había una versión previa con otra firma, **desinstalar primero**.
+
+## 22-10-2026 · v1.2 web: planilla con cálculo real (modo local)
+
+Decisión del dueño: **sin nube**. La app no depende de Vercel ni de un servidor;
+los endpoints `/api/auth` y `/api/sync` quedan escritos pero no se usan.
+
+### Nuevo: pestaña «Hoja»
+`web/app/core-sheet.js` (~30 KB, sin dependencias):
+
+- Rejilla 40×12 editable, barra de fórmulas, navegación Enter/Tab/flechas.
+- **Motor propio**: tokenizador + parser descendente; `+ - * / ^ & %`,
+  comparaciones, referencias `A1`, rangos `A1:B9`, **detección de ciclos**.
+- ~35 funciones en español e inglés: SUMA, PROMEDIO, MIN, MAX, CONTAR, CONTARA,
+  SI, SI.ERROR, Y, O, NO, REDONDEAR(+MAS/MENOS), ABS, RAIZ, POTENCIA, RESIDUO,
+  HOY, AHORA, LARGO, MAYUSC, MINUSC, RECORTAR, CONCATENAR, IZQUIERDA, DERECHA,
+  EXTRAE, TEXTO, SUMAR.SI, CONTAR.SI, BUSCARV, INDICE, COINCIDIR.
+- Varias hojas por libro (crear, renombrar, borrar) y **persistencia en SQLite**
+  (`sheets`, `cells`): lo escrito sobrevive a recargar.
+- Importar CSV (detecta `;` o `,`), botón Ejemplo (gastos con IVA y totales).
+- Exporta `.xlsx` de **todas las hojas con las fórmulas escritas** y su valor
+  cacheado (Excel recalcula al abrir).
+
+### Bug encontrado y corregido (importante)
+El formateo mostraba `500.000`; al confirmar de nuevo la celda se re-leía como
+**500 decimal** (`Number("500.000") === 500`). Doble arreglo: no se reinterpreta
+el texto ya formateado, y `coerce` reconoce miles a la chilena (`500.000`,
+`1.234.567`) y coma decimal (`3,5`).
+
+### Verificación
+- Motor aislado en Node: **31/31** casos (incluye ciclos, #DIV/0!, BUSCARV, miles).
+- Navegador real en producción, **0 errores**: ejemplo B5 `512.990`, editar B2 a
+  `500000` → B5 `562.990` y D5 `669.958,1`; export con 2 hojas y 13 fórmulas;
+  tras recargar, B2 `500.000` y B5 `562.990` siguen ahí.
+- Cuenta: bloque «Modo local» + **copia de seguridad `.sqlite`** descargable.
+- `sw.js` → `fcore-v3`.
+
+### Trampa de tooling
+Los tests de Playwright se cortan cuando el servidor se reinicia; conviene que
+impriman resultados al final y con `timeout` corto. Los 404 de `/api/health` en
+local son ruido (no existe el servidor Go).

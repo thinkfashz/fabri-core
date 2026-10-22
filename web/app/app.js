@@ -375,6 +375,7 @@
     if (id === 'sql') { $('#sqlIn').focus(); }
     if (id === 'datos') Pro.renderDatos();
     if (id === 'ia') Pro.renderIA();
+    if (id === 'hoja') Sheet.mount($('#pro-hoja'));
     if (id === 'cuenta') Pro.renderCuenta();
     history.replaceState(null, '', '#' + id);
   }
@@ -447,7 +448,7 @@
       CoreAuth.init();
       const user = await Pro.gate();
       window.Fabri.user = user;
-      $('#ver').textContent = 'web · v1.1 · ' + (S.ftsModo === 'like' ? 'LIKE' : S.ftsModo.toUpperCase());
+      $('#ver').textContent = 'web · v1.2 · ' + (S.ftsModo === 'like' ? 'LIKE' : S.ftsModo.toUpperCase());
       // un fallo de una vista no debe tumbar el arranque
       const safe = fn => { try { fn(); } catch (e) { console.error(e); ev('error', String(e.message).slice(0, 40)); } };
       safe(renderPanel); safe(renderMem);

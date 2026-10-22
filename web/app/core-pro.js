@@ -333,8 +333,8 @@
           </div>
           <div class="hint" style="margin-top:6px">Llamadas a IA este dispositivo: <b class="mono">${num(aiCalls)}</b> · plan ${esc(plan.name)}</div>
         </div>
-        <p class="hint" style="margin-top:10px">Los planes son límites reales de esta app, no un cobro: no hay pasarela de pago conectada.
-        La nube se habilita cuando configures el almacenamiento del servidor (ver más abajo).</p>
+        <p class="hint" style="margin-top:10px">El plan <b>Local</b> está activo y es el único en este despliegue: todo ocurre en tu dispositivo.
+        Los otros dos quedan como referencia de límites; no hay cobro ni pasarela de pago conectada, y no se promete nube.</p>
       </div>
 
       <div class="card" style="margin-bottom:10px">
@@ -358,9 +358,14 @@
       </div>
 
       <div class="card">
-        <div class="eyebrow" style="margin-bottom:8px">Nube</div>
-        <div id="cuCloud" class="hint">Consultando /api/health…</div>
-        <button class="btn ghost" id="cuReset" style="margin-top:10px;border-color:rgba(255,107,107,.4);color:#FF6B6B">Borrar datos locales</button>
+        <div class="eyebrow" style="margin-bottom:8px">Modo local</div>
+        <p class="hint">Esta cuenta, sus sesiones, sus claves cifradas y su planilla viven en la base SQLite de este navegador.
+        Nada se envía a un servidor: no hay nube, no hay sincronización entre dispositivos y no hace falta conexión.</p>
+        <div class="row" style="display:flex;gap:7px;flex-wrap:wrap;margin-top:9px">
+          <button class="btn" id="cuBackup">Descargar copia (.sqlite)</button>
+          <button class="btn ghost" id="cuReset" style="border-color:rgba(255,107,107,.4);color:#FF6B6B">Borrar datos locales</button>
+        </div>
+        <p class="hint" style="margin-top:8px">La copia abre con cualquier cliente SQLite y sirve para respaldar o mover la base a otro navegador.</p>
       </div>
     `;
 
@@ -386,6 +391,19 @@
       if (f.S.installEvt) { f.S.installEvt.prompt(); await f.S.installEvt.userChoice; f.S.installEvt = null; }
       else f.toast('Menú del navegador → “Agregar a pantalla de inicio”');
     };
+    $('#cuBackup').onclick = () => {
+      try {
+        const bytes = f.S.db.export();
+        const blob = new Blob([bytes], { type: 'application/x-sqlite3' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'fabri-core-' + new Date().toISOString().slice(0, 10) + '.sqlite';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+        f.audit(u ? u.email : null, 'copia_descargada', bytes.length + ' bytes');
+        f.toast('Copia de ' + bytes.length + ' bytes descargada');
+      } catch (e) { f.toast('No pude exportar: ' + e.message); }
+    };
     $('#cuReset').onclick = async () => {
       if (!confirm('¿Borrar la base local, las claves y las cuentas de este navegador?')) return;
       await window.IDB.clear();
@@ -393,14 +411,6 @@
       location.reload();
     };
 
-    try {
-      const r = await fetch('/api/health', { cache: 'no-store' });
-      if (!(r.headers.get('content-type') || '').includes('json')) throw new Error('el servidor no devolvió JSON (HTTP ' + r.status + ')');
-      const j = await r.json();
-      $('#cuCloud').innerHTML = `Servidor: <b>${esc(j.runtime || '?')}</b> · agente: <b>${esc(j.agent || '?')}</b> · nube: <b>${esc(j.cloud || 'no configurada')}</b>`;
-    } catch (e) {
-      $('#cuCloud').textContent = 'Sin respuesta del servidor: ' + e.message;
-    }
   }
 
   /* ── LOGIN ─────────────────────────────────────────────────────────────── */
