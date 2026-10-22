@@ -1,0 +1,2 @@
+/root/fabri-core/fast/java/src/cl/fabri/core/j/Core.java
+/root/fabri-core/fast/java/src/cl/fabri/core/j/MainActivity.java

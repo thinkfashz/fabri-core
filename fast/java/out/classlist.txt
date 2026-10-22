@@ -1,0 +1,6 @@
+/root/fabri-core/fast/java/out/classes/cl/fabri/core/j/Core$Db.class
+/root/fabri-core/fast/java/out/classes/cl/fabri/core/j/Core$Sec.class
+/root/fabri-core/fast/java/out/classes/cl/fabri/core/j/Core$Term.class
+/root/fabri-core/fast/java/out/classes/cl/fabri/core/j/Core$Xlsx.class
+/root/fabri-core/fast/java/out/classes/cl/fabri/core/j/Core.class
+/root/fabri-core/fast/java/out/classes/cl/fabri/core/j/MainActivity.class

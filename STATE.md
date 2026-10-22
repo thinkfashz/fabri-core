@@ -158,3 +158,60 @@ el texto ya formateado, y `coerce` reconoce miles a la chilena (`500.000`,
 Los tests de Playwright se cortan cuando el servidor se reinicia; conviene que
 impriman resultados al final y con `timeout` corto. Los 404 de `/api/health` en
 local son ruido (no existe el servidor Go).
+
+---
+
+## 2026-10-22 · Por qué no abre la APK + build en Java (sin Kotlin)
+
+### Diagnóstico de la v1.1.0-lite (con evidencia, sin adivinar)
+- El paquete **sí está instalado**: `pm list packages` → `package:cl.fabri.core.lite`.
+- Manifiesto del APK: `exported=true`, launcher OK, `targetSdk=34`; **no declaraba
+  `minSdkVersion`** (quedaba en 1). Tema `Theme.FabriCore` válido
+  (`parent=android:Theme.Material.NoActionBar`), así que el fallo no es de recursos.
+- `showCrash()` no toca `lateinit`, así que un fallo dentro de `boot()` **sí** se vería
+  en pantalla. Que no se vea nada apunta a un fallo **antes de `onCreate`** (carga de
+  clase / instalación / Play Protect).
+- **No se puede lanzar ni leer logs desde Termux**: `am start` →
+  `SecurityException: package=com.android.shell does not belong to uid=10643`;
+  `dumpsys` y `logcat` de otra app tampoco. Por eso el diagnóstico debe salir de la app.
+
+### Salida: APK nativa en Java (release `v2.0-java`)
+- Paquete **nuevo** `cl.fabri.core.j` → convive con la anterior, sin desinstalar.
+- `minSdkVersion=23` / `targetSdk=34` **explícitos** (se verificó en el APK compilado).
+- Arranque instrumentado: `diag()` escribe en `Android/data/cl.fabri.core.j/files/boot.log`
+  desde la primera línea de `onCreate`, más `setDefaultUncaughtExceptionHandler`.
+  El log se muestra y se copia desde **Ajustes**.
+- Funciones reales: login PBKDF2-HMAC-SHA256 120k, sesión con token hasheado,
+  SQLite 12 tablas, consola `/system/bin/sh` con timeout, export XLSX
+  (`ZipOutputStream` + OOXML), claves de IA AES-256-GCM del Keystore, y pantalla de
+  error si algo falla.
+- Código: `fast/java/src/cl/fabri/core/j/{Core,MainActivity}.java` · build: `build-java.sh`.
+
+### Tiempos medidos en el teléfono (build Java completo)
+| Paso | Descargado | Cargado |
+|---|---|---|
+| aapt2 link | 8 s | 10 s |
+| javac (6 clases) | 28 s | 40 s |
+| d8 | 28 s | 94 s |
+| zip + zipalign | 1 s | 3 s |
+| apksigner | 22 s | 50 s |
+| **Total** | **88 s** | **207 s** |
+
+Kotlin medía 4-10 min en las mismas condiciones. Java es 2-5× más rápido y el APK pesa 33 KB.
+
+### Trampas del build Java (repetirlas cuesta tiempo)
+1. **`aapt2`/`d8` del SDK de `/root/android-sdk` son x86-64** y en el teléfono no corren
+   (`cannot execute: required file not found`). Usar los de Termux:
+   `/data/data/com.termux/files/usr/bin/`.
+2. **`android.jar` no trae `java.lang.invoke.LambdaMetafactory`**: con
+   `-source 8 -bootclasspath android.jar` javac falla. Compilar con
+   `-source 11 -target 11 -cp android.jar`. d8 desazucara las lambdas.
+3. **`java.util.Base64` es API 26** y `Process.waitFor(timeout, unit)` también.
+   Con `minSdk 23` hay que usar `android.util.Base64` y un hilo + `join(timeout)`.
+4. El icono se toma de `@android:drawable/sym_def_app_icon` y el tema de
+   `@android:style/Theme.Material.NoActionBar`: así el build **no necesita `res/`**
+   y se salta `aapt2 compile`.
+
+### Pendiente
+Que el usuario abra la 2.0-java y mande `boot.log` (o la captura de Ajustes).
+Si la Java tampoco abre, el problema es del instalador/Play Protect, no del código.
