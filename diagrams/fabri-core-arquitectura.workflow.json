@@ -1,0 +1,41 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "FABRI-CORE · Cerebro IA y flujos en vivo",
+    "animation": "trace",
+    "visual_preset": "signal-flow",
+    "quality_profile": "showcase",
+    "output": "out/fabri-core-arquitectura.html"
+  },
+  "lanes": [
+    { "id": "ui", "label": "App Android" },
+    { "id": "backend", "label": "Backend Go" },
+    { "id": "data", "label": "Datos" },
+    { "id": "ia", "label": "IA y RAG" },
+    { "id": "out", "label": "Salida y memoria" }
+  ],
+  "nodes": [
+    { "id": "ui", "lane": "ui", "col": 0, "type": "frontend", "label": "Android UI", "sublabel": "17 rutas Compose", "tag": "tema + SAF", "width": 132 },
+    { "id": "backend", "lane": "backend", "col": 1, "type": "backend", "label": "Backend Go", "sublabel": "loopback + token", "width": 132 },
+    { "id": "sqlite", "lane": "data", "col": 2, "type": "database", "label": "SQLite", "sublabel": "fuente de verdad", "width": 132 },
+    { "id": "fts", "lane": "data", "col": 3, "type": "database", "label": "FTS5", "sublabel": "coincidencia textual", "width": 132 },
+    { "id": "emb", "lane": "ia", "col": 3, "type": "cloud", "label": "Embeddings", "sublabel": "similitud semántica", "width": 132 },
+    { "id": "rag", "lane": "ia", "col": 4, "type": "messagebus", "label": "RAG", "sublabel": "híbrido + procedencia", "width": 132 },
+    { "id": "agent", "lane": "ia", "col": 5, "type": "backend", "label": "Agente IA", "sublabel": "OpenCode + skills", "width": 132 },
+    { "id": "memoria", "lane": "out", "col": 4, "type": "database", "label": "Memoria", "sublabel": "verificable", "width": 132 },
+    { "id": "resultados", "lane": "out", "col": 5, "type": "messagebus", "label": "Resultados", "sublabel": "con citas", "width": 132 }
+  ],
+  "edges": [
+    { "id": "e1", "from": "ui", "to": "backend", "label": "petición", "variant": "emphasis" },
+    { "id": "e2", "from": "backend", "to": "sqlite", "label": "consulta", "variant": "default" },
+    { "id": "e3", "from": "sqlite", "to": "fts", "label": "índice", "variant": "default" },
+    { "id": "e4", "from": "fts", "to": "rag", "variant": "emphasis" },
+    { "id": "e5", "from": "sqlite", "to": "emb", "label": "vectores", "variant": "default" },
+    { "id": "e6", "from": "emb", "to": "rag", "variant": "emphasis" },
+    { "id": "e7", "from": "rag", "to": "agent", "label": "contexto", "variant": "emphasis" },
+    { "id": "e8", "from": "agent", "to": "resultados", "label": "respuesta", "variant": "emphasis" },
+    { "id": "e9", "from": "resultados", "to": "memoria", "label": "guarda", "variant": "dashed" },
+    { "id": "e10", "from": "memoria", "to": "rag", "label": "recuerda", "variant": "dashed" }
+  ]
+}

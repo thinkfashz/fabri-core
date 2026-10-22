@@ -1,0 +1,34 @@
+# Android / Gradle
+.gradle/
+build/
+app/build/
+local.properties
+*.apk
+*.aab
+captures/
+.cxx/
+
+# Firmas y credenciales (NUNCA al repo)
+*.keystore
+*.jks
+keystore.properties
+google-services.json
+.env
+.env.*
+secrets.xml
+local_secrets/
+
+# Sesiones de NotebookLM / perfiles de Chrome
+chrome_profile*/
+*.vtt
+*.words.json
+
+# Datos de ejecución
+backend/fabri-core-agent
+backend/fabri-core-agent-android
+backend/*.log
+*.log
+
+# Sistema
+.DS_Store
+Thumbs.db

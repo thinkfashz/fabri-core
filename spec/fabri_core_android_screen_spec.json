@@ -1,0 +1,929 @@
+{
+  "project": {
+    "name": "FABRI-CORE Autonomous Sandbox",
+    "version": "1.0.0-spec",
+    "platform": "Android-first native APK",
+    "language": "es-CL",
+    "timezone": "America/Santiago",
+    "purpose": "Aplicación Android con sandbox privado, terminal, entorno Linux opcional, agente IA, memoria híbrida SQL/FTS5/embeddings, catálogos, facturación/documentos, exportaciones y visualización de flujos en vivo.",
+    "design_system": {
+      "style": "dark premium technical interface, mobile-first, compact cards, high contrast, rounded corners, restrained glow, subtle animated particle wave",
+      "colors": {
+        "background": "#050505",
+        "surface": "#101010",
+        "card": "#171717",
+        "border": "#282828",
+        "text": "#F5F5F5",
+        "muted": "#858585",
+        "themes": {
+          "lime": {
+            "primary": "#C8FF00",
+            "name": "Verde limón"
+          },
+          "purple": {
+            "primary": "#A855F7",
+            "name": "Morado"
+          },
+          "blue": {
+            "primary": "#3B82F6",
+            "name": "Azul"
+          },
+          "gold": {
+            "primary": "#EAB308",
+            "name": "Amarillo oro"
+          }
+        },
+        "theme_rules": [
+          "El color de acento es configurable en Ajustes y se aplica a navegación, estados, gráficas, botones y terminal; nunca debe alterar el contraste accesible.",
+          "Persistir el tema seleccionado en la base de datos local y restaurarlo al reiniciar.",
+          "Permitir elegir entre verde limón, morado, azul y amarillo oro; añadir vista previa antes de aplicar."
+        ]
+      },
+      "navigation": {
+        "pattern": "Bottom navigation for primary sections, independent full-screen routes for secondary workspaces",
+        "primary_tabs": [
+          "Inicio",
+          "Chat IA",
+          "Terminal",
+          "Proyectos",
+          "Sistema"
+        ],
+        "secondary_routes": [
+          "Instalador",
+          "Base de datos",
+          "Memoria RAG",
+          "Documentos",
+          "Facturas",
+          "Análisis",
+          "Catálogo de productos",
+          "Catálogo de documentos",
+          "Marca y facturas",
+          "Flujos en vivo",
+          "Configuración"
+        ]
+      }
+    },
+    "architecture": {
+      "android_app": "Kotlin + Android SDK; native navigation, permissions, lifecycle, notifications, theme, import/export",
+      "backend": "Go service where feasible; local authenticated IPC/API bound to loopback or a safer app-private IPC mechanism",
+      "terminal": "Integrate a compatible terminal emulator and process bridge; do not claim a terminal works unless real process I/O is wired",
+      "linux_sandbox": "Optional downloadable Linux/Ubuntu userland only after validating architecture and PRoot compatibility; do not assume Termux packages work in a standalone APK",
+      "agent": "OpenCode when supported by the selected runtime, using documented interfaces; provide adapter interface for other configured LLM providers",
+      "database": "SQLite local source of truth; WAL where appropriate; versioned migrations; foreign keys; transactional writes",
+      "fts": "SQLite FTS5 with startup capability check and indexed search for documents, products, invoices, project notes, and conversation memory",
+      "embeddings": "Optional local embedding model downloaded on demand; persist vectors and metadata; vector search can begin with bounded in-process cosine search for small datasets; never claim semantic search when embeddings are unavailable",
+      "security": [
+        "Store data in Android app-private storage by default",
+        "Use Android document picker for import/export instead of broad storage permission where possible",
+        "No root requirement",
+        "No public network binding by default",
+        "No API keys in APK source or frontend",
+        "Confirm destructive operations",
+        "Verify downloaded artifacts with trusted checksums/signatures when available",
+        "Do not auto-run untrusted remote scripts",
+        "Redact secrets from logs and indexing"
+      ],
+      "persistence": [
+        "Persist chats, tasks, installer state, projects, settings, brand configuration, invoice records, document metadata and catalog records",
+        "Recover resumable tasks after process death; revalidate destructive/non-idempotent operations before resuming",
+        "Backup/restore with integrity checks",
+        "APK uninstall normally removes private data; explain and offer export/backup"
+      ],
+      "resource_policy": {
+        "profiles": [
+          "Ahorro",
+          "Equilibrado",
+          "Rendimiento"
+        ],
+        "rules": [
+          "Incremental indexing and bounded queues",
+          "Limit parallel jobs according to available resources",
+          "Download models only on demand and show size/storage requirements",
+          "Use foreground service only when justified and compliant with current Android rules",
+          "Never promise 24/7 execution; explain Android background and battery limits",
+          "Show only metrics actually available to the app"
+        ]
+      }
+    },
+    "screens": [
+      {
+        "id": "dashboard",
+        "route": "/home",
+        "title": "Panel principal",
+        "purpose": "Vista general del estado de FABRI-CORE.",
+        "layout": [
+          "Header with logo and theme accent",
+          "Particle wave visual",
+          "System status cards",
+          "Agent status card",
+          "Ubuntu status",
+          "Database/RAG status",
+          "Recent activity feed",
+          "Quick actions"
+        ],
+        "data_sources": [
+          "system_metrics",
+          "services",
+          "tasks",
+          "projects",
+          "activity_log"
+        ],
+        "actions": [
+          "Open chat",
+          "Open terminal",
+          "Resume installer",
+          "Open RAG",
+          "Open recent task"
+        ],
+        "logic": [
+          "Refresh visible metrics at a conservative interval while foregrounded",
+          "Show unavailable metrics as unavailable, never fabricate values",
+          "Persist last selected project"
+        ],
+        "states": [
+          "loading",
+          "ready",
+          "partial",
+          "error",
+          "offline"
+        ]
+      },
+      {
+        "id": "ai_chat",
+        "route": "/chat",
+        "title": "Chat IA / OpenCode",
+        "purpose": "Conversación con agente real y contexto recuperado.",
+        "layout": [
+          "Agent/provider selector",
+          "Session/project selector",
+          "Message timeline",
+          "Source citations/context chips",
+          "Composer",
+          "Attachment and stop controls"
+        ],
+        "data_sources": [
+          "conversations",
+          "messages",
+          "agent_sessions",
+          "rag_results",
+          "tasks"
+        ],
+        "actions": [
+          "Send prompt",
+          "Cancel supported task",
+          "Attach document",
+          "Switch project",
+          "Open cited source",
+          "Save correction"
+        ],
+        "logic": [
+          "Retrieve relevant context via FTS5 and optional embeddings before agent call",
+          "Label answer provenance: OpenCode, configured LLM, local retrieval, or system result",
+          "Store message and source references transactionally",
+          "If agent unavailable, clearly state unavailable"
+        ],
+        "states": [
+          "idle",
+          "retrieving_context",
+          "thinking",
+          "tool_running",
+          "completed",
+          "cancelled",
+          "error",
+          "offline"
+        ]
+      },
+      {
+        "id": "terminal",
+        "route": "/terminal",
+        "title": "Terminal integrada",
+        "purpose": "Consola real para procesos autorizados.",
+        "layout": [
+          "Environment tabs: Android/runtime, Ubuntu, Build, Logs",
+          "Terminal viewport",
+          "Input/command bar",
+          "Keyboard toolbar",
+          "Process status and exit code"
+        ],
+        "data_sources": [
+          "terminal_sessions",
+          "processes",
+          "logs",
+          "installed_components"
+        ],
+        "actions": [
+          "Execute allowed command",
+          "Copy output",
+          "Search logs",
+          "Clear view without deleting audit log",
+          "Switch environment"
+        ],
+        "logic": [
+          "Bind UI to real process stdin/stdout/stderr",
+          "Show working directory and execution environment",
+          "Do not present logs-only mode as interactive shell",
+          "Require confirmation for destructive actions"
+        ],
+        "states": [
+          "disconnected",
+          "connecting",
+          "ready",
+          "running",
+          "exit",
+          "error"
+        ]
+      },
+      {
+        "id": "installer",
+        "route": "/installer",
+        "title": "Instalador y componentes",
+        "purpose": "Descarga e instalación verificable de módulos.",
+        "layout": [
+          "Prerequisite diagnostics",
+          "Component list",
+          "Per-component progress",
+          "Download size/speed if available",
+          "Live logs",
+          "Pause/cancel/retry controls"
+        ],
+        "data_sources": [
+          "installer_jobs",
+          "component_registry",
+          "download_events",
+          "logs"
+        ],
+        "actions": [
+          "Install",
+          "Retry",
+          "Cancel safely",
+          "Open logs",
+          "Verify installation"
+        ],
+        "logic": [
+          "Use resumable downloads when supported",
+          "Verify checksums/signatures where available",
+          "Persist progress",
+          "Never execute unverified scripts",
+          "Indeterminate progress if total size unknown"
+        ],
+        "states": [
+          "checking",
+          "queued",
+          "downloading",
+          "verifying",
+          "installing",
+          "testing",
+          "completed",
+          "failed",
+          "cancelled"
+        ]
+      },
+      {
+        "id": "projects",
+        "route": "/projects",
+        "title": "Proyectos",
+        "purpose": "Administrar espacios de trabajo locales.",
+        "layout": [
+          "Search and filters",
+          "Project cards",
+          "Language/runtime tags",
+          "Git branch/status when available",
+          "Recent activity",
+          "Create/import project"
+        ],
+        "data_sources": [
+          "projects",
+          "repositories",
+          "tasks",
+          "activity_log"
+        ],
+        "actions": [
+          "Open project",
+          "Index project",
+          "Run checks",
+          "Create backup",
+          "Import via document picker"
+        ],
+        "logic": [
+          "Use app-private project roots by default",
+          "Ask permission for imported external content",
+          "Never overwrite existing project without confirmation"
+        ],
+        "states": [
+          "empty",
+          "loading",
+          "ready",
+          "error"
+        ]
+      },
+      {
+        "id": "database",
+        "route": "/database",
+        "title": "Base de datos",
+        "purpose": "Explorador y diagnóstico de SQLite.",
+        "layout": [
+          "Database health summary",
+          "Table list and row counts",
+          "Schema viewer",
+          "Read-only query console by default",
+          "Backup/restore"
+        ],
+        "data_sources": [
+          "sqlite_schema",
+          "table_stats",
+          "migration_history",
+          "backup_jobs"
+        ],
+        "actions": [
+          "Inspect table",
+          "Run read-only query",
+          "Export selected table",
+          "Backup",
+          "Validate integrity"
+        ],
+        "logic": [
+          "Use parameterized queries",
+          "Require explicit confirmation for writes",
+          "Paginate large tables",
+          "Never expose secret columns by default"
+        ],
+        "states": [
+          "healthy",
+          "migrating",
+          "degraded",
+          "error"
+        ]
+      },
+      {
+        "id": "rag_memory",
+        "route": "/memory",
+        "title": "Memoria RAG / vectorial",
+        "purpose": "Consultar y administrar memoria indexada.",
+        "layout": [
+          "Search input",
+          "Mode selector: hybrid, FTS5, semantic",
+          "Filters by source/project/date",
+          "Ranked results",
+          "Similarity and source metadata",
+          "Index status"
+        ],
+        "data_sources": [
+          "documents",
+          "chunks",
+          "embeddings",
+          "fts_index",
+          "memory_items"
+        ],
+        "actions": [
+          "Search",
+          "Open source",
+          "Reindex",
+          "Delete memory item",
+          "Promote verified correction"
+        ],
+        "logic": [
+          "Hybrid retrieval only if both text and vectors are available",
+          "Show provenance and score meaning",
+          "Never label raw keyword match as semantic result",
+          "Embeddings generated on demand and in batches"
+        ],
+        "states": [
+          "indexed",
+          "indexing",
+          "partial",
+          "no_embeddings",
+          "error"
+        ]
+      },
+      {
+        "id": "documents",
+        "route": "/documents",
+        "title": "Documentos indexados",
+        "purpose": "Catálogo de archivos y fuentes de conocimiento.",
+        "layout": [
+          "Search",
+          "Type/date/project filters",
+          "Document cards",
+          "Indexing status",
+          "Preview and metadata"
+        ],
+        "data_sources": [
+          "documents",
+          "document_versions",
+          "chunks",
+          "index_jobs"
+        ],
+        "actions": [
+          "Import",
+          "Preview",
+          "Index/reindex",
+          "Export",
+          "Delete index or source with separate confirmations"
+        ],
+        "logic": [
+          "Track checksum and source URI",
+          "Avoid duplicate ingestion by checksum",
+          "Keep index deletion separate from source-file deletion"
+        ],
+        "states": [
+          "empty",
+          "indexing",
+          "ready",
+          "unsupported",
+          "error"
+        ]
+      },
+      {
+        "id": "invoices",
+        "route": "/invoices",
+        "title": "Facturas guardadas",
+        "purpose": "Buscar, revisar y exportar registros de facturas.",
+        "layout": [
+          "Search and date filters",
+          "Invoice list",
+          "Totals summary",
+          "OCR/extraction status",
+          "Invoice detail and attachment preview"
+        ],
+        "data_sources": [
+          "invoices",
+          "invoice_lines",
+          "suppliers",
+          "attachments",
+          "ocr_jobs"
+        ],
+        "actions": [
+          "Import/scan",
+          "Review extracted fields",
+          "Correct fields",
+          "Export PDF",
+          "Export CSV/XLSX",
+          "Send to RAG"
+        ],
+        "logic": [
+          "Keep original document separate from extracted metadata",
+          "Mark OCR confidence and require review for uncertain fields",
+          "Do not represent calculated tax data as official tax filing",
+          "Audit edits"
+        ],
+        "states": [
+          "processing",
+          "needs_review",
+          "verified",
+          "exporting",
+          "error"
+        ]
+      },
+      {
+        "id": "analytics",
+        "route": "/analytics",
+        "title": "Análisis de datos",
+        "purpose": "Explorar métricas reales del sistema, proyectos, facturas e indexación.",
+        "layout": [
+          "Date range selector",
+          "KPI cards",
+          "Charts",
+          "Category breakdown",
+          "Task/agent performance",
+          "Export controls"
+        ],
+        "data_sources": [
+          "invoices",
+          "tasks",
+          "agent_sessions",
+          "index_jobs",
+          "system_metrics"
+        ],
+        "actions": [
+          "Change range",
+          "Open source records",
+          "Export report"
+        ],
+        "logic": [
+          "Derive KPIs from SQL queries with documented definitions",
+          "Show empty states when data is absent",
+          "Never use fabricated sample values in production"
+        ],
+        "states": [
+          "loading",
+          "ready",
+          "no_data",
+          "partial",
+          "error"
+        ]
+      },
+      {
+        "id": "system",
+        "route": "/system",
+        "title": "Sistema y recursos",
+        "purpose": "Monitorización real del dispositivo y los servicios.",
+        "layout": [
+          "CPU/RAM/storage/battery cards",
+          "Process list",
+          "Service health",
+          "Resource profile",
+          "Recent errors"
+        ],
+        "data_sources": [
+          "android_metrics",
+          "processes",
+          "services",
+          "logs"
+        ],
+        "actions": [
+          "Refresh",
+          "Change resource profile",
+          "Open logs",
+          "Stop managed process"
+        ],
+        "logic": [
+          "Only display metrics the app can access",
+          "Distinguish app metrics from device-wide metrics",
+          "Avoid frequent polling in background"
+        ],
+        "states": [
+          "ready",
+          "partial_permissions",
+          "unavailable",
+          "error"
+        ]
+      },
+      {
+        "id": "product_catalog",
+        "route": "/catalog/products",
+        "title": "Catálogo de productos",
+        "purpose": "Catálogo móvil independiente para buscar y consultar productos.",
+        "layout": [
+          "Search/filter bar",
+          "Product grid/list toggle",
+          "Product image",
+          "Name/SKU/category/price/stock",
+          "Detail screen",
+          "Print/export actions"
+        ],
+        "data_sources": [
+          "products",
+          "product_categories",
+          "stock_movements",
+          "brand_settings"
+        ],
+        "actions": [
+          "Search",
+          "Filter",
+          "Open detail",
+          "Edit when authorized",
+          "Print product sheet",
+          "Export CSV/XLSX/PDF",
+          "Open related invoice"
+        ],
+        "logic": [
+          "Use paginated queries",
+          "Validate prices and stock",
+          "Show unavailable image fallback",
+          "Use configured brand identity in printable sheets"
+        ],
+        "states": [
+          "empty",
+          "loading",
+          "ready",
+          "error"
+        ]
+      },
+      {
+        "id": "catalog_documents",
+        "route": "/catalog/documents",
+        "title": "Catálogo de documentos",
+        "purpose": "Catálogo independiente de facturas, manuales, contratos, fichas y documentos indexados.",
+        "layout": [
+          "Search/filter bar",
+          "Document type chips",
+          "Cards with thumbnail/type/date/status",
+          "Document detail",
+          "Preview/download/print controls"
+        ],
+        "data_sources": [
+          "documents",
+          "invoices",
+          "attachments",
+          "document_tags"
+        ],
+        "actions": [
+          "Search",
+          "Preview",
+          "Open related record",
+          "Print",
+          "Export PDF",
+          "Export metadata CSV/XLSX",
+          "Query through RAG"
+        ],
+        "logic": [
+          "Respect document permissions",
+          "Keep original and generated exports distinct",
+          "Use Android share/document picker where appropriate"
+        ],
+        "states": [
+          "empty",
+          "loading",
+          "ready",
+          "unsupported_preview",
+          "error"
+        ]
+      },
+      {
+        "id": "brand_invoice_settings",
+        "route": "/settings/brand-invoice",
+        "title": "Marca y configuración de documentos",
+        "purpose": "Generador de identidad visual y configuración de facturas/documentos imprimibles.",
+        "layout": [
+          "Brand name and contact form",
+          "Logo uploader for SVG/PNG",
+          "Logo positioning preview",
+          "Theme and typography settings",
+          "Invoice fields toggles",
+          "Live A4/receipt preview",
+          "PDF/export options"
+        ],
+        "data_sources": [
+          "brand_settings",
+          "document_templates",
+          "export_profiles"
+        ],
+        "actions": [
+          "Import SVG/PNG",
+          "Crop/scale/align logo",
+          "Set margins",
+          "Configure header/footer",
+          "Save template",
+          "Preview",
+          "Export sample"
+        ],
+        "logic": [
+          "Sanitize SVG and disallow scripts/external references",
+          "Validate PNG dimensions and size",
+          "Keep original asset",
+          "Embed or rasterize SVG safely for PDF renderer",
+          "Support left/center/right logo alignment",
+          "Preserve legibility and aspect ratio"
+        ],
+        "states": [
+          "editing",
+          "preview",
+          "saved",
+          "validation_error"
+        ]
+      },
+      {
+        "id": "exports",
+        "route": "/exports",
+        "title": "Exportación e impresión",
+        "purpose": "Exportar información a formatos interoperables.",
+        "layout": [
+          "Choose data source",
+          "Column/field selector",
+          "Date range",
+          "Format selector",
+          "Preview",
+          "Progress and result"
+        ],
+        "formats": [
+          "PDF",
+          "CSV",
+          "XLSX"
+        ],
+        "actions": [
+          "Generate",
+          "Save through Android document picker",
+          "Print using Android print framework",
+          "Share export"
+        ],
+        "logic": [
+          "PDF for reports and print-ready documents",
+          "XLSX for spreadsheet analysis",
+          "CSV for interchange",
+          "Record export metadata without duplicating sensitive payloads in logs"
+        ],
+        "states": [
+          "configuring",
+          "generating",
+          "ready",
+          "failed"
+        ]
+      },
+      {
+        "id": "live_workflow",
+        "route": "/workflow/live",
+        "title": "Flujos en vivo / cerebro de IA",
+        "purpose": "Visualización animada de la comunicación entre UI, backend, SQL, FTS5, embeddings, RAG, agente y proveedores externos.",
+        "layout": [
+          "Animated node graph",
+          "Live event stream",
+          "Data source/status cards",
+          "Selected node detail",
+          "Pause/resume visual stream",
+          "Legend"
+        ],
+        "data_sources": [
+          "event_bus",
+          "task_events",
+          "agent_events",
+          "database_events",
+          "index_jobs"
+        ],
+        "actions": [
+          "Inspect node",
+          "Filter events",
+          "Pause visual updates",
+          "Open related task",
+          "Export event log"
+        ],
+        "logic": [
+          "Render HTML/SVG/Canvas animation only from actual events",
+          "Differentiate live events from illustrative animation",
+          "Use WebSocket/SSE/local event bridge only if implemented",
+          "Do not display fake packet counts or fake data transfers",
+          "Reduce animation rate in battery saver"
+        ],
+        "nodes": [
+          "Android UI",
+          "Go backend",
+          "SQLite",
+          "FTS5",
+          "Embeddings",
+          "RAG",
+          "OpenCode/LLM",
+          "Document ingestion",
+          "PDF/XLSX export"
+        ],
+        "states": [
+          "connected",
+          "connecting",
+          "idle",
+          "degraded",
+          "offline"
+        ]
+      },
+      {
+        "id": "settings",
+        "route": "/settings",
+        "title": "Configuración",
+        "purpose": "Preferencias, proveedores, recursos, seguridad y copias de seguridad.",
+        "layout": [
+          "Theme picker",
+          "Resource profile",
+          "Provider configuration",
+          "Embedding model management",
+          "Permissions",
+          "Backup/restore",
+          "Privacy controls"
+        ],
+        "actions": [
+          "Select lime/purple/blue/gold theme",
+          "Preview/apply",
+          "Configure provider",
+          "Download/remove model",
+          "Backup/restore",
+          "Manage retention"
+        ],
+        "logic": [
+          "Persist settings locally",
+          "Never expose API keys in logs",
+          "Warn before deleting models or data",
+          "Offer a full export before app removal"
+        ],
+        "states": [
+          "ready",
+          "saving",
+          "error"
+        ]
+      }
+    ],
+    "data_model": {
+      "tables": [
+        {
+          "name": "app_settings",
+          "purpose": "Preferencias, tema, perfil de recursos y configuración no secreta"
+        },
+        {
+          "name": "projects",
+          "purpose": "Proyectos y espacios de trabajo"
+        },
+        {
+          "name": "conversations",
+          "purpose": "Sesiones de chat"
+        },
+        {
+          "name": "messages",
+          "purpose": "Mensajes, procedencia y referencias"
+        },
+        {
+          "name": "agent_sessions",
+          "purpose": "Sesiones del agente"
+        },
+        {
+          "name": "tasks",
+          "purpose": "Tareas ejecutables y estado recuperable"
+        },
+        {
+          "name": "task_events",
+          "purpose": "Eventos de progreso y auditoría"
+        },
+        {
+          "name": "documents",
+          "purpose": "Metadatos y ubicación de documentos"
+        },
+        {
+          "name": "document_chunks",
+          "purpose": "Fragmentos de documentos indexados"
+        },
+        {
+          "name": "document_fts",
+          "purpose": "Índice FTS5, sujeto a disponibilidad comprobada"
+        },
+        {
+          "name": "embeddings",
+          "purpose": "Vectores, modelo, dimensiones y vínculo al fragmento"
+        },
+        {
+          "name": "memory_items",
+          "purpose": "Memoria con procedencia, estado de verificación y retención"
+        },
+        {
+          "name": "invoices",
+          "purpose": "Metadatos estructurados de facturas"
+        },
+        {
+          "name": "invoice_lines",
+          "purpose": "Detalle de líneas"
+        },
+        {
+          "name": "suppliers",
+          "purpose": "Proveedores"
+        },
+        {
+          "name": "products",
+          "purpose": "Catálogo de productos y SKU"
+        },
+        {
+          "name": "product_categories",
+          "purpose": "Categorías de productos"
+        },
+        {
+          "name": "brand_settings",
+          "purpose": "Identidad visual y datos de emisión documental"
+        },
+        {
+          "name": "document_templates",
+          "purpose": "Plantillas de impresión/exportación"
+        },
+        {
+          "name": "installed_components",
+          "purpose": "Versiones y comprobaciones de componentes"
+        },
+        {
+          "name": "backup_jobs",
+          "purpose": "Historial de copias y restauraciones"
+        }
+      ],
+      "rules": [
+        "Versionar el esquema con migraciones",
+        "Usar transacciones y claves foráneas",
+        "No guardar binarios grandes directamente en tablas salvo justificación; almacenar archivos en el sandbox y metadatos en SQLite",
+        "Mantener ruta, checksum, tamaño, MIME type y fecha para cada archivo",
+        "Separar borrado de metadatos, índice y archivo original",
+        "Crear índices para los campos usados en búsquedas frecuentes"
+      ]
+    },
+    "export_policy": {
+      "formats": {
+        "PDF": "Informes, fichas de productos, facturas registradas y documentos imprimibles",
+        "XLSX": "Análisis de tablas, productos, inventario, facturas y reportes",
+        "CSV": "Intercambio de datos tabulares",
+        "print": "Android Print Framework y selector de destino cuando sea compatible"
+      },
+      "requirements": [
+        "Previsualizar antes de exportar",
+        "Usar el logo y tema de marca configurados",
+        "Permitir seleccionar columnas y rango de fechas",
+        "Mostrar progreso real",
+        "Usar Android Storage Access Framework para guardar el archivo",
+        "No llamar factura tributaria oficial a un reporte interno",
+        "Mantener trazabilidad de exportación"
+      ]
+    },
+    "acceptance_tests": [
+      "La APK compila en el dispositivo o informa de forma precisa qué dependencia falta",
+      "La base de datos persiste al cerrar y reiniciar la aplicación",
+      "FTS5 encuentra documentos de prueba si está disponible",
+      "La búsqueda vectorial solo aparece activa cuando existen embeddings utilizables",
+      "El selector de tema cambia todos los componentes y persiste",
+      "Se importa un logo PNG y SVG de forma segura y se muestra correctamente en la vista previa",
+      "Se exportan PDF, CSV y XLSX de datos reales",
+      "Los catálogos de productos y documentos tienen rutas independientes",
+      "El flujo animado refleja eventos reales y distingue claramente los estados sin conexión",
+      "Los trabajos de instalación conservan estado y errores",
+      "No se muestran estadísticas ficticias en producción",
+      "Las operaciones destructivas requieren confirmación",
+      "Se puede crear y restaurar una copia de seguridad de prueba"
+    ]
+  }
+}
