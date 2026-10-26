@@ -1606,8 +1606,8 @@ body.login-abierto { overflow: hidden; }
   inset: 0;
   pointer-events: none;
   background-image:
-    linear-gradient(to right, rgba(200, 255, 0, 0.07) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(200, 255, 0, 0.07) 1px, transparent 1px);
+    linear-gradient(to right, rgba(200, 255, 0, 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(200, 255, 0, 0.035) 1px, transparent 1px);
   background-size: 10px 10px;
   mask-image: radial-gradient(circle at 50% 40%, #000 0%, transparent 78%);
   -webkit-mask-image: radial-gradient(circle at 50% 40%, #000 0%, transparent 78%);
@@ -2088,8 +2088,7 @@ body.login-abierto { overflow: hidden; }
 .revision-lista { display: flex; flex-direction: column; gap: 6px; max-height: 460px; overflow-y: auto; }
 .revision-item {
   border: 1px solid var(--borde);
-  border-left: 3px solid var(--borde-fuerte);
-  border-radius: 8px;
+  border-radius: 10px;
   background: #0B0B0B;
   padding: 8px 10px;
 }
@@ -2316,3 +2315,239 @@ body.login-abierto { overflow: hidden; }
 }
 
 #v-id .input { margin-bottom: 12px; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Mejoras de UI · 0.9.16
+   - Entrada animada de tablas y filas de la base de datos
+   - Estado "vivo" del flujo de sincronización (canvas con pulso)
+   - Feedback visual del lector de códigos (marco + guiado)
+   - Animación del botón de imprimir boleta (spinner → check)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Base de datos · entrada animada ─────────────────────────────────────── */
+@keyframes sqlFilaIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.sql-tabla tbody tr {
+  animation: sqlFilaIn 0.22s ease both;
+}
+.sql-tabla tbody tr:nth-child(1) { animation-delay: 0.00s; }
+.sql-tabla tbody tr:nth-child(2) { animation-delay: 0.02s; }
+.sql-tabla tbody tr:nth-child(3) { animation-delay: 0.04s; }
+.sql-tabla tbody tr:nth-child(4) { animation-delay: 0.06s; }
+.sql-tabla tbody tr:nth-child(5) { animation-delay: 0.08s; }
+.sql-tabla tbody tr:nth-child(6) { animation-delay: 0.10s; }
+.sql-tabla tbody tr:nth-child(n+7) { animation-delay: 0.12s; }
+
+.sql-tabla-item {
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.sql-tabla-item:hover {
+  transform: translateY(-1px);
+  border-color: rgba(200, 255, 0, 0.35);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
+/* ── Sincronización · pulso del estado ───────────────────────────────────── */
+@keyframes sqlPulso {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.35; }
+}
+#sqlNubeEstadoTexto.sync-vivo {
+  color: var(--acento);
+  animation: sqlPulso 1.6s ease-in-out infinite;
+}
+#sqlNubeEstadoTexto.sync-error {
+  color: #f87171;
+}
+
+/* ── Lector · marco y guiado ─────────────────────────────────────────────── */
+#invCamaraCaja {
+  position: relative;
+  overflow: hidden;
+}
+#invCamaraCaja.mira {
+  box-shadow: inset 0 0 0 2px var(--acento), inset 0 0 40px rgba(200,255,0,0.08);
+  transition: box-shadow 0.12s ease;
+}
+#invCamaraCaja.leyo {
+  box-shadow: inset 0 0 0 3px #4ade80, inset 0 0 60px rgba(74,222,128,0.18);
+}
+#invCamaraCaja.leyo .inv-camara-mira {
+  transform: scale(1.08);
+}
+.inv-camara-mira {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 62%; height: 34%;
+  transform: translate(-50%, -50%);
+  border: 2px dashed rgba(200, 255, 0, 0.55);
+  border-radius: 10px;
+  pointer-events: none;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+  z-index: 2;
+}
+
+/* ── Boleta · animación de imprimir ──────────────────────────────────────── */
+.btn-imprimiendo {
+  position: relative;
+  pointer-events: none;
+  opacity: 0.75;
+}
+.btn-imprimiendo::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 16px; height: 16px;
+  border: 2px solid transparent;
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: sqlSpin 0.7s linear infinite;
+}
+.btn-imprimiendo.btn-listo::after {
+  border: 0;
+  content: "✓";
+  font-size: 14px;
+  line-height: 16px;
+  text-align: center;
+  color: #4ade80;
+  animation: none;
+}
+@keyframes sqlSpin { to { transform: rotate(360deg); } }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Refinamiento de alto nivel · FABRI-CORE PRO (0.9.16)
+   Aplicado con el estándar high-end / impeccable sobre la marca neon-lime.
+   Principios: doble-bezel, motion físico con curvas custom, botones pill con
+   icono anidado, jerarquía tipográfica limpia y micro-estados táctiles.
+   No cambia identidad: mantiene lima #C8FF00 sobre negro profundo.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* curvas físicas: simulan masa/resorte, nunca `ease` lineal */
+  --curva-1: cubic-bezier(0.22, 1, 0.36, 1);
+  --curva-2: cubic-bezier(0.16, 1, 0.3, 1);
+  /* radios de doble-bezel: exterior amplio, interior anidado */
+  --r-capa: 22px;
+  --r-nucleo: 14px;
+  --r-pill: 999px;
+}
+
+/* ── Cuerpo: fondo con gradiente radial sutil (no es un bloque plano) ────── */
+body {
+  background:
+    radial-gradient(120% 90% at 85% -10%, rgba(200, 255, 0, 0.06), transparent 55%),
+    radial-gradient(90% 70% at -10% 110%, rgba(200, 255, 0, 0.04), transparent 50%),
+    var(--bg);
+  background-attachment: fixed;
+}
+
+/* ── Cards / bloques: doble-bezel ─────────────────────────────────────────── */
+.bloque {
+  background: linear-gradient(180deg, #0F0F0F 0%, var(--card) 100%);
+  border-radius: var(--r-capa);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 18px 40px rgba(0, 0, 0, 0.45);
+  position: relative;
+}
+.bloque::before {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border-radius: calc(var(--r-capa) - 1px);
+  border: 1px solid rgba(200, 255, 0, 0.04);
+  pointer-events: none;
+}
+.bloque .bloque-interno {
+  background: var(--hundido);
+  border-radius: var(--r-nucleo);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* ── Botones: pill con icono anidado y presión física ─────────────────────── */
+.btn {
+  border-radius: var(--r-pill);
+  transition: transform var(--curva-1) 0.18s, box-shadow var(--curva-1) 0.18s,
+    background var(--curva-1) 0.18s, border-color var(--curva-1) 0.18s,
+    color var(--curva-1) 0.18s;
+}
+.btn:hover {
+  transform: translateY(-1px);
+}
+.btn:active {
+  transform: scale(0.96);
+}
+.btn-primario {
+  background: linear-gradient(180deg, #D9FF33 0%, var(--acento) 55%, #B7E600 100%);
+  color: #050505;
+  box-shadow:
+    0 4px 14px rgba(200, 255, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+.btn-primario:hover {
+  box-shadow:
+    0 8px 22px rgba(200, 255, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+.btn-primario:active {
+  box-shadow:
+    0 2px 8px rgba(200, 255, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+/* ── Pills de estado: indicador lumínico al centro ────────────────────────── */
+.pill {
+  border-radius: var(--r-pill);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+/* ── KPI: números con más presencia tipográfica ───────────────────────────── */
+.kpi {
+  border-radius: var(--r-capa);
+  background: linear-gradient(180deg, #0F0F0F 0%, var(--card) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 10px 28px rgba(0,0,0,0.35);
+}
+.kpi strong {
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+
+/* ── Cabecera de vista: jerarquía más definida ────────────────────────────── */
+.cab-vista h2 {
+  letter-spacing: -0.035em;
+  font-weight: 700;
+}
+.cab-vista p {
+  line-height: 1.5;
+}
+
+/* ── Nav inferior: mancha de estado con transición suave ──────────────────── */
+.nav {
+  transition: color var(--curva-1) 0.2s, transform var(--curva-1) 0.2s;
+}
+.nav.activo span {
+  transform: translateY(-1.5px);
+}
+.nav.activo::before {
+  transition: transform var(--curva-1) 0.25s, opacity var(--curva-1) 0.25s;
+}
+
+/* ── Drawer: separación de aire y lista más fresca ────────────────────────── */
+.drawer {
+  background: linear-gradient(180deg, #080808 0%, #0A0A0A 100%);
+}
+.nav-drawer {
+  border-radius: var(--r-nucleo);
+  transition: background var(--curva-1) 0.16s, transform var(--curva-1) 0.16s;
+}
+.nav-drawer:hover {
+  background: var(--hundido);
+}
+.nav-drawer:active {
+  transform: scale(0.985);
+  background: rgba(200, 255, 0, 0.07);
+}

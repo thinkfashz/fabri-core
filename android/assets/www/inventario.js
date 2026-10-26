@@ -14,6 +14,49 @@
    - Ningún fallo se silencia: todo queda en `revision` y se muestra en pantalla.
    ========================================================================== */
 
+/* ── Efectos sonoros nativos vía Web Audio API (cero dependencias) ── */
+function sonidoBeep(freq, dur) {
+  try {
+    const f = freq || 880;
+    const d = dur || 0.08;
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(f, ctx.currentTime);
+    gain.gain.setValueAtTime(0.18, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + d);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + d);
+  } catch (e) {}
+}
+
+function sonidoImpresion() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const bufferSize = ctx.sampleRate * 0.45;
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.35));
+    }
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+    const filter = ctx.createBiquadFilter();
+    filter.type = "bandpass";
+    filter.frequency.value = 1100;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.14, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.45);
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+    noise.start();
+  } catch (e) {}
+}
+
 const INV = {
   paso: 1,
   productos: [],
@@ -26,6 +69,10 @@ const INV = {
   lienzo: null,         // canvas reutilizado por el lector propio
   timerScan: null,
   iniciado: false,
+  modoApilador: false,
+  apilador: [],
+  ultimoEscaneo: 0,
+  ultimoCodigo: "",
   sync: {
     timer: null,
     enCurso: false,
@@ -35,7 +82,7 @@ const INV = {
     esperaMaxMs: 30 * 60000  // tope: 30 min
   },
   nube: {
-    url: "",
+    url: "https://fabri-api.vercel.app",
     token: ""
   }
 };
@@ -143,7 +190,7 @@ function invAviso(texto, tipo) {
 /* ── entrada de la vista ────────────────────────────────────────────────── */
 
 function invIniciar() {
-  INV.nube.url = localStorage.getItem("fabrick.nube.url") || "";
+  INV.nube.url = localStorage.getItem("fabrick.nube.url") || "https://fabri-api.vercel.app";
   INV.nube.token = localStorage.getItem("fabrick.nube.token") || "";
   invPaso(INV.paso || 1);
   // Si el núcleo todavía migra, la guía se pinta y los datos llegan solos: no
@@ -296,6 +343,7 @@ async function invCamaraAbrir() {
     video.srcObject = INV.camara;
     await video.play();
     caja.classList.add("activa");
+    caja.classList.add("mira");
     if (btnParar) btnParar.hidden = false;
 
     if (typeof window.BarcodeDetector === "function") {
@@ -331,7 +379,7 @@ function invCamaraParar() {
   const video = document.getElementById("invVideo");
   if (video) video.srcObject = null;
   const caja = document.getElementById("invCamaraCaja");
-  if (caja) caja.classList.remove("activa");
+  if (caja) caja.classList.remove("activa", "mira", "leyo");
   const btnParar = document.getElementById("btnInvCamaraParar");
   if (btnParar) btnParar.hidden = true;
   INV.detector = null;
@@ -350,7 +398,10 @@ function invBucleEscaneo() {
         valor = invEscanearCuadro();
       }
       if (valor) {
-        invCamaraParar();
+        const caja = document.getElementById("invCamaraCaja");
+        if (caja) caja.classList.remove("mira");
+        if (caja) caja.classList.add("leyo");
+        setTimeout(function () { invCamaraParar(); }, 220);
         const campo = document.getElementById("invCodigo");
         if (campo) campo.value = valor;
         toast("Código leído: " + valor);
@@ -1224,10 +1275,25 @@ function invImprimir(formato, boleta) {
   const sel = document.getElementById("invFormatoImpresion");
   const fmt = formato || (sel && sel.value) || "80mm";
   const html = invBoletaDocumento(b, fmt);
+  // Animación del botón: spinner → check.
+  const btnImprimir = document.getElementById("btnInvImprimir");
+  if (btnImprimir) {
+    btnImprimir.classList.add("btn-imprimiendo");
+    btnImprimir.classList.remove("btn-listo");
+  }
+  const finalizarAnimacion = function (ok) {
+    if (!btnImprimir) return;
+    btnImprimir.classList.remove("btn-imprimiendo");
+    if (ok) {
+      btnImprimir.classList.add("btn-listo");
+      setTimeout(function () { btnImprimir.classList.remove("btn-listo"); }, 1600);
+    }
+  };
   try {
     if (window.FabrickNative && typeof window.FabrickNative.imprimir === "function") {
       const r = JSON.parse(window.FabrickNative.imprimir(html, fmt));
       if (r && r.ok) {
+        finalizarAnimacion(true);
         toast("Abriendo impresión (" + fmt + ")…");
         revision("inventario", "info", "boleta enviada a imprimir",
           "folio " + b.folio + " · " + fmt);

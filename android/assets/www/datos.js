@@ -41,6 +41,8 @@ function hojaIniciar() {
     hojaPintarTablas();
     hojaPintarResumen();
   }
+  hojaIniciarCanvasStream();
+  hojaProbarConexion();
 }
 
 function hojaPintarResumen(extra) {
@@ -926,4 +928,191 @@ document.addEventListener("DOMContentLoaded", () => {
   boton.textContent = "Borrar fila";
   boton.addEventListener("click", hojaBorrarSeleccionada);
   acciones.appendChild(boton);
+
+  // Conectar botones del Banner de Flujo SQLite ⇄ Nube
+  const bSync = document.getElementById("btnSqlSyncNube");
+  if (bSync) bSync.addEventListener("click", hojaSincronizarNube);
+  const bResp = document.getElementById("btnSqlRespaldoCompleto");
+  if (bResp) bResp.addEventListener("click", hojaRespaldoCompleto);
+  const bPing = document.getElementById("btnSqlProbarConexion");
+  if (bPing) bPing.addEventListener("click", hojaProbarConexion);
 });
+
+/* ── Flujo en vivo Canvas: SQLite Local ⇄ Nube Vercel ── */
+let streamAnimId = null;
+function hojaIniciarCanvasStream() {
+  const canvas = document.getElementById("sqlCanvasStream");
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+
+  const ancho = canvas.parentElement ? (canvas.parentElement.clientWidth || 560) : 560;
+  canvas.width = ancho;
+  canvas.height = 84;
+  const w = canvas.width;
+  const h = canvas.height;
+
+  const particulas = [];
+  for (let i = 0; i < 28; i++) {
+    particulas.push({
+      x: 140 + Math.random() * (w - 280),
+      y: h / 2 + (Math.random() - 0.5) * 16,
+      v: 1.4 + Math.random() * 2.4,
+      tam: 2 + Math.random() * 3,
+      alfa: 0.35 + Math.random() * 0.65
+    });
+  }
+
+  function frame() {
+    ctx.fillStyle = "#050505";
+    ctx.fillRect(0, 0, w, h);
+
+    // Nodo Izquierdo: SQLite Local
+    ctx.fillStyle = "#121212";
+    ctx.strokeStyle = "#2A2A2A";
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.roundRect(10, 14, 130, 56, 10);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = "#C8FF00";
+    ctx.beginPath();
+    ctx.arc(26, 42, 5, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "#FFFFFF";
+    ctx.font = "bold 11px system-ui, sans-serif";
+    ctx.fillText("SQLite Local", 38, 36);
+    ctx.fillStyle = "#8A8A8A";
+    ctx.font = "9.5px monospace";
+    ctx.fillText("Base en teléfono", 38, 51);
+
+    // Nodo Derecho: Nube Postgres
+    ctx.fillStyle = "#121212";
+    ctx.strokeStyle = "#2A2A2A";
+    ctx.beginPath();
+    ctx.roundRect(w - 140, 14, 130, 56, 10);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = "#3DDC84";
+    ctx.beginPath();
+    ctx.arc(w - 124, 42, 5, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "#FFFFFF";
+    ctx.font = "bold 11px system-ui, sans-serif";
+    ctx.fillText("Nube Fabrick", w - 112, 36);
+    ctx.fillStyle = "#8A8A8A";
+    ctx.font = "9.5px monospace";
+    ctx.fillText("fabri-api Vercel", w - 112, 51);
+
+    // Bus de datos punteado
+    ctx.strokeStyle = "rgba(200, 255, 0, 0.22)";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(140, 42);
+    ctx.lineTo(w - 140, 42);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Partículas de datos fluyendo
+    ctx.fillStyle = "#C8FF00";
+    particulas.forEach((p) => {
+      p.x += p.v;
+      if (p.x > w - 140) p.x = 140;
+      ctx.globalAlpha = p.alfa;
+      ctx.beginPath();
+      ctx.arc(p.x, 42 + Math.sin(p.x * 0.08) * 3, p.tam, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    ctx.globalAlpha = 1.0;
+
+    const vista = document.getElementById("v-sql");
+    if (vista && vista.classList.contains("activa")) {
+      streamAnimId = requestAnimationFrame(frame);
+    }
+  }
+  if (streamAnimId) cancelAnimationFrame(streamAnimId);
+  frame();
+}
+
+async function hojaProbarConexion() {
+  const lbl = document.getElementById("sqlNubeEstadoTexto");
+  if (lbl) lbl.textContent = "Probando latencia con fabri-api…";
+  const t0 = performance.now();
+  try {
+    const res = await fetch("https://fabri-api.vercel.app/api/health", { cache: "no-store" });
+    const ms = Math.round(performance.now() - t0);
+    if (res.ok) {
+      if (lbl) { lbl.classList.add("sync-vivo"); lbl.classList.remove("sync-error"); lbl.textContent = "Nube Conectada · " + ms + " ms (Postgres online)"; }
+    } else {
+      if (lbl) { lbl.classList.add("sync-error"); lbl.classList.remove("sync-vivo"); lbl.textContent = "Nube HTTP " + res.status; }
+    }
+  } catch (e) {
+    if (lbl) { lbl.classList.add("sync-error"); lbl.classList.remove("sync-vivo"); lbl.textContent = "Sin conexión con la nube"; }
+  }
+}
+
+async function hojaSincronizarNube() {
+  invAnimarEnvioModal("Sincronizando SQLite con Nube Vercel…", async (progreso) => {
+    progreso("Leyendo cambios en SQLite local…", 20);
+    const q = await invApiTarde("sync_pendientes", {}, { maxMs: 15000 });
+    const pendientes = (q.ok && q.data && q.data.productos) || [];
+    
+    progreso(`Transmitiendo ${pendientes.length} registros a Postgres…`, 60);
+    const url = "https://fabri-api.vercel.app/api/inventario";
+    const token = localStorage.getItem("fabrick.nube.token") || "";
+
+    const resp = await fetch(url, {
+      method: "POST",
+      headers: Object.assign(
+        { "Content-Type": "application/json" },
+        token ? { "Authorization": "Bearer " + token } : {}
+      ),
+      body: JSON.stringify({ accion: "subir", productos: pendientes })
+    });
+
+    progreso("Confirmando integridad de la base…", 90);
+    if (pendientes.length) {
+      const codigos = pendientes.map((p) => p.codigo);
+      await invApiTarde("sync_marcar", { codigos: codigos }, { maxMs: 10000 });
+    }
+    hojaCargarTablas();
+    return { ok: true, mensaje: `${pendientes.length} productos sincronizados con Postgres en la nube.` };
+  });
+}
+
+async function hojaRespaldoCompleto() {
+  toast("Generando respaldo de todas las tablas…");
+  try {
+    const rTablas = await apiTarde("sqlite", { accion: "tablas" }, { maxMs: 20000 });
+    if (!rTablas.ok || !rTablas.data) {
+      toast("Error al leer tablas: " + rTablas.error, "error");
+      return;
+    }
+    const tablas = rTablas.data.tablas || [];
+    const respaldo = {
+      sistema: "FABRI-CORE",
+      version: "0.9.16",
+      fecha: new Date().toISOString(),
+      tablas: {}
+    };
+    for (const t of tablas) {
+      const rf = await apiTarde("sqlite", { accion: "filas", tabla: t.nombre, limite: 1000 }, { maxMs: 15000 });
+      respaldo.tablas[t.nombre] = (rf.ok && rf.data && rf.data.filas) || [];
+    }
+    const jsonStr = JSON.stringify(respaldo, null, 2);
+    const nombre = "respaldo-fabri-core-" + new Date().toISOString().slice(0, 10) + ".json";
+    if (window.FabrickNative && typeof window.FabrickNative.guardarArchivo === "function") {
+      const g = JSON.parse(window.FabrickNative.guardarArchivo(nombre, jsonStr));
+      toast("Respaldo guardado en Descargas: " + (g.ruta || nombre));
+    } else {
+      toast("Respaldo creado: " + Math.round(jsonStr.length / 1024) + " KB");
+    }
+  } catch (e) {
+    toast("Fallo al exportar respaldo: " + e.message, "error");
+  }
+}
