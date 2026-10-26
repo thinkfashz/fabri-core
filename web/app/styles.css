@@ -241,3 +241,41 @@ button.live .dot.warn{background:var(--warn);box-shadow:0 0 0 3px rgba(255,176,3
 .inv-item .v{font-family:var(--mono);font-size:12.5px;font-weight:700;font-variant-numeric:tabular-nums;text-align:right}
 .inv-item .v small{display:block;font-size:10px;font-weight:600;color:var(--tx3)}
 .inv-item .v.bajo{color:var(--warn)}
+
+/* ── guía de inventario en 5 pasos (igual que la APK) ───────────────────── */
+.inv-pasos{list-style:none;display:flex;gap:6px;margin:0 0 12px;padding:0;
+  overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.inv-pasos::-webkit-scrollbar{display:none}
+.inv-pasos li{flex:1 0 auto;min-width:62px}
+.inv-pasos a{display:flex;flex-direction:column;align-items:center;gap:4px;padding:9px 6px;
+  border:1px solid var(--bd);border-radius:var(--r-md);background:var(--card);
+  text-decoration:none;color:var(--tx3);transition:border-color .18s,color .18s,background .18s}
+.inv-pasos a:active{transform:scale(.97)}
+.inv-pasos a:hover{border-color:var(--bd-strong);color:var(--tx2)}
+.inv-pasos b{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--accent);
+  width:20px;height:20px;border-radius:var(--r-pill);display:grid;place-items:center;
+  background:var(--accent-soft);border:1px solid rgba(200,245,66,.28)}
+.inv-pasos span{font-family:var(--cond);font-size:9.5px;font-weight:700;letter-spacing:.07em;
+  text-transform:uppercase;white-space:nowrap}
+.inv-pasos a:hover b{background:var(--accent);color:var(--on-accent)}
+
+/* ── campo con etiqueta (selectores de papel, etc.) ─────────────────────── */
+.campo{display:flex;flex-direction:column;gap:5px}
+.campo > span{font-family:var(--cond);font-size:9.5px;font-weight:700;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--tx3)}
+.campo .field{margin:0}
+
+/* ── carrito de la boleta ───────────────────────────────────────────────── */
+.carrito{margin-top:8px;border-top:1px solid var(--bd)}
+.carrito .linea{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--bd)}
+.carrito .linea:last-child{border-bottom:0}
+.carrito .linea .n{flex:1;min-width:0;font-size:12.5px;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis}
+.carrito .linea .c{font-family:var(--mono);font-size:11px;color:var(--tx3);min-width:26px;text-align:center}
+.carrito .linea .p{font-family:var(--mono);font-size:12px;font-weight:700;
+  font-variant-numeric:tabular-nums;min-width:66px;text-align:right}
+.carrito .linea button{background:transparent;border:0;color:var(--tx4);font-size:15px;
+  line-height:1;padding:4px 2px;cursor:pointer}
+.carrito .linea button:active{color:var(--err);transform:scale(.9)}
+#invBolTotal{font-family:var(--mono);font-size:17px;font-weight:800;color:var(--accent);
+  font-variant-numeric:tabular-nums;text-align:right}

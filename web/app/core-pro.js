@@ -526,7 +526,7 @@
     }
   }
 
-  let invEstado = { productos: [], resumen: null };
+  let invEstado = { productos: [], resumen: null, carrito: [] };
 
   function invPintarEstado(clave, base) {
     const kSub = $('#invKeySub'), kBadge = $('#invKeyBadge');
@@ -558,14 +558,168 @@
         const f = INV_FREE.find(x => x[0] === id);
         return `<span class="badge acc">${esc(f ? f[1] : id)}</span>`;
       }).join(' ');
+      // Margen igual que en la APK: (precio − costo) ÷ precio. El precio de
+      // venta es con IVA incluido, así que el margen se calcula sobre ese bruto.
+      const precio = Number(p.precio) || 0;
+      const costo = Number(p.costo) || 0;
+      const margen = precio > 0 ? ((precio - costo) / precio) * 100 : 0;
       return `<div class="inv-item">
         <div class="grow">
           <div class="t">${esc(p.nombre)}</div>
           <div class="s">${esc(p.codigo)}${p.marca ? ' · ' + esc(p.marca) : ''} · ${esc(p.categoria)} ${etiquetas}</div>
         </div>
-        <div class="v ${bajo ? 'bajo' : ''}">${clp(p.precio)}<small>stock ${esc(p.stock)}${bajo ? ' · bajo' : ''}</small></div>
+        <div class="v ${bajo ? 'bajo' : ''}">${clp(precio)}<small>stock ${esc(p.stock)}${bajo ? ' · bajo' : ''}${
+          precio > 0 ? ' · ' + margen.toFixed(0) + '%' : ''}</small></div>
+        <button class="btn ghost sm" type="button" data-boleta="${esc(p.codigo)}"
+          title="Agregar a la boleta" style="padding:6px 9px;min-width:0">+</button>
       </div>`;
     }).join('');
+    caja.querySelectorAll('[data-boleta]').forEach(b => {
+      b.onclick = () => invCarritoAgregar(b.dataset.boleta, 1);
+    });
+  }
+
+  /* ── CARRITO Y BOLETA ──────────────────────────────────────────────────── */
+  /**
+   * El carrito vive en memoria (`invEstado.carrito`): la boleta es un documento
+   * del momento, no un pedido guardado. El total es la suma de precio × cantidad
+   * (precio con IVA); el neto y el IVA se despejan igual que en el núcleo Rust.
+   */
+  function invTotales() {
+    const items = invEstado.carrito || [];
+    const total = items.reduce((a, x) => a + (Number(x.precio) || 0) * (Number(x.cantidad) || 1), 0);
+    const neto = total / 1.19;
+    return { total, neto, iva: total - neto, items };
+  }
+
+  function invCarritoPintar() {
+    const caja = $('#invCarrito');
+    const items = invEstado.carrito || [];
+    if (caja) {
+      if (!items.length) {
+        caja.className = 'hint';
+        caja.innerHTML = 'El carrito está vacío.';
+      } else {
+        caja.className = 'carrito';
+        caja.innerHTML = items.map((x, i) => `
+          <div class="linea">
+            <span class="n">${esc(x.nombre)}</span>
+            <span class="c">×${esc(x.cantidad)}</span>
+            <span class="p">${clp((Number(x.precio) || 0) * (Number(x.cantidad) || 1))}</span>
+            <button type="button" data-quitar="${i}" title="Quitar">✕</button>
+          </div>`).join('');
+        caja.querySelectorAll('[data-quitar]').forEach(b => {
+          b.onclick = () => { invEstado.carrito.splice(+b.dataset.quitar, 1); invCarritoPintar(); };
+        });
+      }
+    }
+    const t = invTotales();
+    const total = $('#invBolTotal'), detalle = $('#invBolDetalle');
+    if (total) total.textContent = clp(t.total);
+    if (detalle) detalle.textContent = items.length
+      ? `neto ${clp(t.neto)} + IVA ${clp(t.iva)} · ${items.length} línea${items.length === 1 ? '' : 's'}`
+      : 'neto + IVA';
+  }
+
+  function invCarritoLlenar() {
+    const sel = $('#invBolProducto');
+    if (!sel) return;
+    const productos = (invEstado.productos || []).slice().sort((a, b) => String(a.nombre).localeCompare(String(b.nombre), 'es'));
+    sel.innerHTML = productos.length
+      ? productos.map(p => `<option value="${esc(p.codigo)}">${esc(p.nombre)} · ${clp(p.precio)}</option>`).join('')
+      : '<option value="">Sin productos: sube uno primero</option>';
+  }
+
+  function invCarritoAgregar(codigo, cantidad) {
+    const p = (invEstado.productos || []).find(x => String(x.codigo) === String(codigo));
+    if (!p) { toast('Ese producto ya no está en la lista'); return; }
+    const cant = Math.max(1, Math.round(Number(cantidad) || 1));
+    const ya = (invEstado.carrito || []).find(x => String(x.codigo) === String(codigo));
+    if (ya) ya.cantidad += cant;
+    else {
+      invEstado.carrito = invEstado.carrito || [];
+      invEstado.carrito.push({
+        codigo: p.codigo, nombre: p.nombre, precio: Number(p.precio) || 0,
+        cantidad: cant, iva: Number(p.iva) || 19,
+      });
+    }
+    invCarritoPintar();
+    toast(p.nombre + ' → boleta');
+  }
+
+  /** Documento imprimible. Mismo formato que `invBoletaDocumento` de la APK. */
+  function invBolDocumento(formato, boleta) {
+    const fmt = formato || '80mm';
+    const ancho = fmt === 'a4' ? '190mm' : (fmt === '58mm' ? '48mm' : '72mm');
+    const base = fmt === 'a4' ? 12 : 11;
+    const b = boleta || invTotales();
+    const fecha = new Date().toLocaleString('es-CL');
+    const folio = 'WEB-' + new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const lineas = (b.items || []).map(x => {
+      const cant = Number(x.cantidad) || 1;
+      return `<div class="linea"><span>${esc(x.nombre)} × ${cant}</span>
+        <span>${clp((Number(x.precio) || 0) * cant)}</span></div>`;
+    }).join('');
+    return `<!doctype html><html lang="es"><head><meta charset="utf-8">
+      <title>Boleta ${esc(folio)}</title>
+      <style>
+        @page { size: ${ancho} auto; margin: 0; }
+        * { box-sizing: border-box; }
+        body { font-family: -apple-system, Roboto, "Courier New", monospace;
+               color: #000; margin: 0 auto; padding: 4mm; max-width: ${ancho};
+               font-size: ${base}px; line-height: 1.35; }
+        h1 { font-size: ${base + 5}px; letter-spacing: .28em; margin: 0 0 2mm; text-align: center; }
+        h2 { font-size: ${base + 1}px; margin: 0 0 1mm; text-align: center; font-weight: 600; }
+        .nota { font-size: ${base - 1}px; color: #222; }
+        hr { border: 0; border-top: 1px dashed #000; margin: 2mm 0; }
+        .linea { display: flex; justify-content: space-between; gap: 6px;
+                 font-size: ${base}px; padding: .6mm 0; }
+        .linea span:first-child { flex: 1; }
+        .total { font-size: ${base + 4}px; font-weight: 700; }
+        .pie { text-align: center; font-size: ${base - 2}px; margin-top: 2mm; }
+      </style></head><body>
+      <h1>FABRI-CORE</h1>
+      <h2>Boleta ${esc(folio)}</h2>
+      <div class="nota">${esc(fecha)}</div>
+      <div class="nota">Consumidor final</div>
+      <div class="nota">Pago: efectivo</div>
+      <hr />
+      ${lineas}
+      <hr />
+      <div class="linea"><span>Neto</span><span>${clp(b.neto)}</span></div>
+      <div class="linea"><span>IVA 19%</span><span>${clp(b.iva)}</span></div>
+      <div class="linea total"><span>Total</span><span>${clp(b.total)}</span></div>
+      <hr />
+      <div class="pie">Documento generado por FABRI-CORE<br />no es boleta tributaria electrónica</div>
+      </body></html>`;
+  }
+
+  /**
+   * Imprime con el diálogo del sistema desde un iframe oculto: el navegador
+   * ofrece las impresoras instaladas y también «Guardar como PDF». El iframe se
+   * retira después de imprimir para no dejar documentos vivos en el DOM.
+   */
+  function invImprimir(formato) {
+    const t = invTotales();
+    if (!t.items.length) { toast('Agrega productos a la boleta primero'); return; }
+    const fmt = formato || ($('#invBolFormato') || {}).value || '80mm';
+    const html = invBolDocumento(fmt, t);
+    const marco = document.createElement('iframe');
+    marco.setAttribute('aria-hidden', 'true');
+    marco.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden';
+    document.body.appendChild(marco);
+    const doc = marco.contentWindow.document;
+    doc.open(); doc.write(html); doc.close();
+    const limpiar = () => setTimeout(() => { try { marco.remove(); } catch (e) { /* ya no está */ } }, 1200);
+    try {
+      marco.contentWindow.focus();
+      marco.contentWindow.print();
+      limpiar();
+      toast('Abriendo impresión (' + fmt + ')…');
+    } catch (e) {
+      limpiar();
+      toast('No pude abrir la impresión: ' + (e.message || e));
+    }
   }
 
   function invPintarResumen(d) {
@@ -582,6 +736,7 @@
     if (!invClave()) {
       invPintarEstado(false, false);
       invPintarLista();
+      invCarritoLlenar();
       if (estado && !silencioso) estado.textContent = 'Pega la clave de la nube para ver y subir productos.';
       return;
     }
@@ -594,6 +749,7 @@
     invEstado.productos = baja.productos || [];
     invPintarEstado(true, true);
     invPintarLista();
+    invCarritoLlenar();
     const res = await invApi('resumen');
     if (res.ok) { invEstado.resumen = res.resumen; invPintarResumen(res); }
     if (estado && !silencioso) estado.textContent = invEstado.productos.length + ' productos en la nube.';
@@ -611,6 +767,17 @@
       }
       invEstado.chipsListos = true;
     }
+
+    // La guía usa `data-guia`, no `#ancla`: el hash de la URL es el router de
+    // pantallas (`go()`), y un ancla lo dejaría apuntando a una pantalla
+    // inexistente al recargar.
+    document.querySelectorAll('#invPasos [data-guia]').forEach(a => {
+      a.onclick = ev => {
+        ev.preventDefault();
+        const destino = document.getElementById(a.dataset.guia);
+        if (destino) destino.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      };
+    });
 
     const campoClave = $('#invKey');
     if (campoClave && !campoClave.value) campoClave.value = invClave();
@@ -632,6 +799,23 @@
     $('#btnInvBajar').onclick = () => invRefrescarNube(false);
     const filtro = $('#invFiltro');
     if (filtro) filtro.oninput = invPintarLista;
+
+    // Carrito y boleta: el selector se llena con lo que hay en la nube y el
+    // botón «Agregar» respeta la cantidad escrita.
+    invCarritoLlenar();
+    invCarritoPintar();
+    const agregar = $('#btnInvBolAgregar');
+    if (agregar) agregar.onclick = () => {
+      const sel = $('#invBolProducto');
+      const codigo = sel && sel.value;
+      if (!codigo) { toast('No hay productos para agregar'); return; }
+      const cant = Math.max(1, Math.round(Number(($('#invBolCantidad') || {}).value) || 1));
+      invCarritoAgregar(codigo, cant);
+      const c = $('#invBolCantidad');
+      if (c) c.value = '1';
+    };
+    const imprimir = $('#btnInvImprimir');
+    if (imprimir) imprimir.onclick = () => invImprimir();
 
     $('#btnInvSubir').onclick = async () => {
       const estado = $('#invSubirEstado');

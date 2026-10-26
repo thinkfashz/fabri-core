@@ -49,6 +49,8 @@ No era el arranque (ya corregido en 0.9.11): era **la vuelta del segundo plano**
 | Tabla `inv_productos` en InsForge | **creada y verificada** (`?diag=1` → `tabla_existe: true`) |
 | `asegurar` sin token | permitido a propósito: DDL fijo e idempotente, sin datos |
 | Web con loader/login/inventario | `https://fabri-core-web.vercel.app/app/` |
+| Guía de 5 pasos + carrito + impresión en la web | misma ficha que la APK (80 mm / 58 mm / A4) |
+| Respaldo de la APK en la nube | release `v0.9.12` (asset 4.095.110 B) |
 | Workflow de compilación Rust | `.github/workflows/apk-rust.yml` (bloqueado por facturación de GitHub) |
 | Escritura verificada de punta a punta | subir 2 → reenviar (upsert) → bajar → resumen → borrar → 401 sin token |
 
@@ -56,6 +58,17 @@ No era el arranque (ya corregido en 0.9.11): era **la vuelta del segundo plano**
 
 - `docs/APK.md` — qué es, por qué, tecnologías, compilación local y nube, contrato, versiones y límites.
 - `docs/SEGURIDAD-Y-VISION.md` — evaluación de Authelia, FairScan y MediaPipe con decisiones.
+
+### La web ya hace lo mismo que la app
+
+- **Guía de 5 pasos** (`#invPasos`) con anclas `data-guia` — no `#ancla`, porque
+  el hash de la URL es el router de pantallas y un ancla lo rompía al recargar.
+- **Margen por fila** en la lista: (precio − costo) ÷ precio, y botón «+» que
+  lleva el producto a la boleta.
+- **Carrito** en memoria con cantidades, neto/IVA despejados igual que el núcleo
+  Rust (total ÷ 1,19) y documento imprimible por iframe oculto
+  (`invBolDocumento` + `invImprimir`): rollo 80 mm, 58 mm o A4, y «Guardar como
+  PDF» con el diálogo del sistema.
 
 ### Pendiente
 

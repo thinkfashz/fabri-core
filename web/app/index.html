@@ -140,8 +140,17 @@
       <p class="sub">Lo que subas aquí queda en InsForge y la APK lo sincroniza. La ficha del producto
         (Nutri-Score, NOVA, «sin gluten»…) viaja con él, igual que en la app.</p>
 
-      <div class="card">
-        <div class="eyebrow">Verificación de conexión</div>
+      <!-- La misma guía de 5 pasos que la APK, con el equivalente web de cada uno. -->
+      <ol class="inv-pasos" id="invPasos">
+        <li><a href="#" data-guia="inv-guia-1"><b>1</b><span>Escanear</span></a></li>
+        <li><a href="#" data-guia="inv-guia-2"><b>2</b><span>Productos</span></a></li>
+        <li><a href="#" data-guia="inv-guia-3"><b>3</b><span>Precios</span></a></li>
+        <li><a href="#" data-guia="inv-guia-4"><b>4</b><span>Márgenes</span></a></li>
+        <li><a href="#" data-guia="inv-guia-5"><b>5</b><span>Boleta</span></a></li>
+      </ol>
+
+      <div class="card" id="inv-guia-1">
+        <div class="eyebrow">1 · Escanear · verificación de conexión</div>
         <div class="row"><div class="grow"><div class="t">Clave de la nube</div>
           <div class="s" id="invKeySub">sin clave: sólo lectura local</div></div>
           <span class="badge" id="invKeyBadge">…</span></div>
@@ -165,8 +174,8 @@
         <div class="stat"><div class="k">Stock bajo</div><div class="v" id="invKBajo">—</div><div class="d">bajo el mínimo</div></div>
       </div>
 
-      <div class="card">
-        <div class="eyebrow">Nuevo producto</div>
+      <div class="card" id="inv-guia-2">
+        <div class="eyebrow">2 · Productos · alta con código de barras</div>
         <div class="inv-form">
           <input class="field" id="invFcodigo" inputmode="numeric" placeholder="Código de barras (EAN/UPC)">
           <input class="field" id="invFnombre" placeholder="Nombre *">
@@ -193,10 +202,38 @@
         <p class="hint" id="invSubirEstado" style="margin-top:8px"></p>
       </div>
 
-      <div class="card">
-        <div class="eyebrow">Productos en la nube</div>
+      <div class="card" id="inv-guia-3">
+        <div class="eyebrow">3 · Precios y márgenes · productos en la nube</div>
         <input class="field" id="invFiltro" placeholder="Filtrar por nombre, marca o código">
         <div id="invLista" style="margin-top:10px"></div>
+        <p class="hint" id="inv-guia-4" style="margin-top:10px">Cada fila muestra el margen calculado
+          como en la app: (precio − costo) ÷ precio. Toca «+» para llevarlo a la boleta.</p>
+      </div>
+
+      <div class="card" id="inv-guia-5">
+        <div class="eyebrow">5 · Boleta · imprimir factura</div>
+        <div class="inv-form">
+          <select class="field ancho" id="invBolProducto"></select>
+          <input class="field" id="invBolCantidad" inputmode="numeric" value="1" placeholder="Cantidad">
+          <button class="btn ghost" id="btnInvBolAgregar" type="button">Agregar</button>
+        </div>
+        <div id="invCarrito" class="hint">El carrito está vacío.</div>
+        <div class="row" style="margin-top:6px"><div class="grow"><div class="t">Total</div>
+          <div class="s" id="invBolDetalle">neto + IVA</div></div>
+          <div class="inv-item"><div class="v" id="invBolTotal">$0</div></div></div>
+        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+          <label class="campo" style="flex:1;min-width:130px">
+            <span>Papel</span>
+            <select id="invBolFormato" class="field">
+              <option value="80mm">Rollo 80 mm</option>
+              <option value="58mm">Rollo 58 mm</option>
+              <option value="a4">Hoja A4</option>
+            </select>
+          </label>
+          <button class="btn primary" id="btnInvImprimir" type="button" style="flex:1;min-width:150px">Imprimir / PDF</button>
+        </div>
+        <p class="hint" style="margin-top:8px">Se imprime con el diálogo del sistema: sirve para una
+          térmica de 80 mm y también para «Guardar como PDF». No es boleta tributaria electrónica.</p>
       </div>
     </section>
 
