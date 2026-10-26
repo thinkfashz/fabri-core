@@ -61,7 +61,11 @@ No era el arranque (ya corregido en 0.9.11): era **la vuelta del segundo plano**
 - Probar en el teléfono: reabrir desde segundo plano y confirmar que el login responde.
 - Pegar `FABRI_API_TOKEN` en el login web (campo «clave de la nube») y subir un producto de prueba.
 - Integrar MediaPipe Barcode local (ver `docs/SEGURIDAD-Y-VISION.md` § 3).
-- Confirmar que el workflow `apk-rust.yml` corre en GitHub (Actions → APK Rust).
+- **GitHub Actions está bloqueado por facturación**: los runs mueren en 3 s con
+  «the job was not started because your account is locked due to a billing
+  issue». No es el workflow (no llega a ejecutar ningún paso). Hay que resolver
+  el pago en GitHub → Settings → Billing; después, Actions → APK Rust → Run
+  workflow.
 
 ### Nota de compilación
 

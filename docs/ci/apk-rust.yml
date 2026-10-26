@@ -51,7 +51,10 @@ env:
 jobs:
   apk:
     name: APK 0.9.x (aarch64)
-    runs-on: ubuntu-latest
+    # `ubuntu-latest` migra a Ubuntu 26 desde el 19/10/2026. El pipeline usa
+    # herramientas del SDK de Android y un NDK concreto: se fija 24.04 para que
+    # una migración de imagen no cambie el resultado de la compilación.
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
 
     steps:
