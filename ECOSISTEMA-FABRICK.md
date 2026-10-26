@@ -416,7 +416,7 @@ bash scripts/compilar.sh
 ```
 
 Salida: `dist/FABRI-CORE-0.9.11.apk` (4 082 822 B,
-sha256 `a1a2b9f21983eb6fe51e1c0902bb8df29499e69a9aef0a67c618e1dc13dcb38c`) y
+sha256 `4d7135641123c4781dc1316501fabc2556add7853c08e7456b1e19965fef3c49`) y
 copia en `/storage/emulated/0/Download/`.
 
 ### 9.7 Arranque y acceso (0.9.11)
