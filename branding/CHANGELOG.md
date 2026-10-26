@@ -2,6 +2,23 @@
 
 Registro de cambios del sistema de diseño y branding.
 
+## [2.9.0] — 2026-10-26
+
+### Corregido
+- **La app salió con dos fallos al probarla en el teléfono.** Un reemplazo de esta
+  sesión **borró el bloque de utilidades y estado** (`toast`, `hora`, `esc`,
+  `bytes`, `fechaHora`, `claseEstado`, `const estadoApp`, `const PROVEEDORES_CHAT`,
+  `const TERMUX_COMANDOS` y `function navegar`). El verificador de sintaxis no
+  lo veía porque los usos están más abajo y `node --check` no resuelve
+  referencias: `chatLlenarProveedores` pedía `PROVEEDORES_CHAT`, `saludPintar`
+  pedía `hora` y `entrarPin` pedía `toast`. Restaurado desde la versión anterior
+  (`bf87d58`), sin perder el carril asíncrono ni las novedades de esta versión.
+- **`no such column: datos in SELECT … FROM perfil`.** La columna `datos` de la
+  ficha de identidad sólo se creaba en `inv_esquema` (el esquema de inventario),
+  así que la app funcionaba hasta que el usuario abría Inventario. Ahora el
+  `ALTER TABLE` idempotente va también en `migrar()`, que corre en el primer
+  `init` de cada arranque.
+
 ## [2.8.0] — 2026-10-26
 
 ### Corregido

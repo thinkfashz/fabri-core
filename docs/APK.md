@@ -248,8 +248,11 @@ volver a consultar internet.
 | 0.9.11 | 26 | arranque sin bloqueo, loader CSS, bitácora, poda de registros |
 | 0.9.12 | 27 | retirada del loader al volver del segundo plano, `LENTO` como estado normal, ficha del producto, lector EAN propio, impresión 80/58/A4, reimpresión, sync con `/api/inventario` |
 | **0.9.13** | **28** | carril **asíncrono** del puente (las lecturas ya no bloquean el hilo), página «Mi identidad» con logo y ID de cliente, lector que salta 404/500 y dice la verdad |
+| **0.9.14** | **29** | **corrección de dos fallos en el teléfono**: bloque de utilidades/estado restaurado (`toast`, `hora`, `esc`, `estadoApp`…), `datos` de `perfil` migrado en el arranque |
+| **0.9.13** | **28** | carril **asíncrono** del puente (las lecturas ya no bloquean el hilo), página «Mi identidad» con logo y ID de cliente, lector que salta 404/500 y dice la verdad |
 
-`dist/FABRI-CORE-0.9.13.apk` · **4.107.467 B** ·
+`dist/FABRI-CORE-0.9.14.apk` · **4.107.467 B** ·
+sha256 `1a44edfa1a2295eb77ac57325f378b381a37495c3f51e1384b34d6c41eaae716`
 sha256 `2e843acebc81e927b58680ef64ab202ccd374f15e07c37cfeab404e810bc80d5`
 
 ---

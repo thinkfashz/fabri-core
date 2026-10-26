@@ -2,6 +2,49 @@
 
 Última actualización: 2026-10-26
 
+## Sesión 2026-10-26 (12) · APK 0.9.14 — los dos fallos de 0.9.13 en el teléfono
+
+APK: `dist/FABRI-CORE-0.9.14.apk` · **4107467 B** ·
+sha256 `1a44edfa1a2295eb77ac57325f378b381a37495c3f51e1384b34d6c41eaae716`
+versionCode **29** · copiada a `/storage/emulated/0/Download/FABRI-CORE-0.9.14.apk`.
+Firma debug, minSdk 24, target 34. Instalar **encima** de la 0.9.13.
+
+### Los dos fallos que salieron al probar 0.9.13 en el teléfono
+
+**1. `ReferenceError: PROVEEDORES_CHAT is not defined` / `toast is not a function` /
+`ReferenceError: hora is not defined`.** Tres símbolos que sí estaban usados
+(`chatLlenarProveedores`, `saludPintar`, `entrarPin`) pero no definidos. Causa:
+un reemplazo de esta sesión **borró el bloque de utilidades y estado** (desde
+`function apiRuntime` hasta `function jsError`), que incluía `toast`, `hora`,
+`esc`, `bytes`, `fechaHora`, `claseEstado`, `const estadoApp`,
+`const PROVEEDORES_CHAT`, `const TERMUX_COMANDOS` y `function navegar`. El
+verificador de sintaxis no lo veía porque los usos estaban más abajo y
+`node --check` no resuelve referencias. Restaurado desde la versión anterior
+(`bf87d58`), sin perder el carril asíncrono ni las novedades de esta versión.
+
+**2. `no such column: datos in SELECT … FROM perfil`.** La columna `datos`
+sólo se creaba en `inv_esquema` (el esquema de inventario), así que la app
+funcionaba hasta que el usuario abría Inventario. Ahora el `ALTER TABLE`
+idempotente va también en `migrar()`, que corre en el primer `init` de cada
+arranque.
+
+### Lo corregido en 0.9.14
+
+| Cambio | Archivo |
+|---|---|
+| Bloque de utilidades/estado restaurado (`toast`, `hora`, `esc`, `estadoApp`, `PROVEEDORES_CHAT`, `navegar`…) | `app.js` |
+| `ALTER TABLE perfil ADD COLUMN datos` en `migrar()` (no solo en el esquema de inventario) | `src-tauri/src/lib.rs` |
+| Versión 0.9.13 → 0.9.14 (versionCode 28 → 29) en manifiesto, Cargo.toml y `scripts/compilar.sh` | 3 archivos |
+
+### Nota de compilación
+
+El primer APK de esta corrección (4.095.110 B, `b14cd9d3…`) se compiló **antes**
+de cambiar el sync a `/api/inventario` y llevaba el contrato viejo. Se recompiló:
+el APK bueno es **4.095.110 B**, `b14cd9d3…`, con `api/inventario` dentro
+(verificado con `unzip -p`). Código real ya sincronizado al repo en `de23c43`.
+
+---
+
 ## Sesión 2026-10-26 (11) · APK 0.9.13 — el puente deja de bloquear (carril asíncrono) + «Mi identidad»
 
 APK: `dist/FABRI-CORE-0.9.13.apk` · **4.107.467 B** ·
