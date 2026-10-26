@@ -167,9 +167,14 @@ directo a InsForge.
 | Base | SQLite nativo (Rust) | SQLite WASM + IndexedDB |
 | Acceso | PIN / contraseña local | PBKDF2-SHA256 120k, sesión con token |
 | Escáner | cámara + decodificador EAN propio | formulario (cámara pendiente) |
-| Impresión | `PrintManager` (80/58 mm, A4) | impresión del navegador |
+| Impresión | `PrintManager` (80/58 mm, A4) | documento propio en iframe oculto (80/58 mm, A4) |
 | Nube | sync manual a `/api/inventario` | subida directa a `/api/inventario` |
 | IA | llama.cpp local, apagada por defecto | función en Vercel, opcional |
+
+La web repite la guía de cinco pasos de la app, con margen por fila
+((precio − costo) ÷ precio), carrito con cantidades y boleta imprimible: el
+mismo documento de la APK generado en el navegador y enviado al diálogo del
+sistema, que sirve tanto para una térmica como para «Guardar como PDF».
 
 La clave de la nube se pega en el login y vive en `sessionStorage`: al cerrar
 la pestaña se olvida. Nunca se escribe en el repositorio.
