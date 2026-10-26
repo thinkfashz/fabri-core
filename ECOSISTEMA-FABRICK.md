@@ -31,7 +31,7 @@ para cuando el teléfono tiene red.
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │ TELÉFONO (Android · proot Ubuntu)                                            │
 │                                                                              │
-│  APK FABRI-CORE 0.9.10   Rust + JNI + WebView + SQLite                       │
+│  APK FABRI-CORE 0.9.11   Rust + JNI + WebView + SQLite                       │
 │    · inventario, precios, márgenes, boletas, RAG, GraphRAG                   │
 │    · PIN PBKDF2 + huella (Keystore)                                          │
 │    · runtime llama.cpp para GGUF                                             │
@@ -415,8 +415,35 @@ cd /data/data/com.termux/files/home/fabrick-core
 bash scripts/compilar.sh
 ```
 
-Salida: `dist/FABRI-CORE-0.9.10.apk` (4 074 630 B) y copia en
-`/storage/emulated/0/Download/`.
+Salida: `dist/FABRI-CORE-0.9.11.apk` (4 082 822 B,
+sha256 `a1a2b9f21983eb6fe51e1c0902bb8df29499e69a9aef0a67c618e1dc13dcb38c`) y
+copia en `/storage/emulated/0/Download/`.
+
+### 9.7 Arranque y acceso (0.9.11)
+
+La APK 0.9.10 se quedaba en «LOADING CORE SYSTEM · 0 %» y, al reabrir, el login
+aparecía sin responder. La causa y las reglas para no repetirla están en
+**`docs/ARRANQUE-Y-ACCESO.md`**. Resumen:
+
+| Regla | Dónde se cumple |
+|---|---|
+| La primera pintura no espera al núcleo | `iniciar()` en `app.js`: loader primero, núcleo en el turno siguiente |
+| Ninguna llamada al puente espera más de 1,2 s | `NativeBridge.ESPERA_NUCLEO_MS` |
+| `ping` no espera nunca | `NativeBridge.necesitaNucleo()` |
+| El hilo de interfaz no llama al puente | `ColaConsola` (hilo de fondo) |
+| El loader no depende de JavaScript | animación CSS + `pointer-events: none` |
+| El acceso no depende del núcleo | PIN contra `SharedPreferences`; `usuarios` es respaldo |
+| Todo lo recuperable se recupera solo | `window.__fabriNucleoListo()` |
+
+Evidencia en el teléfono: **Menú ☰ → Diagnóstico → Bitácora de arranque**
+(`filesDir/arranque.log`, escrita por `Bitacora.java` sin pasar por el núcleo).
+A los 5 s anota `loader=`, `login=`, `delegacion=` y `nucleo=`.
+
+Pruebas nuevas:
+
+```sh
+bash tests/arranque/correr.sh
+```
 
 ---
 
@@ -449,7 +476,7 @@ Pruebas locales del APK:
 cd /data/data/com.termux/files/home/fabrick-core
 bash tests/seguridad/correr.sh            # 23/23
 bash tests/seguridad/validar-manifiestos.sh  # 23/23
-node /tmp/opencode/dom-hostil.js          # 0 roturas
+bash tests/arranque/correr.sh             # DOM hostil + carga sin bloqueo
 ```
 
 ---
@@ -462,7 +489,7 @@ node /tmp/opencode/dom-hostil.js          # 0 roturas
 - [x] Cerebro con salud, malla y puente corregido.
 - [x] Web con malla en vivo y marca exacta.
 - [x] Contrato común en las cuatro capas.
-- [x] APK 0.9.10 firmada, con login de respaldo y escáner.
+- [x] APK 0.9.11 firmada: arranque sin bloqueo, loader CSS, bitácora y login de respaldo.
 - [x] Documentación maestra (este archivo).
 
 ### 11.2 Pendiente inmediato
@@ -519,7 +546,7 @@ todo en un dispositivo de bolsillo y con auditoría.
 |---|---|
 | Creatividad | consola de operador para comercio real; local-first + nube; 17 vistas; módulos |
 | Ambición técnica | Rust/JNI/WebView/SQLite sin Gradle; llama.cpp en Android; GraphRAG; APK de 4 MB |
-| Que funcione | APK 0.9.10 firmada; 23+23 pruebas; inferencia local cableada; inventario y boletas |
+| Que funcione | APK 0.9.11 firmada; 23+23 pruebas; inferencia local cableada; inventario y boletas |
 | Build for Your World | stock, precios de proveedor, márgenes, boletas, offline, Chile |
 | Push the Frontier | agente privado en el teléfono; modelos de Meta como capacidad enchufable |
 | Producción | seguridad, auditoría, biometría, migraciones; falta release build y README |
