@@ -23,9 +23,10 @@ B="$RAIZ/build"
 DIST="$RAIZ/dist"
 NOMBRE="FABRI-CORE-0.9.12"
 
-# La versión vive en tres sitios y aapt2 la sobreescribe si no coinciden. Se
-# leen del manifiesto para que `--version-code` nunca quede atrás (un APK con
-# el mismo versionCode que el anterior NO se instala encima).
+# La versión vive en tres sitios (Cargo.toml, manifiesto y NOMBRE). aapt2 sólo
+# inyecta --version-code si el manifiesto no lo trae, pero se pasa igual para
+# que no haya dos fuentes de verdad, y al final se verifica lo que quedó DENTRO
+# del APK: si no coincide con el manifiesto, la publicación se aborta.
 VCODE=$(grep -o 'android:versionCode="[0-9]*"' android/AndroidManifest.xml | grep -o '[0-9]*')
 VNAME=$(grep -o 'android:versionName="[^"]*"' android/AndroidManifest.xml | sed 's/.*="//; s/"//')
 [ -n "$VCODE" ] && [ -n "$VNAME" ] || { echo "no pude leer la versión del manifiesto" >&2; exit 1; }

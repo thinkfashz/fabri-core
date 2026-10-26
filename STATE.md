@@ -4,8 +4,8 @@
 
 ## Sesión 2026-10-26 (10) · APK 0.9.12 + inventario en la nube + web con la misma ficha
 
-APK: `dist/FABRI-CORE-0.9.12.apk` · **4.091.014 B** ·
-sha256 `7e6e70d4f53027dde5351aaa69c1597864fb27435f9e5a67221396baf8bd3a5c`
+APK: `dist/FABRI-CORE-0.9.12.apk` · **4.095.110 B** ·
+sha256 `b14cd9d3d3fca113dab548bb8cc10f2c7c8a6785ed15bf208498e99de3f09541`
 versionCode **27** · copiada a `/storage/emulated/0/Download/FABRI-CORE-0.9.12.apk`.
 Firma debug, minSdk 24, target 34. Instalar **encima** de la 0.9.11.
 
@@ -61,7 +61,14 @@ No era el arranque (ya corregido en 0.9.11): era **la vuelta del segundo plano**
 - Probar en el teléfono: reabrir desde segundo plano y confirmar que el login responde.
 - Pegar `FABRI_API_TOKEN` en el login web (campo «clave de la nube») y subir un producto de prueba.
 - Integrar MediaPipe Barcode local (ver `docs/SEGURIDAD-Y-VISION.md` § 3).
-- Sincronizar el código real (`android/`, `src-tauri/`, `scripts/`, `runtime/`, `tests/`, `docs/`) al repo `thinkfashz/fabri-core`.
+- Confirmar que el workflow `apk-rust.yml` corre en GitHub (Actions → APK Rust).
+
+### Nota de compilación
+
+El primer APK de esta sesión (4.091.014 B, `7e6e70d4…`) se compiló **antes** de
+cambiar el sync a `/api/inventario` y llevaba el contrato viejo. Se recompiló:
+el APK bueno es **4.095.110 B**, `b14cd9d3…`, con `api/inventario` dentro
+(verificado con `unzip -p`). Código real ya sincronizado al repo en `de23c43`.
 
 ---
 

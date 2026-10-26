@@ -185,7 +185,8 @@ texto completo para pegarlo en un informe.
 - **No** retirar el loader sólo con `opacity`: hay que desactivar su animación
   y sacarlo del flujo, o reaparece al volver del segundo plano.
 - **No** tocar `--version-code` a mano en `compilar.sh`: se lee del manifiesto y
-  se verifica dentro del APK (un `versionCode` repetido no instala encima).
+  se verifica dentro del APK. Un `versionCode` repetido impide publicar en Play
+  y confunde las instalaciones encima.
 
 ## 6 · Logo del loader: el «cuadro negro» de la F
 

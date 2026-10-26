@@ -229,8 +229,8 @@ volver a consultar internet.
 | 0.9.11 | 26 | arranque sin bloqueo, loader CSS, bitácora, poda de registros |
 | **0.9.12** | **27** | retirada del loader al volver del segundo plano, `LENTO` como estado normal, ficha del producto, lector EAN propio, impresión 80/58/A4, reimpresión, sync con `/api/inventario` |
 
-`dist/FABRI-CORE-0.9.12.apk` · **4.091.014 B** ·
-sha256 `7e6e70d4f53027dde5351aaa69c1597864fb27435f9e5a67221396baf8bd3a5c`
+`dist/FABRI-CORE-0.9.12.apk` · **4.095.110 B** ·
+sha256 `b14cd9d3d3fca113dab548bb8cc10f2c7c8a6785ed15bf208498e99de3f09541`
 
 ---
 

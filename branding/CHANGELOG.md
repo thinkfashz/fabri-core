@@ -14,10 +14,11 @@ Registro de cambios del sistema de diseño y branding.
   `visibilitychange` retiran la capa sin condiciones al volver.
 - **`LENTO` se mostraba como error.** El núcleo puede tardar más de 900 ms sin
   estar roto; ahora se trata como `NUCLEO_OCUPADO` y se reintenta en silencio.
-- **El `versionCode` del APK no seguía al manifiesto.** `aapt2` lo sobreescribe
-  con el valor de `--version-code`; estaba fijo en 26 y la 0.9.12 habría salido
-  con el mismo código que la anterior (Android no instala encima). Ahora se lee
-  del manifiesto y se verifica dentro del APK antes de publicar.
+- **El `versionCode` estaba fijo en el script de compilación.** Tres sitios
+  declaraban la versión (Cargo.toml, manifiesto y el script) y podían
+  desincronizarse sin que nadie lo notara. Ahora el script la lee del manifiesto
+  y verifica, con `aapt2 dump badging`, que lo que quedó dentro del APK es
+  exactamente eso; si no coincide, aborta.
 
 ### Añadido
 - **Ficha del producto**: etiquetas «free» (sin gluten, sin azúcar, sin lactosa,
