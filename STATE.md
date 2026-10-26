@@ -1,6 +1,26 @@
 # STATE · FABRI-CORE
 
-Actualizado: 22-10-2026
+Actualizado: 26-10-2026
+
+## 2026-10-26 · Malla del ecosistema y API del teléfono
+
+- **`fabri-api` (la puerta de la APK) tenía un bug real**: `vercel.json` solo
+  enrutaba 4 endpoints. `/api/diagnostico`, `/api/modelos`, `/api/memoria` y
+  `/api/skills` devolvían **404 de Vercel** aunque el código existía. Ahora están
+  los 10, más `/api/health` y `/api/estado`.
+- **Contrato común de salud** en las cuatro capas (`health` barato + `estado` con
+  malla de un salto, tope 5 s por capa).
+- **Landing con malla en vivo** (`#malla`): negro `#050505`, lima `#C8FF00`,
+  Inter, radios 12 px.
+- **Cerebro** con `/api/health`, `/api/estado` y botón **Estado** en su interfaz;
+  `/api/bridge` ahora comprueba la voz contra `/api/health` (antes `/live`, que no
+  existía) y añade la API del teléfono.
+- **Worker** con `/api/malla`, UI de marca y sección de malla (código listo;
+  deploy pendiente de credenciales de Cloudflare).
+- Documento maestro: [`ECOSISTEMA-FABRICK.md`](./ECOSISTEMA-FABRICK.md).
+- Copia versionada de la API del teléfono: [`api-telefono/`](./api-telefono/).
+
+Verificado: 4/4 capas arriba, latencias 31–430 ms.
 
 ## Qué es
 

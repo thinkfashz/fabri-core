@@ -3,6 +3,7 @@
   "functions": {
     "api/agent.go": { "maxDuration": 30 },
     "api/health.go": { "maxDuration": 10 },
+    "api/estado/index.go": { "maxDuration": 15 },
     "api/auth/index.go": { "maxDuration": 15 },
     "api/sync/index.go": { "maxDuration": 15 }
   },

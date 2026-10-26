@@ -1,0 +1,18 @@
+{
+  "version": 2,
+  "builds": [
+    { "src": "api/*.ts", "use": "@vercel/node" }
+  ],
+  "routes": [
+    { "src": "/api/think", "dest": "/api/think.ts" },
+    { "src": "/api/sync", "dest": "/api/sync.ts" },
+    { "src": "/api/stats", "dest": "/api/stats.ts" },
+    { "src": "/api/webhook", "dest": "/api/webhook.ts" },
+    { "src": "/api/diagnostico", "dest": "/api/diagnostico.ts" },
+    { "src": "/api/modelos", "dest": "/api/modelos.ts" },
+    { "src": "/api/memoria", "dest": "/api/memoria.ts" },
+    { "src": "/api/skills", "dest": "/api/skills.ts" },
+    { "src": "/api/health", "dest": "/api/health.ts" },
+    { "src": "/api/estado", "dest": "/api/estado.ts" }
+  ]
+}

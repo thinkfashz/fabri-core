@@ -1,0 +1,25 @@
+# Despliegue de fabri-api: solo lo que la nube necesita.
+# El repo local también contiene la APK, el núcleo Rust y los assets; subir
+# 975 MB a Vercel no aporta nada y hace fallar el deploy por tamaño.
+android
+assets
+branding
+build
+componentes
+diagrams
+dist
+docs
+manifiestos
+modulos
+node_modules
+plugins
+runtime
+scripts
+src
+src-tauri
+tests
+tools
+*.md
+*.db
+*.apk
+*.gguf
