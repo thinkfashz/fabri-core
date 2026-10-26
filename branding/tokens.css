@@ -1,0 +1,342 @@
+/* ============================================================================
+   FABRI-CORE PRO — tokens.css
+   Generado a partir de branding/tokens.json (fuente canónica).
+   No editar a mano sin actualizar tokens.json.
+   ============================================================================ */
+
+:root {
+  /* ── Colores canónicos ── */
+  --fb-color-negro: #050505;
+  --fb-color-negro-mate: #0B0B0B;
+  --fb-color-lima: #C8FF00;
+  --fb-color-lima-alt: #B7FF32;
+  --fb-color-blanco: #FFFFFF;
+
+  /* ── Colores semánticos ── */
+  --fb-fondo: #050505;
+  --fb-fondo-alt: #0B0B0B;
+  --fb-superficie: #0B0B0B;
+  --fb-texto-principal: #FFFFFF;
+  --fb-texto-secundario: #B7FF32;
+  --fb-texto-sobre-lima: #050505;
+  --fb-borde: #1A1A1A;
+  --fb-sombra: rgba(0, 0, 0, 0.4);
+  --fb-estado-activo: #C8FF00;
+  --fb-estado-inactivo: #333333;
+  --fb-estado-alerta: #FF3B30;
+  --fb-estado-exito: #34C759;
+
+  /* ── Tipografía ── */
+  --fb-fuente-principal: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --fb-peso-regular: 400;
+  --fb-peso-medio: 500;
+  --fb-peso-semibold: 600;
+  --fb-peso-bold: 700;
+
+  /* ── Escalas tipográficas ── */
+  --fb-tamano-h1-escritorio: 48px;
+  --fb-tamano-h1-movil: 32px;
+  --fb-tamano-h2-escritorio: 32px;
+  --fb-tamano-h2-movil: 24px;
+  --fb-tamano-texto-normal: 16px;
+  --fb-tamano-etiqueta: 12px;
+  --fb-tamano-boton: 14px;
+
+  --fb-espaciado-letras-etiqueta: 0.08em;
+  --fb-altura-linea-cuerpo: 1.5;
+  --fb-altura-linea-titulo: 1.2;
+
+  /* ── Espaciado ── */
+  --fb-espacio-xs: 4px;
+  --fb-espacio-sm: 8px;
+  --fb-espacio-md: 16px;
+  --fb-espacio-lg: 24px;
+  --fb-espacio-xl: 32px;
+  --fb-espacio-xxl: 48px;
+
+  /* ── Radios ── */
+  --fb-radio-boton: 12px;
+  --fb-radio-input: 12px;
+  --fb-radio-tarjeta: 12px;
+  --fb-radio-modal: 12px;
+  --fb-radio-pill: 20px;
+  --fb-radio-circulo: 50%;
+
+  /* ── Sombras ── */
+  --fb-sombra-sutil: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --fb-sombra-media: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --fb-sombra-fuente: 0 0 20px rgba(200, 255, 0, 0.15);
+
+  /* ── Transiciones ── */
+  --fb-transicion-rapida: 150ms ease;
+  --fb-transicion-normal: 300ms ease;
+  --fb-transicion-lenta: 500ms ease;
+
+  /* ── Bordes ── */
+  --fb-borde-grosor: 1px;
+  --fb-borde-color: #1A1A1A;
+  --fb-borde-color-enfoque: #C8FF00;
+
+  /* ── Objetivos táctiles ── */
+  --fb-objetivo-tactil-minimo: 44px;
+  --fb-objetivo-tactil-recomendado: 48px;
+
+  /* ── Loader ── */
+  --fb-loader-duracion: 2500ms;
+  --fb-loader-fondo: #050505;
+  --fb-loader-acento: #C8FF00;
+}
+
+/* ── Modo oscuro por defecto ── */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--fb-fondo);
+  color: var(--fb-texto-principal);
+  font-family: var(--fb-fuente-principal);
+  font-size: var(--fb-tamano-texto-normal);
+  font-weight: var(--fb-peso-regular);
+  line-height: var(--fb-altura-linea-cuerpo);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Componentes base ── */
+.btn-primario {
+  background-color: var(--fb-color-lima);
+  color: var(--fb-texto-sobre-lima);
+  border: none;
+  border-radius: var(--fb-radio-boton);
+  font-family: var(--fb-fuente-principal);
+  font-size: var(--fb-tamano-boton);
+  font-weight: var(--fb-peso-medio);
+  padding: var(--fb-espacio-sm) var(--fb-espacio-md);
+  cursor: pointer;
+  transition: background-color var(--fb-transicion-rapida), transform var(--fb-transicion-rapida);
+  min-height: var(--fb-objetivo-tactil-recomendado);
+  min-width: var(--fb-objetivo-tactil-recomendado);
+}
+
+.btn-primario:hover {
+  background-color: var(--fb-color-lima-alt);
+}
+
+.btn-primario:active {
+  transform: scale(0.98);
+}
+
+.btn-primario:focus-visible {
+  outline: 2px solid var(--fb-borde-color-enfoque);
+  outline-offset: 2px;
+}
+
+.btn-secundario {
+  background-color: transparent;
+  color: var(--fb-texto-principal);
+  border: var(--fb-borde-grosor) solid var(--fb-borde-color);
+  border-radius: var(--fb-radio-boton);
+  font-family: var(--fb-fuente-principal);
+  font-size: var(--fb-tamano-boton);
+  font-weight: var(--fb-peso-medio);
+  padding: var(--fb-espacio-sm) var(--fb-espacio-md);
+  cursor: pointer;
+  transition: border-color var(--fb-transicion-rapida), background-color var(--fb-transicion-rapida);
+  min-height: var(--fb-objetivo-tactil-recomendado);
+}
+
+.btn-secundario:hover {
+  border-color: var(--fb-color-lima);
+  background-color: rgba(200, 255, 0, 0.1);
+}
+
+.btn-ghost {
+  background-color: transparent;
+  color: var(--fb-texto-principal);
+  border: none;
+  border-radius: var(--fb-radio-boton);
+  font-family: var(--fb-fuente-principal);
+  font-size: var(--fb-tamano-boton);
+  font-weight: var(--fb-peso-medio);
+  padding: var(--fb-espacio-sm) var(--fb-espacio-md);
+  cursor: pointer;
+  transition: color var(--fb-transicion-rapida);
+}
+
+.btn-ghost:hover {
+  color: var(--fb-color-lima);
+}
+
+.btn-ghost:focus-visible {
+  outline: 2px solid var(--fb-borde-color-enfoque);
+  outline-offset: 2px;
+}
+
+/* ── Tarjetas ── */
+.tarjeta {
+  background-color: var(--fb-superficie);
+  border: var(--fb-borde-grosor) solid var(--fb-borde-color);
+  border-radius: var(--fb-radio-tarjeta);
+  padding: var(--fb-espacio-md);
+  box-shadow: var(--fb-sombra-sutil);
+}
+
+.tarjeta-estadistica {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fb-espacio-xs);
+}
+
+.valor-estadistica {
+  font-size: 28px;
+  font-weight: var(--fb-peso-bold);
+  color: var(--fb-texto-principal);
+}
+
+.etiqueta-estadistica {
+  font-size: var(--fb-tamano-etiqueta);
+  text-transform: uppercase;
+  letter-spacing: var(--fb-espaciado-letras-etiqueta);
+  color: var(--fb-color-lima);
+}
+
+/* ── Campos de formulario ── */
+.input-base {
+  background-color: var(--fb-fondo-alt);
+  border: var(--fb-borde-grosor) solid var(--fb-borde-color);
+  border-radius: var(--fb-radio-input);
+  color: var(--fb-texto-principal);
+  font-family: var(--fb-fuente-principal);
+  font-size: var(--fb-tamano-texto-normal);
+  padding: var(--fb-espacio-sm) var(--fb-espacio-md);
+  transition: border-color var(--fb-transicion-rapida), box-shadow var(--fb-transicion-rapida);
+  min-height: var(--fb-objetivo-tactil-recomendado);
+  width: 100%;
+}
+
+.input-base:focus {
+  outline: none;
+  border-color: var(--fb-borde-color-enfoque);
+  box-shadow: 0 0 0 2px rgba(200, 255, 0, 0.1);
+}
+
+/* ── Barra de progreso ── */
+.barra-progreso {
+  width: 100%;
+  height: 6px;
+  background-color: var(--fb-fondo-alt);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.barra-progreso-lleno {
+  height: 100%;
+  background-color: var(--fb-color-lima);
+  border-radius: 3px;
+  transition: width var(--fb-transicion-normal);
+}
+
+/* ── Chip / etiqueta ── */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--fb-espacio-xs);
+  background-color: var(--fb-fondo-alt);
+  border: var(--fb-borde-grosor) solid var(--fb-borde-color);
+  border-radius: var(--fb-radio-pill);
+  color: var(--fb-texto-principal);
+  font-size: var(--fb-tamano-etiqueta);
+  font-weight: var(--fb-peso-medio);
+  letter-spacing: var(--fb-espaciado-letras-etiqueta);
+  padding: var(--fb-espacio-xs) var(--fb-espacio-sm);
+  text-transform: uppercase;
+}
+
+.chip.activo {
+  background-color: var(--fb-color-lima);
+  color: var(--fb-texto-sobre-lima);
+  border-color: var(--fb-color-lima);
+}
+
+/* ── Estados vacíos ── */
+.estado-vacio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--fb-espacio-xl);
+  text-align: center;
+  color: var(--fb-texto-secundario);
+}
+
+.estado-vacio-icono {
+  font-size: 48px;
+  margin-bottom: var(--fb-espacio-md);
+}
+
+/* ── Loader industrial ── */
+.loader-industrial {
+  position: fixed;
+  inset: 0;
+  background-color: var(--fb-loader-fondo);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transition: opacity var(--fb-transicion-normal);
+}
+
+.loader-industrial-oculto {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.monograma-f {
+  font-family: var(--fb-fuente-principal);
+  font-size: 96px;
+  font-weight: var(--fb-peso-bold);
+  color: var(--fb-color-lima);
+  margin-bottom: var(--fb-espacio-md);
+  animation: revelar-progresivo 1000ms ease forwards;
+}
+
+@keyframes revelar-progresivo {
+  0% { opacity: 0; transform: scale(0.8); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* ── Utilidades ── */
+.texto-centrado { text-align: center; }
+.fila { display: flex; gap: var(--fb-espacio-md); align-items: center; }
+.columna { display: flex; flex-direction: column; gap: var(--fb-espacio-md); }
+.espacio-md { margin: var(--fb-espacio-md); }
+
+/* ── Reducción de movimiento (accesibilidad) ── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ── Responsive base ── */
+@media (max-width: 768px) {
+  .valor-estadistica { font-size: 22px; }
+  .monograma-f { font-size: 64px; }
+}
+
+/* ── Marcador de versión del sistema de diseño ── */
+.fb-diseno-version::before {
+  content: "FABRI-CORE PRO Design System v1.0.0";
+  display: none;
+}

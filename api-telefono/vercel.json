@@ -13,6 +13,7 @@
     { "src": "/api/memoria", "dest": "/api/memoria.ts" },
     { "src": "/api/skills", "dest": "/api/skills.ts" },
     { "src": "/api/health", "dest": "/api/health.ts" },
-    { "src": "/api/estado", "dest": "/api/estado.ts" }
+    { "src": "/api/estado", "dest": "/api/estado.ts" },
+    { "src": "/api/inventario", "dest": "/api/inventario.ts" }
   ]
 }

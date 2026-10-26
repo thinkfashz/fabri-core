@@ -12,22 +12,34 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="stylesheet" href="./styles.css">
-<style>
-.login-gate{position:fixed;inset:0;z-index:90;background:var(--bg);display:none;align-items:center;justify-content:center;padding:18px;overflow:auto}
-.login-gate.on{display:flex}
-.login-box{width:100%;max-width:400px;background:var(--card,#101215);border:1px solid var(--bd,#22262c);border-radius:18px;padding:6px}
-</style>
 </head>
 <body>
+<!-- ══════════ CARGADOR DE ARRANQUE (mismo lenguaje que la APK) ══════════
+     Se retira solo por CSS aunque el JavaScript falle: la barra avanza con una
+     animación y la capa se desvanece a los 2,6 s. Nunca captura toques después
+     de irse (`animation:none` + `pointer-events:none`), que fue exactamente el
+     fallo del APK: el loader tapaba el login y ningún botón respondía. -->
+<div id="boot" class="boot">
+  <div class="boot-in">
+    <div class="boot-mark" aria-hidden="true"><i></i></div>
+    <p class="boot-brand">FABRI-CORE</p>
+    <p class="boot-txt" id="bootTxt">LOADING CORE SYSTEM · 0 %</p>
+    <div class="boot-bar"><i></i></div>
+    <p class="boot-sub">base local · sqlite wasm · nube opcional</p>
+  </div>
+</div>
+
 <div class="wrap">
 
   <header class="topbar">
     <div class="mark" aria-hidden="true"></div>
     <div class="brand">
       <b>FABRI-CORE</b>
-      <span id="ver">web · v1.0</span>
+      <span id="ver">web · v1.1</span>
     </div>
-    <div class="live" id="live"><i class="dot"></i><span id="liveTxt">en línea</span></div>
+    <button class="live" id="live" type="button" title="Verificación de conexión">
+      <i class="dot" id="liveDot"></i><span id="liveTxt">comprobando…</span>
+    </button>
   </header>
 
   <main>
@@ -121,6 +133,73 @@
       </div>
     </section>
 
+    <!-- ══════════════ INVENTARIO (nube · InsForge) ══════════════ -->
+    <section class="screen" id="s-inv">
+      <p class="eyebrow">Inventario</p>
+      <h1>Stock en la nube</h1>
+      <p class="sub">Lo que subas aquí queda en InsForge y la APK lo sincroniza. La ficha del producto
+        (Nutri-Score, NOVA, «sin gluten»…) viaja con él, igual que en la app.</p>
+
+      <div class="card">
+        <div class="eyebrow">Verificación de conexión</div>
+        <div class="row"><div class="grow"><div class="t">Clave de la nube</div>
+          <div class="s" id="invKeySub">sin clave: sólo lectura local</div></div>
+          <span class="badge" id="invKeyBadge">…</span></div>
+        <input class="field" id="invKey" type="password" placeholder="FABRI_API_TOKEN" style="margin-top:8px">
+        <div class="row" style="padding-top:8px"><div class="grow"><div class="t">Base de datos</div>
+          <div class="s" id="invDbSub">sin comprobar</div></div>
+          <span class="badge" id="invDbBadge">…</span></div>
+        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+          <button class="btn primary sm" id="btnInvKey">Guardar y verificar</button>
+          <button class="btn ghost sm" id="btnInvAsegurar">Crear tabla</button>
+          <button class="btn ghost sm" id="btnInvBajar">Refrescar</button>
+        </div>
+        <p class="hint" style="margin-top:8px">La clave vive en la sesión del navegador: al cerrar la
+          pestaña se olvida. Nunca se guarda en el repositorio.</p>
+      </div>
+
+      <div class="kpi-grid" id="invKpis">
+        <div class="stat"><div class="k">Productos</div><div class="v" id="invKTotal">—</div><div class="d">en InsForge</div></div>
+        <div class="stat"><div class="k">Valor venta</div><div class="v" id="invKValor">—</div><div class="d">stock × precio</div></div>
+        <div class="stat"><div class="k">Utilidad</div><div class="v" id="invKUtil">—</div><div class="d">potencial</div></div>
+        <div class="stat"><div class="k">Stock bajo</div><div class="v" id="invKBajo">—</div><div class="d">bajo el mínimo</div></div>
+      </div>
+
+      <div class="card">
+        <div class="eyebrow">Nuevo producto</div>
+        <div class="inv-form">
+          <input class="field" id="invFcodigo" inputmode="numeric" placeholder="Código de barras (EAN/UPC)">
+          <input class="field" id="invFnombre" placeholder="Nombre *">
+          <input class="field" id="invFmarca" placeholder="Marca">
+          <select class="field" id="invFcategoria">
+            <option value="abarrotes">Alimentos</option>
+            <option value="bebidas">Bebidas</option>
+            <option value="alcohol">Alcohol</option>
+            <option value="dulces">Dulces</option>
+            <option value="lacteos">Lácteos</option>
+            <option value="cosmetica">Cosmética</option>
+            <option value="limpieza">Limpieza</option>
+            <option value="congelados">Congelados</option>
+            <option value="mascotas">Mascotas</option>
+            <option value="otros">Otros</option>
+          </select>
+          <input class="field" id="invFcosto" inputmode="decimal" placeholder="Costo neto">
+          <input class="field" id="invFprecio" inputmode="decimal" placeholder="Precio venta">
+          <input class="field" id="invFstock" inputmode="numeric" placeholder="Stock">
+          <input class="field" id="invFminimo" inputmode="numeric" placeholder="Stock mínimo">
+        </div>
+        <div class="chips" id="invFreeChips"></div>
+        <button class="btn primary block" id="btnInvSubir" style="margin-top:4px">Subir a InsForge</button>
+        <p class="hint" id="invSubirEstado" style="margin-top:8px"></p>
+      </div>
+
+      <div class="card">
+        <div class="eyebrow">Productos en la nube</div>
+        <input class="field" id="invFiltro" placeholder="Filtrar por nombre, marca o código">
+        <div id="invLista" style="margin-top:10px"></div>
+      </div>
+    </section>
+
     <section class="screen" id="s-datos"><div id="pro-datos"></div></section>
     <section class="screen" id="s-ia"><div id="pro-ia"></div></section>
     <section class="screen" id="s-hoja"><div id="pro-hoja"></div></section>
@@ -133,6 +212,7 @@
       <button data-go="chat"><svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-8 8H8l-4 2 1.5-4.5A8 8 0 1 1 21 12Z"/></svg><span>Chat</span></button>
       <button data-go="sql"><svg viewBox="0 0 24 24"><path d="m4 6 8 4 8-4-8-4-8 4Z"/><path d="m4 12 8 4 8-4"/><path d="m4 18 8 4 8-4"/></svg><span>SQL</span></button>
       <button data-go="mem"><svg viewBox="0 0 24 24"><path d="M12 3a4 4 0 0 0-4 4v1a4 4 0 0 0 0 8v1a4 4 0 0 0 8 0v-1a4 4 0 0 0 0-8V7a4 4 0 0 0-4-4Z"/></svg><span>Memoria</span></button>
+      <button data-go="inv"><svg viewBox="0 0 24 24"><path d="M3 7.5 12 3l9 4.5v9L12 21l-9-4.5v-9Z"/><path d="M3 7.5 12 12l9-4.5M12 12v9"/></svg><span>Stock</span></button>
       <button data-go="flow"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="2.5"/><circle cx="19" cy="6" r="2.5"/><circle cx="19" cy="18" r="2.5"/><path d="M7.5 12h4a3 3 0 0 0 3-3V8.5"/><path d="M7.5 12h4a3 3 0 0 1 3 3v.5"/></svg><span>Flujos</span></button>
       <button data-go="datos"><svg viewBox="0 0 24 24"><path d="M4 19V9m5 10V5m5 14v-7m5 7V8"/></svg><span>Datos</span></button>
       <button data-go="ia"><svg viewBox="0 0 24 24"><path d="M12 3v3m0 12v3M3 12h3m12 0h3"/><circle cx="12" cy="12" r="3.6"/></svg><span>IA</span></button>

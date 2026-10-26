@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300" width="300" height="300" role="img" aria-label="FABRI-CORE PRO">
+  <defs>
+    <linearGradient id="lima" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#E2FF66"/>
+      <stop offset="0.5" stop-color="#C8FF00"/>
+      <stop offset="1" stop-color="#93C700"/>
+    </linearGradient>
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="7" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="glowSuave" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="20" result="b2"/>
+      <feMerge><feMergeNode in="b2"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- La F es UNA sola silueta verde: barra superior + asta + brazo unido.
+       Antes el brazo estaba separado del asta y el hueco se rellenaba con un
+       rectángulo #050505, que sobre el halo verde se veía como un cuadro negro
+       distinto al fondo. Ya no hay ningún relleno oscuro ni máscara: el brazo
+       nace en el asta (x=88) y la letra queda limpia. -->
+
+  <!-- Halo amplio -->
+  <g fill="#C8FF00" opacity="0.30" filter="url(#glowSuave)">
+    <path d="M20 12 H280 L210 95 H88 V285 H20 Z"/>
+    <path d="M88 135 H210 L180 195 H88 Z"/>
+  </g>
+
+  <!-- Trazo principal con glow contenido -->
+  <g fill="url(#lima)" filter="url(#glow)">
+    <path d="M20 12 H280 L210 95 H88 V285 H20 Z"/>
+    <path d="M88 135 H210 L180 195 H88 Z"/>
+  </g>
+</svg>

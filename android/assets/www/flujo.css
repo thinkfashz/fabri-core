@@ -1,0 +1,254 @@
+/* ==========================================================================
+   FABRI-CORE · Flujo en tiempo real
+   --------------------------------------------------------------------------
+   Un mapa vertical del pipeline real (núcleo → SQLite → inventario → IA →
+   nube → Termux) con el estado que devuelve el núcleo en cada refresco.
+   Sin estado inventado: si un nodo no se puede comprobar, se dice.
+   ========================================================================== */
+
+#v-flujo.activa { display: block; }
+
+.flujo-cab {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.flujo-auto {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  border: 1px solid var(--borde);
+  border-radius: 999px;
+  font-size: 11px;
+  color: var(--texto-3);
+  cursor: pointer;
+}
+.flujo-auto input { accent-color: var(--acento); width: 14px; height: 14px; }
+
+/* ---------- resumen superior ---------- */
+.flujo-resumen {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
+  gap: 8px;
+  margin: 4px 0 16px;
+}
+.flujo-kpi {
+  padding: 10px 12px;
+  border: 1px solid var(--borde);
+  border-radius: 11px;
+  background: var(--card);
+}
+.flujo-kpi span {
+  display: block;
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--texto-3);
+}
+.flujo-kpi strong {
+  display: block;
+  margin-top: 2px;
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
+.flujo-kpi.ok strong { color: var(--ok); }
+.flujo-kpi.alerta strong { color: var(--alerta); }
+.flujo-kpi.error strong { color: var(--error); }
+
+/* ---------- mapa de nodos ---------- */
+.flujo-mapa {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-bottom: 20px;
+}
+.flujo-nodo {
+  position: relative;
+  display: grid;
+  grid-template-columns: 34px 1fr auto;
+  align-items: center;
+  gap: 11px;
+  padding: 12px 13px;
+  border: 1px solid var(--borde);
+  border-radius: 12px;
+  background: var(--card);
+  transition: border-color 160ms ease;
+}
+.flujo-nodo + .flujo-nodo { margin-top: 18px; }
+.flujo-nodo::before {
+  /* conector hacia el nodo anterior */
+  content: "";
+  position: absolute;
+  left: 29px;
+  top: -18px;
+  width: 2px;
+  height: 18px;
+  background: var(--borde-fuerte);
+  border-radius: 2px;
+}
+.flujo-nodo:first-child::before { display: none; }
+.flujo-nodo[data-estado="ok"]::before,
+.flujo-nodo[data-estado="activo"]::before {
+  background: linear-gradient(180deg, rgba(200,255,0,0.15), rgba(200,255,0,0.75));
+  background-size: 100% 200%;
+  animation: flujoPulso 1.8s linear infinite;
+}
+@keyframes flujoPulso {
+  from { background-position: 0 -100%; }
+  to   { background-position: 0 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .flujo-nodo[data-estado="ok"]::before,
+  .flujo-nodo[data-estado="activo"]::before { animation: none; background: var(--acento); }
+}
+
+.flujo-icono {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid var(--borde);
+  background: var(--hundido);
+  font-size: 15px;
+  color: var(--texto-3);
+}
+.flujo-nodo[data-estado="ok"] .flujo-icono { color: var(--acento); border-color: rgba(200,255,0,0.3); background: var(--acento-suave); }
+.flujo-nodo[data-estado="aviso"] .flujo-icono { color: var(--alerta); border-color: rgba(251,191,36,0.3); background: rgba(251,191,36,0.08); }
+.flujo-nodo[data-estado="error"] .flujo-icono { color: var(--error); border-color: rgba(248,113,113,0.3); background: rgba(248,113,113,0.08); }
+
+.flujo-texto { min-width: 0; }
+.flujo-texto h4 { margin: 0; font-size: 13.5px; letter-spacing: -0.01em; }
+.flujo-texto p {
+  margin: 2px 0 0;
+  font-size: 11.5px;
+  color: var(--texto-3);
+  overflow-wrap: anywhere;
+}
+.flujo-chip {
+  flex: 0 0 auto;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--borde);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: var(--texto-3);
+  white-space: nowrap;
+}
+.flujo-nodo[data-estado="ok"] .flujo-chip { color: var(--acento); border-color: rgba(200,255,0,0.35); }
+.flujo-nodo[data-estado="aviso"] .flujo-chip { color: var(--alerta); border-color: rgba(251,191,36,0.35); }
+.flujo-nodo[data-estado="error"] .flujo-chip { color: var(--error); border-color: rgba(248,113,113,0.35); }
+.flujo-nodo[data-estado="inactivo"] { opacity: 0.62; }
+
+/* ---------- secciones ---------- */
+.flujo-seccion {
+  margin-bottom: 18px;
+  padding: 14px;
+  border: 1px solid var(--borde);
+  border-radius: 12px;
+  background: var(--card);
+}
+.flujo-seccion-cab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.flujo-seccion-cab h3 { margin: 0; font-size: 14px; }
+.flujo-seccion-cab .nota { margin: 0; font-size: 10.5px; }
+
+/* ---------- fallos ---------- */
+.flujo-fallos { display: grid; gap: 7px; }
+.flujo-fallo {
+  padding: 9px 11px;
+  border-left: 2px solid var(--borde-fuerte);
+  border-radius: 0 9px 9px 0;
+  background: var(--hundido);
+  font-size: 12px;
+}
+.flujo-fallo.error { border-left-color: var(--error); }
+.flujo-fallo.aviso { border-left-color: var(--alerta); }
+.flujo-fallo-cab {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 10px;
+  color: var(--texto-3);
+  margin-bottom: 3px;
+}
+.flujo-fallo-msg { color: var(--texto); line-height: 1.45; overflow-wrap: anywhere; }
+.flujo-fallo-det {
+  margin-top: 3px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--texto-3);
+  overflow-wrap: anywhere;
+}
+.flujo-vacio {
+  padding: 14px;
+  border: 1px dashed var(--borde);
+  border-radius: 10px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--texto-3);
+}
+
+/* ---------- terminal ---------- */
+.flujo-term {
+  min-height: 120px;
+  max-height: 280px;
+  overflow-y: auto;
+  padding: 10px 11px;
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+  background: #080808;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: #cfcfcf;
+  margin-bottom: 8px;
+  scrollbar-width: thin;
+}
+.flujo-term .t-cmd { color: var(--acento); }
+.flujo-term .t-ok { color: var(--ok); }
+.flujo-term .t-error { color: var(--error); }
+.flujo-term .t-meta { color: #6f6f6f; }
+.flujo-term .t-bloque { margin: 0 0 10px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.flujo-term .t-salida { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.flujo-cmd {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 6px 6px 10px;
+  border: 1px solid var(--borde-fuerte);
+  border-radius: 11px;
+  background: #0b0b0b;
+}
+.flujo-cmd:focus-within { border-color: rgba(200,255,0,0.4); }
+.flujo-prompt { font-family: var(--mono); font-size: 12px; color: var(--acento); flex: 0 0 auto; }
+.flujo-cmd input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--texto);
+  font-family: var(--mono);
+  font-size: 12.5px;
+  padding: 6px 0;
+}
+.flujo-cmd input::placeholder { color: #5c5c5c; }
+.flujo-cmd .btn { flex: 0 0 auto; padding: 7px 12px; font-size: 12px; }
+
+.flujo-atajos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}

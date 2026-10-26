@@ -44,6 +44,7 @@ para cuando el teléfono tiene red.
 │    https://fabri-api.vercel.app          Vercel · Node · Postgres (InsForge) │
 │    /api/think  /api/sync  /api/stats  /api/diagnostico  /api/modelos         │
 │    /api/memoria  /api/skills  /api/webhook  /api/health  /api/estado         │
+│    /api/inventario   (inventario compartido con la APK y la web)             │
 └───────────────┬──────────────────────────────────────────────────────────────┘
                 │ health + estado
                 ▼
@@ -211,6 +212,23 @@ APK → Conexiones (URL + FABRI_API_TOKEN)
 
 Si no hay red o no hay token, la APK **no simula**: responde con el error exacto y
 ofrece el modo local (GGUF cargado en el dispositivo).
+
+### 5.1b Inventario desde la web (misma tabla que la APK)
+
+```
+Web (fabri-core-web/app) → login con clave de nube (sessionStorage)
+    → POST https://fabri-api.vercel.app/api/inventario
+       { accion: "subir", productos: [ … ] }
+    → Postgres (InsForge): tabla inv_productos, upsert por `codigo`
+    → la APK sube lo suyo con el mismo contrato y recibe lo que bajó
+```
+
+- `asegurar` es la única acción sin token: `CREATE TABLE IF NOT EXISTS` con
+  columnas fijas, idempotente y sin datos del cliente.
+- `subir`, `bajar` y `resumen` exigen `Authorization: Bearer FABRI_API_TOKEN`.
+- La ficha del producto (etiquetas «free», alérgenos, Nutri-Score, NOVA) viaja
+  en una columna `ficha JSONB`; en la APK es `ficha TEXT` (JSON).
+- Diagnóstico público de la base: `GET /api/inventario?diag=1` → `tabla_existe`.
 
 ### 5.2 Voz
 

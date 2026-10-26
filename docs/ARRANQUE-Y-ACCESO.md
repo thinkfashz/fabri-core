@@ -54,9 +54,11 @@ Estas son invariantes del proyecto. **Si un cambio las rompe, el fallo vuelve.**
 
 1. **La primera pintura no espera al núcleo.** `iniciar()` anima el loader, lo
    retira y recién en el siguiente turno (`setTimeout(..., 40)`) toca el núcleo.
-2. **Ninguna llamada al puente espera más de 1,2 s.** `NativeBridge.call()`
-   espera como máximo `ESPERA_NUCLEO_MS`; si el núcleo no está, devuelve
-   `{"ok":false,"codigo":"NUCLEO_OCUPADO"}` en vez de bloquear.
+2. **Ninguna llamada al puente espera más de 900 ms.** `NativeBridge.call()`
+   espera como máximo `TOPE_MS`; si el núcleo no está, devuelve
+   `{"ok":false,"codigo":"NUCLEO_OCUPADO","reintentar":true}` en vez de bloquear.
+   Sólo las operaciones pesadas que el usuario pidió (exportar, sync, respaldo)
+   usan `TOPE_PESADA_MS` = 20 s. `LENTO` es un estado normal, no un error.
 3. **`ping` no espera nunca.** No necesita SQLite: responde desde la primera
    instrucción de Rust.
 4. **Los registros (`log.append`, `revision.registrar`) no esperan ni fallan.**
@@ -78,6 +80,14 @@ Estas son invariantes del proyecto. **Si un cambio las rompe, el fallo vuelve.**
 9. **Todo lo que se puede recuperar, se recupera solo.** Cuando el núcleo
    termina, `NativeBridge` evalúa `window.__fabriNucleoListo()`, que repinta el
    arranque, refresca el chat y vuelve a decidir la pantalla de acceso.
+10. **Al volver del segundo plano el loader se retira sin condiciones.**
+    `pageshow` (con `persisted`) y `visibilitychange` llaman a `alVolver()`, que
+    oculta la capa, la saca del flujo (`display:none`) y rearma el arranque.
+    Android pausa las animaciones CSS: la de salida no se completa y la capa
+    sigue encima del login capturando toques.
+11. **`.loader-oculto` desactiva la animación.** `animation: none` +
+    `visibility: hidden` + `pointer-events: none`. Sin `animation: none`, la
+    animación `loader-salida` **vuelve a pintar** la capa al retirar la clase.
 
 ## 3 · Arquitectura del arranque (0.9.11)
 
@@ -172,6 +182,10 @@ texto completo para pegarlo en un informe.
 - **No** subir `ESPERA_NUCLEO_MS` por encima de ~1,5 s.
 - **No** hacer que el loader dependa de `setTimeout` para desaparecer.
 - **No** poner un elemento opaco encima del login (el loader ya no lo es).
+- **No** retirar el loader sólo con `opacity`: hay que desactivar su animación
+  y sacarlo del flujo, o reaparece al volver del segundo plano.
+- **No** tocar `--version-code` a mano en `compilar.sh`: se lee del manifiesto y
+  se verifica dentro del APK (un `versionCode` repetido no instala encima).
 
 ## 6 · Logo del loader: el «cuadro negro» de la F
 
@@ -189,4 +203,5 @@ máscara**. Aplica a `logo-loader.svg` (pantalla de carga) y `logo-f.svg`
 | Versión | versionCode | Cambio |
 |---|---|---|
 | 0.9.10 | 25 | `al()` contra ids ausentes, respaldo del login, tarjeta del operador |
-| **0.9.11** | **26** | Arranque sin bloqueo, loader CSS, bitácora, F sólida, poda de registros |
+| 0.9.11 | 26 | Arranque sin bloqueo, loader CSS, bitácora, F sólida, poda de registros |
+| **0.9.12** | **27** | Loader retirado al volver del segundo plano, `LENTO` como estado normal, ficha del producto, lector EAN propio, impresión 80/58/A4, sync `/api/inventario` |

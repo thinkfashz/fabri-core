@@ -165,3 +165,79 @@ tr:last-child td{border-bottom:0}
 .hint{font-size:11.5px;color:var(--tx3);line-height:1.55}
 .sep{height:1px;background:var(--bd);margin:14px 0}
 .empty{text-align:center;color:var(--tx3);padding:26px 12px;font-size:13px}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   CARGADOR DE ARRANQUE · misma ficha que la APK
+   --------------------------------------------------------------------------
+   Regla que costó una APK entera: la capa de carga NO puede sobrevivir a su
+   propia salida. Aquí la retirada es doble:
+     · la barra avanza por animación CSS (no depende del hilo de JavaScript);
+     · a los 2,6 s una animación de opacidad la apaga;
+     · y `.boot.gone` fuerza `animation:none` + `visibility:hidden`.
+   Sin ese último punto, la animación de salida vuelve a pintar la capa y se
+   come todos los toques del login.
+   ══════════════════════════════════════════════════════════════════════════ */
+.boot{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;
+  background:var(--bg);padding:28px;transition:opacity .28s ease;
+  animation:boot-salida .38s ease 2.6s forwards}
+.boot.gone{opacity:0;pointer-events:none;animation:none;visibility:hidden;
+  transition:opacity .2s ease,visibility 0s linear .2s}
+@keyframes boot-salida{from{opacity:1}to{opacity:0}}
+.boot-in{width:100%;max-width:340px;display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center}
+.boot-mark{width:52px;height:52px;border-radius:15px;background:var(--accent);position:relative;
+  box-shadow:0 0 0 1px rgba(200,245,66,.22),0 18px 50px -18px rgba(200,245,66,.75);
+  animation:boot-latido 2.2s ease-in-out infinite}
+.boot-mark::after{content:"";position:absolute;inset:15px;border-radius:5px;background:var(--bg)}
+.boot-mark::before{content:"";position:absolute;inset:22px;border-radius:2px;background:var(--accent)}
+@keyframes boot-latido{0%,100%{transform:scale(1)}50%{transform:scale(1.045)}}
+.boot-brand{margin:0;font-family:var(--cond);font-size:13px;font-weight:700;letter-spacing:.42em;
+  text-transform:uppercase;color:var(--tx)}
+.boot-txt{margin:0;font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;color:var(--tx3);
+  text-transform:uppercase;font-variant-numeric:tabular-nums}
+.boot-bar{width:100%;height:2px;background:var(--sunken);border-radius:var(--r-pill);overflow:hidden}
+.boot-bar i{display:block;height:100%;width:0;background:var(--accent);
+  box-shadow:0 0 12px rgba(200,245,66,.8);animation:boot-barra 2.4s cubic-bezier(.2,.7,.2,1) forwards}
+@keyframes boot-barra{0%{width:0}18%{width:7%}44%{width:38%}72%{width:74%}100%{width:100%}}
+.boot-sub{margin:0;font-size:10.5px;letter-spacing:.06em;color:var(--tx4);text-transform:uppercase}
+
+/* ── verificación de conexión (cabecera) ───────────────────────────────── */
+button.live{background:transparent;border:0;padding:6px 2px;cursor:pointer;font:inherit}
+button.live:active{transform:scale(.97)}
+button.live .dot.warn{background:var(--warn);box-shadow:0 0 0 3px rgba(255,176,32,.14);animation:none}
+
+/* ── login con ficha de marca ──────────────────────────────────────────── */
+.login-gate{position:fixed;inset:0;z-index:90;background:
+  radial-gradient(circle at 50% 0%,rgba(200,245,66,.07) 0%,transparent 55%),var(--bg);
+  display:none;align-items:center;justify-content:center;padding:20px;overflow:auto}
+.login-gate.on{display:flex}
+.login-box{width:100%;max-width:400px;background:var(--card);border:1px solid var(--bd);
+  border-radius:var(--r-xl);padding:24px 20px;
+  box-shadow:0 40px 90px -50px rgba(0,0,0,.9)}
+.login-head{display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:20px;text-align:center}
+.login-head .mark{width:44px;height:44px;border-radius:13px}
+.login-head .mark::after{inset:13px}
+.login-head .mark::before{inset:19px}
+.login-head b{font-family:var(--cond);font-size:13px;font-weight:700;letter-spacing:.34em;
+  text-transform:uppercase}
+.login-box h2{font-size:21px;margin:0 0 4px;text-align:center;letter-spacing:-.015em}
+.login-box .hint{text-align:center;margin:0 0 16px}
+.login-box .field{margin-bottom:9px}
+.login-box .btn{width:100%;margin-top:4px}
+.login-pie{margin-top:14px;padding-top:12px;border-top:1px solid var(--bd);display:flex;
+  align-items:center;justify-content:space-between;gap:8px;font-size:10.5px;color:var(--tx4);
+  text-transform:uppercase;letter-spacing:.07em}
+.login-pie .badge{font-size:9.5px}
+
+/* ── inventario web ────────────────────────────────────────────────────── */
+.inv-form{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+.inv-form .field{font-size:13.5px;padding:10px 12px}
+.inv-form .ancho{grid-column:1 / -1}
+@media(max-width:380px){.inv-form{grid-template-columns:1fr}}
+.inv-item{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--bd)}
+.inv-item:last-child{border-bottom:0}
+.inv-item .grow{flex:1;min-width:0}
+.inv-item .t{font-size:13.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.inv-item .s{font-size:11px;color:var(--tx3);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.inv-item .v{font-family:var(--mono);font-size:12.5px;font-weight:700;font-variant-numeric:tabular-nums;text-align:right}
+.inv-item .v small{display:block;font-size:10px;font-weight:600;color:var(--tx3)}
+.inv-item .v.bajo{color:var(--warn)}

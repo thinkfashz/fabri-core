@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300" width="300" height="300" role="img" aria-label="FABRI-CORE">
+  <defs>
+    <linearGradient id="lima" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#D6FF3D"/>
+      <stop offset="0.55" stop-color="#C8FF00"/>
+      <stop offset="1" stop-color="#9FD400"/>
+    </linearGradient>
+    <filter id="glowSuave" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="14" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Silueta sólida, sin hueco ni relleno oscuro (ver logo-loader.svg). -->
+  <g fill="#C8FF00" opacity="0.28" filter="url(#glowSuave)">
+    <path d="M20 12 H280 L210 95 H88 V285 H20 Z"/>
+    <path d="M88 135 H210 L180 195 H88 Z"/>
+  </g>
+
+  <g fill="url(#lima)">
+    <path d="M20 12 H280 L210 95 H88 V285 H20 Z"/>
+    <path d="M88 135 H210 L180 195 H88 Z"/>
+  </g>
+</svg>

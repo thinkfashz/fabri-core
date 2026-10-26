@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="fabrick_bg">#08090A</color>
+    <color name="fabrick_card">#101215</color>
+    <color name="fabrick_accent">#C8F542</color>
+    <color name="ic_launcher_background">#050505</color>
+</resources>

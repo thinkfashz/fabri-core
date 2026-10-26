@@ -1,0 +1,1526 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>FABRI-CORE</title>
+  <link rel="stylesheet" href="app.css" />
+  <link rel="stylesheet" href="inventario.css" />
+  <link rel="stylesheet" href="flujo.css" />
+</head>
+<body>
+  <!-- ===================== ACCESO · HUELLA + PIN ===================== -->
+  <div class="login-fabrick" id="loginFabrick" role="dialog" aria-modal="true" aria-label="Acceso a FABRI-CORE">
+    <div class="login-malla" aria-hidden="true"></div>
+    <div class="login-caja">
+      <p class="login-marca">FABRI-CORE PRO</p>
+
+      <article class="id-card login-id" id="loginIdCard">
+        <div class="scan-line" aria-hidden="true"></div>
+        <div class="id-cab">
+          <span class="id-et">OPERADOR</span>
+          <span class="id-grado">G1.</span>
+        </div>
+        <div class="id-cuerpo">
+          <div class="photo-wrap" id="loginPhotoWrap" role="button" tabindex="0"
+               aria-label="Foto del operador. Toca para cambiarla."
+               title="Toca para cambiar la foto">
+            <span class="corner tl"></span><span class="corner tr"></span>
+            <span class="corner bl"></span><span class="corner br"></span>
+            <svg class="malla-rostro" id="loginMalla" viewBox="0 0 100 100"
+                 preserveAspectRatio="none" aria-hidden="true"></svg>
+            <img id="loginFoto" src="logo-loader.svg" alt="Foto del operador" />
+            <span class="scan-fino" aria-hidden="true"></span>
+            <span class="scan-banda" aria-hidden="true"></span>
+            <span class="bio" id="loginBio">FACE_ID · LOCAL</span>
+          </div>
+          <div class="id-datos">
+            <span class="id-et">CALL SIGN</span>
+            <strong id="loginIndicativo">FC-OPERATOR</strong>
+            <span class="id-et">TITLE</span>
+            <strong id="loginNombre">CORE MODULE</strong>
+          </div>
+          <div class="seal"><b>FC.</b></div>
+        </div>
+        <!-- Código de barras real: las barras y el número los genera app.js a
+             partir de los datos del operador. El fondo CSS es el respaldo si
+             el JavaScript no llega a ejecutarse. -->
+        <div class="barcode-full" id="loginBarcodeCaja" aria-hidden="true">
+          <svg class="barcode-svg" id="loginBarcode" viewBox="0 0 200 30"
+               preserveAspectRatio="none"></svg>
+          <span class="barcode-num" id="loginCodigo">FC 0000 0000 00</span>
+        </div>
+      </article>
+
+      <div class="login-panel" id="loginSetup" hidden>
+        <p class="login-ayuda">Primera vez. Crea un PIN de 4 a 6 dígitos: es el respaldo si la huella falla o cambia.</p>
+        <input class="login-input" id="loginPinNuevo" type="password" inputmode="numeric" maxlength="6" placeholder="Nuevo PIN" autocomplete="new-password" />
+        <input class="login-input" id="loginPinNuevo2" type="password" inputmode="numeric" maxlength="6" placeholder="Repite el PIN" autocomplete="new-password" />
+        <button class="btn btn-primario btn-l" id="btnLoginCrear" type="button">Crear PIN y entrar</button>
+      </div>
+
+      <!-- Sin `hidden`: la casilla del PIN debe existir aunque el JavaScript
+           no llegue a ejecutarse. Si hay que crear el PIN, app.js cambia a
+           #loginSetup. Un fallo de arranque ya no deja la pantalla vacía. -->
+      <div class="login-panel" id="loginEntrar">
+        <button class="btn btn-primario btn-l btn-huella" id="btnLoginHuella" type="button" hidden>
+          <span class="huella-icono" aria-hidden="true">◉</span> Acceder con huella
+        </button>
+        <div class="login-sep" id="loginSep" hidden><span>o usa tu PIN</span></div>
+        <input class="login-input" id="loginPin" type="password" inputmode="numeric" maxlength="6" placeholder="PIN de acceso" autocomplete="current-password" />
+        <button class="btn btn-l" id="btnLoginPin" type="button">Entrar con PIN</button>
+      </div>
+
+      <p class="login-estado" id="loginEstado" role="status">Comprobando acceso…</p>
+      <p class="login-pista">Toca la foto del operador para cambiarla.</p>
+      <!-- Sin `hidden`: la activación de huella debe ofrecerse desde el
+           arranque. app.js la oculta sólo si la huella ya está activada. -->
+      <div class="login-pie">
+        <button class="btn btn-mini btn-huella-mini" id="btnLoginActivar" type="button">Activar huella al iniciar</button>
+        <button class="btn btn-mini" id="btnLoginBorrar" type="button">Restablecer acceso</button>
+        <button class="btn btn-mini btn-texto" id="btnLoginSaltar" type="button">Modo diagnóstico</button>
+      </div>
+      <input type="file" id="loginFotoArchivo" accept="image/*" hidden />
+    </div>
+  </div>
+
+  <!-- ===================== BARRA SUPERIOR ===================== -->
+  <header class="topbar">
+    <div class="marca">
+      <span class="logo"><img src="logo-f.svg" alt="" /></span>
+      <div>
+        <h1>FABRI-CORE</h1>
+        <p id="subtitulo">contenedor modular</p>
+      </div>
+    </div>
+    <div class="topbar-acciones">
+      <span id="pilotoNucleo" class="pill pill-espera">iniciando…</span>
+      <button class="btn btn-icono" id="btnMenu" aria-label="Abrir menú" aria-controls="drawer">☰</button>
+    </div>
+  </header>
+
+  <!-- ===================== MENÚ LATERAL ===================== -->
+  <div class="drawer-fondo" id="drawerFondo" hidden></div>
+  <aside class="drawer" id="drawer" hidden aria-label="Menú lateral">
+    <header class="drawer-cab">
+      <div>
+        <p class="etiqueta">FABRI-CORE</p>
+        <h2>Menú</h2>
+      </div>
+      <button class="btn btn-icono" id="drawerCerrar" aria-label="Cerrar menú">✕</button>
+    </header>
+
+    <p class="drawer-titulo">Principal</p>
+    <nav class="drawer-nav">
+      <button class="nav-drawer" data-vista="inicio"><span>◉</span>Inicio</button>
+      <button class="nav-drawer" data-vista="chat"><span>✦</span>Chat</button>
+      <button class="nav-drawer" data-vista="inventario"><span>▦</span>Inventario</button>
+      <button class="nav-drawer" data-vista="flujo"><span>⇄</span>Flujo en tiempo real</button>
+      <button class="nav-drawer" data-vista="modulos"><span>⬡</span>Módulos</button>
+      <button class="nav-drawer" data-vista="consola"><span>▸</span>Consola</button>
+      <button class="nav-drawer" data-vista="revision"><span>◎</span>Revisión y pruebas</button>
+      <button class="nav-drawer" data-vista="diag"><span>◍</span>Diagnóstico</button>
+    </nav>
+
+    <p class="drawer-titulo">Herramientas</p>
+    <nav class="drawer-nav">
+      <button class="nav-drawer" data-vista="componentes"><span>▣</span>Componentes</button>
+      <button class="nav-drawer" data-vista="modelos"><span>◈</span>Modelos</button>
+      <button class="nav-drawer" data-vista="sql"><span>▤</span>Base de datos</button>
+      <button class="nav-drawer" data-vista="conexiones"><span>⚿</span>Conexiones</button>
+      <button class="nav-drawer" data-vista="termux"><span>⌘</span>Termux y biblioteca</button>
+      <button class="nav-drawer" data-vista="error"><span>✕</span>Error / Informe</button>
+      <button class="nav-drawer" data-vista="integracion"><span>⚿</span>Integración</button>
+<button class="nav-drawer" data-vista="repo"><span>◧</span>Repositorio</button>
+    </nav>
+
+    <p class="drawer-titulo">Por construir <span id="drawerCuenta" class="chip-mini">0</span></p>
+    <div id="drawerPaginas" class="drawer-paginas">
+      <p class="nota">Cargando páginas…</p>
+    </div>
+    <p class="nota">Cada página es un módulo <code>tipo: pagina</code>. Se puede importar o descargar sin ejecutar código; sólo aporta texto e instrucciones.</p>
+  </aside>
+
+  <!-- ===================== VISTAS ===================== -->
+  <main id="vistas">
+
+    <!-- ---------- INICIO ---------- -->
+    <section class="vista activa" id="v-inicio">
+      <div class="hero">
+        <div class="logo-wrapper">
+          <img src="logo-f.svg" alt="FABRI-CORE monograma F" />
+        </div>
+        <p class="etiqueta">ESTADO DEL SISTEMA</p>
+        <h2 id="heroTitulo">Verificando…</h2>
+        <p id="heroTexto" class="hero-texto">Conectando con el núcleo Rust y SQLite.</p>
+        <div class="hero-datos" id="heroDatos"></div>
+      </div>
+
+      <!-- ---------- KPIs principales ---------- -->
+      <div class="grid-kpi">
+        <article class="kpi kpi-disco">
+          <span class="kpi-et">Disco</span>
+          <strong id="kpiDisco">—</strong>
+          <small id="kpiDiscoSub">—</small>
+        </article>
+        <article class="kpi kpi-ram">
+          <span class="kpi-et">RAM</span>
+          <strong id="kpiRam">—</strong>
+          <small id="kpiRamSub">—</small>
+        </article>
+        <article class="kpi kpi-tokens-local">
+          <span class="kpi-et">Tokens IA local</span>
+          <strong id="kpiTokensLocal">—</strong>
+          <small>esta sesión</small>
+        </article>
+        <article class="kpi kpi-tokens-api">
+          <span class="kpi-et">Tokens API remota</span>
+          <strong id="kpiTokensApi">—</strong>
+          <small>esta sesión</small>
+        </article>
+        <article class="kpi kpi-modelo">
+          <span class="kpi-et">Modelo IA</span>
+          <strong id="kpiModelo">—</strong>
+          <small id="kpiModeloSub">sin cargar</small>
+        </article>
+        <article class="kpi kpi-salud">
+          <span class="kpi-et">Salud global</span>
+          <strong id="kpiSalud">—</strong>
+          <small id="kpiSaludSub">verificando…</small>
+        </article>
+      </div>
+
+      <!-- ---------- Verificador global ---------- -->
+      <div class="bloque bloque-verificador">
+        <div class="bloque-cab">
+          <h3>Verificador global · todo en tiempo real</h3>
+          <button class="btn btn-mini" id="btnVerificarGlobal">Reverificar todo</button>
+        </div>
+        <div class="verificador-grid" id="verificadorGrid">
+          <!-- se pinta por JS -->
+        </div>
+        <div class="barra-progreso-cont" id="barraProgresoCont" hidden>
+          <div class="barra-progreso-label">Verificando <span id="barraProgresoTexto">componentes…</span></div>
+          <div class="barra-progreso">
+            <div class="barra-progreso-fill" id="barraProgresoFill" style="width:0%"></div>
+          </div>
+          <span class="barra-progreso-pct" id="barraProgresoPct">0%</span>
+        </div>
+      </div>
+
+      <!-- ---------- Detalles del dispositivo ---------- -->
+      <div class="bloque bloque-dispositivo">
+        <div class="bloque-cab">
+          <h3>Detalles del dispositivo</h3>
+        </div>
+        <div class="tabla-dispositivo" id="tablaDispositivo">
+          <!-- se pinta por JS -->
+        </div>
+      </div>
+
+      <!-- ---------- Modelos: comparación y selector ---------- -->
+      <div class="bloque bloque-modelos">
+        <div class="bloque-cab">
+          <h3>Modelos locales · descargar y ejecutar</h3>
+        </div>
+        <div class="modelos-controles">
+          <button class="btn btn-primario" id="btnModelosRecomendados">Ver recomendados para este dispositivo</button>
+          <button class="btn" id="btnEscanearModelosInicio">Escanear modelos instalados</button>
+        </div>
+        <div class="modelos-lista" id="modelosLista">
+          <!-- se pinta por JS -->
+        </div>
+        <div class="modelos-benchmark" id="modelosBenchmark" hidden>
+          <h4>Benchmark de servicio y funcionamiento</h4>
+          <div class="tabla-scroll" id="tablaBenchmark">
+            <!-- se pinta por JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- ---------- Acciones rápidas ---------- -->
+      <div class="bloque">
+        <h3>Acciones rápidas</h3>
+        <div class="fila-botones">
+          <button class="btn btn-primario" data-accion="probar">Probar núcleo</button>
+          <button class="btn" data-accion="ir-chat">Abrir chat</button>
+          <button class="btn" data-accion="escanear">Escanear modelos</button>
+          <button class="btn" data-accion="ir-diag">Ver diagnóstico</button>
+          <button class="btn" data-accion="ir-sql">Abrir base de datos</button>
+        </div>
+      </div>
+
+      <div class="aviso">
+        <strong>FABRI-CORE 0.9.1 · runtime, chat y base de datos local</strong>
+        <p>A1 carga las bibliotecas de llama.cpp; A2/A3 cargan el GGUF y generan texto.
+        La base de datos SQLite es editable desde «Base de datos». El chat remoto usa
+        proveedores OpenAI-compatible. Las descargas exigen HTTPS, SHA-256 y tamaño;
+        el código nativo viaja en la APK, no se descarga ni se ejecuta.</p>
+      </div>
+    </section>
+
+    <!-- ---------- COMPONENTES ---------- -->
+    <section class="vista" id="v-componentes">
+      <div class="cab-vista">
+        <h2>Componentes</h2>
+        <p>Catálogo declarativo. Mostrar una entrada no significa descargarla.</p>
+      </div>
+      <div class="chips" id="filtrosComp">
+        <button class="chip activo" data-filtro="todos">Todos</button>
+        <button class="chip" data-filtro="backend">Backend</button>
+        <button class="chip" data-filtro="runtime">Motor</button>
+        <button class="chip" data-filtro="modelo">Modelos</button>
+        <button class="chip" data-filtro="herramienta">Herramientas</button>
+        <button class="chip" data-filtro="plugin">Plugins</button>
+      </div>
+      <div id="listaComp" class="lista"></div>
+    </section>
+
+    <!-- ---------- MODELOS ---------- -->
+    <section class="vista" id="v-modelos">
+      <div class="cab-vista">
+        <h2>Modelos</h2>
+        <p>Detectar no es ejecutar. Cada paso se comprueba por separado.</p>
+      </div>
+
+      <div class="escalera">
+        <div class="paso"><span>1</span>Detectado</div>
+        <div class="paso"><span>2</span>Formato</div>
+        <div class="paso"><span>3</span>Runtime</div>
+        <div class="paso"><span>4</span>Inferencia</div>
+      </div>
+
+      <div class="bloque">
+        <div class="fila-botones">
+          <button class="btn btn-primario" id="btnEscanear">Escanear directorios</button>
+        </div>
+        <ul class="dirs" id="dirsEscaneo"></ul>
+      </div>
+
+      <div id="listaModelos" class="lista"></div>
+
+      <div class="aviso">
+        <strong>MobileLLM y modelos externos</strong>
+        <p>El botón de descarga no se habilita hasta verificar la variante oficial, el formato,
+        el runtime necesario, el tamaño, los archivos auxiliares y la licencia. Si un modelo no
+        es compatible con llama.cpp, se documenta el runtime alternativo y su coste.</p>
+      </div>
+    </section>
+
+    <!-- ---------- CHAT ---------- -->
+    <section class="vista" id="v-chat">
+      <div class="chat-cab">
+        <div class="chat-identidad">
+          <span class="fc-avatar" id="chatAvatar" data-estado="idle" aria-hidden="true">
+            <span class="fc-avatar-aro"></span>
+            <span class="fc-avatar-mono">FC</span>
+            <span class="fc-avatar-voz"><i></i><i></i><i></i></span>
+          </span>
+          <div class="chat-identidad-texto">
+            <h2>FABRI-CORE</h2>
+            <p class="chat-sub" id="chatSubtitulo">Tu asistente, acá en tu teléfono.</p>
+          </div>
+        </div>
+        <div class="chat-cab-acciones">
+          <span class="fc-pill" id="chatEstadoPill" data-estado="vacio">
+            <i></i><span id="chatEstadoTexto">Sin modelo</span>
+          </span>
+          <button class="btn btn-icono" id="btnChatNuevaCab" type="button"
+                  aria-label="Nueva conversación" title="Nueva conversación">＋</button>
+          <button class="btn btn-icono" id="btnChatAjustes" type="button"
+                  aria-label="Ajustes del chat" title="Ajustes">⚙</button>
+        </div>
+      </div>
+
+      <div class="chat-config" id="chatConfig">
+        <div class="chips" id="chatModo">
+          <button class="chip activo" data-chat-modo="local" type="button">Local · llama.cpp</button>
+          <button class="chip" data-chat-modo="remoto" type="button">Remoto · proveedor</button>
+        </div>
+        <label class="chat-check">
+          <input type="checkbox" id="chatRag" />
+          <span>Usar contexto RAG léxico <small>(sólo si hay textos indexados)</small></span>
+        </label>
+
+        <div id="chatLocalPanel" class="chat-panel">
+          <div class="chat-estado-linea">
+            <span class="punto" id="chatLocalPunto"></span>
+            <span id="chatLocalEstado">Sin modelo cargado.</span>
+          </div>
+          <label class="etiqueta" for="chatModeloLocal">Modelo detectado</label>
+          <select class="input" id="chatModeloLocal"></select>
+          <div class="fila-botones">
+            <button class="btn" id="btnChatEscanear" type="button">Escanear modelos</button>
+            <button class="btn btn-primario" id="btnChatCargar" type="button">Cargar modelo</button>
+            <button class="btn" id="btnChatLiberar" type="button">Liberar</button>
+          </div>
+          <p class="nota" id="chatLocalInfo">A2/A3: carga el GGUF verificado y genera respuestas cortas en el teléfono.</p>
+        </div>
+
+        <div id="chatRemotoPanel" class="chat-panel" hidden>
+          <label class="etiqueta" for="chatProveedor">Proveedor</label>
+          <select class="input" id="chatProveedor"></select>
+          <p class="nota" id="chatProveedorNota">OpenAI-compatible: URL, clave y modelo.</p>
+
+          <label class="etiqueta" for="chatUrl">URL base</label>
+          <input class="input" id="chatUrl" placeholder="https://api.openai.com/v1"
+                 autocapitalize="off" autocomplete="off" spellcheck="false" />
+
+          <label class="etiqueta" for="chatModeloRemoto">Modelo</label>
+          <input class="input" id="chatModeloRemoto" placeholder="modelo"
+                 autocapitalize="off" autocomplete="off" spellcheck="false" list="chatModelosLista" />
+          <datalist id="chatModelosLista"></datalist>
+
+          <label class="etiqueta" for="chatClave">API key (vacío = conservar la guardada)</label>
+          <input class="input" id="chatClave" type="password" placeholder="sk-…" autocomplete="off" />
+
+          <div class="fila-botones">
+            <button class="btn btn-primario" id="btnChatGuardar" type="button">Guardar</button>
+            <button class="btn" id="btnChatTraer" type="button">Traer modelos</button>
+            <button class="btn" id="btnChatProbar" type="button">Probar</button>
+          </div>
+          <p class="nota" id="chatRemotoEstado">Sin configurar.</p>
+        </div>
+      </div>
+
+      <div class="chat-hilo" id="chatHilo" aria-live="polite">
+        <div class="chat-vacio" id="chatVacio">
+          <span class="chat-vacio-icono">✦</span>
+          <strong>Hola, soy FABRI-CORE</strong>
+          <p>Pregúntame lo que quieras. Respondo corto y claro, y si quieres te lo leo en voz alta.</p>
+          <div class="chat-sugerencias">
+            <button type="button" data-sugerencia="¿Qué puedes hacer por mí?">¿Qué puedes hacer?</button>
+            <button type="button" data-sugerencia="Resume en 3 líneas qué tengo instalado en la app.">Resume mi app</button>
+            <button type="button" data-sugerencia="Escríbeme un mensaje corto y amable para un cliente.">Escribe un mensaje</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="chat-compositor">
+        <button class="btn btn-icono" id="btnChatTts" type="button" title="Leer la última respuesta" aria-label="Leer respuesta">🔊</button>
+        <textarea id="chatEntrada" rows="1" placeholder="Escríbeme algo…" maxlength="12000"></textarea>
+        <button class="btn btn-primario btn-enviar" id="btnChatEnviar" type="button" aria-label="Enviar">➤</button>
+      </div>
+      <div class="chat-pie">
+        <button class="btn btn-mini" id="btnChatLimpiar" type="button">Nueva charla</button>
+        <span class="nota" id="chatContador">0 mensajes</span>
+        <button class="btn btn-mini" id="btnChatDetenerTts" type="button">Silenciar</button>
+      </div>
+    </section>
+
+    <!-- ---------- BASE DE DATOS ---------- -->
+    <section class="vista" id="v-sql">
+      <div class="cab-vista">
+        <p class="etiqueta">TUS DATOS · SQLITE LOCAL</p>
+        <h2>Base de datos</h2>
+        <p>Abre una tabla como una hoja de cálculo: corrige celdas, agrega filas, borra las que sobran y sube o baja datos en CSV. Cada cambio queda anotado en la auditoría.</p>
+      </div>
+
+      <div class="sql-resumen" id="sqlResumen">
+        <div class="sql-dato"><span class="sql-dato-etq">Estado</span><strong>Cargando…</strong></div>
+      </div>
+
+      <div class="bloque">
+        <div class="bloque-cab">
+          <h3>Tablas</h3>
+          <button class="btn btn-mini" id="btnSqlRefrescar" type="button">Actualizar</button>
+        </div>
+        <p class="nota">Toca una tabla para abrir su hoja. Las columnas binarias quedan en sólo lectura.</p>
+        <div class="sql-lista" id="sqlTablas"><p class="nota">Cargando…</p></div>
+      </div>
+
+      <div class="bloque" id="sqlDetalle" hidden>
+        <div class="bloque-cab">
+          <div>
+            <h3 id="sqlDetalleTitulo">—</h3>
+            <p class="nota" id="sqlDetalleMeta"></p>
+          </div>
+          <button class="btn btn-mini" id="btnSqlCerrar" type="button">Cerrar</button>
+        </div>
+
+        <div class="sql-columnas" id="sqlColumnas"></div>
+
+        <div class="fila-botones sql-acciones">
+          <button class="btn btn-primario" id="btnSqlModo" type="button">Editar</button>
+          <button class="btn" id="btnSqlAgregar" type="button">+ Fila</button>
+          <button class="btn" id="btnSqlGuardar" type="button" disabled>Guardar</button>
+          <button class="btn" id="btnSqlDescartar" type="button" disabled>Descartar</button>
+        </div>
+        <p class="nota" id="sqlPistaEdicion">En modo edición, toca una celda para cambiarla. Nada se guarda hasta que aprietes «Guardar».</p>
+
+        <div class="sql-tabla-envoltura" id="sqlTablaEnvoltura"></div>
+
+        <div class="fila-botones">
+          <button class="btn" id="btnSqlAnterior" type="button">Anterior</button>
+          <span class="nota" id="sqlPagina">—</span>
+          <button class="btn" id="btnSqlSiguiente" type="button">Siguiente</button>
+        </div>
+
+        <div class="fila-botones">
+          <button class="btn" id="btnSqlExportarCsv" type="button">Bajar CSV</button>
+          <button class="btn" id="btnSqlExportarJson" type="button">Bajar JSON</button>
+          <button class="btn" id="btnSqlImportar" type="button">Subir CSV</button>
+          <button class="btn" id="btnSqlAuditoria" type="button">Auditoría</button>
+        </div>
+        <input type="file" id="sqlArchivo" accept=".csv,text/csv" hidden />
+      </div>
+
+      <div class="bloque" id="sqlImportacion" hidden>
+        <div class="bloque-cab">
+          <div>
+            <h3>Vista previa de la importación</h3>
+            <p class="nota" id="sqlImportacionMeta">—</p>
+          </div>
+          <button class="btn btn-mini" id="btnSqlImportacionCancelar" type="button">Cancelar</button>
+        </div>
+        <div class="sql-tabla-envoltura" id="sqlImportacionTabla"></div>
+        <div class="fila-botones">
+          <button class="btn btn-primario" id="btnSqlImportacionAgregar" type="button">Agregar filas</button>
+          <button class="btn" id="btnSqlImportacionReemplazar" type="button">Reemplazar si existe</button>
+        </div>
+        <p class="nota">«Reemplazar si existe» usa la clave primaria de la tabla: si la fila ya está, la pisa. «Agregar filas» siempre inserta nuevas.</p>
+      </div>
+
+      <div class="bloque" id="sqlAuditoriaBloque" hidden>
+        <div class="bloque-cab">
+          <div>
+            <h3>Auditoría</h3>
+            <p class="nota">Qué se cambió, en qué tabla y cuándo. Vive en <code>auditoria_datos</code>.</p>
+          </div>
+          <button class="btn btn-mini" id="btnSqlAuditoriaCerrar" type="button">Cerrar</button>
+        </div>
+        <div class="sql-tabla-envoltura" id="sqlAuditoriaTabla"></div>
+      </div>
+
+      <div class="bloque">
+        <h3>Consulta rápida</h3>
+        <p class="nota">Sólo <code>SELECT</code> o <code>WITH</code>. La conexión es de sólo lectura: para escribir usa la hoja de arriba, que sí deja rastro en la auditoría.</p>
+        <textarea class="input sql-entrada" id="sqlConsulta" rows="4" spellcheck="false"
+                  autocapitalize="off" autocomplete="off"
+                  placeholder="SELECT * FROM logs ORDER BY ts DESC LIMIT 20;"></textarea>
+        <div class="fila-botones">
+          <button class="btn btn-primario" id="btnSqlEjecutar" type="button">Ejecutar</button>
+          <button class="btn" id="btnSqlLimpiarConsulta" type="button">Limpiar</button>
+        </div>
+        <div id="sqlResultado"></div>
+      </div>
+    </section>
+
+    <!-- ---------- TERMUX / BIBLIOTECA ---------- -->
+    <section class="vista" id="v-termux">
+      <div class="cab-vista">
+        <p class="etiqueta">ENTORNO · TERMUX</p>
+        <h2>Termux y biblioteca</h2>
+        <p>La app no puede ejecutar shell dentro de su sandbox (W^X). Esta página prepara comandos para Termux, abre la app y descarga componentes verificados.</p>
+      </div>
+
+      <div class="bloque bloque-puente">
+        <div class="bloque-cab">
+          <h3>Puente real a Termux · 127.0.0.1:8787</h3>
+          <span class="pill pill-espera" id="puentePill">sin comprobar</span>
+        </div>
+        <p class="nota" id="puenteNota">El permiso <code>RUN_COMMAND</code> de Termux es de nivel «signature»: esta APK, firmada con otra clave, no puede obtenerlo nunca. La vía que sí funciona es un servidor local en Termux que sólo acepta comandos de una lista blanca.</p>
+        <div class="fila-botones">
+          <button class="btn btn-primario" id="btnPuenteEstado" type="button">Comprobar puente</button>
+          <button class="btn" id="btnPuenteInstalar" type="button">Copiar instalador</button>
+          <button class="btn" id="btnPuenteAbrir" type="button">Abrir Termux</button>
+        </div>
+        <div class="puente-comandos" id="puenteComandos"></div>
+        <pre class="terminal puente-salida" id="puenteSalida">Sin ejecuciones todavía.</pre>
+      </div>
+
+      <div class="bloque">
+        <h3>Consola Termux</h3>
+        <p class="nota">Abre Termux y pega el comando copiado. La app no simula una shell ni ejecuta texto libre: así no se puede colar un comando arbitrario.</p>
+        <div class="fila-botones">
+          <button class="btn btn-primario" id="btnAbrirTermux" type="button">Abrir Termux</button>
+          <button class="btn" id="btnCopiarTermux" type="button">Copiar comandos base</button>
+        </div>
+        <pre class="terminal" id="comandosTermux"># Termux · instalar dependencias base
+pkg update && pkg upgrade -y
+pkg install nodejs python git clang cmake make -y
+
+# OmniRoute (gateway OpenAI-compatible)
+npx -y omniroute@latest
+# API local: http://127.0.0.1:20128/v1</pre>
+      </div>
+
+      <div class="bloque">
+        <h3>Comandos por componente</h3>
+        <div class="lista compacta" id="listaComandosTermux"></div>
+      </div>
+
+      <div class="bloque">
+        <h3>Biblioteca de descargas</h3>
+        <p class="nota">Cada tarjeta descarga sólo si el manifiesto tiene URL HTTPS, SHA-256 y tamaño. Después de verificar, los módulos declarativos se pueden instalar; los modelos quedan listos para A2/A3.</p>
+        <div class="lista compacta" id="listaBiblioteca"></div>
+      </div>
+
+      <div class="bloque">
+        <h3>RAG, GraphRAG y TTS</h3>
+        <div class="datos">
+          <div class="fila"><span>RAG léxico</span><span id="termuxRagEstado">sin notas indexadas</span></div>
+          <div class="fila"><span>GraphRAG</span><span>sin artefacto Android; se conecta por HTTP o se implementa como grafo local</span></div>
+          <div class="fila"><span>TTS</span><span id="termuxTtsEstado">motor del sistema Android</span></div>
+        </div>
+        <label class="etiqueta" for="ragTexto">Indexar una nota para el chat (RAG léxico)</label>
+        <textarea class="input" id="ragTexto" rows="3" placeholder="Pega aquí un apunte, una especificación o un dato que quieras recuperar después…"></textarea>
+        <div class="fila-botones">
+          <button class="btn" id="btnRagIndexar" type="button">Indexar nota</button>
+          <button class="btn" id="btnTtsProbar" type="button">Probar voz</button>
+          <button class="btn" id="btnAbrirAjustesVoz" type="button">Ajustes de voz</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- REPOSITORIO ---------- -->
+    <section class="vista" id="v-repo">
+      <div class="cab-vista">
+        <p class="etiqueta">CÓDIGO Y DESCARGAS</p>
+        <h2>Repositorio</h2>
+        <p>Página de interacción con el repositorio del proyecto. La APK no inventa URLs: si no hay URL guardada, queda en PENDIENTE.</p>
+      </div>
+
+      <div class="bloque">
+        <h3>URL del repositorio</h3>
+        <label class="etiqueta" for="repoUrl">Repositorio (https://github.com/usuario/repo)</label>
+        <input class="input" id="repoUrl" placeholder="https://github.com/…" autocapitalize="off" autocomplete="off" spellcheck="false" />
+        <div class="fila-botones">
+          <button class="btn btn-primario" id="btnRepoGuardar" type="button">Guardar URL</button>
+          <button class="btn" id="btnRepoAbrir" type="button">Abrir repositorio</button>
+        </div>
+        <p class="nota" id="repoEstado">PENDIENTE: falta la URL exacta del repositorio.</p>
+      </div>
+
+      <div class="bloque">
+        <h3>Actualización nativa (APK firmada)</h3>
+        <p class="nota">El código nativo no se descarga como <code>.so</code>: Android 10+ bloquea ejecutar archivos descargados. La vía segura es descargar una APK firmada, verificar SHA-256 y tamaño, y abrir el instalador del sistema. La firma la valida Android; la app no instala en silencio.</p>
+        <label class="etiqueta" for="apkUrl">URL HTTPS de la APK</label>
+        <input class="input" id="apkUrl" placeholder="https://…/FABRI-CORE-0.7.0.apk" autocapitalize="off" autocomplete="off" spellcheck="false" />
+        <label class="etiqueta" for="apkSha">SHA-256 (64 hex)</label>
+        <input class="input" id="apkSha" placeholder="…" autocapitalize="off" autocomplete="off" spellcheck="false" />
+        <label class="etiqueta" for="apkTamano">Tamaño exacto en bytes</label>
+        <input class="input" id="apkTamano" type="number" inputmode="numeric" placeholder="3770000" />
+        <div class="fila-botones">
+          <button class="btn btn-primario" id="btnApkDescargar" type="button">Descargar y abrir instalador</button>
+        </div>
+        <p class="nota" id="apkEstado">Sin actualización configurada.</p>
+      </div>
+
+      <div class="bloque">
+        <h3>Qué debe mostrar esta página</h3>
+        <div class="datos">
+          <div class="fila"><span>Repositorio</span><span id="repoDatoUrl">sin configurar</span></div>
+          <div class="fila"><span>Descarga de APK</span><span>sólo con URL + SHA-256 + tamaño verificados</span></div>
+          <div class="fila"><span>Código nativo</span><span>se empaqueta en la APK; no se descarga y ejecuta por W^X</span></div>
+          <div class="fila"><span>Módulos</span><span>JSON declarativos; se descargan y luego se instalan</span></div>
+        </div>
+        <p class="nota">El repositorio conocido del proyecto es <code>github.com/thinkfashz/fabri-core</code>, pero contiene prototipos históricos sin licencia. No se usa como fuente de la APK actual hasta que el autor lo confirme.</p>
+        <div class="fila-botones">
+          <button class="btn" id="btnRepoUsarConocido" type="button">Usar repo conocido</button>
+          <button class="btn" id="btnRepoDescargas" type="button">Ir a descargas</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- CONSOLA ---------- -->
+    <section class="vista" id="v-modulos">
+      <div class="cab-vista">
+        <h2>Módulos</h2>
+        <p>Plugins declarativos: aportan configuración y límites, nunca código ejecutable. El núcleo Rust implementa las capacidades seguras.</p>
+      </div>
+
+      <div class="bloque">
+        <h3>Instalados e importar</h3>
+        <p class="nota">Estos módulos viajan dentro de la APK y funcionan sin red. Reemplazan la función de servidores que no caben en el teléfono (Qdrant, Chroma, RAGFlow, REA/Ghidra).</p>
+        <div class="fila-botones">
+          <button class="btn btn-primario" id="btnImportarModulo">Importar módulo (.json)</button>
+        </div>
+        <input type="file" id="archivoModulo" accept="*/*" hidden />
+        <p class="nota">Elegí un archivo <code>.json</code> desde Descargas o Documentos. Se valida y se registra; nunca se ejecuta código.</p>
+
+        <details class="bloque-interno">
+          <summary class="nota">¿El selector no muestra el archivo? Pegá el JSON acá</summary>
+          <textarea class="input" id="moduloTexto" rows="7" spellcheck="false"
+                    placeholder='{"id":"mi-modulo","version":"1.0.0","tipo":"declarativo","capacidades":["texto.dividir"],"limites":["…"]}'></textarea>
+          <div class="fila-botones">
+            <button class="btn" id="btnImportarTexto">Importar desde texto</button>
+          </div>
+        </details>
+
+        <div id="listaModulos" class="lista compacta"></div>
+      </div>
+
+      <div class="bloque">
+        <h3>Ejecutar una capacidad</h3>
+        <p class="nota">La entrada es JSON. El módulo sólo puede usar las capacidades que declara; el núcleo rechaza el resto.</p>
+
+        <label class="etiqueta" for="moduloSel">Módulo</label>
+        <select class="input" id="moduloSel"></select>
+
+        <label class="etiqueta" for="capacidadSel">Capacidad</label>
+        <select class="input" id="capacidadSel"></select>
+
+        <label class="etiqueta" for="moduloEntrada">Entrada (JSON)</label>
+        <textarea class="input" id="moduloEntrada" rows="7" spellcheck="false"></textarea>
+
+        <div class="fila-botones">
+          <button class="btn btn-primario" id="btnEjecutarModulo">Ejecutar</button>
+          <button class="btn" id="btnRecargarModulos">Recargar</button>
+        </div>
+
+        <pre class="terminal" id="moduloSalida" style="display:none"></pre>
+      </div>
+    </section>
+
+    <!-- ---------- CONEXIONES (CRIOTOKEY) ---------- -->
+    <section class="vista" id="v-conexiones">
+      <div class="cab-vista">
+        <p class="etiqueta">INTEGRACIONES · CRIOTOKEY</p>
+        <h2>Conexiones</h2>
+        <p>Conecta tus cuentas una vez y la app las recuerda. Las claves se guardan cifradas con el llavero del teléfono y nunca se muestran completas.</p>
+      </div>
+
+      <div class="sql-resumen" id="conxEstado">
+        <div class="sql-dato"><span class="sql-dato-etq">Bóveda</span><strong>Cargando…</strong></div>
+      </div>
+
+      <div class="bloque">
+        <div class="bloque-cab">
+          <h3>Conectar con un token</h3>
+          <button class="btn btn-mini" id="btnConxRefrescar" type="button">Actualizar</button>
+        </div>
+        <label class="campo">
+          <span>Servicio</span>
+          <select class="input" id="conxProveedor"></select>
+        </label>
+        <p class="nota" id="conxAyuda">Elige un servicio para ver qué necesita.</p>
+        <label class="campo">
+          <span>Nombre para reconocerla</span>
+          <input class="input" id="conxNombre" type="text" placeholder="Mi cuenta de trabajo"
+                 autocapitalize="sentences" autocomplete="off" />
+        </label>
+        <label class="campo">
+          <span>Token o clave</span>
+          <input class="input" id="conxToken" type="password" placeholder="pega aquí el token"
+                 autocapitalize="off" autocomplete="off" spellcheck="false" />
+        </label>
+        <label class="campo" id="conxUrlCampo" hidden>
+          <span>URL del servicio</span>
+          <input class="input" id="conxUrl" type="url" placeholder="https://…"
+                 autocapitalize="off" autocomplete="off" spellcheck="false" />
+        </label>
+        <div class="fila-botones">
+          <button class="btn btn-primario" id="btnConxGuardar" type="button">Probar y guardar</button>
+          <button class="btn" id="btnConxAbrirToken" type="button">Dónde sacar el token</button>
+        </div>
+        <p class="nota" id="conxMensaje"></p>
+      </div>
+
+      <div class="bloque">
+        <h3>Conectar con un click (OAuth)</h3>
+        <p class="nota">GitHub, Google y Meta. Hace falta el <strong>Client ID</strong> de una app tuya ya registrada en el proveedor; el redirect es <code>fabrickcore://oauth</code>. La app no trae credenciales embebidas.</p>
+        <label class="campo">
+          <span>Servicio</span>
+          <select class="input" id="conxOauthProveedor">
+            <option value="github">GitHub</option>
+            <option value="google">Google</option>
+            <option value="meta">Meta (Facebook)</option>
+          </select>
+        </label>
+        <label class="campo">
+          <span>Client ID</span>
+          <input class="input" id="conxOauthClientId" type="text" placeholder="client_id de tu app"
+                 autocapitalize="off" autocomplete="off" spellcheck="false" />
+        </label>
+        <div class="fila-botones">
+          <button class="btn btn-primario" id="btnConxOauth" type="button">Abrir navegador y conectar</button>
+          <button class="btn" id="btnConxOauthCancelar" type="button">Cancelar</button>
+        </div>
+        <p class="nota" id="conxOauthMensaje"></p>
+
+        <div class="aviso">
+          <strong>Google sin redirect (recomendado para Google)</strong>
+          <p>Google no acepta cualquier redirect en apps instaladas. Este camino usa un código de 9 letras: eliges Google arriba, pegas el Client ID de un cliente OAuth de tipo «TVs and Limited Input devices», y escribes el código en google.com/device.</p>
+          <div class="fila-botones">
+            <button class="btn" id="btnConxGoogleDevice" type="button">Conectar Google con código</button>
+            <button class="btn" id="btnConxGoogleDeviceCancelar" type="button">Detener</button>
+          </div>
+          <p class="nota" id="conxGoogleMensaje"></p>
+        </div>
+      </div>
+
+      <div class="bloque">
+        <div class="bloque-cab">
+          <div>
+            <h3>Cuentas guardadas</h3>
+            <p class="nota">Guardadas en el teléfono, cifradas. Puedes probarlas cuando quieras.</p>
+          </div>
+          <span class="chip-mini" id="conxCuenta">0</span>
+        </div>
+        <div class="lista" id="conxLista"><p class="nota">Todavía no hay conexiones.</p></div>
+      </div>
+
+      <div class="bloque">
+        <h3>Código para tus proyectos</h3>
+        <p class="nota">Genera la llamada lista para pegar. El token queda como marcador: no se escribe en el código ni viaja a la página.</p>
+        <label class="campo">
+          <span>Conexión</span>
+          <select class="input" id="conxCodigoSel"></select>
+        </label>
+        <div class="fila-botones">
+          <button class="btn" id="btnConxCodigo" type="button">Ver código</button>
+          <button class="btn" id="btnConxCopiarCodigo" type="button" disabled>Copiar</button>
+        </div>
+        <pre class="terminal" id="conxCodigoSalida" hidden></pre>
+      </div>
+
+      <div class="bloque">
+        <h3>Respaldo</h3>
+        <p class="nota">Se guarda en <code>Android/data/cl.fabrick.core/files/Download</code>. Nada sale del teléfono sin que lo autorices.</p>
+        <div class="fila-botones">
+          <button class="btn btn-primario" id="btnConxRespaldoDatos" type="button">Respaldar mi base local</button>
+          <button class="btn" id="btnConxRespaldoConexiones" type="button">Respaldar conexiones</button>
+        </div>
+        <p class="nota" id="conxRespaldoMensaje">El respaldo de la base lleva todas las tablas en JSON. El de conexiones lleva sólo nombres y fechas: las claves no pueden salir del llavero del teléfono.</p>
+      </div>
+    </section>
+
+    <section class="vista" id="v-consola">
+      <div class="cab-vista">
+        <h2>Consola FABRI-CORE</h2>
+        <p>Sólo tareas autorizadas. La interfaz no puede ejecutar comandos de shell.</p>
+      </div>
+
+      <div class="bloque">
+        <p class="nota">¿Necesitas escribir comandos libres en Termux? Están en
+          <strong>Flujo → Consola del teléfono</strong>, con historial, atajos y registro de todo.</p>
+        <button class="btn btn-primario" id="btnIrConsolaLibre" type="button">Abrir consola interactiva</button>
+      </div>
+
+      <div class="bloque consola-bloque">
+        <div class="fila-botones">
+          <select id="tareaSel" class="input">
+            <option value="ping">ping</option>
+            <option value="version">version</option>
+            <option value="sqlite">sqlite</option>
+            <option value="espacio">espacio</option>
+          </select>
+          <button class="btn btn-primario" id="btnEjecutar">Ejecutar</button>
+        </div>
+        <div class="fila-botones">
+          <input id="buscarConsola" class="input" placeholder="Buscar en la salida…" />
+          <select id="filtroConsola" class="input">
+            <option value="todo">Todo</option>
+            <option value="ok">Sólo OK</option>
+            <option value="error">Sólo errores</option>
+          </select>
+        </div>
+        <div class="terminal" id="terminal"></div>
+        <div class="fila-botones">
+          <button class="btn" id="btnCopiarConsola">Copiar</button>
+          <button class="btn" id="btnLimpiarVista">Limpiar vista</button>
+          <button class="btn" id="btnRecargarHist">Recargar historial</button>
+        </div>
+        <p class="nota">Limpiar la vista no borra el historial: los logs quedan en SQLite.</p>
+      </div>
+    </section>
+
+    <!-- ---------- DIAGNÓSTICO ---------- -->
+    <section class="vista" id="v-diag">
+      <div class="cab-vista">
+        <h2>Diagnóstico</h2>
+        <p>Qué falló, en qué fase y con qué código. Sin mensajes de éxito falsos.</p>
+      </div>
+
+      <div class="bloque">
+        <h3>Sistema</h3>
+        <div class="datos" id="datosSistema"></div>
+      </div>
+
+      <div class="bloque">
+        <h3>Almacenamiento</h3>
+        <div class="barra"><div class="barra-fill" id="barraDisco"></div></div>
+        <p class="nota" id="notaDisco">—</p>
+      </div>
+
+      <div class="bloque">
+        <h3>Bitácora de arranque</h3>
+        <p class="nota">Se escribe desde el primer instante, sin depender del núcleo ni de SQLite. Es lo que permite saber por qué la app se quedó en la pantalla de carga o por qué el acceso no respondió.</p>
+        <div class="fila-botones">
+          <button class="btn btn-mini" id="btnBitacoraRefrescar" type="button">Refrescar</button>
+          <button class="btn btn-mini btn-texto" id="btnBitacoraLimpiar" type="button">Limpiar</button>
+        </div>
+        <pre class="bitacora" id="bitacoraArranque">—</pre>
+      </div>
+
+      <div class="bloque">
+        <h3>Últimas operaciones</h3>
+        <div id="listaOps" class="lista compacta"></div>
+      </div>
+
+      <div class="bloque">
+        <h3>Logs</h3>
+        <div id="listaLogs" class="lista compacta"></div>
+      </div>
+
+      <div class="bloque">
+        <h3>Prueba de plataforma (T0)</h3>
+        <p class="nota">Copia un binario del sistema al directorio privado e intenta ejecutarlo. Ruta y binario son fijos; no descarga nada.</p>
+        <div class="fila-botones">
+          <button class="btn" id="btnT0">Ejecutar sonda T0</button>
+        </div>
+        <p class="nota" id="t0Resultado">Sin ejecutar.</p>
+      </div>
+
+      <div class="bloque">
+        <h3>OmniRoute (gateway OpenAI-compatible)</h3>
+        <p class="nota">No se ejecuta dentro de la APK: es un servidor Node/Next de ~461 MB. Se auto-aloja en Termux (127.0.0.1:20128) o en un servidor propio por HTTPS. Aquí sólo se configura y se prueba la conexión; la clave nunca vuelve a la página.</p>
+        <div class="fila-botones">
+          <button class="btn" id="btnOmniCopiar">Copiar instalación para Termux</button>
+        </div>
+
+        <label class="etiqueta" for="omniUrl">URL base</label>
+        <input class="input" id="omniUrl" placeholder="http://127.0.0.1:20128/v1"
+               autocapitalize="off" autocomplete="off" spellcheck="false" />
+
+        <label class="etiqueta" for="omniClave">API key (vacío = conservar la guardada)</label>
+        <input class="input" id="omniClave" type="password" placeholder="sk-…"
+               autocomplete="off" />
+
+        <label class="etiqueta" for="omniModelo">Modelo</label>
+        <input class="input" id="omniModelo" placeholder="auto"
+               autocapitalize="off" autocomplete="off" spellcheck="false" />
+
+        <div class="fila-botones">
+          <button class="btn btn-primario" id="btnOmniGuardar">Guardar</button>
+          <button class="btn" id="btnOmniProbar">Probar conexión</button>
+        </div>
+
+        <label class="etiqueta" for="omniPrompt">Chat de prueba</label>
+        <input class="input" id="omniPrompt" placeholder="Responde en español: ¿qué es FABRI-CORE?" />
+        <div class="fila-botones">
+          <button class="btn" id="btnOmniChat">Enviar al gateway</button>
+        </div>
+
+        <p class="nota" id="omniEstado">Sin configurar.</p>
+        <pre class="terminal" id="omniSalida" style="display:none"></pre>
+      </div>
+
+      <div class="fila-botones">
+        <button class="btn btn-primario" id="btnInforme">Exportar informe</button>
+        <button class="btn" id="btnRefrescarDiag">Refrescar</button>
+      </div>
+    </section>
+    <!-- ---------- PÁGINA POR CONSTRUIR ---------- -->
+    <section class="vista" id="v-pagina">
+      <div class="cab-vista">
+        <button class="btn btn-mini" id="paginaVolver">← Volver</button>
+        <p class="etiqueta" id="paginaEstado">—</p>
+        <h2 id="paginaTitulo">—</h2>
+        <p id="paginaDesc">—</p>
+      </div>
+
+      <div class="bloque" id="paginaCuerpo"></div>
+
+      <div class="bloque">
+        <h3>Instrucciones para construirla</h3>
+        <p class="nota">Texto listo para copiar y pegar en una sesión de trabajo o en un issue.</p>
+        <pre class="pagina-instrucciones" id="paginaInstrucciones">—</pre>
+        <div class="fila-botones">
+          <button class="btn btn-primario" id="btnCopiarPagina">Copiar instrucciones</button>
+          <button class="btn" id="btnCopiarPaginaJson">Copiar manifiesto JSON</button>
+        </div>
+      </div>
+
+      <div class="bloque">
+        <h3>Estado del módulo</h3>
+        <div class="datos" id="paginaMeta"></div>
+      </div>
+    </section>
+
+    <!-- ---------- REVISIÓN / PRUEBAS ---------- -->
+    <section class="vista" id="v-revision">
+      <div class="cab-vista">
+        <p class="etiqueta">AUDITORÍA · PRUEBAS</p>
+        <h2>Registro de revisión</h2>
+        <p>Todo lo que tocás queda registrado: botones, descargas, consultas SQL, respuestas del LLM, red y errores. Sirve para reproducir un fallo sin adivinar.</p>
+      </div>
+
+      <div class="bloque">
+        <div class="bloque-cab">
+          <h3>Resumen persistente (SQLite)</h3>
+          <button class="btn btn-mini" id="btnRevisionRefrescar" type="button">Refrescar</button>
+        </div>
+        <div class="revision-kpis" id="revisionKpis"></div>
+        <div class="fila-botones" id="revisionFiltros">
+          <button class="btn btn-mini btn-filtro activo" data-rev-filtro="" type="button">Todo</button>
+          <button class="btn btn-mini btn-filtro" data-rev-filtro="error" type="button">Errores</button>
+          <button class="btn btn-mini btn-filtro" data-rev-filtro="aviso" type="button">Avisos</button>
+          <button class="btn btn-mini btn-filtro" data-rev-filtro="info" type="button">Info</button>
+          <button class="btn btn-mini" id="btnRevisionExportar" type="button">Copiar JSON</button>
+        </div>
+        <div class="revision-lista" id="revisionLista"></div>
+      </div>
+
+      <div class="bloque">
+        <div class="bloque-cab">
+          <h3>Red real · IPv4 / IPv6</h3>
+        </div>
+        <p class="nota">Si IPv6 resuelve pero no conecta, todo lo que use la primera dirección AAAA se cuelga. La app ya fuerza IPv4; esta prueba lo demuestra con sockets reales a Hugging Face, OpenAI y GitHub.</p>
+        <div class="fila-botones">
+          <button class="btn btn-primario" id="btnRedDiag" type="button">Probar red ahora</button>
+        </div>
+        <pre class="terminal" id="redSalida">Sin prueba todavía.</pre>
+      </div>
+    </section>
+
+    <!-- ---------- ERROR / INFORME ÚNICO ---------- -->
+    <section class="vista" id="v-error">
+      <div class="cab-vista">
+        <h2>Error / Informe de la app</h2>
+        <p>Estado real de cada pieza: sin inventar datos, con código de error real y acciones concretas.</p>
+      </div>
+      <div class="bloque" id="errorContenido">
+        <p>Cargando informe…</p>
+      </div>
+      <div class="fila-botones">
+        <button class="btn btn-primario" id="btnErrorRevisar" onclick="errorIniciar()">Revisar todo</button>
+        <button class="btn" onclick="navegar('diag')">Ir a Diagnóstico técnico</button>
+        <button class="btn" onclick="navegar('revision')">Ver registro de revisión</button>
+        <button class="btn" onclick="navegar('integracion')">Ir a Integración</button>
+      </div>
+      <div class="bloque" id="errorRecomendaciones">
+        <h3>Tecnologías y recursos que podrías necesitar</h3>
+        <ul class="lista compacta">
+          <li><a href="https://github.com/ggml-org/llama.cpp" target="_blank">llama.cpp (motor GGUF)</a> — <span class="nota">se carga como .so en la APK, no como binario descargado.</span></li>
+          <li><a href="https://github.com/EverMind-AI/EverOS" target="_blank">EverOS</a> — <span class="nota">memoria persistente y MCP (no integrada en APK, requiere entorno separado).</span></li>
+          <li><a href="https://termux.dev/en/" target="_blank">Termux</a> — <span class="nota">para herramientas pesadas que no caben en APK; conecta por HTTP local.</span></li>
+          <li><a href="https://github.com/QwenLM/Qwen" target="_blank">Qwen 2.5 0.5B</a> — <span class="nota">modelo .gguf para carga local.</span></li>
+          <li><a href="https://huggingface.co/facebook/MobileLLM-125M" target="_blank">MobileLLM-125M</a> — <span class="nota">>50 MB, requiere autorización explícita.</span></li>
+          <li><a href="https://vercel.com/" target="_blank">Vercel</a> — <span class="nota">API en la nube (https://fabri-api.vercel.app).</span></li>
+        </ul>
+      </div>
+      <div class="bloque" id="errorEstadoModelo">
+        <h3>Estado del modelo local</h3>
+        <div class="datos" id="datosEstadoModelo">—</div>
+      </div>
+      <div class="bloque" id="errorEstadoNube">
+        <h3>Estado de la API en la nube</h3>
+        <p>URL configurada: <strong id="nubeUrlConfig">—</strong></p>
+        <p>Estado: <span id="nubeEstado">—</span> · Token: <span id="nubeTokenEstado">—</span></p>
+      </div>
+    </section>
+
+    <!-- ---------- INTEGRACIÓN / CONECTORES ---------- -->
+    <section class="vista" id="v-integracion">
+      <div class="cab-vista">
+        <h2>Integración / Conectores</h2>
+        <p>Conecta servicios externos paso a paso. Las claves se almacenan en Android Keystore y no se muestran completos.</p>
+      </div>
+      <div class="bloque">
+        <h3>API en la nube (Vercel / InsForge)</h3>
+        <p class="nota">Conexión necesaria para la IA remota y sincronización. El token vive en Vercel y en el dispositivo solo se guarda el JWT en Keystore.</p>
+        <label for="intUrl">URL de la API</label>
+        <input id="intUrl" class="input" value="https://fabri-api.vercel.app" placeholder="https://fabri-api.vercel.app" />
+        <label for="intToken">Token de acceso</label>
+        <input id="intToken" class="input" type="password" placeholder="FABRI_API_TOKEN (del archivo /tmp/fabri_token.env)" />
+        <label for="intModelo">Modelo remoto por defecto</label>
+        <input id="intModelo" class="input" value="qwen-0.5b-nube" placeholder="qwen-0.5b-nube" />
+        <div class="fila-botones">
+          <button class="btn btn-primario" onclick="integracionGuardar()">Guardar y probar</button>
+          <button class="btn" onclick="integracionProbar()">Probar conexión</button>
+        </div>
+        <p class="nota" id="intNotaEstado">—</p>
+      </div>
+      <div class="bloque">
+        <h3>Proveedor de chat remoto</h3>
+        <select class="input" id="intProveedor">
+          <option value="vercel">Vercel (https://fabri-api.vercel.app)</option>
+          <option value="ollama">Ollama (LAN o local)</option>
+          <option value="gemini">Gemini API (Google)</option>
+        </select>
+        <p class="nota">Selecciona el proveedor antes de guardar. El modelo debe coincidir con el servicio elegido.</p>
+      </div>
+      <div class="bloque">
+        <h3>Instrucciones paso a paso</h3>
+        <ol class="lista compacta">
+          <li>1. Abre la pestaña <strong>Conexiones</strong> del menú.</li>
+          <li>2. Completa URL, Token y Modelo con los datos del archivo <code>/tmp/fabri_token.env</code>.</li>
+          <li>3. Pulsa <strong>Guardar y probar</strong> para verificar que la API responda.</li>
+          <li>4. El token se almacena en Android Keystore (Keystore) y no se expone en pantalla.</li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="vista" id="v-inventario">
+      <div class="inv-hero">
+        <div class="inv-hero-texto">
+          <p class="inv-eyebrow">Módulo · inventario</p>
+          <h2 id="invTitulo">Inventario guiado</h2>
+          <p class="inv-sub">Escanea, revisa, ajusta precios, calcula márgenes y emite la boleta.
+            Todo queda en tu SQLite local y se sincroniza cuando tú decidas.</p>
+        </div>
+        <div class="inv-kpis" id="invKpis"></div>
+      </div>
+
+      <ol class="inv-pasos" id="invPasos">
+        <li><button class="inv-paso activo" data-inv-paso="1" type="button"><b>1</b><span>Escanear</span></button></li>
+        <li><button class="inv-paso" data-inv-paso="2" type="button"><b>2</b><span>Productos</span></button></li>
+        <li><button class="inv-paso" data-inv-paso="3" type="button"><b>3</b><span>Precios</span></button></li>
+        <li><button class="inv-paso" data-inv-paso="4" type="button"><b>4</b><span>Márgenes</span></button></li>
+        <li><button class="inv-paso" data-inv-paso="5" type="button"><b>5</b><span>Boleta</span></button></li>
+      </ol>
+
+      <!-- ── PASO 1 · ESCANEAR ─────────────────────────────────────────── -->
+      <div class="inv-panel activo" id="invPaso1">
+        <div class="inv-scan">
+          <div class="inv-camara" id="invCamaraCaja">
+            <video id="invVideo" playsinline muted></video>
+            <div class="inv-camara-mira" aria-hidden="true"></div>
+            <p class="inv-camara-nota" id="invCamaraNota">La imagen nunca sale del teléfono.</p>
+          </div>
+          <div class="inv-scan-controles">
+            <button class="btn btn-primario" id="btnInvCamara" type="button">Abrir cámara</button>
+            <button class="btn" id="btnInvCamaraParar" type="button" hidden>Detener</button>
+            <label class="campo">
+              <span>Código de barras</span>
+              <input id="invCodigo" inputmode="numeric" autocomplete="off" placeholder="Ej. 7801234567890" />
+            </label>
+            <button class="btn" id="btnInvBuscarCodigo" type="button">Buscar código</button>
+            <p class="inv-ayuda">Si la cámara no está disponible, escribe el código: la búsqueda
+              funciona igual contra las bases libres.</p>
+          </div>
+        </div>
+        <div id="invResultadoApi" class="inv-resultado"></div>
+      </div>
+
+      <!-- ── PASO 2 · PRODUCTOS ────────────────────────────────────────── -->
+      <div class="inv-panel" id="invPaso2">
+        <div class="inv-toolbar">
+          <label class="campo campo-buscar">
+            <span>Buscar</span>
+            <input id="invBuscar" placeholder="Nombre, marca o código" />
+          </label>
+          <label class="campo">
+            <span>Categoría</span>
+            <select id="invFiltroCategoria">
+              <option value="">Todas</option>
+              <option value="abarrotes">Alimentos</option>
+              <option value="bebidas">Bebidas</option>
+              <option value="alcohol">Alcohol</option>
+              <option value="dulces">Dulces</option>
+              <option value="lacteos">Lácteos</option>
+              <option value="cosmetica">Cosmética</option>
+              <option value="limpieza">Limpieza</option>
+              <option value="congelados">Congelados</option>
+              <option value="mascotas">Mascotas</option>
+              <option value="otros">Otros</option>
+            </select>
+          </label>
+          <label class="campo">
+            <span>Etiqueta «free»</span>
+            <select id="invFiltroFree">
+              <option value="">Todas</option>
+              <option value="sin-gluten">Sin gluten</option>
+              <option value="sin-azucar">Sin azúcar</option>
+              <option value="sin-lactosa">Sin lactosa</option>
+              <option value="sin-grasa">Sin grasa</option>
+              <option value="vegano">Vegano</option>
+              <option value="vegetariano">Vegetariano</option>
+              <option value="organico">Orgánico</option>
+            </select>
+          </label>
+          <label class="inv-check">
+            <input type="checkbox" id="invSoloBajo" /> Solo stock bajo
+          </label>
+        </div>
+        <div class="inv-toolbar-acciones">
+          <button class="btn btn-primario" id="btnInvNuevo" type="button">+ Nuevo producto</button>
+          <button class="btn" id="btnInvRefrescar" type="button">Refrescar</button>
+          <button class="btn" id="btnInvSincronizar" type="button">Sincronizar</button>
+        </div>
+        <div id="invFormulario" class="inv-form" hidden>
+          <h3 id="invFormTitulo">Nuevo producto</h3>
+          <div class="inv-form-grid">
+            <label class="campo"><span>Código de barras</span><input id="invFcodigo" inputmode="numeric" /></label>
+            <label class="campo"><span>Nombre *</span><input id="invFnombre" /></label>
+            <label class="campo"><span>Marca</span><input id="invFmarca" /></label>
+            <label class="campo"><span>Categoría</span>
+              <select id="invFcategoria">
+                <option value="abarrotes">Alimentos</option>
+                <option value="bebidas">Bebidas</option>
+                <option value="alcohol">Alcohol</option>
+                <option value="dulces">Dulces</option>
+                <option value="lacteos">Lácteos</option>
+                <option value="cosmetica">Cosmética</option>
+                <option value="limpieza">Limpieza</option>
+                <option value="congelados">Congelados</option>
+                <option value="mascotas">Mascotas</option>
+                <option value="otros">Otros</option>
+              </select>
+            </label>
+            <label class="campo"><span>Unidad</span><input id="invFunidad" placeholder="unidad / kg / caja" /></label>
+            <label class="campo"><span>Costo neto</span><input id="invFcosto" inputmode="decimal" /></label>
+            <label class="campo"><span>Precio venta</span><input id="invFprecio" inputmode="decimal" /></label>
+            <label class="campo"><span>Stock</span><input id="invFstock" inputmode="numeric" /></label>
+            <label class="campo"><span>Stock mínimo</span><input id="invFminimo" inputmode="numeric" /></label>
+            <label class="campo"><span>IVA %</span><input id="invFiva" inputmode="numeric" value="19" /></label>
+            <label class="campo"><span>Proveedor</span><input id="invFproveedor" /></label>
+            <label class="campo campo-ancho"><span>Notas</span><input id="invFnotas" /></label>
+            <input type="hidden" id="invFficha" value="{}" />
+          </div>
+          <div class="inv-meta" id="invFfichaVista"></div>
+          <div class="inv-form-acciones">
+            <button class="btn btn-primario" id="btnInvGuardar" type="button">Guardar en la base</button>
+            <button class="btn" id="btnInvCancelar" type="button">Cancelar</button>
+            <span class="inv-guardado" id="invGuardadoEstado"></span>
+          </div>
+        </div>
+        <div id="invLista" class="inv-lista"></div>
+      </div>
+
+      <!-- ── PASO 3 · PRECIOS ──────────────────────────────────────────── -->
+      <div class="inv-panel" id="invPaso3">
+        <label class="campo">
+          <span>Producto</span>
+          <select id="invPrecioProducto"></select>
+        </label>
+        <div class="inv-comparativa" id="invComparativa"></div>
+        <div class="inv-form-grid inv-form-precio">
+          <label class="campo"><span>Proveedor</span><input id="invPproveedor" /></label>
+          <label class="campo"><span>Precio</span><input id="invPprecio" inputmode="decimal" /></label>
+          <label class="campo"><span>Nota</span><input id="invPnota" placeholder="oferta, flete incluido…" /></label>
+        </div>
+        <button class="btn btn-primario" id="btnInvPrecioAgregar" type="button">Agregar precio</button>
+      </div>
+
+      <!-- ── PASO 4 · MÁRGENES + EXCEL ─────────────────────────────────── -->
+      <div class="inv-panel" id="invPaso4">
+        <div class="inv-calc">
+          <label class="campo"><span>Costo</span><input id="invMcosto" inputmode="decimal" /></label>
+          <label class="campo"><span>Precio</span><input id="invMprecio" inputmode="decimal" /></label>
+          <label class="campo"><span>Margen objetivo %</span><input id="invMobjetivo" inputmode="decimal" placeholder="30" /></label>
+          <label class="campo"><span>IVA %</span><input id="invMiva" inputmode="numeric" value="19" /></label>
+        </div>
+        <div class="inv-calc-salida" id="invCalcSalida"></div>
+        <div class="inv-toolbar-acciones">
+          <button class="btn btn-primario" id="btnInvExportar" type="button">Descargar Excel (CSV)</button>
+          <button class="btn" id="btnInvPreguntarIA" type="button">Preguntar a la IA</button>
+        </div>
+        <div id="invMargenesTabla"></div>
+      </div>
+
+      <!-- ── PASO 5 · BOLETA ───────────────────────────────────────────── -->
+      <div class="inv-panel" id="invPaso5">
+        <div class="inv-boleta">
+          <div class="inv-boleta-izq">
+            <label class="campo">
+              <span>Agregar producto</span>
+              <select id="invBoletaProducto"></select>
+            </label>
+            <div class="inv-form-grid">
+              <label class="campo"><span>Cantidad</span><input id="invBoletaCantidad" inputmode="numeric" value="1" /></label>
+              <button class="btn" id="btnInvBoletaAgregar" type="button">Agregar al carrito</button>
+            </div>
+            <div id="invCarrito" class="inv-carrito"></div>
+            <div class="inv-form-grid">
+              <label class="campo"><span>Cliente</span><input id="invCliente" placeholder="Consumidor final" /></label>
+              <label class="campo"><span>RUT</span><input id="invRut" placeholder="12.345.678-9" /></label>
+              <label class="campo"><span>Pago</span>
+                <select id="invPago">
+                  <option value="efectivo">Efectivo</option>
+                  <option value="debito">Débito</option>
+                  <option value="credito">Crédito</option>
+                  <option value="transferencia">Transferencia</option>
+                </select>
+              </label>
+            </div>
+            <div class="inv-toolbar-acciones">
+              <button class="btn btn-primario" id="btnInvEmitir" type="button">Emitir boleta</button>
+              <button class="btn" id="btnInvImprimir" type="button">Imprimir / PDF</button>
+              <label class="campo">
+                <span>Papel</span>
+                <select id="invFormatoImpresion">
+                  <option value="80mm">Rollo 80 mm</option>
+                  <option value="58mm">Rollo 58 mm</option>
+                  <option value="a4">Hoja A4</option>
+                </select>
+              </label>
+            </div>
+          </div>
+          <div class="inv-boleta-der" id="invBoletaVista">
+            <p class="inv-ayuda">El carrito está vacío.</p>
+          </div>
+        </div>
+        <div id="invBoletasHist" class="inv-lista"></div>
+      </div>
+    </section>
+
+    <!-- ================= FLUJO EN TIEMPO REAL ================= -->
+    <section class="vista" id="v-flujo">
+      <div class="cab-vista flujo-cab">
+        <div>
+          <h2>Flujo en tiempo real</h2>
+          <p>Qué está pasando ahora, qué falló y dónde. Se refresca solo cada 5 segundos.</p>
+        </div>
+        <label class="flujo-auto">
+          <input type="checkbox" id="flujoAuto" checked />
+          <span>Auto</span>
+        </label>
+      </div>
+
+      <div class="flujo-resumen" id="flujoResumen"></div>
+
+      <div class="flujo-mapa" id="flujoMapa" aria-live="polite"></div>
+
+      <div class="flujo-seccion">
+        <div class="flujo-seccion-cab">
+          <h3>Fallos y avisos</h3>
+          <button class="btn btn-mini" id="btnFlujoLimpiarFallos" type="button">Actualizar</button>
+        </div>
+        <div id="flujoFallos" class="flujo-fallos"></div>
+      </div>
+
+      <div class="flujo-seccion">
+        <div class="flujo-seccion-cab">
+          <h3>Consola del teléfono</h3>
+          <span class="nota" id="flujoPuenteEstado">—</span>
+        </div>
+        <div class="flujo-term" id="flujoTerminal" aria-live="polite"></div>
+        <div class="flujo-cmd">
+          <span class="flujo-prompt">$</span>
+          <input id="flujoCmd" placeholder="ls -la; free -m; df -h" autocapitalize="off"
+                 autocomplete="off" spellcheck="false" enterkeyhint="send" />
+          <button class="btn btn-primario" id="btnFlujoEjecutar" type="button">Ejecutar</button>
+        </div>
+        <div class="flujo-atajos">
+          <button class="btn btn-mini" type="button" data-flujo-cmd="ls -la ~">ls ~</button>
+          <button class="btn btn-mini" type="button" data-flujo-cmd="free -m">RAM</button>
+          <button class="btn btn-mini" type="button" data-flujo-cmd="df -h ~ $PREFIX">Disco</button>
+          <button class="btn btn-mini" type="button" data-flujo-cmd="pgrep -af 'python3|node' | head -20">Procesos</button>
+          <button class="btn btn-mini" type="button" data-flujo-cmd="tail -30 ~/termux-puente.log">Log puente</button>
+          <button class="btn btn-mini" id="btnFlujoLimpiarTerm" type="button">Limpiar</button>
+        </div>
+        <p class="nota">Los comandos viajan por loopback con token al puente de Termux, que limita tiempo y
+          salida, rechaza operaciones irreversibles y registra todo en <code>~/fabrick-comandos.log</code>.</p>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ===================== NAVEGACIÓN ===================== -->
+  <nav class="bottomnav">
+    <button class="nav activo" data-vista="inicio"><span>◉</span>Inicio</button>
+    <button class="nav" data-vista="chat"><span>✦</span>Chat</button>
+    <button class="nav" data-vista="inventario"><span>▦</span>Inventario</button>
+    <button class="nav" data-vista="flujo"><span>⇄</span>Flujo</button>
+    <button class="nav" data-vista="consola"><span>▸</span>Consola</button>
+  </nav>
+
+    <!-- ===================== MODAL DE COMPONENTE ===================== -->
+  <div class="modal" id="modal" hidden>
+    <div class="modal-caja">
+      <header class="modal-cab">
+        <div>
+          <p class="etiqueta" id="modalTipo">—</p>
+          <h3 id="modalNombre">—</h3>
+        </div>
+        <button class="btn btn-icono" id="modalCerrar">✕</button>
+      </header>
+      <div id="modalCuerpo" class="datos"></div>
+      <p class="nota" id="modalNota">—</p>
+      <div class="barra"><div class="barra-fill" id="modalBarra" style="width:0%"></div></div>
+      <p class="nota" id="modalProgreso">Sin descarga en curso.</p>
+      <div class="fila-botones">
+        <button class="btn btn-primario" id="btnDescargar">Descargar</button>
+        <button class="btn" id="btnInstalar" disabled>Instalar</button>
+        <button class="btn" id="btnProbar" disabled>Probar</button>
+      </div>
+      <p class="nota">Descargar sólo se habilita con manifiesto válido, URL HTTPS, SHA-256 y tamaño declarado. En módulos y páginas, «Instalar» registra el manifiesto en SQLite. A1 (carga de las bibliotecas nativas) ya está empaquetado; cargar el modelo e inferir (A2–A3) sigue bloqueado.</p>
+    </div>
+  </div>
+
+  <div class="loader-industrial" id="loaderArranque">
+    <p class="loader-marca">FABRI-CORE PRO</p>
+    <div class="loader-centro">
+      <img class="loader-logo" src="logo-loader.svg" alt="FABRI-CORE PRO" />
+    </div>
+    <div class="loader-pie">
+      <div class="loader-barra"><div class="loader-barra-lleno" id="loaderBarraLleno"></div></div>
+      <p class="loader-texto" id="loaderTexto">LOADING CORE SYSTEM · 0 %</p>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" hidden></div>
+
+  <!-- Fallback del loader: aunque app.js no cargue, la pantalla de carga se cierra.
+       Doble red: (1) una animación CSS la desvanece a los 2,9 s sin JavaScript;
+       (2) este reloj la quita del árbol a los 3,2 s por si el WebView no compone
+       animaciones. Si el hilo de JavaScript estuviera bloqueado, la red (1) es
+       la que salva la pantalla: se ejecuta en el hilo gráfico. -->
+  <script>
+    function __fabriQuitarLoader() {
+      try {
+        var l = document.getElementById("loaderArranque");
+        if (!l) return;
+        l.classList.add("loader-oculto");
+        l.style.pointerEvents = "none";
+        setTimeout(function () { l.style.display = "none"; }, 350);
+      } catch (e) {}
+    }
+    setTimeout(__fabriQuitarLoader, 3200);
+    setTimeout(__fabriQuitarLoader, 6000);
+  </script>
+  <!-- Respaldo del acceso: si app.js no llega a ejecutarse (un id ausente,
+       un error de sintaxis, un recurso que no carga), estos botones responden
+       igual y muestran el error exacto en vez de quedarse mudos. Cuando app.js
+       sí cargó, este respaldo se retira solo: manda el manejador de la app. -->
+  <script>
+  (function () {
+    function el(id) { return document.getElementById(id); }
+    function di(msj, clase) {
+      var e = el("loginEstado");
+      if (!e) return;
+      e.textContent = msj;
+      e.className = "login-estado" + (clase ? " " + clase : "");
+    }
+    function llamar(nombre, args) {
+      var n = window.FabrickNative;
+      if (!n || typeof n[nombre] !== "function") {
+        return { ok: false, error: "El puente nativo no está disponible en esta vista." };
+      }
+      try { return JSON.parse(n[nombre].apply(n, args || [])); }
+      catch (e) { return { ok: false, error: String(e) }; }
+    }
+    function entrar() {
+      var capa = el("loginFabrick");
+      if (capa) capa.hidden = true;
+      document.body.classList.remove("login-abierto");
+    }
+    /* Resultado de la huella cuando la app real no llegó a conectar su
+       delegación. app.js lo usa como puente si murió a mitad de camino. */
+    window.__fabriRespaldoResultado = function (r) {
+      if (r && r.ok) { entrar(); return; }
+      if (r && r.codigo === "CANCELADO") {
+        di("Cancelaste la huella. Puedes usar tu PIN.", "aviso");
+        return;
+      }
+      di((r && r.error) || "No se pudo verificar la huella", "error");
+    };
+    function respaldo(id, fn) {
+      var b = el(id);
+      if (!b) return;
+      b.addEventListener("click", function (ev) {
+        if (window.__fabriDelegacion) return; // la app real ya responde
+        ev.preventDefault();
+        try { fn(); }
+        catch (e) { di("Error en «" + id + "»: " + e, "error"); }
+      });
+    }
+    respaldo("btnLoginPin", function () {
+      var c = el("loginPin");
+      var pin = c ? String(c.value || "").trim() : "";
+      if (!/^\d{4,6}$/.test(pin)) { di("Escribe tu PIN de 4 a 6 dígitos.", "error"); return; }
+      var r = llamar("huellaVerificarPin", [pin]);
+      if (r.ok) { entrar(); return; }
+      di(r.error || "PIN incorrecto", "error");
+    });
+    respaldo("btnLoginCrear", function () {
+      var a = el("loginPinNuevo"), b = el("loginPinNuevo2");
+      var p1 = a ? String(a.value || "").trim() : "";
+      var p2 = b ? String(b.value || "").trim() : "";
+      if (!/^\d{4,6}$/.test(p1)) { di("El PIN debe tener de 4 a 6 dígitos.", "error"); return; }
+      if (p1 !== p2) { di("Los dos PIN no coinciden.", "error"); return; }
+      var r = llamar("huellaConfigurarPin", [p1]);
+      if (r.ok) { entrar(); return; }
+      di(r.error || "No se pudo crear el PIN", "error");
+    });
+    respaldo("btnLoginHuella", function () {
+      var st = llamar("huellaEstado");
+      if (!st.ok) { di("No se pudo leer la huella: " + (st.error || "error"), "error"); return; }
+      if (!st.huellaActiva) {
+        di("La huella no está activada. Usa «Activar huella al iniciar» con tu PIN.", "aviso");
+        return;
+      }
+      var r = llamar("huellaAutenticar");
+      if (!r.ok) { di(r.error || "No se pudo abrir el lector de huella", "error"); return; }
+      di("Esperando la huella…", "aviso");
+    });
+    respaldo("btnLoginActivar", function () {      var st = llamar("huellaEstado");
+      if (!st.ok) { di("No se pudo leer la huella: " + (st.error || "error"), "error"); return; }
+      if (!st.huellaDisponible) {
+        di("Este teléfono no tiene una huella configurada. Actívala en Ajustes del sistema y vuelve.", "aviso");
+        return;
+      }
+      var c = el("loginPin");
+      var pin = c ? String(c.value || "").trim() : "";
+      if (!/^\d{4,6}$/.test(pin)) {
+        di("Escribe tu PIN para activar la huella.", "aviso");
+        if (c) c.focus();
+        return;
+      }
+      var v = llamar("huellaVerificarPin", [pin]);
+      if (!v.ok) { di("PIN incorrecto: no se puede activar la huella.", "error"); return; }
+      var r = llamar("huellaActivar");
+      if (!r.ok) { di(r.error || "No se pudo activar la huella", "error"); return; }
+      di("Confirma tu huella en el lector…", "aviso");
+    });
+    respaldo("btnLoginBorrar", function () {
+      if (!window.confirm("Esto borra el PIN y la huella de FABRI-CORE.\n\n"
+          + "Después tendrás que crear un PIN nuevo. No borra datos, ni modelos, ni la base.")) return;
+      var r = llamar("huellaBorrar");
+      if (r.ok) {
+        var s = el("loginSetup"), e2 = el("loginEntrar");
+        if (s) s.hidden = false;
+        if (e2) e2.hidden = true;
+        di("Acceso restablecido. Crea un PIN nuevo.", "ok");
+      } else {
+        di("No se pudo restablecer: " + (r.error || "error"), "error");
+      }
+    });
+    respaldo("btnLoginSaltar", function () { entrar(); });
+
+    /* La foto es el botón para cambiarla, también sin app.js. */
+    var foto = el("loginPhotoWrap");
+    var archivo = el("loginFotoArchivo");
+    if (foto && archivo) {
+      var abrir = function (ev) {
+        if (window.__fabriFoto) return; // app.js ya tiene su propio manejador
+        if (ev) ev.preventDefault();
+        archivo.value = "";
+        archivo.click();
+      };
+      foto.addEventListener("click", abrir);
+      foto.addEventListener("keydown", function (ev) {
+        if (ev.key === "Enter" || ev.key === " ") abrir(ev);
+      });
+      archivo.addEventListener("change", function () {
+        if (window.__fabriFoto) return;
+        var f = archivo.files && archivo.files[0];
+        if (!f) return;
+        di("Foto elegida. Para guardarla hace falta que la interfaz cargue (app.js).", "aviso");
+      });
+    }
+
+    /* A los 6 s, si la app no definió FabriLogin, se dice el error real en vez
+       de dejar «Comprobando acceso…» para siempre. */
+    setTimeout(function () {
+      if (window.FabriLogin) return;
+      var e = el("loginEstado");
+      if (!e) return;
+      var extra = window.FabriDiag && window.FabriDiag.ultimo
+        ? " Último error: " + window.FabriDiag.ultimo : "";
+      e.textContent = "La interfaz no terminó de cargar. Los botones responden en modo de respaldo." + extra;
+      e.className = "login-estado aviso";
+    }, 6000);
+  })();
+  </script>
+  <script src="diagnostico.js"></script>
+  <script src="app.js"></script>
+  <script src="datos.js"></script>
+  <script src="conexiones.js"></script>
+  <script src="inventario.js"></script>
+  <script src="flujo.js"></script>
+</body>
+</html>

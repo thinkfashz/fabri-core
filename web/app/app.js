@@ -375,6 +375,7 @@
     if (id === 'sql') { $('#sqlIn').focus(); }
     if (id === 'datos') Pro.renderDatos();
     if (id === 'ia') Pro.renderIA();
+    if (id === 'inv') Pro.renderInv();
     if (id === 'hoja') Sheet.mount($('#pro-hoja'));
     if (id === 'cuenta') Pro.renderCuenta();
     history.replaceState(null, '', '#' + id);
@@ -387,6 +388,8 @@
 
   /* ── arranque ─────────────────────────────────────────────────────────── */
   async function boot() {
+    const paso = (n, t) => { const e = document.getElementById('bootTxt'); if (e) e.textContent = t + ' · ' + n + ' %'; };
+    paso(12, 'LOADING CORE SYSTEM');
     // temas
     $('#themes').innerHTML = Object.entries(THEMES).map(([k, t]) =>
       `<button class="chip" data-k="${k}"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${t.c};margin-right:7px;vertical-align:-1px"></span>${t.name}</button>`).join('');
@@ -418,13 +421,52 @@
       await IDB.clear(); location.reload();
     };
 
-    // conexión
-    const setNet = () => {
-      const on = navigator.onLine;
-      $('#offBar').classList.toggle('on', !on);
-      $('#live').innerHTML = `<i class="dot ${on ? '' : 'off'}"></i><span>${on ? 'en línea' : 'offline'}</span>`;
+    // conexión · verificación real, no sólo `navigator.onLine`
+    // `onLine` miente a menudo (red con portal cautivo, túnel caído). Aquí se
+    // consulta /api/health de fabri-api, que es público y barato, y el
+    // resultado se pinta en la cabecera. El botón permite repetir la prueba.
+    const API = 'https://fabri-api.vercel.app';
+    const pintarNet = (estado, texto, titulo) => {
+      const dot = $('#liveDot');
+      const txt = $('#liveTxt');
+      if (dot) dot.className = 'dot ' + (estado === 'ok' ? '' : estado);
+      if (txt) txt.textContent = texto;
+      const b = $('#live');
+      if (b) b.title = titulo || texto;
     };
-    addEventListener('online', setNet); addEventListener('offline', setNet); setNet();
+    const verificarConexion = async (silencioso) => {
+      if (!navigator.onLine) {
+        pintarNet('off', 'offline', 'Sin red: se trabaja con la base local');
+        $('#offBar').classList.toggle('on', true);
+        return false;
+      }
+      $('#offBar').classList.toggle('on', false);
+      if (!silencioso) pintarNet('warn', 'comprobando…', 'Consultando fabri-api');
+      try {
+        const ctrl = new AbortController();
+        const reloj = setTimeout(() => ctrl.abort(), 6000);
+        const r = await fetch(API + '/api/health', { signal: ctrl.signal, cache: 'no-store' });
+        clearTimeout(reloj);
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const d = await r.json().catch(() => ({}));
+        const base = d && d.dependencias && d.dependencias.find(x => /INSFORGE|DATABASE/i.test(x.nombre || ''));
+        const listo = !base || base.ok;
+        pintarNet(listo ? 'ok' : 'warn',
+          listo ? 'nube en línea' : 'nube parcial',
+          listo ? 'fabri-api y la base responden' : 'fabri-api responde; revisa la base');
+        if (!silencioso) toast(listo ? 'Conexión verificada' : 'La nube responde, la base no');
+        return listo;
+      } catch (e) {
+        pintarNet('warn', 'sin nube', 'La nube no responde: la app sigue local');
+        if (!silencioso) toast('Sin nube: sigues trabajando en local');
+        return false;
+      }
+    };
+    $('#live').onclick = () => verificarConexion(false);
+    addEventListener('online', () => verificarConexion(true));
+    addEventListener('offline', () => { pintarNet('off', 'offline'); $('#offBar').classList.add('on'); });
+    verificarConexion(true);
+    setInterval(() => verificarConexion(true), 120000);
 
     // service worker
     if ('serviceWorker' in navigator) {
@@ -444,7 +486,11 @@
     // base
     try {
       await IDB.open();
+      paso(52, 'OPENING LOCAL DATABASE');
       await initDb();
+      // El cargador se retira ANTES de abrir el login: si sigue encima
+      // (z-index 100 > 90) el usuario ve los campos pero ningún toque llega.
+      quitarBoot();
       CoreAuth.init();
       const user = await Pro.gate();
       window.Fabri.user = user;
@@ -456,11 +502,37 @@
       pushMsg('assistant', 'Listo. Esta consola corre entera en tu navegador: la base es SQLite real y sobrevive a las recargas. Pregúntame algo o abre la consola SQL.');
       ev('api', 'núcleo iniciado');
     } catch (e) {
+      quitarBoot();
       $('#ver').textContent = 'error de arranque';
       toast('No pude iniciar SQLite: ' + e.message);
       console.error(e);
     }
   }
+
+  /* ── cargador de arranque ─────────────────────────────────────────────── */
+  /**
+   * Retira la capa de carga. Se puede llamar cuantas veces haga falta.
+   *
+   * La clase `.boot.gone` desactiva la animación de salida y oculta por
+   * `visibility`, que es lo único que impide que la capa siga capturando
+   * toques cuando la animación CSS la vuelve a pintar.
+   */
+  function quitarBoot() {
+    const b = document.getElementById('boot');
+    if (!b) return;
+    b.classList.add('gone');
+    b.setAttribute('aria-hidden', 'true');
+    setTimeout(() => { try { b.remove(); } catch (e) { /* ya no está */ } }, 400);
+  }
+  window.FabriQuitarBoot = quitarBoot;
+
+  // Red de seguridad: si `boot()` muere antes de llegar a la base (un script
+  // externo que no carga, una excepción temprana), la capa se va igual.
+  setTimeout(quitarBoot, 6000);
+  addEventListener('pageshow', ev => { if (ev && ev.persisted) quitarBoot(); });
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) quitarBoot();
+  });
 
   // API para los módulos (auth, bóveda, datos, IA)
   window.Fabri = { S, q, one, run, save, toast, ev, log, audit, metric, go, refreshAll, IDB };

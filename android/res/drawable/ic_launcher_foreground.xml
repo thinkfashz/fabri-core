@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Monograma F de FABRI-CORE PRO (marca sólida v5).
+  Se dibuja dentro de un grupo para respetar la zona segura del icono
+  adaptativo: el 12 % exterior puede recortarse en cualquier launcher.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:scaleX="0.237"
+        android:scaleY="0.237"
+        android:translateX="23.2"
+        android:translateY="21.6">
+        <path
+            android:pathData="M20,12 L280,12 L210,95 L88,95 Z"
+            android:fillColor="#C8FF00" />
+        <path
+            android:pathData="M20,22 L88,105 L88,285 L20,285 Z"
+            android:fillColor="#C8FF00" />
+        <path
+            android:pathData="M110,135 L210,135 L180,195 L110,195 Z"
+            android:fillColor="#C8FF00" />
+        <path
+            android:pathData="M88,95 L110,95 L110,195 L88,195 Z"
+            android:fillColor="#050505" />
+    </group>
+</vector>

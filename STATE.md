@@ -2,6 +2,69 @@
 
 Última actualización: 2026-10-26
 
+## Sesión 2026-10-26 (10) · APK 0.9.12 + inventario en la nube + web con la misma ficha
+
+APK: `dist/FABRI-CORE-0.9.12.apk` · **4.091.014 B** ·
+sha256 `7e6e70d4f53027dde5351aaa69c1597864fb27435f9e5a67221396baf8bd3a5c`
+versionCode **27** · copiada a `/storage/emulated/0/Download/FABRI-CORE-0.9.12.apk`.
+Firma debug, minSdk 24, target 34. Instalar **encima** de la 0.9.11.
+
+### El fallo que quedaba: al reabrir, loader y login muertos
+
+Los videos del usuario mostraban 1 %, 7 %, una imagen y luego nada, sin botones.
+No era el arranque (ya corregido en 0.9.11): era **la vuelta del segundo plano**.
+
+- Android pausa temporizadores y animaciones CSS al ocultar la app. Al reabrir,
+  la animación `loader-salida` **no se había completado** y el loader seguía
+  encima del login (z-index alto), capturando todos los toques.
+- La clase `.loader-oculto` sólo ponía `opacity: 0`, pero la animación de salida
+  (`animation: loader-salida 360ms ease 2.9s forwards`) la sobreescribía: al
+  retirar la clase el navegador **volvía a pintar** la capa opaca.
+- `pageshow`/`visibilitychange` no tenían manejador: si el WebView restauraba la
+  página desde su caché (`persisted`), nadie retiraba el loader ni rearmaba el
+  arranque.
+
+### Lo corregido en 0.9.12
+
+| Cambio | Archivo |
+|---|---|
+| `.loader-oculto` con `animation: none` + `visibility: hidden` (la animación ya no puede resucitarla) | `app.css` |
+| `alVolver()` en `pageshow` y `visibilitychange`: retira el loader sin condiciones y rearma el arranque (idempotente) | `app.js` |
+| `LENTO` tratado como `NUCLEO_OCUPADO` (reintento silencioso, no error) | `app.js` |
+| `--version-code` se **lee del manifiesto** y se verifica dentro de la APK | `scripts/compilar.sh` |
+| `imprimir(html, formato)` con `PrintManager` (80 mm / 58 mm / A4) | `NativeBridge.java` |
+| Columna `ficha TEXT` con migración idempotente (`PRAGMA table_info`) | `src-tauri/src/lib.rs` |
+| `boletas` devuelve `items/neto/iva/pago` para reimprimir | `src-tauri/src/lib.rs` |
+| Lector EAN-13/EAN-8/UPC-A propio (el WebView no trae `BarcodeDetector`) | `inventario.js` |
+| Ficha ampliada, etiquetas «free», filtro y chips | `inventario.js`, `index.html` |
+| Impresión con documento propio y botón «Reimprimir» en el historial | `inventario.js` |
+| Sync con `/api/inventario` (`accion:"subir"`, upsert por código) | `inventario.js` |
+| Prueba del lector EAN: 13/13 | `tests/inventario/ean.js` |
+
+### Nube
+
+| Pieza | Estado |
+|---|---|
+| `POST /api/inventario` (`asegurar`/`subir`/`bajar`/`resumen`) | desplegado en `https://fabri-api.vercel.app` |
+| Tabla `inv_productos` en InsForge | **creada y verificada** (`?diag=1` → `tabla_existe: true`) |
+| `asegurar` sin token | permitido a propósito: DDL fijo e idempotente, sin datos |
+| Web con loader/login/inventario | `https://fabri-core-web.vercel.app/app/` |
+| Workflow de compilación Rust | `.github/workflows/apk-rust.yml` |
+
+### Documentos nuevos
+
+- `docs/APK.md` — qué es, por qué, tecnologías, compilación local y nube, contrato, versiones y límites.
+- `docs/SEGURIDAD-Y-VISION.md` — evaluación de Authelia, FairScan y MediaPipe con decisiones.
+
+### Pendiente
+
+- Probar en el teléfono: reabrir desde segundo plano y confirmar que el login responde.
+- Pegar `FABRI_API_TOKEN` en el login web (campo «clave de la nube») y subir un producto de prueba.
+- Integrar MediaPipe Barcode local (ver `docs/SEGURIDAD-Y-VISION.md` § 3).
+- Sincronizar el código real (`android/`, `src-tauri/`, `scripts/`, `runtime/`, `tests/`, `docs/`) al repo `thinkfashz/fabri-core`.
+
+---
+
 ## Sesión 2026-10-26 (9) · APK 0.9.11 (versionCode 26)
 
 APK: `dist/FABRI-CORE-0.9.11.apk` · **4.082.822 B** ·

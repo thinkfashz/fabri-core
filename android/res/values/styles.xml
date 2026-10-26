@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Tema mínimo: fondo casi negro (neon lime design system), sin ActionBar.
+      Evita depender de AppCompat/Material para que la APK quede liviana.
+    -->
+    <style name="FabrickTheme" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/fabrick_bg</item>
+        <item name="android:colorBackground">@color/fabrick_bg</item>
+        <item name="android:statusBarColor">@color/fabrick_bg</item>
+        <item name="android:navigationBarColor">@color/fabrick_card</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:windowActionModeOverlay">true</item>
+        <item name="android:windowNoTitle">true</item>
+    </style>
+</resources>

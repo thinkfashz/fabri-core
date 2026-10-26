@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  FABRI-CORE · política de tráfico en claro
+  ===========================================================================
+  HTTPS es obligatorio para descargas, GitHub y proveedores de Internet.
+
+  Excepción acotada: un servidor OmniRoute, Ollama o LM Studio auto-alojado en
+  el propio teléfono o en la LAN habla HTTP. El manifiesto permite cleartext,
+  pero NativeBridge.normalizarBase() sólo acepta http:// para localhost,
+  127.0.0.1 y direcciones IPv4 privadas (10/8, 172.16/12, 192.168/16).
+  Cualquier otro host sigue obligado a HTTPS en el código.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

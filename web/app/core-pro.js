@@ -414,30 +414,59 @@
   }
 
   /* ── LOGIN ─────────────────────────────────────────────────────────────── */
+  /**
+   * Puerta de acceso con la misma ficha de marca que la APK: marca, título,
+   * aviso de cifrado y pie con el estado de las dos capas (local y nube).
+   *
+   * El campo de clave de la nube es OPCIONAL y vive en `sessionStorage`: sirve
+   * para subir inventario a InsForge desde el navegador sin guardar el token
+   * en disco. Al cerrar la pestaña se olvida.
+   */
   async function gate() {
-    const f = F();
     const u = await window.CoreAuth.current();
     if (u) { document.getElementById('login').classList.remove('on'); return u; }
     const first = window.CoreAuth.count() === 0;
     const host = document.getElementById('login');
     host.classList.add('on');
+    const clavePrevia = sessionStorage.getItem('fabri.invKey') || '';
     host.innerHTML = `
-      <div style="max-width:360px;margin:0 auto;padding:24px 20px">
-        <div class="brand" style="margin-bottom:18px"><i></i>FABRI-CORE</div>
-        <h2 style="font-size:22px;margin-bottom:6px">${first ? 'Crea la cuenta del dispositivo' : 'Entra a FABRI-CORE'}</h2>
-        <p class="hint" style="margin-bottom:16px">${first
-        ? 'La cuenta y sus sesiones viven en esta base SQLite, no en un servidor.'
-        : 'La sesión se guarda como token en tu navegador.'}</p>
-        <input id="lgEmail" class="field" placeholder="correo@dominio.cl" autocomplete="username" style="margin-bottom:8px">
-        ${first ? '<input id="lgName" class="field" placeholder="tu nombre" style="margin-bottom:8px">' : ''}
-        <input id="lgPass" class="field" type="password" placeholder="contraseña (mínimo 8)" autocomplete="current-password" style="margin-bottom:8px">
-        ${first ? '<input id="lgPass2" class="field" type="password" placeholder="repite la contraseña" style="margin-bottom:8px">' : ''}
-        <div id="lgErr" class="hint" style="color:#FF6B6B;margin-bottom:8px"></div>
-        <button class="btn" id="lgGo" style="width:100%">${first ? 'Crear cuenta' : 'Entrar'}</button>
-        <p class="hint" style="margin-top:14px">PBKDF2-SHA256 · 120.000 iteraciones · sal única. Si olvidas la contraseña, la única salida es borrar los datos locales.</p>
+      <div class="login-box">
+        <div class="login-head">
+          <div class="mark" aria-hidden="true"></div>
+          <b>FABRI-CORE</b>
+        </div>
+        <h2>${first ? 'Crea la cuenta del dispositivo' : 'Entra a FABRI-CORE'}</h2>
+        <p class="hint">${first
+          ? 'La cuenta y sus sesiones viven en esta base SQLite, no en un servidor.'
+          : 'La sesión se guarda como token en tu navegador.'}</p>
+        <input id="lgEmail" class="field" placeholder="correo@dominio.cl" autocomplete="username">
+        ${first ? '<input id="lgName" class="field" placeholder="tu nombre">' : ''}
+        <input id="lgPass" class="field" type="password" placeholder="contraseña (mínimo 8)" autocomplete="current-password">
+        ${first ? '<input id="lgPass2" class="field" type="password" placeholder="repite la contraseña">' : ''}
+        <input id="lgKey" class="field" type="password" placeholder="clave de la nube (opcional)"
+          autocomplete="off" value="${esc(clavePrevia)}">
+        <div id="lgErr" class="hint" style="color:var(--err);margin:0 0 8px;text-align:left"></div>
+        <button class="btn primary" id="lgGo">${first ? 'Crear cuenta' : 'Entrar'}</button>
+        <div class="login-pie">
+          <span>PBKDF2 · 120k</span>
+          <span class="badge ok">local</span>
+          <span class="badge ${clavePrevia ? 'acc' : ''}" id="lgKeyBadge">${clavePrevia ? 'nube lista' : 'nube opcional'}</span>
+        </div>
+        <p class="hint" style="margin-top:10px">Si olvidas la contraseña, la única salida es borrar los datos
+          locales. La clave de la nube nunca se guarda en el repositorio.</p>
       </div>`;
 
     return new Promise(resolve => {
+      const guardarClave = () => {
+        const k = ($('#lgKey').value || '').trim();
+        if (k) sessionStorage.setItem('fabri.invKey', k);
+        else sessionStorage.removeItem('fabri.invKey');
+        const badge = $('#lgKeyBadge');
+        if (badge) {
+          badge.textContent = k ? 'nube lista' : 'nube opcional';
+          badge.className = 'badge ' + (k ? 'acc' : '');
+        }
+      };
       const go = async () => {
         const email = $('#lgEmail').value.trim();
         const pass = $('#lgPass').value;
@@ -448,6 +477,7 @@
           } else {
             await window.CoreAuth.login(email, pass);
           }
+          guardarClave();
           host.classList.remove('on');
           resolve(await window.CoreAuth.current());
         } catch (e) {
@@ -455,15 +485,200 @@
         }
       };
       $('#lgGo').onclick = go;
-      ['lgPass', 'lgPass2'].forEach(id => {
+      ['lgPass', 'lgPass2', 'lgKey'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
       });
     });
   }
 
+  /* ── INVENTARIO EN LA NUBE (InsForge vía fabri-api) ────────────────────── */
+  const INV_API = 'https://fabri-api.vercel.app/api/inventario';
+  const INV_FREE = [
+    ['sin-gluten', 'Sin gluten'], ['sin-azucar', 'Sin azúcar'],
+    ['sin-lactosa', 'Sin lactosa'], ['sin-grasa', 'Sin grasa'],
+    ['vegano', 'Vegano'], ['vegetariano', 'Vegetariano'], ['organico', 'Orgánico'],
+  ];
+  const invClave = () => (sessionStorage.getItem('fabri.invKey') || '').trim();
+  const clp = n => '$' + Math.round(Number(n) || 0).toLocaleString('es-CL');
+
+  async function invApi(accion, extra) {
+    const clave = invClave();
+    if (!clave) return { ok: false, codigo: 'SIN_CLAVE', error: 'falta la clave de la nube' };
+    try {
+      const ctrl = new AbortController();
+      const reloj = setTimeout(() => ctrl.abort(), 12000);
+      const r = await fetch(INV_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + clave },
+        body: JSON.stringify(Object.assign({ accion }, extra || {})),
+        signal: ctrl.signal,
+      });
+      clearTimeout(reloj);
+      const d = await r.json().catch(() => ({}));
+      if (r.status === 401) return { ok: false, codigo: 'SIN_TOKEN', error: 'la clave fue rechazada' };
+      if (!r.ok || d.ok === false) {
+        return { ok: false, codigo: d.codigo || ('HTTP ' + r.status), error: d.error || ('HTTP ' + r.status) };
+      }
+      return Object.assign({ ok: true }, d);
+    } catch (e) {
+      return { ok: false, codigo: 'RED', error: e.name === 'AbortError' ? 'la nube tardó demasiado' : String(e.message || e) };
+    }
+  }
+
+  let invEstado = { productos: [], resumen: null };
+
+  function invPintarEstado(clave, base) {
+    const kSub = $('#invKeySub'), kBadge = $('#invKeyBadge');
+    const dSub = $('#invDbSub'), dBadge = $('#invDbBadge');
+    if (kSub) kSub.textContent = clave ? 'clave cargada en esta sesión' : 'sin clave: sólo lectura local';
+    if (kBadge) { kBadge.textContent = clave ? 'lista' : 'falta'; kBadge.className = 'badge ' + (clave ? 'ok' : 'warn'); }
+    if (dSub) dSub.textContent = base ? 'tabla inv_productos disponible' : (clave ? 'no comprobada' : 'esperando clave');
+    if (dBadge) { dBadge.textContent = base ? 'ok' : '—'; dBadge.className = 'badge ' + (base ? 'ok' : ''); }
+  }
+
+  function invPintarLista() {
+    const caja = $('#invLista');
+    if (!caja) return;
+    const filtro = (($('#invFiltro') || {}).value || '').trim().toLowerCase();
+    const lista = (invEstado.productos || []).filter(p => {
+      if (!filtro) return true;
+      return (p.nombre + ' ' + p.marca + ' ' + p.codigo).toLowerCase().includes(filtro);
+    });
+    if (!lista.length) {
+      caja.innerHTML = `<div class="empty">${invEstado.productos.length
+        ? 'Ningún producto coincide con el filtro.'
+        : 'Todavía no hay productos en la nube. Sube el primero arriba.'}</div>`;
+      return;
+    }
+    caja.innerHTML = lista.map(p => {
+      const bajo = Number(p.stock) <= Number(p.stock_minimo);
+      const ficha = (p.ficha && typeof p.ficha === 'object') ? p.ficha : {};
+      const etiquetas = (ficha.etiquetas || []).map(id => {
+        const f = INV_FREE.find(x => x[0] === id);
+        return `<span class="badge acc">${esc(f ? f[1] : id)}</span>`;
+      }).join(' ');
+      return `<div class="inv-item">
+        <div class="grow">
+          <div class="t">${esc(p.nombre)}</div>
+          <div class="s">${esc(p.codigo)}${p.marca ? ' · ' + esc(p.marca) : ''} · ${esc(p.categoria)} ${etiquetas}</div>
+        </div>
+        <div class="v ${bajo ? 'bajo' : ''}">${clp(p.precio)}<small>stock ${esc(p.stock)}${bajo ? ' · bajo' : ''}</small></div>
+      </div>`;
+    }).join('');
+  }
+
+  function invPintarResumen(d) {
+    const r = (d && d.resumen) || {};
+    const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+    set('invKTotal', num(r.total || 0));
+    set('invKValor', clp(r.valor_venta || 0));
+    set('invKUtil', clp(r.utilidad || 0));
+    set('invKBajo', num(r.stock_bajo || 0));
+  }
+
+  async function invRefrescarNube(silencioso) {
+    const estado = $('#invSubirEstado');
+    if (!invClave()) {
+      invPintarEstado(false, false);
+      invPintarLista();
+      if (estado && !silencioso) estado.textContent = 'Pega la clave de la nube para ver y subir productos.';
+      return;
+    }
+    const baja = await invApi('bajar', { limite: 300 });
+    if (!baja.ok) {
+      invPintarEstado(true, false);
+      if (estado && !silencioso) estado.textContent = 'No pude leer la nube: ' + baja.error;
+      return;
+    }
+    invEstado.productos = baja.productos || [];
+    invPintarEstado(true, true);
+    invPintarLista();
+    const res = await invApi('resumen');
+    if (res.ok) { invEstado.resumen = res.resumen; invPintarResumen(res); }
+    if (estado && !silencioso) estado.textContent = invEstado.productos.length + ' productos en la nube.';
+  }
+
+  function renderInv() {
+    if (!invEstado.chipsListos) {
+      const chips = $('#invFreeChips');
+      if (chips) {
+        chips.innerHTML = INV_FREE.map(([id, t]) =>
+          `<button class="chip" type="button" data-free="${id}">${t}</button>`).join('');
+        chips.querySelectorAll('[data-free]').forEach(b => {
+          b.onclick = () => b.classList.toggle('on');
+        });
+      }
+      invEstado.chipsListos = true;
+    }
+
+    const campoClave = $('#invKey');
+    if (campoClave && !campoClave.value) campoClave.value = invClave();
+
+    $('#btnInvKey').onclick = async () => {
+      const k = (campoClave.value || '').trim();
+      if (k) sessionStorage.setItem('fabri.invKey', k);
+      else sessionStorage.removeItem('fabri.invKey');
+      await invRefrescarNube(false);
+      toast(invClave() ? 'Clave guardada; conexión verificada' : 'Clave borrada');
+    };
+
+    $('#btnInvAsegurar').onclick = async () => {
+      const r = await invApi('asegurar');
+      if (r.ok) { toast('Tabla inv_productos lista'); await invRefrescarNube(false); }
+      else toast('No pude crear la tabla: ' + r.error);
+    };
+
+    $('#btnInvBajar').onclick = () => invRefrescarNube(false);
+    const filtro = $('#invFiltro');
+    if (filtro) filtro.oninput = invPintarLista;
+
+    $('#btnInvSubir').onclick = async () => {
+      const estado = $('#invSubirEstado');
+      const nombre = ($('#invFnombre').value || '').trim();
+      const codigo = ($('#invFcodigo').value || '').trim() ||
+        ('WEB-' + Date.now().toString(36).toUpperCase());
+      if (!nombre) { toast('El nombre es obligatorio'); $('#invFnombre').focus(); return; }
+      if (!invClave()) { toast('Falta la clave de la nube'); if (estado) estado.textContent = 'Pega la clave de la nube arriba.'; return; }
+      const etiquetas = [...document.querySelectorAll('#invFreeChips .chip.on')].map(b => b.dataset.free);
+      const producto = {
+        codigo,
+        nombre,
+        marca: ($('#invFmarca').value || '').trim(),
+        categoria: $('#invFcategoria').value || 'abarrotes',
+        unidad: 'unidad',
+        costo: Number($('#invFcosto').value) || 0,
+        precio: Number($('#invFprecio').value) || 0,
+        stock: Math.round(Number($('#invFstock').value) || 0),
+        stock_minimo: Math.round(Number($('#invFminimo').value) || 0),
+        iva: 19,
+        origen: 'web',
+        notas: '',
+        ficha: { etiquetas, fuente: 'web' },
+        actualizado: Math.floor(Date.now() / 1000),
+      };
+      $('#btnInvSubir').disabled = true;
+      if (estado) estado.textContent = 'Subiendo ' + nombre + '…';
+      const r = await invApi('subir', { productos: [producto] });
+      $('#btnInvSubir').disabled = false;
+      if (!r.ok) {
+        if (estado) estado.textContent = 'No se subió: ' + r.error;
+        toast('No se subió: ' + r.error);
+        return;
+      }
+      if (estado) estado.textContent = nombre + ' subido a InsForge.';
+      toast('Producto subido');
+      ['invFcodigo', 'invFnombre', 'invFmarca', 'invFcosto', 'invFprecio', 'invFstock', 'invFminimo']
+        .forEach(id => { const e = document.getElementById(id); if (e) e.value = ''; });
+      document.querySelectorAll('#invFreeChips .chip.on').forEach(b => b.classList.remove('on'));
+      await invRefrescarNube(true);
+    };
+
+    invRefrescarNube(true);
+  }
+
   window.Pro = {
-    renderDatos, renderIA, renderCuenta, gate,
+    renderDatos, renderIA, renderCuenta, renderInv, gate,
     PLANS
   };
 })();
