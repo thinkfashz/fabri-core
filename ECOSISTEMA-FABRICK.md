@@ -225,7 +225,8 @@ Web (fabri-core-web/app) → login con clave de nube (sessionStorage)
 
 - `asegurar` es la única acción sin token: `CREATE TABLE IF NOT EXISTS` con
   columnas fijas, idempotente y sin datos del cliente.
-- `subir`, `bajar` y `resumen` exigen `Authorization: Bearer FABRI_API_TOKEN`.
+- `subir`, `bajar`, `borrar` y `resumen` exigen
+  `Authorization: Bearer FABRI_API_TOKEN`.
 - La ficha del producto (etiquetas «free», alérgenos, Nutri-Score, NOVA) viaja
   en una columna `ficha JSONB`; en la APK es `ficha TEXT` (JSON).
 - Diagnóstico público de la base: `GET /api/inventario?diag=1` → `tabla_existe`.

@@ -49,7 +49,8 @@ No era el arranque (ya corregido en 0.9.11): era **la vuelta del segundo plano**
 | Tabla `inv_productos` en InsForge | **creada y verificada** (`?diag=1` → `tabla_existe: true`) |
 | `asegurar` sin token | permitido a propósito: DDL fijo e idempotente, sin datos |
 | Web con loader/login/inventario | `https://fabri-core-web.vercel.app/app/` |
-| Workflow de compilación Rust | `.github/workflows/apk-rust.yml` |
+| Workflow de compilación Rust | `.github/workflows/apk-rust.yml` (bloqueado por facturación de GitHub) |
+| Escritura verificada de punta a punta | subir 2 → reenviar (upsert) → bajar → resumen → borrar → 401 sin token |
 
 ### Documentos nuevos
 

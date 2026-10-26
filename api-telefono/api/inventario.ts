@@ -13,6 +13,7 @@
 //   POST { accion: "asegurar" }                      → crea tabla e índice
 //   POST { accion: "subir",  productos: [ ... ] }     → upsert por `codigo`
 //   POST { accion: "bajar",  limite?, offset? }       → lista desde la nube
+//   POST { accion: "borrar", codigos: [ ... ] }       → elimina por código
 //   POST { accion: "resumen" }                        → totales y stock bajo
 //   GET  /api/inventario                              → estado del puente
 //
@@ -202,7 +203,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       token_configurado: Boolean(process.env.FABRI_API_TOKEN),
       tabla_existe,
       base_detalle,
-      acciones: ['asegurar', 'subir', 'bajar', 'resumen'],
+      acciones: ['asegurar', 'subir', 'bajar', 'borrar', 'resumen'],
     });
   }
 
@@ -307,9 +308,13 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     if (accion === 'bajar') {
       const limite = Math.min(500, Math.max(1, entero(cuerpo.limite, 500) || 200));
       const offset = Math.max(0, entero(cuerpo.offset, 1_000_000));
+      // NUMERIC vuelve como cadena desde `pg`; se castea para que la web y la
+      // APK reciban números y no tengan que adivinar el tipo.
       const r = await pool.query(
-        `SELECT codigo,nombre,marca,categoria,unidad,costo,precio,stock,
-                stock_minimo,iva,proveedor,origen,notas,ficha,actualizado
+        `SELECT codigo,nombre,marca,categoria,unidad,
+                costo::float8 AS costo, precio::float8 AS precio, stock,
+                stock_minimo,iva,proveedor,origen,notas,ficha,
+                actualizado::float8 AS actualizado
            FROM ${TABLA}
           ORDER BY nombre COLLATE "C"
           LIMIT $1 OFFSET $2`,
@@ -323,6 +328,22 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         limite,
         offset,
       });
+    }
+
+    if (accion === 'borrar') {
+      const codigos = (Array.isArray(cuerpo.codigos) ? cuerpo.codigos : [])
+        .map((c) => texto(c, 64).trim())
+        .filter(Boolean);
+      if (!codigos.length) {
+        return json(res, { ok: false, error: 'no hay códigos para borrar' }, 400);
+      }
+      if (codigos.length > 200) {
+        return json(res, { ok: false, error: 'máximo 200 códigos por lote' }, 413);
+      }
+      const r = await pool.query(
+        `DELETE FROM ${TABLA} WHERE codigo = ANY($1::text[])`, [codigos]
+      );
+      return json(res, { ok: true, accion, borrados: r.rowCount, codigos });
     }
 
     if (accion === 'resumen') {

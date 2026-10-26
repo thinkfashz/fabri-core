@@ -22,6 +22,13 @@ Este directorio es la **copia versionada** del código que se despliega en
 | `/api/skills` | POST | sí | lista/acciona skills |
 | `/api/health` | GET | **no** | salud barata (contrato común) |
 | `/api/estado` | GET | **no** | malla de las 4 capas |
+| `/api/inventario` | GET/POST | sí¹ | inventario compartido con la APK y la web |
+
+¹ `POST { accion: "asegurar" }` no exige token: sólo ejecuta un
+`CREATE TABLE IF NOT EXISTS` con columnas fijas, sin datos del cliente y sin
+`DROP`. `subir`, `bajar`, `borrar` y `resumen` sí exigen
+`Authorization: Bearer FABRI_API_TOKEN`. `GET /api/inventario?diag=1` es público
+y sólo informa si la tabla existe.
 
 ## Variables de entorno
 
