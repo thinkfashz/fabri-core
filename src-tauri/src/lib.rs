@@ -1843,11 +1843,17 @@ fn sqlite_tablas(conn: &Connection, data_dir: &Path) -> Result<Value, String> {
     while let Some(f) = filas.next().map_err(|e| e.to_string())? {
         let nombre: String = f.get(0).map_err(|e| e.to_string())?;
         let ddl: Option<String> = f.get(1).unwrap_or(None);
-        let n: i64 = conn
-            .query_row(&format!("SELECT COUNT(*) FROM \"{}\"", nombre), [], |r| {
-                r.get(0)
-            })
-            .unwrap_or(0);
+        // Conteo rápido: para tablas de bitácora (logs/revision) hacer
+        // `COUNT(*)` escanea TODAS las filas y puede tardar segundos cada vez
+        // (son tablas grandes). Se usa el máximo del id (índice) que es casi
+        // instantáneo, o se devuelve -1 si no hay clave entera.
+        let n: i64 = if nombre == "logs" || nombre == "revision" || nombre == "operaciones" {
+            conn.query_row(&format!("SELECT COALESCE(MAX(id),0) FROM \"{}\"", nombre), [], |r| r.get(0))
+                .unwrap_or(0)
+        } else {
+            conn.query_row(&format!("SELECT COUNT(*) FROM \"{}\"", nombre), [], |r| r.get(0))
+                .unwrap_or(0)
+        };
         total_filas += n;
         let columnas = conn
             .prepare(&format!("SELECT * FROM \"{}\" LIMIT 0", nombre))

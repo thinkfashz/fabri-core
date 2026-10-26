@@ -7,8 +7,8 @@
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="cl.fabrick.core"
-    android:versionCode="33"
-    android:versionName="0.9.18">
+    android:versionCode="34"
+    android:versionName="0.9.19">
 
     <uses-sdk android:minSdkVersion="24" android:targetSdkVersion="34" />
 

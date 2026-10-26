@@ -1,6 +1,6 @@
 [package]
 name = "fabrick-core"
-version = "0.9.18"
+version = "0.9.19"
 edition = "2021"
 description = "Núcleo Rust de FABRI-CORE: configuración, catálogo, historial, logs y diagnóstico"
 

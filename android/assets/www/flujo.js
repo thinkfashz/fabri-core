@@ -123,15 +123,22 @@ function flujoRefrescar() {
   if (FLUJO.consultando) return;
   FLUJO.consultando = true;
   const t0 = Date.now();
-  Promise.all([
-    apiTarde("ping", undefined, { maxMs: 5000 }),
-    apiTarde("sqlite", { accion: "tablas" }, { maxMs: 25000 }),
-    apiTarde("inventario", { accion: "resumen" }, { maxMs: 15000 }),
-    apiTarde("revision.resumen", undefined, { maxMs: 15000 }),
-    apiTarde("revision.listar", { limite: 80 }, { maxMs: 15000 })
+  // Timeouts CORTOS: esto es un panel de estado, no una consulta de datos.
+  // Si el núcleo está ocupado, cada nodo se marca "lento" al instante en vez
+  // de hacer esperar al panel 25 s con `Promise.all`.
+  const tl = { maxMs: 6000 };
+  Promise.allSettled([
+    apiTarde("ping", undefined, tl),
+    apiTarde("sqlite", { accion: "tablas" }, tl),
+    apiTarde("inventario", { accion: "resumen" }, tl),
+    apiTarde("revision.resumen", undefined, tl),
+    apiTarde("revision.listar", { limite: 80 }, tl)
   ]).then(function (res) {
     FLUJO.consultando = false;
-    flujoPintarCon(res[0], res[1], res[2], res[3], res[4], t0);
+    const r = res.map(function (x) {
+      return x.status === "fulfilled" ? x.value : { ok: false, error: "carga cancelada" };
+    });
+    flujoPintarCon(r[0], r[1], r[2], r[3], r[4], t0);
   }).catch(function () {
     FLUJO.consultando = false;
   });
