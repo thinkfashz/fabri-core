@@ -585,8 +585,8 @@
    * del momento, no un pedido guardado. El total es la suma de precio × cantidad
    * (precio con IVA); el neto y el IVA se despejan igual que en el núcleo Rust.
    */
-  function invTotales() {
-    const items = invEstado.carrito || [];
+  function invTotales(items) {
+    items = items || invEstado.carrito || [];
     const total = items.reduce((a, x) => a + (Number(x.precio) || 0) * (Number(x.cantidad) || 1), 0);
     const neto = total / 1.19;
     return { total, neto, iva: total - neto, items };
@@ -863,6 +863,9 @@
 
   window.Pro = {
     renderDatos, renderIA, renderCuenta, renderInv, gate,
+    // Superficie mínima para pruebas: son funciones puras (no tocan el DOM) y
+    // permiten comprobar los totales y el documento sin abrir un navegador.
+    invTotales, invBolDocumento,
     PLANS
   };
 })();

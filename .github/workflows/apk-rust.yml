@@ -115,11 +115,12 @@ jobs:
           fi
           keytool -list -keystore "$KS" -storepass android | head -3
 
-      - name: Pruebas (arranque + lector EAN)
+      - name: Pruebas (arranque + lector EAN + boleta web)
         run: |
           set -euo pipefail
           bash tests/arranque/correr.sh
           node tests/inventario/ean.js
+          node tests/web/boleta.js
 
       - name: Compilar la APK
         env:

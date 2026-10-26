@@ -34,6 +34,9 @@ Registro de cambios del sistema de diseño y branding.
 - **Verificación de conexión visible** en la cabecera de la web (consulta
   `/api/health`, no sólo `navigator.onLine`).
 - **Cargador de arranque y login de la web** con la misma ficha que la APK.
+- **Guía de 5 pasos, carrito e impresión en la web**: margen por fila, botón «+»
+  para la boleta, neto/IVA despejados igual que el núcleo y documento imprimible
+  en 80 mm, 58 mm o A4 desde un iframe oculto (también «Guardar como PDF»).
 
 ### Documentación
 - `docs/APK.md` y `docs/SEGURIDAD-Y-VISION.md` (Authelia, FairScan, MediaPipe).

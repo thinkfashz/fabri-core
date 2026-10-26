@@ -69,6 +69,9 @@ No era el arranque (ya corregido en 0.9.11): era **la vuelta del segundo plano**
   Rust (total ÷ 1,19) y documento imprimible por iframe oculto
   (`invBolDocumento` + `invImprimir`): rollo 80 mm, 58 mm o A4, y «Guardar como
   PDF» con el diálogo del sistema.
+- **Prueba de la boleta**: `tests/web/boleta.js` 14/14 (aritmética, carrito
+  vacío, cantidades basura, escapado de HTML y los tres formatos). Se agregó al
+  workflow.
 
 ### Pendiente
 
