@@ -12,6 +12,7 @@
    ========================================================================== */
 
 const FLUJO = {
+  modulo: "",
   timer: null,
   auto: true,
   iniciado: false,
@@ -55,6 +56,15 @@ function flujoConectar() {
   }
   if ($("btnFlujoLimpiarFallos")) {
     $("btnFlujoLimpiarFallos").addEventListener("click", flujoRefrescar);
+  }
+  // Selector de módulo instalado: se rellena desde el propio núcleo.
+  flujoCargarModulos();
+  const selMod = $("flujoModulo");
+  if (selMod) {
+    selMod.addEventListener("change", function () {
+      FLUJO.modulo = selMod.value || "";
+      flujoRefrescar();
+    });
   }
   if ($("btnFlujoEjecutar")) {
     $("btnFlujoEjecutar").addEventListener("click", function () { flujoEjecutar(); });
@@ -400,4 +410,36 @@ function flujoRecibir(r) {
   revision("flujo", r.ok ? "info" : "error",
     "comando libre: " + (r.cmd || "").slice(0, 120),
     meta + (r.error ? " · " + r.error : ""), r.ms || 0, "termux");
+}
+
+
+/** Rellena el selector de módulo instalado desde el propio núcleo. */
+async function flujoCargarModulos() {
+  const sel = document.getElementById("flujoModulo");
+  const estado = document.getElementById("flujoModuloEstado");
+  if (!sel) return;
+  try {
+    const r = await apiTarde("modulos", { accion: "listar" }, { maxMs: 15000 });
+    if (!r.ok || !r.data || !Array.isArray(r.data.modulos)) {
+      if (estado) estado.textContent = "Módulos no disponibles: " + ((r && r.error) || "?");
+      return;
+    }
+    const modulos = r.data.modulos.filter(function (m) {
+      return m && m.manifiesto && (m.manifiesto.id || m.manifiesto.nombre);
+    });
+    if (estado) estado.textContent = modulos.length + " módulo(s) instalado(s)";
+    sel.innerHTML = '<option value="">— todos —</option>';
+    modulos.forEach(function (m) {
+      const id = m.manifiesto.id || m.manifiesto.nombre || "";
+      const nombre = m.manifiesto.nombre || id;
+      const estadoMod = m.estado || "";
+      const opt = document.createElement("option");
+      opt.value = id;
+      opt.textContent = nombre + " · " + estadoMod;
+      sel.appendChild(opt);
+    });
+    if (FLUJO.modulo) sel.value = FLUJO.modulo;
+  } catch (e) {
+    if (estado) estado.textContent = "No se pudo leer módulos: " + String(e && e.message || e);
+  }
 }

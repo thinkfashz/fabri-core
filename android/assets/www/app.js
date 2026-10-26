@@ -35,6 +35,228 @@ function api(op, payload) {
   return r;
 }
 
+/** Consulta A1: bibliotecas nativas cargadas desde la APK (no carga modelo). */
+function apiRuntime() {
+  try {
+    if (!window.FabrickNative || typeof window.FabrickNative.runtimeInfo !== "function") {
+      return { ok: false, cargado: false, error: "el puente nativo no expone runtimeInfo" };
+    }
+    return JSON.parse(window.FabrickNative.runtimeInfo());
+  } catch (e) {
+    return { ok: false, cargado: false, error: String(e) };
+  }
+}
+
+/** Formatea bytes a unidad legible (base 1024). */
+function bytes(n) {
+  if (!n || n < 0) return "—";
+  const u = ["B", "KB", "MB", "GB", "TB"];
+  let i = 0;
+  let v = n;
+  while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
+  return (v < 10 ? v.toFixed(1) : Math.round(v)) + " " + u[i];
+}
+
+/** Hora corta legible en la zona del dispositivo. */
+function hora(ts) {
+  if (!ts) return "—";
+  const d = new Date(ts * 1000);
+  return d.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+}
+
+function fechaHora(ts) {
+  if (!ts) return "—";
+  const d = new Date(ts * 1000);
+  return d.toLocaleString("es-CL");
+}
+
+let toastTimer = null;
+function toast(mensaje, tipo) {
+  const el = document.getElementById("toast");
+  el.textContent = mensaje;
+  el.style.borderColor = tipo === "error" ? "rgba(248,113,113,0.5)" : "";
+  el.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.hidden = true; }, 2600);
+}
+
+/** Escapa texto antes de inyectarlo como HTML. */
+function esc(s) {
+  return String(s === null || s === undefined ? "" : s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/** Clase CSS según el estado del componente. */
+function claseEstado(estado) {
+  const mapa = {
+    "NO DISPONIBLE": "e-no-disponible",
+    "DISPONIBLE": "e-disponible",
+    "DESCARGANDO": "e-descargando",
+    "DESCARGADO": "e-descargado",
+    "VALIDANDO": "e-validando",
+    "INSTALADO": "e-instalado",
+    "LISTO": "e-listo",
+    "ERROR": "e-error",
+    "ACTUALIZACIÓN DISPONIBLE": "e-actualizable"
+  };
+  return mapa[estado] || "e-no-disponible";
+}
+
+/* ------------------------------------------------------------------- estado */
+const estadoApp = {
+  sistema: null,
+  componentes: [],
+  manifiestos: [],
+  descargas: {},      // id -> {hechos, total, estado}
+  confirmaPendiente: null,
+  idModal: null,
+  filtro: "todos",
+  modelos: [],
+  modulos: [],
+  paginas: [],
+  paginaActual: null,
+  vistaAnterior: "inicio",
+  moduloSel: null,
+  consola: [],        // líneas visibles
+  logsHistoricos: [],
+  operaciones: [],
+  vista: "inicio",
+  global: {
+    verificado: false,
+    salud: "desconocida",
+    pct: 0,
+    items: [],
+    dispositivo: null,
+    recomendados: [],
+    detectados: [],
+    benchmark: []
+  },
+  stats: {
+    tokensLocal: 0,
+    tokensApi: 0,
+    mensajesLocal: 0,
+    mensajesApi: 0,
+    tiempoTotalMs: 0,
+    ultimoTiempoMs: 0,
+    ultimaVelocidad: 0
+  },
+  chat: {
+    modo: "local",
+    mensajes: [],
+    enviando: false,
+    cargando: false,
+    tts: false,
+    ultimaRespuesta: ""
+  }
+};
+
+/* --------------------------------------------------------------- chat: estado */
+const PROVEEDORES_CHAT = [
+  {
+    id: "omniroute",
+    nombre: "OmniRoute · gateway local",
+    url: "http://127.0.0.1:20128/v1",
+    modelo: "auto",
+    tipo: "Gratis / de pago según ruta",
+    nota: "Gateway OpenAI-compatible auto-alojado en Termux o en un servidor. Enruta a modelos gratis y de pago."
+  },
+  {
+    id: "ollama",
+    nombre: "Ollama · LAN o local",
+    url: "http://127.0.0.1:11434/v1",
+    modelo: "llama3.2",
+    tipo: "Gratis · local",
+    nota: "Ollama escucha en 11434. Si está en otro equipo de la LAN, cambia 127.0.0.1 por su IP privada."
+  },
+  {
+    id: "lmstudio",
+    nombre: "LM Studio · LAN o local",
+    url: "http://127.0.0.1:1234/v1",
+    modelo: "",
+    tipo: "Gratis · local",
+    nota: "Activa el servidor local de LM Studio. La app sólo habla con su API OpenAI-compatible."
+  },
+  {
+    id: "openrouter",
+    nombre: "OpenRouter",
+    url: "https://openrouter.ai/api/v1",
+    modelo: "",
+    tipo: "Gratis y de pago",
+    nota: "Catálogo grande con modelos gratuitos y de pago. Trae /models para ver los disponibles con tu clave."
+  },
+  {
+    id: "groq",
+    nombre: "Groq",
+    url: "https://api.groq.com/openai/v1",
+    modelo: "",
+    tipo: "Free tier / de pago",
+    nota: "API OpenAI-compatible de baja latencia. Requiere clave; el catálogo se consulta en vivo."
+  },
+  {
+    id: "openai",
+    nombre: "OpenAI",
+    url: "https://api.openai.com/v1",
+    modelo: "gpt-4o-mini",
+    tipo: "De pago",
+    nota: "API oficial de OpenAI. La clave se guarda en SQLite y no vuelve a la página."
+  },
+  {
+    id: "mistral",
+    nombre: "Mistral AI",
+    url: "https://api.mistral.ai/v1",
+    modelo: "",
+    tipo: "Free tier / de pago",
+    nota: "API OpenAI-compatible. Trae /models para elegir el modelo de tu cuenta."
+  },
+  {
+    id: "together",
+    nombre: "Together AI",
+    url: "https://api.together.xyz/v1",
+    modelo: "",
+    tipo: "De pago",
+    nota: "API OpenAI-compatible con catálogo amplio. Requiere clave."
+  },
+  {
+    id: "huggingface",
+    nombre: "Hugging Face Router",
+    url: "https://router.huggingface.co/v1",
+    modelo: "",
+    tipo: "Free tier / de pago",
+    nota: "Router OpenAI-compatible de Hugging Face. Requiere token con permiso de inferencia."
+  },
+  {
+    id: "custom",
+    nombre: "Otro / LLM por IP",
+    url: "http://192.168.1.10:8080/v1",
+    modelo: "",
+    tipo: "Según servidor",
+    nota: "Cualquier servidor OpenAI-compatible. HTTP sólo se acepta en localhost o IP privada; el resto exige HTTPS."
+  }
+];
+
+const TERMUX_COMANDOS = [
+  { titulo: "Dependencias base", cmd: "pkg update && pkg upgrade -y\npkg install nodejs python git clang cmake make -y" },
+  { titulo: "OmniRoute", cmd: "npx -y omniroute@latest\n# API local: http://127.0.0.1:20128/v1" },
+  { titulo: "llama.cpp", cmd: "git clone https://github.com/ggml-org/llama.cpp\ncd llama.cpp\ncmake -B build\ncmake --build build -j4" },
+  { titulo: "Modelo Qwen 0.5B", cmd: "pip install huggingface_hub\nhuggingface-cli download Qwen/Qwen2.5-0.5B-Instruct-GGUF qwen2.5-0.5b-instruct-q4_k_m.gguf --local-dir ~/modelos" },
+  { titulo: "GraphRAG (servidor)", cmd: "pip install graphrag\n# GraphRAG es Python y no trae binario Android; ejecútalo en Termux o en un servidor\n# y consúmelo por HTTP desde FABRI-CORE." },
+  { titulo: "Voz del sistema", cmd: "# TTS usa el motor de Android, no un binario descargado:\n# Ajustes → Accesibilidad → Salida de texto a voz → Instalar voces" }
+];
+
+
+/* ------------------------------------------------------------------ navegación */
+/** Registra una excepción de JS con su stack real (el WebView, en origen
+ *  file://, ofusca `ev.message` y deja `?:0:0`; el stack sí trae la línea). */
+function jsError(e, donde) {
+  const msg = e && e.message ? e.message : String(e || "error desconocido");
+  const stack = e && e.stack ? String(e.stack) : "";
+  revision("error", "critico", "excepción en " + donde + ": " + msg,
+    stack ? stack.replace(/\n/g, " · ").slice(0, 900) : "sin stack", 0, "js");
+  return msg;
+}
+
+
 /* ── llamadas asíncronas al núcleo ──────────────────────────────────────────
    `api()` es síncrona por obligación: `@JavascriptInterface` devuelve el valor
    en la misma llamada, así que JavaScript se queda esperando y la página no
@@ -2583,7 +2805,8 @@ async function cargarDiagnostico() {
   const res = await Promise.all([
     apiTarde("sys", undefined, { maxMs: 15000 }),
     apiTarde("operaciones", { accion: "listar", limite: 50 }, { maxMs: 15000 }),
-    apiTarde("logs", { accion: "listar", limite: 100 }, { maxMs: 15000 })
+    apiTarde("logs", { accion: "listar", limite: 100 }, { maxMs: 15000 }),
+    apiTarde("rendimiento", {}, { maxMs: 15000 })
   ]);
   const s = res[0];
   if (s.ok) estadoApp.sistema = s.data;
@@ -2591,6 +2814,8 @@ async function cargarDiagnostico() {
   estadoApp.operaciones = ops.ok ? ((ops.data && ops.data.operaciones) || []) : [];
   const lg = res[2];
   estadoApp.logsHistoricos = lg.ok ? ((lg.data && lg.data.logs) || []) : [];
+  const rend = res[3];
+  pintarRendimiento(rend);
 
   const sys = estadoApp.sistema;
   const rt = apiRuntime();
@@ -3056,6 +3281,9 @@ function iniciar() {
   try {
     if (typeof idConectarEventos === "function") idConectarEventos();
   } catch (e) { jsError(e, "idConectarEventos"); }
+  try {
+    conectarRendimiento();
+  } catch (e) { jsError(e, "conectarRendimiento"); }
 
   // 1) El loader se anima y se retira ANTES de tocar el núcleo. Si el núcleo
   //    tarda, la interfaz ya está pintada y el login ya responde.
@@ -4991,3 +5219,36 @@ async function integracionProbar() {
   }
 }
 
+
+/** Pinta el bloque «Rendimiento del núcleo» en Diagnóstico. */
+function pintarRendimiento(rend) {
+  const cont = document.getElementById("datosRendimiento");
+  if (!cont) return;
+  if (!rend || !rend.ok) {
+    cont.innerHTML = '<p class="nota">Rendimiento no disponible.</p>';
+    return;
+  }
+  const d = rend.data || {};
+  const opsLista = (d.ops || []).slice(-8).reverse();
+  const filas = [
+    ["Esquema de inventario", d.esquemaVerificado ? "verificado (caché)" : "sin verificar"],
+    ["Operaciones registradas", String(d.conteo || 0)],
+    ["Promedio de duración", (d.promedioMs || 0) + " ms"],
+    ["Tiempo total", (d.totalMs || 0) + " ms"]
+  ];
+  if (opsLista.length) {
+    let ult = opsLista[0];
+    filas.push(["Última op (con_estado)", (ult && ult.ms) + " ms"]);
+  }
+  cont.innerHTML = filas
+    .map(([k, v]) => `<div class="fila"><span>${esc(k)}</span><span>${esc(v)}</span></div>`).join("")
+    + (opsLista.length ? `<div class="nota" style="margin-top:8px">Última ${opsLista.length} operación(es) (ms): ${opsLista.map(function(o){ return o.ms || 0; }).join(" · ")}</div>` : "");
+}
+
+/** Botón «Refrescar» del bloque de rendimiento. */
+function conectarRendimiento() {
+  const btn = document.getElementById("btnRendimientoRefrescar");
+  if (btn) btn.addEventListener("click", function () {
+    apiTarde("rendimiento", {}, { maxMs: 15000 }).then(pintarRendimiento);
+  });
+}

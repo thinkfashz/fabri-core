@@ -497,6 +497,24 @@
         <div class="sql-dato"><span class="sql-dato-etq">Estado</span><strong>Cargando…</strong></div>
       </div>
 
+      <!-- Banner de flujo animado Canvas/SVG: SQLite Local ⇄ Nube Vercel -->
+      <div class="sql-flujo-banner" id="sqlFlujoBanner">
+        <div class="sql-flujo-cab">
+          <div class="sql-flujo-estado">
+            <span class="punto-vivo"></span>
+            <span id="sqlNubeEstadoTexto">Nube: Verificando conexión…</span>
+          </div>
+          <div class="sql-flujo-acciones">
+            <button class="btn btn-mini btn-primario" id="btnSqlSyncNube" type="button">⚡ Sincronizar Nube</button>
+            <button class="btn btn-mini" id="btnSqlRespaldoCompleto" type="button">💾 Respaldo Local</button>
+            <button class="btn btn-mini" id="btnSqlProbarConexion" type="button">📡 Probar Ping</button>
+          </div>
+        </div>
+        <div class="sql-canvas-caja">
+          <canvas id="sqlCanvasStream" width="600" height="84"></canvas>
+        </div>
+      </div>
+
       <div class="bloque">
         <div class="bloque-cab">
           <h3>Tablas</h3>
@@ -922,6 +940,14 @@ npx -y omniroute@latest
       </div>
 
       <div class="bloque">
+        <h3>Rendimiento del núcleo</h3>
+        <div class="datos" id="datosRendimiento"><p class="nota">Cargando…</p></div>
+        <div class="fila-botones">
+          <button class="btn btn-mini" id="btnRendimientoRefrescar" type="button">Refrescar</button>
+        </div>
+      </div>
+
+      <div class="bloque">
         <h3>Bitácora de arranque</h3>
         <p class="nota">Se escribe desde el primer instante, sin depender del núcleo ni de SQLite. Es lo que permite saber por qué la app se quedó en la pantalla de carga o por qué el acceso no respondió.</p>
         <div class="fila-botones">
@@ -1158,6 +1184,10 @@ npx -y omniroute@latest
             <p class="inv-camara-nota" id="invCamaraNota">La imagen nunca sale del teléfono.</p>
           </div>
           <div class="inv-scan-controles">
+            <div class="inv-modo-escaner">
+              <button class="btn btn-mini btn-primario" id="btnInvModoNormal" type="button">🔍 Modo Individual</button>
+              <button class="btn btn-mini" id="btnInvModoApilador" type="button">⚡ Apilador Continuo</button>
+            </div>
             <button class="btn btn-primario" id="btnInvCamara" type="button">Abrir cámara</button>
             <button class="btn" id="btnInvCamaraParar" type="button" hidden>Detener</button>
             <label class="campo">
@@ -1166,10 +1196,26 @@ npx -y omniroute@latest
             </label>
             <button class="btn" id="btnInvBuscarCodigo" type="button">Buscar código</button>
             <p class="inv-ayuda">Si la cámara no está disponible, escribe el código: la búsqueda
-              funciona igual contra las bases libres.</p>
+              funciona contra el pipeline de Google y bases libres.</p>
           </div>
         </div>
         <div id="invResultadoApi" class="inv-resultado"></div>
+
+        <!-- Apilador Continuo (Multi-scan rápido) -->
+        <div class="inv-apilador-caja" id="invApiladorCaja" hidden>
+          <div class="inv-apilador-cab">
+            <div class="inv-apilador-titulo">
+              <span class="punto-vivo"></span>
+              <h4>🛒 Apilador Continuo (<span id="invApiladorContador">0</span>)</h4>
+            </div>
+            <div class="inv-apilador-acciones">
+              <button class="btn btn-mini btn-primario" id="btnInvApiladorGuardarLote" type="button">Guardar Lote en Base</button>
+              <button class="btn btn-mini" id="btnInvApiladorLimpiar" type="button">Vaciar</button>
+            </div>
+          </div>
+          <p class="inv-ayuda">Apunta la cámara a los productos sin parar: se registran con sonido y vibración.</p>
+          <div class="inv-apilador-lista" id="invApiladorLista"></div>
+        </div>
       </div>
 
       <!-- ── PASO 2 · PRODUCTOS ────────────────────────────────────────── -->
@@ -1315,7 +1361,8 @@ npx -y omniroute@latest
             </div>
             <div class="inv-toolbar-acciones">
               <button class="btn btn-primario" id="btnInvEmitir" type="button">Emitir boleta</button>
-              <button class="btn" id="btnInvImprimir" type="button">Imprimir / PDF</button>
+              <button class="btn" id="btnInvImprimir" type="button">🖨️ Imprimir Ticket</button>
+              <button class="btn" id="btnInvCompartir" type="button">📲 Compartir WhatsApp</button>
               <label class="campo">
                 <span>Papel</span>
                 <select id="invFormatoImpresion">
@@ -1326,8 +1373,11 @@ npx -y omniroute@latest
               </label>
             </div>
           </div>
-          <div class="inv-boleta-der" id="invBoletaVista">
-            <p class="inv-ayuda">El carrito está vacío.</p>
+          <div class="impresora-termica">
+            <div class="impresora-boca" aria-hidden="true"><div class="impresora-ranura"></div></div>
+            <div class="inv-boleta-der ticket-termico" id="invBoletaVista">
+              <p class="inv-ayuda">El carrito está vacío.</p>
+            </div>
           </div>
         </div>
         <div id="invBoletasHist" class="inv-lista"></div>
@@ -1345,6 +1395,14 @@ npx -y omniroute@latest
           <input type="checkbox" id="flujoAuto" checked />
           <span>Auto</span>
         </label>
+      </div>
+
+      <div class="flujo-modulo">
+        <label for="flujoModulo">Módulo instalado</label>
+        <select id="flujoModulo" class="input">
+          <option value="">— todos —</option>
+        </select>
+        <span class="nota" id="flujoModuloEstado">Cargando módulos…</span>
       </div>
 
       <div class="flujo-resumen" id="flujoResumen"></div>
@@ -1593,6 +1651,34 @@ npx -y omniroute@latest
     }, 6000);
   })();
   </script>
+  <!-- Modal de Transmisión y Guardado Animado Canvas/SVG con Cronómetro -->
+  <div id="modalEnvioAnimado" class="modal-envio-overlay" hidden>
+    <div class="modal-envio-card">
+      <div class="modal-envio-cab">
+        <span class="punto-vivo"></span>
+        <h3 id="modalEnvioTitulo">Transmitiendo a la Base de Datos…</h3>
+      </div>
+      <div class="modal-envio-canvas-caja">
+        <canvas id="modalEnvioCanvas" width="400" height="120"></canvas>
+      </div>
+      <div class="modal-cronometro-caja">
+        <span class="modal-cronometro-etq">TIEMPO REAL / LATENCIA</span>
+        <div class="modal-cronometro-digitos" id="modalEnvioCronometro">00:00.00</div>
+        <p class="modal-envio-sub" id="modalEnvioDetalle">Sincronizando datos con SQLite y Nube Postgres…</p>
+      </div>
+      <div class="modal-progreso-barra">
+        <div class="modal-progreso-fill" id="modalEnvioFill"></div>
+      </div>
+      <div class="modal-envio-exito" id="modalEnvioExito" hidden>
+        <svg class="modal-svg-check" viewBox="0 0 52 52">
+          <circle class="modal-svg-circle" cx="26" cy="26" r="25" fill="none"/>
+          <path class="modal-svg-path" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
+        </svg>
+        <strong id="modalEnvioExitoTexto">¡Guardado con éxito!</strong>
+      </div>
+    </div>
+  </div>
+
   <script src="diagnostico.js"></script>
   <script src="app.js"></script>
   <script src="datos.js"></script>

@@ -411,7 +411,7 @@ public final class NativeBridge {
      */
     private static final java.util.concurrent.ThreadPoolExecutor EJECUTOR =
             new java.util.concurrent.ThreadPoolExecutor(
-                    1, 1, 0L, java.util.concurrent.TimeUnit.MILLISECONDS,
+                    2, 2, 0L, java.util.concurrent.TimeUnit.MILLISECONDS,
                     new java.util.concurrent.ArrayBlockingQueue<Runnable>(24),
                     new java.util.concurrent.ThreadFactory() {
                         @Override
@@ -492,7 +492,14 @@ public final class NativeBridge {
                 || "nube".equals(op)
                 || "estado_global".equals(op)
                 || "dispositivo_detalles".equals(op)
-                || "modelos_recomendados".equals(op);
+                || "modelos_recomendados".equals(op)
+                || "inventario".equals(op)
+                || "perfil".equals(op)
+                || "usuarios".equals(op)
+                || "revision.resumen".equals(op)
+                || "manifiestos".equals(op)
+                || "modulos".equals(op)
+                || "consultar_seguro".equals(op);
     }
 
     /**

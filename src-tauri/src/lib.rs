@@ -36,6 +36,10 @@ struct Estado {
 
 static ESTADO: Mutex<Option<Estado>> = Mutex::new(None);
 
+/// ¿El esquema de inventario ya está verificado? Se marca tras la primera
+/// llamada para no repetir `inv_esquema` (PRAGMA + ALTER) en cada consulta.
+static ESQUEMA_LISTO: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
 // ---------------------------------------------------------------------------
 // Manifiestos de Fase 3: se incrustan en el binario para que la interfaz pueda
 // saber qué componentes tienen manifiesto válido sin tocar el sistema de archivos.
@@ -533,6 +537,18 @@ fn migrar(conn: &Connection) -> rusqlite::Result<()> {
         "#,
     )?;
 
+    // Ficha de identidad del negocio (página «Mi identidad»): logo, razón
+    // social, RUT, giro, dirección, ID de cliente… Se guarda como JSON en una
+    // sola columna. La migración va AQUÍ, en el arranque, no sólo en el esquema
+    // de inventario: si no, `perfil` fallaba con «no such column: datos» hasta
+    // que el usuario abría Inventario. Idempotente en cada arranque.
+    if !inv_tiene_columna(conn, "perfil", "datos") {
+        let _ = conn.execute(
+            "ALTER TABLE perfil ADD COLUMN datos TEXT NOT NULL DEFAULT '{}'",
+            [],
+        );
+    }
+
     // El perfil existente se refleja como primer usuario: así la tarjeta del
     // login y la tabla de usuarios muestran lo mismo desde el primer arranque,
     // sin pedirle al usuario que vuelva a escribir su nombre.
@@ -632,11 +648,41 @@ fn con_estado<F>(f: F) -> Result<Value, String>
 where
     F: FnOnce(&mut Estado) -> Result<Value, String>,
 {
-    let mut g = ESTADO.lock().map_err(|_| "estado bloqueado".to_string())?;
-    match g.as_mut() {
+    // Bloqueo ACOTADO: si el carril del núcleo está ocupado, no esperamos para
+    // siempre. Intentamos tomar el mutex durante ~800 ms y, si no se puede,
+    // respondemos «núcleo ocupado» para que la interfaz reintente. Antes usaba
+    // `.lock()` sin tope: si una operación se colgaba, TODAS las demás se
+    // quedaban esperando y expiraban con «el núcleo no respondió a tiempo».
+    let plazo = std::time::Instant::now();
+    let mut g = loop {
+        match ESTADO.try_lock() {
+            Ok(g) => break g,
+            Err(_) => {
+                if plazo.elapsed() >= std::time::Duration::from_millis(800) {
+                    return Err("núcleo ocupado: no se pudo tomar el carril en 800 ms".into());
+                }
+                std::thread::sleep(std::time::Duration::from_millis(20));
+            }
+        }
+    };
+    let t0 = std::time::Instant::now();
+    let res = match g.as_mut() {
         Some(e) => f(e),
         None => Err("el núcleo no está inicializado (falta llamar a init)".into()),
+    };
+    // Registrar duración para el monitoreo (no interfiere en el resultado).
+    if let Ok(mut ops) = ULTIMAS_OPS.lock() {
+        ops.push(json!({
+            "op": "con_estado",
+            "ms": t0.elapsed().as_millis() as u64,
+            "ts": ahora()
+        }));
+        let exceso = ops.len().saturating_sub(30);
+        if exceso > 0 {
+            ops.drain(0..exceso);
+        }
     }
+    res
 }
 
 fn op_config(payload: &Value) -> Result<Value, String> {
@@ -960,6 +1006,42 @@ fn op_operaciones(payload: &Value) -> Result<Value, String> {
         }
         otra => Err(format!("acción de operaciones desconocida: {}", otra)),
     }
+}
+
+// ── Monitoreo de rendimiento del núcleo ────────────────────────────────────
+// Lleva un anillo con los tiempos de las últimas operaciones y algún dato de
+// uso de la cola. No interfiere con las operaciones normales.
+
+static ULTIMAS_OPS: Mutex<Vec<Value>> = Mutex::new(Vec::new());
+
+/// Registrar una operación completada con su duración (ms). Se llama desde
+/// `con_estado` una vez que la operación terminó.
+pub fn op_estado_registrar(op: &str, ms: u64) {
+    if let Ok(mut v) = ULTIMAS_OPS.lock() {
+        v.push(json!({
+            "op": op,
+            "ms": ms,
+            "ts": ahora()
+        }));
+        let exceso = v.len().saturating_sub(30);
+        if exceso > 0 {
+            v.drain(0..exceso);
+        }
+    }
+}
+
+fn op_rendimiento(_payload: &Value) -> Result<Value, String> {
+    let ops = ULTIMAS_OPS.lock().map_err(|_| "estado bloqueado".to_string())?;
+    let total: u64 = ops.iter().map(|o| o["ms"].as_u64().unwrap_or(0)).sum();
+    let n = ops.len() as u64;
+    let promedio = if n > 0 { total / n } else { 0 };
+    Ok(json!({
+        "ops": *ops,
+        "conteo": ops.len(),
+        "promedioMs": promedio,
+        "totalMs": total,
+        "esquemaVerificado": ESQUEMA_LISTO.load(std::sync::atomic::Ordering::Relaxed)
+    }))
 }
 
 fn op_sys(_payload: &Value) -> Result<Value, String> {
@@ -2314,6 +2396,7 @@ pub extern "system" fn Java_cl_fabrick_core_NativeBridge_exec<'local>(
         "revision.listar" => op_revision_listar(&payload_json),
         "revision.resumen" => op_revision_resumen(&payload_json),
         "operaciones" => op_operaciones(&payload_json),
+        "rendimiento" => op_rendimiento(&payload_json),
         "sys" => op_sys(&payload_json),
         "estado_global" => op_estado_global(&payload_json),
         "dispositivo_detalles" => op_dispositivo_detalles(&payload_json),
@@ -2975,7 +3058,10 @@ fn op_usuarios(payload: &Value, db: &Connection) -> Result<Value, String> {
 }
 
 fn op_inventario(payload: &Value, db: &Connection) -> Result<Value, String> {
-    inv_esquema(db).map_err(|e| format!("no se pudo crear el esquema de inventario: {}", e))?;
+    if !ESQUEMA_LISTO.load(std::sync::atomic::Ordering::Relaxed) {
+        inv_esquema(db).map_err(|e| format!("no se pudo crear el esquema de inventario: {}", e))?;
+        ESQUEMA_LISTO.store(true, std::sync::atomic::Ordering::Relaxed);
+    }
     let accion = payload.get("accion").and_then(|v| v.as_str()).unwrap_or("listar");
 
     match accion {
