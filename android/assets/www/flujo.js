@@ -100,13 +100,34 @@ function flujoConectar() {
 
 /* ── recolección de estado real ─────────────────────────────────────────── */
 
+/**
+ * Recolecta el estado real del sistema.
+ *
+ * Antes eran cinco llamadas BLOQUEANTES seguidas —una de ellas `sqlite`, con
+ * tope de 20 s— en el hilo que pinta: al abrir «Flujo en tiempo real» la
+ * pantalla se congelaba y, si el núcleo estaba ocupado, los nodos salían todos
+ * en error. Ahora van en paralelo y con reintento; el refresco periódico no se
+ * solapa consigo mismo.
+ */
 function flujoRefrescar() {
+  if (FLUJO.consultando) return;
+  FLUJO.consultando = true;
   const t0 = Date.now();
-  const ping = api("ping");
-  const tablas = api("sqlite", { accion: "tablas" });
-  const inv = api("inventario", { accion: "resumen" });
-  const rev = api("revision.resumen");
-  const eventos = api("revision.listar", { limite: 80 });
+  Promise.all([
+    apiTarde("ping", undefined, { maxMs: 5000 }),
+    apiTarde("sqlite", { accion: "tablas" }, { maxMs: 25000 }),
+    apiTarde("inventario", { accion: "resumen" }, { maxMs: 15000 }),
+    apiTarde("revision.resumen", undefined, { maxMs: 15000 }),
+    apiTarde("revision.listar", { limite: 80 }, { maxMs: 15000 })
+  ]).then(function (res) {
+    FLUJO.consultando = false;
+    flujoPintarCon(res[0], res[1], res[2], res[3], res[4], t0);
+  }).catch(function () {
+    FLUJO.consultando = false;
+  });
+}
+
+function flujoPintarCon(ping, tablas, inv, rev, eventos, t0) {
 
   let local = null;
   try {

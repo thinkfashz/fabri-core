@@ -13,7 +13,7 @@
   <div class="login-fabrick" id="loginFabrick" role="dialog" aria-modal="true" aria-label="Acceso a FABRI-CORE">
     <div class="login-malla" aria-hidden="true"></div>
     <div class="login-caja">
-      <p class="login-marca">FABRI-CORE PRO</p>
+      <p class="login-marca" id="loginMarca">FABRI-CORE PRO</p>
 
       <article class="id-card login-id" id="loginIdCard">
         <div class="scan-line" aria-hidden="true"></div>
@@ -113,6 +113,7 @@
     <p class="drawer-titulo">Principal</p>
     <nav class="drawer-nav">
       <button class="nav-drawer" data-vista="inicio"><span>◉</span>Inicio</button>
+      <button class="nav-drawer" data-vista="id"><span>▣</span>Mi identidad</button>
       <button class="nav-drawer" data-vista="chat"><span>✦</span>Chat</button>
       <button class="nav-drawer" data-vista="inventario"><span>▦</span>Inventario</button>
       <button class="nav-drawer" data-vista="flujo"><span>⇄</span>Flujo en tiempo real</button>
@@ -257,6 +258,82 @@
         proveedores OpenAI-compatible. Las descargas exigen HTTPS, SHA-256 y tamaño;
         el código nativo viaja en la APK, no se descarga ni se ejecuta.</p>
       </div>
+    </section>
+
+    <!-- ---------- MI IDENTIDAD ---------- -->
+    <section class="vista" id="v-id">
+      <div class="cab-vista">
+        <p class="etiqueta">IDENTIDAD DEL NEGOCIO</p>
+        <h2>Mi identidad</h2>
+        <p>Estos datos son los que aparecen en el acceso y en la boleta. Se guardan en SQLite, sin nube y sin salir del teléfono.</p>
+      </div>
+
+      <!-- Tarjeta de presentación -->
+      <div class="id-tarjeta" id="idTarjeta">
+        <div class="id-logo" id="idLogo">
+          <img id="idLogoImg" alt="Logo del negocio" hidden />
+          <span id="idLogoIniciales">FC</span>
+        </div>
+        <div class="id-tarjeta-texto">
+          <p class="id-nombre" id="idTarjetaNombre">Sin nombre configurado</p>
+          <p class="id-linea" id="idTarjetaRazon">Razón social pendiente</p>
+          <div class="id-chips">
+            <span class="id-chip" id="idTarjetaRut">RUT —</span>
+            <span class="id-chip lima" id="idTarjetaCliente">ID —</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="bloque">
+        <h3>Logo o imagen</h3>
+        <p class="nota">La imagen se reduce a 256 px en el teléfono antes de guardarse. Se usa en la tarjeta de acceso y en la boleta.</p>
+        <div class="fila-botones">
+          <button class="btn btn-primario" id="btnIdLogoElegir" type="button">Elegir imagen</button>
+          <button class="btn" id="btnIdLogoQuitar" type="button">Quitar logo</button>
+        </div>
+        <input type="file" id="idArchivoLogo" accept="image/*" hidden />
+        <p class="nota" id="idLogoEstado">Sin logo: se muestran las iniciales del nombre.</p>
+      </div>
+
+      <div class="bloque">
+        <h3>Datos del negocio</h3>
+        <label class="etiqueta" for="idNombre">Nombre comercial</label>
+        <input class="input" id="idNombre" maxlength="60" placeholder="Soluciones Fabrick" autocomplete="off" />
+
+        <label class="etiqueta" for="idRazon">Razón social</label>
+        <input class="input" id="idRazon" maxlength="80" placeholder="Fabrick SpA" autocomplete="off" />
+
+        <label class="etiqueta" for="idRut">RUT</label>
+        <input class="input" id="idRut" maxlength="14" placeholder="76.543.210-8" inputmode="text" autocomplete="off" />
+
+        <label class="etiqueta" for="idGiro">Giro</label>
+        <input class="input" id="idGiro" maxlength="80" placeholder="Venta de insumos y tecnología" autocomplete="off" />
+
+        <label class="etiqueta" for="idDireccion">Dirección</label>
+        <input class="input" id="idDireccion" maxlength="120" placeholder="Calle 123, comuna" autocomplete="off" />
+
+        <label class="etiqueta" for="idTelefono">Teléfono</label>
+        <input class="input" id="idTelefono" maxlength="24" placeholder="+56 9 1234 5678" inputmode="tel" autocomplete="off" />
+
+        <label class="etiqueta" for="idEmail">Correo</label>
+        <input class="input" id="idEmail" maxlength="80" placeholder="hola@minegocio.cl" inputmode="email" autocomplete="off" autocapitalize="off" spellcheck="false" />
+      </div>
+
+      <div class="bloque">
+        <h3>ID del cliente</h3>
+        <p class="nota">Identifica a este negocio en la nube y en las boletas. Es editable: si lo cambias, las boletas nuevas usan el nuevo.</p>
+        <input class="input" id="idCliente" maxlength="32" placeholder="FAB-0000-0000" autocapitalize="characters" autocomplete="off" spellcheck="false" />
+        <div class="fila-botones">
+          <button class="btn" id="btnIdClienteNuevo" type="button">Generar uno nuevo</button>
+          <button class="btn" id="btnIdCopiar" type="button">Copiar ID</button>
+        </div>
+      </div>
+
+      <div class="fila-botones">
+        <button class="btn btn-primario" id="btnIdGuardar" type="button">Guardar identidad</button>
+        <button class="btn" id="btnIdRecargar" type="button">Descartar cambios</button>
+      </div>
+      <p class="nota" id="idEstadoGuardado"></p>
     </section>
 
     <!-- ---------- COMPONENTES ---------- -->
@@ -1521,6 +1598,7 @@ npx -y omniroute@latest
   <script src="datos.js"></script>
   <script src="conexiones.js"></script>
   <script src="inventario.js"></script>
+  <script src="identidad.js"></script>
   <script src="flujo.js"></script>
 </body>
 </html>

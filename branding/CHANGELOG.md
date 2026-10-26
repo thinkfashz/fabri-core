@@ -2,6 +2,46 @@
 
 Registro de cambios del sistema de diseño y branding.
 
+## [2.8.0] — 2026-10-26
+
+### Corregido
+- **La app se quedaba pegada al interactuar.** Todas las lecturas de pantalla
+  seguían usando la vía **síncrona** del puente (`call()`), que devuelve el
+  resultado en el mismo instante y por eso **bloquea el hilo de JavaScript**
+  hasta 600 ms (y antes 1,2 s). Con el hilo ocupado no corren `setTimeout` ni
+  `requestAnimationFrame`: los botones no respondían y las pantallas no
+  terminaban de pintarse. Ahora hay un **carril asíncrono** (`callAsync` en
+  Java, `apiAsync`/`apiTarde` en JS): el resultado vuelve por
+  `window.__fabriAsync` cuando está listo, sin parar nada. La vía síncrona queda
+  sólo para acciones puntuales (guardar, borrar, registrar).
+- **El código `7791293043791` mostraba «Open Products Facts: HTTP 500».** La app
+  trataba un 404 o un 500 de las bases libres como si fuese un fallo propio. Un
+  404 significa «no está en esa base» y un 500, «esa base está caída»: en ambos
+  casos se **salta en silencio** y, si ninguna lo tiene, el mensaje dice la
+  verdad — «no está publicado en las bases libres» — en vez de exponer el HTTP.
+- **La guía de inventario se sentía congelada.** Cada paso (resumen, productos,
+  precios, márgenes, boletas) esperaba al núcleo antes de pintar. Ahora se
+  refresca por el carril asíncrono, encadenada y con guarda para no apilar
+  consultas.
+
+### Añadido
+- **Página «Mi identidad»**: nombre comercial, **logo real** (reducido a 256 px
+  JPEG en un lienzo), razón social, RUT formateado, giro, dirección, teléfono,
+  correo e **ID de cliente** con formato `FAB-XXXX-XXXX`, sin caracteres que se
+  confunden (I, O, 0, 1). Se guarda en la tabla `perfil` (columna nueva `datos`
+  en JSON) y se cachea en `localStorage` (`fabrick.identidad`) para que el login
+  y la boleta lo lean sin consultar la base.
+- **Boleta con la ficha completa**: el documento imprimible (80 mm / 58 mm / A4)
+  muestra logo, nombre comercial, razón social, RUT, giro, dirección, teléfono,
+  correo e ID de cliente.
+- **Pruebas nuevas**: `tests/arranque/puente.js` (vía síncrona acotada, carril
+  asíncrono, `ping` local, cola de 24, coalescencia), `tests/arranque/identidad.js`
+  (ID de cliente, RUT, iniciales, caché) y `tests/inventario/lector.js`
+  (404/404/500 del caso real, producto válido, sin red, presupuesto total).
+
+### Documentación
+- `docs/APK.md`: tiempo del puente, lista de pruebas y tabla de versiones.
+
 ## [2.7.0] — 2026-10-26
 
 ### Corregido

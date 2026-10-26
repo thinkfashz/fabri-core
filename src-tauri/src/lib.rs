@@ -2487,6 +2487,15 @@ fn inv_esquema(db: &Connection) -> rusqlite::Result<()> {
             [],
         );
     }
+    // Ficha de identidad del negocio (página ID): logo, razón social, RUT,
+    // giro, dirección, ID de cliente… Se guarda como JSON en una sola columna
+    // para no migrar la tabla en cada campo nuevo.
+    if !inv_tiene_columna(db, "perfil", "datos") {
+        let _ = db.execute(
+            "ALTER TABLE perfil ADD COLUMN datos TEXT NOT NULL DEFAULT '{}'",
+            [],
+        );
+    }
     Ok(())
 }
 
@@ -2557,7 +2566,7 @@ fn op_perfil(payload: &Value, db: &Connection) -> Result<Value, String> {
         "obtener" => {
             let fila = db
                 .query_row(
-                    "SELECT nombre, indicativo, foto, actualizado FROM perfil WHERE id = 1",
+                    "SELECT nombre, indicativo, foto, actualizado, datos FROM perfil WHERE id = 1",
                     [],
                     |r| {
                         Ok((
@@ -2565,18 +2574,20 @@ fn op_perfil(payload: &Value, db: &Connection) -> Result<Value, String> {
                             r.get::<_, String>(1)?,
                             r.get::<_, String>(2)?,
                             r.get::<_, i64>(3)?,
+                            r.get::<_, String>(4)?,
                         ))
                     },
                 )
                 .optional()
                 .map_err(|e| e.to_string())?;
             Ok(match fila {
-                Some((nombre, indicativo, foto, actualizado)) => json!({
+                Some((nombre, indicativo, foto, actualizado, datos)) => json!({
                     "existe": true,
                     "nombre": nombre,
                     "indicativo": indicativo,
                     "foto": foto,
                     "actualizado": actualizado,
+                    "datos": perfil_datos_parse(&datos),
                 }),
                 None => json!({
                     "existe": false,
@@ -2584,6 +2595,7 @@ fn op_perfil(payload: &Value, db: &Connection) -> Result<Value, String> {
                     "indicativo": "",
                     "foto": "",
                     "actualizado": 0,
+                    "datos": {},
                 }),
             })
         }
@@ -2625,12 +2637,28 @@ fn op_perfil(payload: &Value, db: &Connection) -> Result<Value, String> {
             }
 
             let ahora_ms = ahora();
+            // `datos` es opcional: si no viene, se conserva lo que ya había
+            // (la página ID guarda su ficha aparte y no debe borrarla al
+            // cambiar sólo el nombre).
+            let datos_nuevos = match payload.get("datos") {
+                Some(v) if v.is_object() => {
+                    let texto = v.to_string();
+                    if texto.len() > 24_000 {
+                        return Err("la ficha de identidad supera 24 KB".into());
+                    }
+                    Some(texto)
+                }
+                _ => None,
+            };
             db.execute(
-                "INSERT INTO perfil (id, nombre, indicativo, foto, actualizado)
-                 VALUES (1, ?1, ?2, ?3, ?4)
+                "INSERT INTO perfil (id, nombre, indicativo, foto, actualizado, datos)
+                 VALUES (1, ?1, ?2, ?3, ?4, COALESCE(?5, '{}'))
                  ON CONFLICT(id) DO UPDATE SET
-                     nombre = ?1, indicativo = ?2, foto = ?3, actualizado = ?4",
-                params![nombre, indicativo, foto, ahora_ms],
+                     nombre = ?1, indicativo = ?2,
+                     foto = CASE WHEN ?3 = '' THEN foto ELSE ?3 END,
+                     datos = COALESCE(?5, datos),
+                     actualizado = ?4",
+                params![nombre, indicativo, foto, ahora_ms, datos_nuevos],
             )
             .map_err(|e| e.to_string())?;
             // La tarjeta del login y la tabla de usuarios muestran lo mismo: el
@@ -2650,6 +2678,46 @@ fn op_perfil(payload: &Value, db: &Connection) -> Result<Value, String> {
                 "bytes_foto": foto.len(),
             }))
         }
+        "guardar_datos" => {
+            // Mezcla parcial: sólo se reemplazan las claves enviadas, así la
+            // página ID puede guardar un campo sin reenviar la ficha entera.
+            let nuevos = payload
+                .get("datos")
+                .ok_or_else(|| "falta `datos`".to_string())?;
+            if !nuevos.is_object() {
+                return Err("`datos` debe ser un objeto".into());
+            }
+            let actual = db
+                .query_row("SELECT datos FROM perfil WHERE id = 1", [], |r| {
+                    r.get::<_, String>(0)
+                })
+                .optional()
+                .map_err(|e| e.to_string())?
+                .unwrap_or_else(|| "{}".to_string());
+            let mut mezcla = perfil_datos_parse(&actual);
+            if let (Some(destino), Some(origen)) = (mezcla.as_object_mut(), nuevos.as_object()) {
+                for (k, v) in origen {
+                    destino.insert(k.clone(), v.clone());
+                }
+            }
+            let texto = mezcla.to_string();
+            if texto.len() > 24_000 {
+                return Err("la ficha de identidad supera 24 KB".into());
+            }
+            let ahora_ms = ahora();
+            db.execute(
+                "INSERT INTO perfil (id, datos, actualizado) VALUES (1, ?1, ?2)
+                 ON CONFLICT(id) DO UPDATE SET datos = ?1, actualizado = ?2",
+                params![texto, ahora_ms],
+            )
+            .map_err(|e| e.to_string())?;
+            Ok(json!({
+                "ok": true,
+                "datos": mezcla,
+                "actualizado": ahora_ms,
+                "bytes": texto.len(),
+            }))
+        }
         "borrar_foto" => {
             db.execute(
                 "UPDATE perfil SET foto = '', actualizado = ?1 WHERE id = 1",
@@ -2660,6 +2728,16 @@ fn op_perfil(payload: &Value, db: &Connection) -> Result<Value, String> {
         }
         otra => Err(format!("acción de perfil no soportada: {}", otra)),
     }
+}
+
+/// Lee la ficha de identidad guardada como JSON. Si el texto está corrupto
+/// (edición manual de la base), devuelve un objeto vacío en vez de fallar: la
+/// página ID tiene que abrir siempre.
+fn perfil_datos_parse(texto: &str) -> Value {
+    serde_json::from_str::<Value>(texto)
+        .ok()
+        .filter(|v| v.is_object())
+        .unwrap_or_else(|| json!({}))
 }
 
 /// Usuarios de la app. El verificador del PIN vive aquí (PBKDF2 con sal y

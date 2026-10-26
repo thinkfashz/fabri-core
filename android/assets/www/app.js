@@ -35,226 +35,125 @@ function api(op, payload) {
   return r;
 }
 
-/** Consulta A1: bibliotecas nativas cargadas desde la APK (no carga modelo). */
-function apiRuntime() {
+/* ── llamadas asíncronas al núcleo ──────────────────────────────────────────
+   `api()` es síncrona por obligación: `@JavascriptInterface` devuelve el valor
+   en la misma llamada, así que JavaScript se queda esperando y la página no
+   repinta. Con operaciones de hasta 20 s eso era exactamente el «se queda
+   pegado» que se veía al abrir Inventario, Base de datos o Flujo.
+
+   `apiAsync` usa el carril asíncrono del puente (`callAsync`): vuelve al
+   instante con un token y el resultado llega por `window.__fabriAsync`. La
+   interfaz nunca se bloquea. Si la APK es vieja y no tiene `callAsync`, cae al
+   camino síncrono sin romperse. */
+
+const FABRI_ASYNC = new Map();
+let fabriAsyncSeq = 0;
+
+window.__fabriAsync = function (token, crudo) {
+  const cerrar = FABRI_ASYNC.get(token);
+  if (!cerrar) return;   // resultado de una llamada que ya expiró: se descarta
+  FABRI_ASYNC.delete(token);
+  let r;
   try {
-    if (!window.FabrickNative || typeof window.FabrickNative.runtimeInfo !== "function") {
-      return { ok: false, cargado: false, error: "el puente nativo no expone runtimeInfo" };
-    }
-    return JSON.parse(window.FabrickNative.runtimeInfo());
+    r = crudo
+      ? JSON.parse(crudo)
+      : { ok: false, error: "respuesta vacía del núcleo", codigo: "EMPTY" };
   } catch (e) {
-    return { ok: false, cargado: false, error: String(e) };
+    r = { ok: false, error: String(e), codigo: "PARSE" };
   }
-}
-
-/** Formatea bytes a unidad legible (base 1024). */
-function bytes(n) {
-  if (!n || n < 0) return "—";
-  const u = ["B", "KB", "MB", "GB", "TB"];
-  let i = 0;
-  let v = n;
-  while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
-  return (v < 10 ? v.toFixed(1) : Math.round(v)) + " " + u[i];
-}
-
-/** Hora corta legible en la zona del dispositivo. */
-function hora(ts) {
-  if (!ts) return "—";
-  const d = new Date(ts * 1000);
-  return d.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-}
-
-function fechaHora(ts) {
-  if (!ts) return "—";
-  const d = new Date(ts * 1000);
-  return d.toLocaleString("es-CL");
-}
-
-let toastTimer = null;
-function toast(mensaje, tipo) {
-  const el = document.getElementById("toast");
-  el.textContent = mensaje;
-  el.style.borderColor = tipo === "error" ? "rgba(248,113,113,0.5)" : "";
-  el.hidden = false;
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { el.hidden = true; }, 2600);
-}
-
-/** Escapa texto antes de inyectarlo como HTML. */
-function esc(s) {
-  return String(s === null || s === undefined ? "" : s)
-    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-/** Clase CSS según el estado del componente. */
-function claseEstado(estado) {
-  const mapa = {
-    "NO DISPONIBLE": "e-no-disponible",
-    "DISPONIBLE": "e-disponible",
-    "DESCARGANDO": "e-descargando",
-    "DESCARGADO": "e-descargado",
-    "VALIDANDO": "e-validando",
-    "INSTALADO": "e-instalado",
-    "LISTO": "e-listo",
-    "ERROR": "e-error",
-    "ACTUALIZACIÓN DISPONIBLE": "e-actualizable"
-  };
-  return mapa[estado] || "e-no-disponible";
-}
-
-/* ------------------------------------------------------------------- estado */
-const estadoApp = {
-  sistema: null,
-  componentes: [],
-  manifiestos: [],
-  descargas: {},      // id -> {hechos, total, estado}
-  confirmaPendiente: null,
-  idModal: null,
-  filtro: "todos",
-  modelos: [],
-  modulos: [],
-  paginas: [],
-  paginaActual: null,
-  vistaAnterior: "inicio",
-  moduloSel: null,
-  consola: [],        // líneas visibles
-  logsHistoricos: [],
-  operaciones: [],
-  vista: "inicio",
-  global: {
-    verificado: false,
-    salud: "desconocida",
-    pct: 0,
-    items: [],
-    dispositivo: null,
-    recomendados: [],
-    detectados: [],
-    benchmark: []
-  },
-  stats: {
-    tokensLocal: 0,
-    tokensApi: 0,
-    mensajesLocal: 0,
-    mensajesApi: 0,
-    tiempoTotalMs: 0,
-    ultimoTiempoMs: 0,
-    ultimaVelocidad: 0
-  },
-  chat: {
-    modo: "local",
-    mensajes: [],
-    enviando: false,
-    cargando: false,
-    tts: false,
-    ultimaRespuesta: ""
-  }
+  cerrar(r);
 };
 
-/* --------------------------------------------------------------- chat: estado */
-const PROVEEDORES_CHAT = [
-  {
-    id: "omniroute",
-    nombre: "OmniRoute · gateway local",
-    url: "http://127.0.0.1:20128/v1",
-    modelo: "auto",
-    tipo: "Gratis / de pago según ruta",
-    nota: "Gateway OpenAI-compatible auto-alojado en Termux o en un servidor. Enruta a modelos gratis y de pago."
-  },
-  {
-    id: "ollama",
-    nombre: "Ollama · LAN o local",
-    url: "http://127.0.0.1:11434/v1",
-    modelo: "llama3.2",
-    tipo: "Gratis · local",
-    nota: "Ollama escucha en 11434. Si está en otro equipo de la LAN, cambia 127.0.0.1 por su IP privada."
-  },
-  {
-    id: "lmstudio",
-    nombre: "LM Studio · LAN o local",
-    url: "http://127.0.0.1:1234/v1",
-    modelo: "",
-    tipo: "Gratis · local",
-    nota: "Activa el servidor local de LM Studio. La app sólo habla con su API OpenAI-compatible."
-  },
-  {
-    id: "openrouter",
-    nombre: "OpenRouter",
-    url: "https://openrouter.ai/api/v1",
-    modelo: "",
-    tipo: "Gratis y de pago",
-    nota: "Catálogo grande con modelos gratuitos y de pago. Trae /models para ver los disponibles con tu clave."
-  },
-  {
-    id: "groq",
-    nombre: "Groq",
-    url: "https://api.groq.com/openai/v1",
-    modelo: "",
-    tipo: "Free tier / de pago",
-    nota: "API OpenAI-compatible de baja latencia. Requiere clave; el catálogo se consulta en vivo."
-  },
-  {
-    id: "openai",
-    nombre: "OpenAI",
-    url: "https://api.openai.com/v1",
-    modelo: "gpt-4o-mini",
-    tipo: "De pago",
-    nota: "API oficial de OpenAI. La clave se guarda en SQLite y no vuelve a la página."
-  },
-  {
-    id: "mistral",
-    nombre: "Mistral AI",
-    url: "https://api.mistral.ai/v1",
-    modelo: "",
-    tipo: "Free tier / de pago",
-    nota: "API OpenAI-compatible. Trae /models para elegir el modelo de tu cuenta."
-  },
-  {
-    id: "together",
-    nombre: "Together AI",
-    url: "https://api.together.xyz/v1",
-    modelo: "",
-    tipo: "De pago",
-    nota: "API OpenAI-compatible con catálogo amplio. Requiere clave."
-  },
-  {
-    id: "huggingface",
-    nombre: "Hugging Face Router",
-    url: "https://router.huggingface.co/v1",
-    modelo: "",
-    tipo: "Free tier / de pago",
-    nota: "Router OpenAI-compatible de Hugging Face. Requiere token con permiso de inferencia."
-  },
-  {
-    id: "custom",
-    nombre: "Otro / LLM por IP",
-    url: "http://192.168.1.10:8080/v1",
-    modelo: "",
-    tipo: "Según servidor",
-    nota: "Cualquier servidor OpenAI-compatible. HTTP sólo se acepta en localhost o IP privada; el resto exige HTTPS."
-  }
-];
+function apiAsync(op, payload, opciones) {
+  const opt = opciones || {};
+  const maxMs = opt.maxMs || 25000;
+  const t0 = Date.now();
+  return new Promise(function (resolve) {
+    if (!window.FabrickNative || typeof window.FabrickNative.callAsync !== "function") {
+      resolve(api(op, payload));   // APK anterior o vista previa en navegador
+      return;
+    }
+    const token = "a" + (++fabriAsyncSeq) + "_" + Date.now();
+    let cerrado = false;
+    const cerrar = function (r) {
+      if (cerrado) return;
+      cerrado = true;
+      FABRI_ASYNC.delete(token);
+      try { revisionAutoDiferido(op, r, Date.now() - t0); } catch (e) { /* nunca romper */ }
+      resolve(r);
+    };
+    FABRI_ASYNC.set(token, cerrar);
 
-const TERMUX_COMANDOS = [
-  { titulo: "Dependencias base", cmd: "pkg update && pkg upgrade -y\npkg install nodejs python git clang cmake make -y" },
-  { titulo: "OmniRoute", cmd: "npx -y omniroute@latest\n# API local: http://127.0.0.1:20128/v1" },
-  { titulo: "llama.cpp", cmd: "git clone https://github.com/ggml-org/llama.cpp\ncd llama.cpp\ncmake -B build\ncmake --build build -j4" },
-  { titulo: "Modelo Qwen 0.5B", cmd: "pip install huggingface_hub\nhuggingface-cli download Qwen/Qwen2.5-0.5B-Instruct-GGUF qwen2.5-0.5b-instruct-q4_k_m.gguf --local-dir ~/modelos" },
-  { titulo: "GraphRAG (servidor)", cmd: "pip install graphrag\n# GraphRAG es Python y no trae binario Android; ejecútalo en Termux o en un servidor\n# y consúmelo por HTTP desde FABRI-CORE." },
-  { titulo: "Voz del sistema", cmd: "# TTS usa el motor de Android, no un binario descargado:\n# Ajustes → Accesibilidad → Salida de texto a voz → Instalar voces" }
-];
-
-
-/* ------------------------------------------------------------------ navegación */
-/** Registra una excepción de JS con su stack real (el WebView, en origen
- *  file://, ofusca `ev.message` y deja `?:0:0`; el stack sí trae la línea). */
-function jsError(e, donde) {
-  const msg = e && e.message ? e.message : String(e || "error desconocido");
-  const stack = e && e.stack ? String(e.stack) : "";
-  revision("error", "critico", "excepción en " + donde + ": " + msg,
-    stack ? stack.replace(/\n/g, " · ").slice(0, 900) : "sin stack", 0, "js");
-  return msg;
+    let acuse;
+    try {
+      acuse = JSON.parse(window.FabrickNative.callAsync(op, JSON.stringify(payload || {})));
+    } catch (e) {
+      cerrar({ ok: false, error: String(e), codigo: "PUENTE" });
+      return;
+    }
+    if (!acuse || !acuse.ok) {
+      cerrar(acuse || { ok: false, error: "el puente rechazó la llamada", codigo: "PUENTE" });
+      return;
+    }
+    // Red de seguridad: si el aviso de Java se pierde (página recargada a
+    // mitad), la promesa se resuelve como LENTO y la vista puede reintentar.
+    setTimeout(function () {
+      if (!cerrado) {
+        cerrar({
+          ok: false, error: "el núcleo no respondió a tiempo",
+          codigo: "LENTO", op: op, reintentar: true
+        });
+      }
+    }, maxMs);
+  });
 }
+
+/**
+ * Lectura con reintento, sin bloquear jamás el hilo que pinta.
+ *
+ * Es lo que usan las pantallas. Si el núcleo está ocupado (`NUCLEO_OCUPADO` o
+ * `LENTO`) espera y vuelve a intentar con espera creciente, hasta `maxMs`.
+ * Antes cada pantalla hacía una llamada síncrona, recibía `LENTO` y se rendía:
+ * los módulos quedaban vacíos hasta abrir Diagnóstico y pulsar «Probar núcleo».
+ */
+function apiTarde(op, payload, opciones) {
+  const opt = opciones || {};
+  const maxMs = opt.maxMs || 15000;
+  const t0 = Date.now();
+  return new Promise(function (resolve) {
+    let espera = 220;
+    function intento() {
+      const restante = maxMs - (Date.now() - t0);
+      const tope = Math.max(4000, Math.min(25000, restante));
+      apiAsync(op, payload, { maxMs: tope }).then(function (r) {
+        const ocupado = !r.ok && (r.codigo === "NUCLEO_OCUPADO" || r.codigo === "LENTO");
+        if (!ocupado || Date.now() - t0 >= maxMs) { resolve(r); return; }
+        setTimeout(intento, espera);
+        espera = Math.min(Math.round(espera * 1.7), 1800);
+      });
+    }
+    intento();
+  });
+}
+
+/** Rama de carga de cada vista. Se usa al navegar y al volver el núcleo. */
+const RAMAS_VISTA = {
+  diag: () => cargarDiagnostico(),
+  error: () => errorIniciar(),
+  integracion: () => integracionIniciar(),
+  modelos: () => pintarModelos(),
+  modulos: () => cargarModulos(),
+  chat: () => chatIniciar(),
+  inventario: () => { if (typeof invIniciar === "function") invIniciar(); },
+  flujo: () => { if (typeof flujoIniciar === "function") flujoIniciar(); },
+  termux: () => { cargarTermux(); puenteIniciar(); },
+  revision: () => revisionIniciar(),
+  repo: () => cargarRepo(),
+  sql: () => { if (typeof hojaIniciar === "function") hojaIniciar(); },
+  conexiones: () => { if (typeof conexionesIniciar === "function") conexionesIniciar(); },
+  id: () => { if (typeof idIniciar === "function") idIniciar(); },
+  inicio: () => pintarInicio()
+};
 
 function navegar(vista) {
   cerrarDrawer();
@@ -278,23 +177,7 @@ function navegar(vista) {
   window.scrollTo({ top: 0, behavior: "instant" });
   // Cada rama se aísla: si una vista falla, la navegación ocurre igual y el
   // fallo queda en `revision` con nombre de función, mensaje y stack.
-  const ramas = {
-    diag: cargarDiagnostico,
-    error: errorIniciar,
-    integracion: integracionIniciar,
-    modelos: pintarModelos,
-    modulos: cargarModulos,
-    chat: chatIniciar,
-    inventario: () => { if (typeof invIniciar === "function") invIniciar(); },
-    flujo: () => { if (typeof flujoIniciar === "function") flujoIniciar(); },
-    termux: () => { cargarTermux(); puenteIniciar(); },
-    revision: revisionIniciar,
-    repo: cargarRepo,
-    sql: () => { if (typeof hojaIniciar === "function") hojaIniciar(); },
-    conexiones: () => { if (typeof conexionesIniciar === "function") conexionesIniciar(); },
-    inicio: pintarInicio
-  };
-  const rama = ramas[vista];
+  const rama = RAMAS_VISTA[vista];
   if (!rama) return;
   try {
     rama();
@@ -424,10 +307,18 @@ function pintarInicio() {
   const piloto = document.getElementById("pilotoNucleo");
 
   if (!s) {
-    piloto.className = "pill pill-error";
-    piloto.textContent = "sin núcleo";
-    document.getElementById("heroTitulo").textContent = "Núcleo no disponible";
-    document.getElementById("heroTexto").textContent = "Revisa el diagnóstico para ver el error original.";
+    const esperando = !nucleoPreparado();
+    piloto.className = "pill " + (esperando ? "pill-espera" : "pill-error");
+    piloto.textContent = esperando ? "núcleo iniciando…" : "sin núcleo";
+    document.getElementById("heroTitulo").textContent = esperando
+      ? "Abriendo la base de datos"
+      : "Núcleo no disponible";
+    document.getElementById("heroTexto").textContent = esperando
+      ? "La app ya es usable; los datos aparecen en cuanto termina la migración."
+      : "Revisa el diagnóstico para ver el error original.";
+    // Se repinta sola cuando el núcleo avisa; este reintento cubre el caso de
+    // que el aviso se pierda (p. ej. al volver del segundo plano).
+    if (esperando) setTimeout(function () { if (!estadoApp.sistema) arranqueNucleo(); }, 900);
     return;
   }
 
@@ -553,7 +444,14 @@ function pintarDispositivo() {
 /** Pinta modelos recomendados y detectados con tabla de comparación. */
 function pintarModelos() {
   const cont = document.getElementById("modelosLista");
-  const g = estadoApp.global;
+  const g = estadoApp.global || (estadoApp.global = {});
+  // Antes esta pantalla salía vacía hasta pulsar «Ver recomendados». Ahora se
+  // pide sola (con reintento) y el botón queda para refrescar a mano.
+  if (!g.recomendados && !g.detectados && !g.cargandoModelos) {
+    g.cargandoModelos = true;
+    if (cont) cont.innerHTML = `<div class="item"><p>Consultando la memoria del dispositivo…</p></div>`;
+    cargarModelosRecomendados().finally(function () { g.cargandoModelos = false; });
+  }
   const rec = g.recomendados || [];
   const det = g.detectados || [];
 
@@ -641,7 +539,9 @@ async function ejecutarVerificadorGlobal() {
   }, 250);
 
   try {
-    const r = api("estado_global", {});
+    // Verificación pesada (recorre tablas y dispositivos): asíncrona para que
+    // la barra de progreso siga animándose y la pantalla responda.
+    const r = await apiTarde("estado_global", {}, { maxMs: 30000 });
     if (!r.ok) throw new Error(r.error || "no se pudo verificar");
 
     clearInterval(timer);
@@ -701,7 +601,7 @@ function calcularSalud(d) {
 
 /** Obtiene modelos recomendados según la RAM del dispositivo. */
 async function cargarModelosRecomendados() {
-  const r = api("modelos_recomendados", {});
+  const r = await apiTarde("modelos_recomendados", {});
   if (!r.ok) {
     toast("No se pudieron cargar las recomendaciones: " + (r.error || "error"), "error");
     return;
@@ -976,9 +876,11 @@ function instalarComponente(id, silencioso) {
  * descarga que ya está hecha. Ese era el "me pide descargar dos veces".
  */
 function compsActualizar() {
-  const comps = api("componentes", { accion: "listar" });
+  // Con `api()` a secas, un LENTO en el arranque dejaba la lista de
+  // componentes vacía hasta reiniciar. Ahora reintenta y devuelve promesa.
+  return apiTarde("componentes", { accion: "listar" }, { maxMs: 15000 }).then(function (comps) {
   if (!comps.ok) return false;
-  const lista = comps.data.componentes || [];
+  const lista = (comps.data && comps.data.componentes) || [];
   let disco = [];
   try {
     if (window.FabrickNative && typeof window.FabrickNative.descargasEstado === "function") {
@@ -1004,6 +906,7 @@ function compsActualizar() {
   estadoApp.componentes = lista;
   estadoApp.descargasDisco = disco;
   return true;
+  });
 }
 
 /** Habilita los botones según manifiesto, estado y descargas activas. */
@@ -1690,10 +1593,10 @@ function chatProbarRemoto() {
 }
 
 /** Busca contexto en los textos ya indexados. Devuelve "" si no hay nada. */
-function chatContextoRag(consulta) {
+async function chatContextoRag(consulta) {
   const casilla = document.getElementById("chatRag");
   if (!casilla || !casilla.checked) return "";
-  const r = api("rag", { accion: "buscar", consulta: consulta, k: 3 });
+  const r = await apiTarde("rag", { accion: "buscar", consulta: consulta, k: 3 }, { maxMs: 20000 });
   if (!r.ok) {
     toast("RAG léxico: " + (r.error || "no disponible"), "error");
     return "";
@@ -1760,7 +1663,7 @@ function palabrasClaveBD(texto) {
 }
 
 async function ejecutarSqlChat(sql) {
-  const r = api("consultar_seguro", { sql });
+  const r = await apiTarde("consultar_seguro", { sql }, { maxMs: 20000 });
   if (!r.ok) {
     return { ok: false, error: r.error || "no se pudo ejecutar la consulta" };
   }
@@ -1780,7 +1683,7 @@ async function ejecutarSqlChat(sql) {
 async function obtenerContextoGraphRAG(consulta) {
   const partes = [];
   try {
-    const r = api("aprendizaje_buscar", { tema: consulta, limite: 3 });
+    const r = await apiTarde("aprendizaje_buscar", { tema: consulta, limite: 3 }, { maxMs: 15000 });
     if (r.ok && r.data && r.data.resultados && r.data.resultados.length) {
       const fragmentos = r.data.resultados
         .map((x) => "[Aprendizaje: " + x.tema + "] " + x.contenido + (x.preferencia ? " (prefiere " + x.preferencia + ")" : ""))
@@ -1789,7 +1692,7 @@ async function obtenerContextoGraphRAG(consulta) {
     }
   } catch (e) { /* ignorar */ }
   try {
-    const r = api("graphrag_buscar", { tema: consulta, limite: 3 });
+    const r = await apiTarde("graphrag_buscar", { tema: consulta, limite: 3 }, { maxMs: 15000 });
     if (r.ok && r.data && r.data.resultados && r.data.resultados.length) {
       const fragmentos = r.data.resultados
         .map((x) => "[" + x.origen + ": " + x.tema + "] " + x.texto)
@@ -1897,7 +1800,8 @@ async function chatEnviar() {
   const contextoGraphRAG = await obtenerContextoGraphRAG(texto);
 
   // 4) Combinar todo el contexto
-  const contextoCombinado = (contextoSql || "") + (contextoBd || "") + (contextoGraphRAG || "") + chatContextoRag(texto);
+  const contextoCombinado = (contextoSql || "") + (contextoBd || "")
+    + (contextoGraphRAG || "") + (await chatContextoRag(texto));
 
   let r;
   try {
@@ -2236,13 +2140,13 @@ function cargarTermux() {
       ? "listo · " + (r.error || "motor del sistema")
       : "no listo · " + (r.error || "instala una voz en Android");
   }
-  const rag = api("rag", { accion: "estado" });
-  const ragEst = document.getElementById("termuxRagEstado");
-  if (ragEst) {
+  apiTarde("rag", { accion: "estado" }, { maxMs: 15000 }).then(function (rag) {
+    const ragEst = document.getElementById("termuxRagEstado");
+    if (!ragEst) return;
     ragEst.textContent = rag.ok
       ? (rag.data.total || 0) + " nota(s) indexada(s) · léxico, sin embeddings"
       : "no disponible: " + (rag.error || "error");
-  }
+  });
 }
 
 function ragIndexar() {
@@ -2252,15 +2156,17 @@ function ragIndexar() {
     toast("Escribe algo para indexar", "error");
     return;
   }
-  const r = api("rag", { accion: "indexar", documento: "nota", texto: texto });
-  if (!r.ok) {
-    toast("RAG: " + (r.error || "no se pudo indexar"), "error");
-    return;
-  }
-  area.value = "";
-  toast("Nota indexada · " + (r.data.total || 0) + " en total");
-  const ragEst = document.getElementById("termuxRagEstado");
-  if (ragEst) ragEst.textContent = (r.data.total || 0) + " nota(s) indexada(s) · léxico, sin embeddings";
+  apiTarde("rag", { accion: "indexar", documento: "nota", texto: texto }, { maxMs: 20000 })
+    .then(function (r) {
+      if (!r.ok) {
+        toast("RAG: " + (r.error || "no se pudo indexar"), "error");
+        return;
+      }
+      area.value = "";
+      toast("Nota indexada · " + (r.data.total || 0) + " en total");
+      const ragEst = document.getElementById("termuxRagEstado");
+      if (ragEst) ragEst.textContent = (r.data.total || 0) + " nota(s) indexada(s) · léxico, sin embeddings";
+    });
 }
 
 function cargarBiblioteca() {
@@ -2421,17 +2327,20 @@ const EJEMPLOS_MODULO = {
 };
 
 function cargarModulos() {
-  const r = api("modulos", { accion: "listar" });
-  if (!r.ok) {
-    toast("No se pudieron listar los módulos: " + r.error, "error");
-    return;
-  }
-  const todos = r.data.modulos || [];
-  // `tipo: pagina` son fichas del menú lateral; no se ejecutan como módulos.
-  estadoApp.paginas = todos.filter((f) => (f.manifiesto || {}).tipo === "pagina");
-  estadoApp.modulos = todos.filter((f) => (f.manifiesto || {}).tipo !== "pagina");
-  pintarModulos();
-  pintarDrawerPaginas();
+  // Con `api()` a secas, un `LENTO` dejaba la pantalla vacía para siempre y
+  // había que ir a Diagnóstico a «despertar» el núcleo. `apiTarde` reintenta.
+  apiTarde("modulos", { accion: "listar" }).then(function (r) {
+    if (!r.ok) {
+      toast("No se pudieron listar los módulos: " + r.error, "error");
+      return;
+    }
+    const todos = (r.data && r.data.modulos) || [];
+    // `tipo: pagina` son fichas del menú lateral; no se ejecutan como módulos.
+    estadoApp.paginas = todos.filter((f) => (f.manifiesto || {}).tipo === "pagina");
+    estadoApp.modulos = todos.filter((f) => (f.manifiesto || {}).tipo !== "pagina");
+    pintarModulos();
+    pintarDrawerPaginas();
+  });
 }
 
 function pintarModulos() {
@@ -2608,7 +2517,7 @@ function pintarConsola() {
 }
 
 function cargarHistorialConsola() {
-  const r = api("logs", { accion: "listar", limite: 200 });
+  apiTarde("logs", { accion: "listar", limite: 200 }, { maxMs: 15000 }).then(function (r) {
   if (!r.ok) { toast("No se pudo leer el historial: " + r.error, "error"); return; }
   const logs = (r.data.logs || []).slice().reverse();
   estadoApp.consola = logs.map((l) => ({
@@ -2617,6 +2526,7 @@ function cargarHistorialConsola() {
     texto: `[${l.origen}] ${l.mensaje}`
   }));
   pintarConsola();
+  });
 }
 
 async function ejecutarTarea() {
@@ -2653,16 +2563,34 @@ function bitacoraPintar() {
   }
 }
 
-function cargarDiagnostico() {
+async function cargarDiagnostico() {
   bitacoraPintar();
-  const s = api("sys");
+  // Si el núcleo todavía migra no se hacen tres llamadas que van a expirar:
+  // se avisa en el piloto y se reintenta solo, sin congelar la pantalla.
+  if (!nucleoPreparado()) {
+    cargarDiagnostico.intentos = (cargarDiagnostico.intentos || 0) + 1;
+    const piloto = document.getElementById("pilotoNucleo");
+    if (piloto) {
+      piloto.className = "pill pill-espera";
+      piloto.textContent = "núcleo iniciando…";
+    }
+    if (cargarDiagnostico.intentos < 25) setTimeout(cargarDiagnostico, 700);
+    return;
+  }
+  cargarDiagnostico.intentos = 0;
+  // Las tres lecturas van en paralelo y sin bloquear: Diagnóstico es justo la
+  // pantalla que se abre cuando algo va mal, no puede quedarse congelada.
+  const res = await Promise.all([
+    apiTarde("sys", undefined, { maxMs: 15000 }),
+    apiTarde("operaciones", { accion: "listar", limite: 50 }, { maxMs: 15000 }),
+    apiTarde("logs", { accion: "listar", limite: 100 }, { maxMs: 15000 })
+  ]);
+  const s = res[0];
   if (s.ok) estadoApp.sistema = s.data;
-
-  const ops = api("operaciones", { accion: "listar", limite: 50 });
-  estadoApp.operaciones = ops.ok ? (ops.data.operaciones || []) : [];
-
-  const lg = api("logs", { accion: "listar", limite: 100 });
-  estadoApp.logsHistoricos = lg.ok ? (lg.data.logs || []) : [];
+  const ops = res[1];
+  estadoApp.operaciones = ops.ok ? ((ops.data && ops.data.operaciones) || []) : [];
+  const lg = res[2];
+  estadoApp.logsHistoricos = lg.ok ? ((lg.data && lg.data.logs) || []) : [];
 
   const sys = estadoApp.sistema;
   const rt = apiRuntime();
@@ -2704,6 +2632,24 @@ function cargarDiagnostico() {
     "TTS del sistema",
     tts.listo ? "listo · voces de Android" : `no listo · ${tts.error || "instala una voz"}`
   ]);
+  // Radiografía del carril del núcleo: cuántas operaciones esperan y cuál fue
+  // la última que se quedó con el hilo. Es la respuesta a «¿por qué se pegó?».
+  let carril = null;
+  try {
+    if (window.FabrickNative && typeof window.FabrickNative.nucleoEstado === "function") {
+      carril = JSON.parse(window.FabrickNative.nucleoEstado());
+    }
+  } catch (e) { carril = null; }
+  if (carril) {
+    filasSistema.push([
+      "Cola del núcleo",
+      carril.cola > 0 ? `${carril.cola} operación(es) en espera` : "libre"
+    ]);
+    filasSistema.push([
+      "Última operación lenta",
+      carril.ultimo_lento || "ninguna desde el arranque"
+    ]);
+  }
   document.getElementById("datosSistema").innerHTML = filasSistema
     .map(([k, v]) => `<div class="fila"><span>${esc(k)}</span><span>${esc(v)}</span></div>`).join("");
 
@@ -3079,13 +3025,38 @@ window.__fabriNucleoListo = function () {
     if (window.FabriLogin && window.FabriLogin.refrescar) window.FabriLogin.refrescar();
   } catch (e) { /* el login ya es usable */ }
   try { chatRefrescar(); } catch (e) { /* la vista se pinta sola */ }
+  // La ficha del negocio (nombre, RUT, logo, ID de cliente) se copia a la
+  // caché local: la boleta y el login la necesitan sin abrir «Mi identidad».
+  try { if (typeof idSincronizarCache === "function") idSincronizarCache(); } catch (e) { /* cosmético */ }
+  // La pantalla abierta se recarga sola: antes había que abrir Diagnóstico y
+  // pulsar «Probar núcleo» para que Módulos, Modelos o Inventario mostraran
+  // algo, porque su carga se había rendido con NUCLEO_OCUPADO.
+  refrescarVistaActual();
   if (arranque.listo || arranque.programado) return;
   arranque.intentos = 0;
   arranque.programado = true;
   setTimeout(arranqueNucleo, 0);
 };
 
+/** Vuelve a ejecutar la carga de la vista visible, sin navegar ni mover scroll. */
+function refrescarVistaActual() {
+  const v = estadoApp.vista || "inicio";
+  const rama = RAMAS_VISTA[v];
+  if (!rama) return;
+  try {
+    rama();
+  } catch (e) {
+    jsError(e, "refrescarVistaActual(" + v + ")");
+  }
+}
+
 function iniciar() {
+  // 0) Los eventos de las páginas que viven en su propio archivo se enganchan
+  //    una sola vez, aquí: así una vista nueva no depende de abrirse antes.
+  try {
+    if (typeof idConectarEventos === "function") idConectarEventos();
+  } catch (e) { jsError(e, "idConectarEventos"); }
+
   // 1) El loader se anima y se retira ANTES de tocar el núcleo. Si el núcleo
   //    tarda, la interfaz ya está pintada y el login ya responde.
   animarLoader();
@@ -4286,29 +4257,41 @@ const FabriLogin = (function () {
       }
     } catch (e) { /* se prueba el perfil */ }
 
-    if (!d || (!d.nombre && !d.foto)) {
-      let r = null;
-      try {
-        r = api("perfil", { accion: "obtener" });
-      } catch (e) {
-        r = null;
-      }
-      if (r && r.ok) d = r.data || {};
-    }
+    // La ficha del negocio (página «Mi identidad») vive en `perfil`. Se lee
+    // SIEMPRE, no sólo cuando falta el nombre: antes, si el operador tenía
+    // nombre pero no foto, el logo del negocio nunca llegaba al login.
+    let p = null;
+    try {
+      const r = api("perfil", { accion: "obtener" });
+      if (r && r.ok) p = r.data || {};
+    } catch (e) { p = null; }
+
     d = d || {};
+    if (!p) p = {};
+    // `usuarios` manda para el operador; `perfil` rellena lo que falte y
+    // aporta la ficha del negocio (logo, razón social, ID de cliente).
+    if (!d.nombre && p.nombre) d.nombre = p.nombre;
+    if (!d.indicativo && p.indicativo) d.indicativo = p.indicativo;
+    if (!d.foto && p.foto) d.foto = p.foto;
 
     perfil.nombre = d.nombre || "";
     perfil.indicativo = d.indicativo || "";
     perfil.foto = d.foto || "";
+    perfil.datos = p.datos || {};
     const foto = $("loginFoto");
     const ind = $("loginIndicativo");
     const nom = $("loginNombre");
-    if (d.foto && foto) {
-      foto.src = d.foto;
+    const marca = $("loginMarca");
+    // Sin foto del operador se usa el logo del negocio: la tarjeta nunca queda
+    // con el marcador de carga si ya hay una imagen real guardada.
+    const imagen = d.foto || (perfil.datos && perfil.datos.logo) || "";
+    if (imagen && foto) {
+      foto.src = imagen;
       foto.classList.add("real");
     }
     if (d.indicativo && ind) ind.textContent = d.indicativo;
     if (d.nombre && nom) nom.textContent = d.nombre;
+    if (marca) marca.textContent = d.nombre || "FABRI-CORE PRO";
     // El código de barras es identidad visual del operador, no del acceso:
     // se dibuja siempre, haya o no foto en la base.
     barcodeConstruir(codigoOperador());
@@ -4321,6 +4304,10 @@ const FabriLogin = (function () {
    * segunda mezcla, así no cambia entre arranques.
    */
   function codigoOperador() {
+    // Si la página «Mi identidad» ya definió un ID de cliente, la credencial
+    // muestra ESE código: es el que el usuario reconoce como suyo.
+    const cliente = perfil.datos && perfil.datos.id_cliente;
+    if (cliente) return String(cliente).toUpperCase();
     const base = String(perfil.indicativo || "FC-OPERATOR") + "|" + String(perfil.nombre || "CORE MODULE");
     let h = 0x811c9dc5;
     for (let i = 0; i < base.length; i++) {
@@ -4866,7 +4853,7 @@ pasoArranque("vigilante", saludIniciar);
 // se pinta igual.
 pasoArranque("acceso", function () { FabriLogin.iniciar(); });
 
-function errorIniciar() {
+async function errorIniciar() {
   const cont = document.getElementById("errorContenido");
   if (!cont) return;
   cont.innerHTML = `<div class="cargando">Revisando estado de todos los componentes…</div>`;
@@ -4882,8 +4869,16 @@ function errorIniciar() {
     solucion: (rLocal && rLocal.cargado) ? "Nada que hacer." : "Carga un modelo (.gguf) con Chat → Escanear modelos → Cargar modelo. Si supera 50 MB, requiere autorización."
   });
   // Nube / API
+  // La comprobación de la nube sale a internet: si se hace bloqueando, esta
+  // pantalla se queda «Revisando…» hasta 20 s. Con `await apiTarde` la
+  // interfaz sigue respondiendo y se reintenta si el núcleo está ocupado.
   let rNube = { ok: false, error: "No configurada" };
-  try { rNube = api("nube", { accion: "estado", url: (document.getElementById("chatUrl") || { value: "" }).value.trim() || "https://fabri-api.vercel.app" }); } catch (e) { rNube.error = String(e); }
+  try {
+    rNube = await apiTarde("nube", {
+      accion: "estado",
+      url: (document.getElementById("chatUrl") || { value: "" }).value.trim() || "https://fabri-api.vercel.app"
+    }, { maxMs: 20000 });
+  } catch (e) { rNube.error = String(e); }
   const tokenOk = !!document.getElementById("chatUrl"); // simplificado: si hay elemento, hay intento de configuración
   items.push({
     componente: "API en la nube",
@@ -4893,7 +4888,7 @@ function errorIniciar() {
   });
   // SQLite local
   let rSql = { ok: false, error: "No se pudo consultar" };
-  try { rSql = api("sqlite", { accion: "tablas" }); } catch (e) { rSql.error = String(e); }
+  try { rSql = await apiTarde("sqlite", { accion: "tablas" }, { maxMs: 25000 }); } catch (e) { rSql.error = String(e); }
   items.push({
     componente: "Base de datos local (SQLite)",
     funciona: !!(rSql && rSql.ok),
@@ -4950,7 +4945,7 @@ function integracionIniciar() {
   if (estadoModelo) estadoModelo.textContent = "Para verificar el modelo local, abre la pestaña Chat → Escanear modelos.";
 }
 
-function integracionGuardar() {
+async function integracionGuardar() {
   const url = document.getElementById("intUrl").value.trim();
   const token = document.getElementById("intToken").value.trim();
   const modelo = document.getElementById("intModelo").value.trim();
@@ -4961,7 +4956,7 @@ function integracionGuardar() {
     return;
   }
   try {
-    const r = api("nube", { accion: "configurar", url, token });
+    const r = await apiTarde("nube", { accion: "configurar", url, token }, { maxMs: 20000 });
     const d = r.data || r;
     if (d.ok) {
       if (nota) nota.textContent = "Configuración guardada: " + url + " · Modelo: " + modelo;
@@ -4976,12 +4971,12 @@ function integracionGuardar() {
   }
 }
 
-function integracionProbar() {
+async function integracionProbar() {
   const url = document.getElementById("intUrl").value.trim() || "https://fabri-api.vercel.app";
   const nota = document.getElementById("intNotaEstado");
   if (nota) nota.textContent = "Probando conexión con " + url + "…";
   try {
-    const r = api("nube", { accion: "estado", url });
+    const r = await apiTarde("nube", { accion: "estado", url }, { maxMs: 20000 });
     const d = r.data || r;
     if (d.ok) {
       if (nota) nota.textContent = "Conexión verificada: " + (d.mensaje || d.url || url);

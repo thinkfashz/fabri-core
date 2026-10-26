@@ -96,7 +96,26 @@ public final class NativeBridge {
         long t0 = System.currentTimeMillis();
         Bitacora.anotar("nucleo", "init: comienza la migración de SQLite");
         try {
-            String r = exec("init", "{\"dataDir\":\"" + dataDir.replace("\\", "/") + "\"}");
+            final String datos = "{\"dataDir\":\"" + dataDir.replace("\\", "/") + "\"}";
+            // `init` va por el mismo carril que el resto: así ninguna operación
+            // de JavaScript puede entrar al núcleo mientras se migra (la
+            // interfaz recibe NUCLEO_OCUPADO y reintenta, sin bloquearse).
+            java.util.concurrent.Future<String> futuro = EJECUTOR.submit(
+                    new java.util.concurrent.Callable<String>() {
+                        @Override
+                        public String call() {
+                            return exec("init", datos);
+                        }
+                    });
+            String r;
+            try {
+                r = futuro.get();
+            } catch (java.util.concurrent.ExecutionException ee) {
+                throw new RuntimeException(ee.getCause() == null ? ee : ee.getCause());
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException(ie);
+            }
             Bitacora.anotar("nucleo", "init terminó en "
                     + (System.currentTimeMillis() - t0) + " ms · " + recortarBitacora(r));
             return r;
@@ -115,8 +134,18 @@ public final class NativeBridge {
                 public void run() {
                     try {
                         Thread.sleep(2500);
-                        String r = exec("mantenimiento", "{}");
-                        Bitacora.anotar("mantenimiento", recortarBitacora(r));
+                        // Por la cola del núcleo: la poda y el checkpoint no
+                        // pueden ejecutarse a la vez que una consulta de la
+                        // interfaz (el mutex de Rust los serializa igual, pero
+                        // así no aparece como «LENTO» sin motivo).
+                        java.util.concurrent.Future<String> f = EJECUTOR.submit(
+                                new java.util.concurrent.Callable<String>() {
+                                    @Override
+                                    public String call() {
+                                        return exec("mantenimiento", "{}");
+                                    }
+                                });
+                        Bitacora.anotar("mantenimiento", recortarBitacora(f.get()));
                     } catch (Throwable ignorado) {
                         // La poda es higiene, no requisito.
                     }
@@ -138,8 +167,113 @@ public final class NativeBridge {
         }
     }
 
-    /** Tope de espera para las operaciones que sí necesitan SQLite. */
-    private static final long ESPERA_NUCLEO_MS = 1200L;
+    /**
+     * Llamada ASÍNCRONA: devuelve el control a JavaScript al instante y entrega
+     * el resultado cuando el núcleo termina.
+     *
+     * <p>Es la pieza que elimina el «se queda pegado». `call()` es síncrono
+     * porque `@JavascriptInterface` lo es: JavaScript se queda esperando el
+     * valor de retorno y, mientras espera, la página no repinta ni responde a
+     * los toques. Con un tope de 900 ms por operación y 20 s para las pesadas,
+     * abrir una pantalla que hace tres consultas podía congelar la interfaz
+     * varios segundos. Aquí no se espera nada: se encola, se devuelve un token
+     * y el resultado llega por `window.__fabriAsync(token, json)`.
+     *
+     * <p>La interfaz usa esta vía para todo lo que no sea una acción puntual
+     * (ver `apiAsync` en app.js). Las operaciones ligeras siguen usando `call()`
+     * para no complicar el código que espera un valor inmediato.
+     */
+    @JavascriptInterface
+    public String callAsync(String op, String payloadJson) {
+        final String token = "a" + ASYNC_SEQ.incrementAndGet();
+        if (op == null || op.isEmpty()) {
+            entregaAsync(token, "{\"ok\":false,\"error\":\"operación vacía\",\"codigo\":\"BAD_OP\"}");
+            return acuse(token);
+        }
+        final String cuerpo = (payloadJson == null || payloadJson.isEmpty()) ? "{}" : payloadJson;
+
+        // Registros: se encolan y se confirma el diferido, igual que en call().
+        if (esRegistro(op)) {
+            encolarRegistro(op, cuerpo);
+            entregaAsync(token, "{\"ok\":true,\"registrado\":false,\"diferido\":true}");
+            return acuse(token);
+        }
+        if ("ping".equals(op)) {
+            entregaAsync(token, pingLocal());
+            return acuse(token);
+        }
+        if (necesitaNucleo(op) && listo.getCount() > 0) {
+            entregaAsync(token, ocupado("el núcleo todavía se está iniciando"));
+            return acuse(token);
+        }
+
+        final String operacion = op;
+        final String llave = op + "\u0000" + cuerpo;
+        if (!EN_VUELO.add(llave)) {
+            entregaAsync(token, lento(op, "ya hay una operación igual en curso"));
+            return acuse(token);
+        }
+        try {
+            EJECUTOR.execute(new Runnable() {
+                @Override
+                public void run() {
+                    String salida;
+                    long ini = System.currentTimeMillis();
+                    try {
+                        salida = exec(operacion, cuerpo);
+                    } catch (Throwable t) {
+                        salida = "{\"ok\":false,\"error\":\"" + escapar(String.valueOf(t))
+                                + "\",\"codigo\":\"EXCEPTION\"}";
+                    } finally {
+                        EN_VUELO.remove(llave);
+                        long ms = System.currentTimeMillis() - ini;
+                        if (ms >= 700) {
+                            ultimoLento = operacion + " " + ms + " ms";
+                            Bitacora.anotar("lento", ultimoLento);
+                        }
+                    }
+                    entregaAsync(token, salida != null ? salida
+                            : "{\"ok\":false,\"error\":\"el núcleo devolvió vacío\",\"codigo\":\"NULL\"}");
+                }
+            });
+        } catch (java.util.concurrent.RejectedExecutionException re) {
+            EN_VUELO.remove(llave);
+            entregaAsync(token, ocupado("la cola del núcleo está llena"));
+        }
+        return acuse(token);
+    }
+
+    /** Confirmación inmediata de una llamada asíncrona aceptada. */
+    private String acuse(String token) {
+        return "{\"ok\":true,\"asincrono\":true,\"token\":\"" + token + "\"}";
+    }
+
+    /**
+     * Entrega el resultado a JavaScript. Se usa `JSONObject.quote` para que el
+     * JSON viaje como literal de cadena: comillas, saltos de línea y acentos
+     * quedan escapados y no pueden romper el script.
+     */
+    private void entregaAsync(String token, String json) {
+        Notificador n = notificador;
+        if (n == null) {
+            return;
+        }
+        try {
+            n.js("window.__fabriAsync&&window.__fabriAsync("
+                    + JSONObject.quote(token) + "," + JSONObject.quote(json) + ");");
+        } catch (Throwable ignorado) {
+            // Si la página ya no está, el resultado se descarta en silencio.
+        }
+    }
+
+    /**
+     * Ya NO hay espera bloqueante. Antes `call()` retenía el hilo de JavaScript
+     * hasta 1,2 s por operación mientras el núcleo migraba; con una pantalla que
+     * hace tres o cuatro llamadas al abrirse, eso eran varios segundos de
+     * interfaz congelada. Ahora se responde al instante con
+     * `NUCLEO_OCUPADO` + `reintentar:true` y la interfaz reintenta con
+     * `setTimeout`, sin bloquear el hilo que pinta.
+     */
 
     /**
      * ¿Esta operación necesita el estado (SQLite) del núcleo?
@@ -157,28 +291,6 @@ public final class NativeBridge {
     /** ¿Esta operación puede descartarse sin ruido si el núcleo no está? */
     private static boolean esRegistro(String op) {
         return "log.append".equals(op) || "revision.registrar".equals(op);
-    }
-
-    /**
-     * Espera a que el núcleo esté inicializado, con un tope CORTO.
-     *
-     * <p>Antes el tope era de 10 s y se aplicaba a todas las operaciones. Con
-     * siete llamadas seguidas en el arranque (ping, sys, componentes,
-     * manifiestos, módulos, historial…), eso dejaba el hilo de JavaScript
-     * bloqueado más de un minuto: la pantalla se quedaba en «0 %» y ningún
-     * botón del login respondía. Ahora la espera es de 1,2 s y, si el núcleo
-     * todavía no está, se devuelve un error estructurado en vez de bloquear.
-     */
-    private boolean esperarNucleo() {
-        if (listo.getCount() == 0) {
-            return true;
-        }
-        try {
-            return listo.await(ESPERA_NUCLEO_MS, java.util.concurrent.TimeUnit.MILLISECONDS);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return false;
-        }
     }
 
     /** Punto de entrada usado por JavaScript. Devuelve siempre JSON. */
@@ -201,11 +313,17 @@ public final class NativeBridge {
             return "{\"ok\":true,\"registrado\":false,\"diferido\":true}";
         }
 
-        // 2) Si el núcleo todavía migra, no se espera más de 1,2 s.
-        if (necesitaNucleo(op) && !esperarNucleo()) {
-            Bitacora.anotar("nucleo-ocupado", op);
-            return "{\"ok\":false,\"error\":\"el núcleo todavía se está iniciando\","
-                    + "\"codigo\":\"NUCLEO_OCUPADO\"}";
+        // 2) `ping` lo contesta Java: no toca el núcleo ni entra en la cola.
+        //    Así «Probar núcleo» responde siempre, incluso mientras una
+        //    operación pesada tiene tomado el hilo del núcleo.
+        if ("ping".equals(op)) {
+            return pingLocal();
+        }
+
+        // 3) Si el núcleo todavía migra se responde YA. Bloquear aquí era lo
+        //    que dejaba la interfaz sin responder al abrir una pantalla.
+        if (necesitaNucleo(op) && listo.getCount() > 0) {
+            return ocupado("el núcleo todavía se está iniciando");
         }
 
         // 3) TOPE DURO. Aunque el núcleo se quede atascado (base bloqueada,
@@ -218,13 +336,42 @@ public final class NativeBridge {
         final String cuerpo = payloadJson;
         long tope = esPesada(op) ? TOPE_PESADA_MS : TOPE_CALL_MS;
         long t0 = System.currentTimeMillis();
-        java.util.concurrent.Future<String> futuro = EJECUTOR.submit(
-                new java.util.concurrent.Callable<String>() {
-                    @Override
-                    public String call() {
-                        return exec(operacion, cuerpo);
-                    }
-                });
+
+        // 4) COALESCENCIA. Si ya hay una operación idéntica en curso (misma
+        //    operación y mismo payload), no se encola otra: se responde LENTO
+        //    para que la interfaz espere. Sin esto, cada reintento de la
+        //    interfaz apilaba trabajo y la cola crecía sin límite.
+        final String llave = op + "\u0000" + payloadJson;
+        if (!EN_VUELO.add(llave)) {
+            return lento(op, "ya hay una operación igual en curso");
+        }
+
+        java.util.concurrent.Future<String> futuro;
+        try {
+            futuro = EJECUTOR.submit(
+                    new java.util.concurrent.Callable<String>() {
+                        @Override
+                        public String call() {
+                            long ini = System.currentTimeMillis();
+                            try {
+                                return exec(operacion, cuerpo);
+                            } finally {
+                                EN_VUELO.remove(llave);
+                                long ms = System.currentTimeMillis() - ini;
+                                // Vigilancia: deja en la bitácora QUÉ operación
+                                // se quedó con el hilo del núcleo y cuánto.
+                                if (ms >= 700) {
+                                    ultimoLento = operacion + " " + ms + " ms";
+                                    Bitacora.anotar("lento", ultimoLento);
+                                }
+                            }
+                        }
+                    });
+        } catch (java.util.concurrent.RejectedExecutionException re) {
+            // La cola acotada está llena: se rechaza en vez de acumular.
+            EN_VUELO.remove(llave);
+            return ocupado("la cola del núcleo está llena");
+        }
         try {
             String salida = futuro.get(tope, java.util.concurrent.TimeUnit.MILLISECONDS);
             long ms = System.currentTimeMillis() - t0;
@@ -237,13 +384,11 @@ public final class NativeBridge {
         } catch (java.util.concurrent.TimeoutException te) {
             // La operación sigue en el hilo del núcleo y su resultado se
             // descarta: la interfaz ya recibió una respuesta clara y puede
-            // reintentar o seguir. Nunca se queda esperando.
-            Bitacora.anotar("lento", op + " superó " + tope + " ms (se libera la interfaz)");
-            return "{\"ok\":false,\"error\":\"el núcleo está ocupado con otra operación\","
-                    + "\"codigo\":\"LENTO\",\"op\":\"" + escapar(op) + "\",\"reintentar\":true}";
+            // reintentar o seguir. Nunca se queda esperando. NO se cancela:
+            // interrumpir a mitad de una escritura SQLite deja la base peor.
+            return lento(op, "superó " + tope + " ms");
         } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
-            futuro.cancel(true);
             return "{\"ok\":false,\"error\":\"llamada interrumpida\",\"codigo\":\"INTERRUMPIDO\"}";
         } catch (Throwable t) {
             Bitacora.anotar("excepcion", op + " · " + t);
@@ -251,34 +396,88 @@ public final class NativeBridge {
         }
     }
 
-    /** Hilo único del núcleo: serializa las llamadas y nunca toca la interfaz. */
-    private static final java.util.concurrent.ExecutorService EJECUTOR =
-            java.util.concurrent.Executors.newSingleThreadExecutor(new java.util.concurrent.ThreadFactory() {
-                @Override
-                public Thread newThread(Runnable r) {
-                    Thread t = new Thread(r, "nucleo-call");
-                    t.setDaemon(true);
-                    return t;
-                }
-            });
-
-    /** Cola de registros: acotada, con descarte silencioso si se llena. */
-    private static final java.util.concurrent.ThreadPoolExecutor REGISTROS =
+    /**
+     * El ÚNICO carril hacia el núcleo.
+     *
+     * <p>El núcleo Rust tiene un mutex global: dos hilos llamándolo a la vez no
+     * van más rápido, sólo se pisan. Por eso todo —`init`, operaciones,
+     * registros y mantenimiento— pasa por esta cola, y así se sabe con certeza
+     * qué está ocupando el hilo.
+     *
+     * <p>La cola está ACOTADA (24). Antes era ilimitada: cada llamada que
+     * expiraba dejaba su tarea corriendo y las siguientes se apilaban detrás,
+     * de modo que un pico de trabajo se convertía en minutos de «LENTO» en
+     * cascada. Con la cola llena se rechaza y la interfaz reintenta.
+     */
+    private static final java.util.concurrent.ThreadPoolExecutor EJECUTOR =
             new java.util.concurrent.ThreadPoolExecutor(
                     1, 1, 0L, java.util.concurrent.TimeUnit.MILLISECONDS,
-                    new java.util.concurrent.ArrayBlockingQueue<Runnable>(256),
+                    new java.util.concurrent.ArrayBlockingQueue<Runnable>(24),
                     new java.util.concurrent.ThreadFactory() {
                         @Override
                         public Thread newThread(Runnable r) {
-                            Thread t = new Thread(r, "nucleo-registro");
+                            Thread t = new Thread(r, "nucleo-call");
                             t.setDaemon(true);
+                            t.setPriority(Thread.NORM_PRIORITY + 1);
                             return t;
                         }
                     },
-                    new java.util.concurrent.ThreadPoolExecutor.DiscardPolicy());
+                    new java.util.concurrent.ThreadPoolExecutor.AbortPolicy());
+
+    /**
+     * Operaciones en curso, por `op + payload`. Sirve para no apilar la misma
+     * consulta varias veces cuando la interfaz reintenta mientras el núcleo
+     * todavía no ha terminado la anterior.
+     */
+    private static final java.util.Set<String> EN_VUELO =
+            java.util.Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<String, Boolean>());
+
+    /** Numerador de tokens de las llamadas asíncronas. */
+    private static final java.util.concurrent.atomic.AtomicLong ASYNC_SEQ =
+            new java.util.concurrent.atomic.AtomicLong(0);
+
+    /** Última operación que se quedó con el hilo del núcleo (para diagnóstico). */
+    private static volatile String ultimoLento = "";
+
+    /** Profundidad actual de la cola (-1 si no se puede leer). */
+    private static int cola() {
+        try {
+            return EJECUTOR.getQueue().size();
+        } catch (Throwable t) {
+            return -1;
+        }
+    }
+
+    /** Respuesta inmediata de `ping`: la contesta Java, sin tocar el núcleo. */
+    private String pingLocal() {
+        boolean l = listo.getCount() == 0;
+        return "{\"ok\":true,\"data\":{\"fuente\":\"java\",\"listo\":" + l
+                + ",\"cola\":" + cola() + ",\"en_vuelo\":" + EN_VUELO.size()
+                + ",\"ultimo_lento\":\"" + escapar(ultimoLento) + "\"},\"listo\":" + l + "}";
+    }
+
+    /** El núcleo todavía no está (o está saturado): reintentar sin bloquear. */
+    private String ocupado(String motivo) {
+        Bitacora.anotar("nucleo-ocupado", motivo + " · cola=" + cola());
+        return "{\"ok\":false,\"error\":\"" + escapar(motivo) + "\","
+                + "\"codigo\":\"NUCLEO_OCUPADO\",\"reintentar\":true,"
+                + "\"cola\":" + cola() + "}";
+    }
+
+    /** La operación no terminó a tiempo: es un estado, no un error del usuario. */
+    private String lento(String op, String motivo) {
+        return "{\"ok\":false,\"error\":\"el núcleo está ocupado: " + escapar(motivo) + "\","
+                + "\"codigo\":\"LENTO\",\"op\":\"" + escapar(op) + "\",\"reintentar\":true,"
+                + "\"cola\":" + cola() + "}";
+    }
 
     /** Tope de una llamada normal: por encima de esto la interfaz se libera. */
-    private static final long TOPE_CALL_MS = 900L;
+    /**
+     * Tope de la vía SÍNCRONA, sólo para acciones puntuales (guardar, borrar,
+     * registrar). Las lecturas de pantalla van por `callAsync`, que no bloquea.
+     * 600 ms es un parón imperceptible frente a los 20 s de antes.
+     */
+    private static final long TOPE_CALL_MS = 600L;
 
     /** Tope de operaciones pesadas, siempre iniciadas por el usuario. */
     private static final long TOPE_PESADA_MS = 20000L;
@@ -296,10 +495,19 @@ public final class NativeBridge {
                 || "modelos_recomendados".equals(op);
     }
 
-    /** Escribe un registro en segundo plano, sin hacer esperar a la interfaz. */
+    /**
+     * Escribe un registro en segundo plano, por el MISMO carril del núcleo.
+     *
+     * <p>Antes tenía su propio hilo, que competía por el mutex de Rust con las
+     * operaciones de la interfaz: un registro lento retrasaba una consulta y
+     * aparecía como «LENTO» sin motivo visible. Ahora se serializa como todo lo
+     * demás y, si la cola está saturada, el registro se descarta: un log no
+     * vale un cuelgue.
+     */
     private static void encolarRegistro(final String op, final String payload) {
         try {
-            REGISTROS.execute(new Runnable() {
+            if (cola() > 16) return;
+            EJECUTOR.execute(new Runnable() {
                 @Override
                 public void run() {
                     try {
@@ -318,6 +526,19 @@ public final class NativeBridge {
     @JavascriptInterface
     public String nucleoListo() {
         return "{\"ok\":true,\"listo\":" + (listo.getCount() == 0) + "}";
+    }
+
+    /**
+     * Radiografía del carril del núcleo: si está listo, cuántas operaciones
+     * esperan, cuántas están en vuelo y cuál fue la última lenta. Es lo que
+     * permite responder «¿por qué se quedó pegado?» sin adivinar.
+     */
+    @JavascriptInterface
+    public String nucleoEstado() {
+        return "{\"ok\":true,\"listo\":" + (listo.getCount() == 0)
+                + ",\"cola\":" + cola()
+                + ",\"en_vuelo\":" + EN_VUELO.size()
+                + ",\"ultimo_lento\":\"" + escapar(ultimoLento) + "\"}";
     }
 
     /** Bitácora de arranque (independiente del núcleo). Para la vista Diagnóstico. */

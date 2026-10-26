@@ -473,12 +473,12 @@ function conexionesPintarOauth(r) {
 
 /* ------------------------------------------------------------------- respaldo */
 
-function conexionesRespaldarDatos() {
+async function conexionesRespaldarDatos() {
   if (!window.confirm("¿Guardar un respaldo de toda tu base local en Descargas?\n\n"
       + "El archivo queda dentro de la carpeta privada de la app y no sale del teléfono.")) {
     return;
   }
-  const rt = api("sqlite", { accion: "tablas" });
+  const rt = await apiTarde("sqlite", { accion: "tablas" }, { maxMs: 20000 });
   if (!rt.ok) {
     toast("No se pudo leer la base: " + (rt.error || "error"), "error");
     return;
@@ -492,8 +492,8 @@ function conexionesRespaldarDatos() {
     tablas: {}
   };
   let filas = 0;
-  tablas.forEach((t) => {
-    const r = api("sqlite", { accion: "exportar", tabla: t.nombre });
+  for (const t of tablas) {
+    const r = await apiTarde("sqlite", { accion: "exportar", tabla: t.nombre }, { maxMs: 25000 });
     if (r.ok) {
       doc.tablas[t.nombre] = {
         columnas: (r.data.columnas || []).filter((c) => c !== "_fila"),
@@ -506,7 +506,7 @@ function conexionesRespaldarDatos() {
       };
       filas += (r.data.filas || []).length;
     }
-  });
+  }
   hojaGuardarArchivo(`fabrick-respaldo-${hojaSello()}.json`,
     JSON.stringify(doc, null, 2), `${tablas.length} tabla(s), ${filas} fila(s)`);
 }

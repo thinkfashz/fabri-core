@@ -2,6 +2,87 @@
 
 Última actualización: 2026-10-26
 
+## Sesión 2026-10-26 (11) · APK 0.9.13 — el puente deja de bloquear (carril asíncrono) + «Mi identidad»
+
+APK: `dist/FABRI-CORE-0.9.13.apk` · **4.107.467 B** ·
+sha256 `2e843acebc81e927b58680ef64ab202ccd374f15e07c37cfeab404e810bc80d5`
+versionCode **28** · copiada a `/storage/emulated/0/Download/FABRI-CORE-0.9.13.apk`.
+Firma debug, minSdk 24, target 34. Instalar **encima** de la 0.9.12.
+
+### El fallo de fondo: el puente bloqueaba el hilo de JavaScript
+
+Aunque el arranque ya estaba arreglado (0.9.11/0.9.12), la app **seguía pegada
+al interactuar**: cada lectura de pantalla usaba la vía **síncrona** `call()`,
+que devuelve el resultado en el mismo instante y, para hacerlo, **frena el hilo
+de JavaScript** hasta el tope (600 ms, y antes 1,2 s). Cinco capas se sumaban:
+
+1. `NativeBridge` tenía **un solo hilo** y `call()` esperaba en él (tope 1,2 s).
+2. Las pantallas se rendían ante `NUCLEO_OCUPADO`/`LENTO` en vez de reintentar.
+3. `init`, mantenimiento y registros abrían **hilos propios** que peleaban por
+   el mutex global de Rust (`ESTADO`).
+4. La guía de inventario hacía **una llamada bloqueante por paso**.
+5. El lector trataba HTTP 404/500 como error final.
+
+### Lo corregido en 0.9.13
+
+| Cambio | Archivo |
+|---|---|
+| Carril **asíncrono** `callAsync` (token + entrega por `window.__fabriAsync`); `ping` lo contesta Java (`pingLocal`) | `NativeBridge.java` |
+| Vía síncrona sólo para acciones puntuales; `TOPE_CALL_MS` **600 ms** | `NativeBridge.java` |
+| Cola acotada a **24** con `AbortPolicy` y coalescencia por `op + payload` | `NativeBridge.java` |
+| `apiAsync`/`apiTarde` no bloqueantes con reintento; `RAMAS_VISTA` + `refrescarVistaActual()` | `app.js` |
+| Todas las lecturas migradas al carril asíncrono (inicio, diagnóstico, modelos, RAG, GraphRAG, SQL, nube) | `app.js` |
+| SQLite de la hoja de datos (listar, insertar, borrar, actualizar, exportar, importar, auditoría) por `apiTarde` | `datos.js` |
+| Respaldo de la base por `apiTarde` | `conexiones.js` |
+| Refresco del flujo en paralelo con guarda | `flujo.js` |
+| Guía de inventario encadenada por `apiTarde`, margen con freno de 140 ms | `inventario.js` |
+| Lector: 404/500 se **saltan**; 4,5 s por host y **12 s** en total; mensaje honesto | `inventario.js` |
+| Columna `datos TEXT` (JSON) con migración idempotente; `op_perfil` `guardar_datos` | `src-tauri/src/lib.rs` |
+
+### Página «Mi identidad» (nueva)
+
+- `identidad.js` (~418 líneas) + sección `v-id` en `index.html` + estilos `.id-*`.
+- Nombre comercial (columna `nombre`), **logo real** a 256 px JPEG, razón social,
+  RUT formateado (`76.543.210-8`), giro, dirección, teléfono, correo e **ID de
+  cliente** `FAB-XXXX-XXXX` (sin I/O/0/1).
+- Se guarda en `perfil.datos` (JSON, tope 24 KB) y se cachea en `localStorage`
+  (`fabrick.identidad`); el login y la boleta lo leen de ahí.
+- La boleta (pantalla e impresión 80/58/A4) imprime la ficha completa.
+
+### El caso `7791293043791`
+
+Verificado con `curl`: Open Food Facts da **404**, Open Beauty Facts **404**,
+Open Products Facts **500**, UPCitemdb **0 ítems**. El producto **no existe** en
+las bases libres. Antes la app mostraba «Open Products Facts: HTTP 500» como si
+fuese su fallo; ahora lo salta y dice «no está publicado en las bases libres»,
+con `Añadirlo como producto nuevo` como salida normal.
+
+### Pruebas
+
+| Suite | Resultado |
+|---|---|
+| `tests/arranque/correr.sh` | **6/6** (sintaxis, DOM hostil, carga, loader/logo, puente, identidad) |
+| `tests/arranque/puente.js` | verde (síncrona acotada, `callAsync`, `ping` local, cola 24, coalescencia) |
+| `tests/arranque/identidad.js` | verde (ID, RUT, iniciales, caché) |
+| `tests/inventario/lector.js` | verde (404/404/500, producto real, sin red, presupuesto) |
+| `tests/inventario/ean.js` | 13/13 |
+
+### Authelia y FairScan
+
+Revisados y documentados en `docs/SEGURIDAD-Y-VISION.md`. **No se instalan**:
+Authelia es un proxy de identidad HTTP (no una librería) y FairScan una app
+GPL-3.0 (no un SDK). Se adoptan sus ideas (sesión con caducidad, bloqueo por
+intentos, todo en el dispositivo).
+
+### Pendiente
+
+- Probar en el teléfono: navegar todas las pantallas sin colgarse, escanear un
+  código real y guardar la ficha de identidad con logo.
+- **GitHub Actions sigue bloqueado por facturación** (`account is locked due to a
+  billing issue`): resolver en GitHub → Settings → Billing.
+
+---
+
 ## Sesión 2026-10-26 (10) · APK 0.9.12 + inventario en la nube + web con la misma ficha
 
 APK: `dist/FABRI-CORE-0.9.12.apk` · **4.095.110 B** ·

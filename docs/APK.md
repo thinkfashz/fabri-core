@@ -97,8 +97,11 @@ scripts/
   compilar.sh                  pipeline completo
   cc-android24.sh              wrapper de clang con triple versionado
 tests/
-  arranque/correr.sh           4 pruebas del arranque
+  arranque/correr.sh           6 pruebas del arranque
+  arranque/puente.js           vía síncrona, carril asíncrono, cola acotada
+  arranque/identidad.js        ID de cliente, RUT, caché de la ficha
   inventario/ean.js            13 casos del lector EAN
+  inventario/lector.js         404/500 de las bases libres, sin red, presupuesto
 ```
 
 ---
@@ -198,8 +201,12 @@ La interfaz no tiene acceso a archivos, red ni procesos. Llama
 
 Reglas de tiempo (ver `ARRANQUE-Y-ACCESO.md`):
 
-- tope duro de **900 ms** por llamada; **20 s** sólo en operaciones pesadas
-  que el usuario pidió;
+- **carril asíncrono** (`callAsync` / `apiTarde`): es la vía normal para las
+  lecturas de pantalla; el resultado vuelve por `window.__fabriAsync` y **no
+  bloquea el hilo de JavaScript**;
+- **vía síncrona** (`call()`): sólo acciones puntuales (guardar, borrar,
+  registrar), con tope de **600 ms**;
+- **20 s** sólo en operaciones pesadas que el usuario pidió;
 - `LENTO` y `NUCLEO_OCUPADO` **no son errores**: se reintentan;
 - los registros se encolan y se confirman como diferidos.
 
@@ -215,6 +222,13 @@ Reglas de tiempo (ver `ARRANQUE-Y-ACCESO.md`):
 
 Todas son libres, sin clave y con CORS abierto. La app consulta en ese orden y
 se queda con la primera que reconoce el código.
+
+Un **404** significa «no está en esa base» y un **500**, «esa base está caída»:
+los dos se saltan en silencio y la app sigue con la siguiente. Si ninguna lo
+tiene, el mensaje es «no está publicado en las bases libres» (no un HTTP suelto).
+Un fallo de red se distingue de ese caso: «sin conexión». Hay presupuesto de
+**4,5 s por host y 12 s en total**, para que tres bases caídas nunca dejen la
+pantalla esperando medio minuto.
 
 Categorías: `abarrotes` (Alimentos), `bebidas`, `alcohol`, `dulces`, `lacteos`,
 `congelados`, `cosmetica`, `limpieza`, `mascotas`, `otros`.
@@ -232,10 +246,11 @@ volver a consultar internet.
 | 0.9.7 | 22 | última que «funcionaba normal» (sin espera al núcleo) |
 | 0.9.10 | 25 | se introduce la espera al núcleo: aparecen el loader en 0 % y el login muerto |
 | 0.9.11 | 26 | arranque sin bloqueo, loader CSS, bitácora, poda de registros |
-| **0.9.12** | **27** | retirada del loader al volver del segundo plano, `LENTO` como estado normal, ficha del producto, lector EAN propio, impresión 80/58/A4, reimpresión, sync con `/api/inventario` |
+| 0.9.12 | 27 | retirada del loader al volver del segundo plano, `LENTO` como estado normal, ficha del producto, lector EAN propio, impresión 80/58/A4, reimpresión, sync con `/api/inventario` |
+| **0.9.13** | **28** | carril **asíncrono** del puente (las lecturas ya no bloquean el hilo), página «Mi identidad» con logo y ID de cliente, lector que salta 404/500 y dice la verdad |
 
-`dist/FABRI-CORE-0.9.12.apk` · **4.095.110 B** ·
-sha256 `b14cd9d3d3fca113dab548bb8cc10f2c7c8a6785ed15bf208498e99de3f09541`
+`dist/FABRI-CORE-0.9.13.apk` · **4.107.467 B** ·
+sha256 `2e843acebc81e927b58680ef64ab202ccd374f15e07c37cfeab404e810bc80d5`
 
 ---
 

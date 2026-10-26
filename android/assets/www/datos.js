@@ -69,22 +69,25 @@ function hojaPintarResumen(extra) {
 function hojaCargarTablas() {
   const cont = document.getElementById("sqlTablas");
   if (cont) cont.innerHTML = `<p class="nota">Leyendo la base…</p>`;
-  const r = api("sqlite", { accion: "tablas" });
-  if (!r.ok) {
-    if (cont) cont.innerHTML = `<div class="sql-error">${esc(r.error || "no se pudo leer la base")}</div>`;
-    hojaPintarResumen({});
-    return;
-  }
-  const d = r.data || {};
-  hoja.tablas = Array.isArray(d.tablas) ? d.tablas : [];
-  hoja.resumen = {
-    tablas: hoja.tablas.length,
-    filas: d.total_filas,
-    bytes: d.bytes,
-    version: d.version
-  };
-  hojaPintarResumen();
-  hojaPintarTablas();
+  // `sqlite` es una operación pesada (hasta 20 s): con `api()` a secas la
+  // página se quedaba en «Leyendo la base…» y el hilo de la interfaz parado.
+  apiTarde("sqlite", { accion: "tablas" }, { maxMs: 25000 }).then(function (r) {
+    if (!r.ok) {
+      if (cont) cont.innerHTML = `<div class="sql-error">${esc(r.error || "no se pudo leer la base")}</div>`;
+      hojaPintarResumen({});
+      return;
+    }
+    const d = r.data || {};
+    hoja.tablas = Array.isArray(d.tablas) ? d.tablas : [];
+    hoja.resumen = {
+      tablas: hoja.tablas.length,
+      filas: d.total_filas,
+      bytes: d.bytes,
+      version: d.version
+    };
+    hojaPintarResumen();
+    hojaPintarTablas();
+  });
 }
 
 function hojaPintarTablas() {
@@ -134,42 +137,49 @@ function hojaAbrirTabla(nombre) {
   const envoltura = document.getElementById("sqlTablaEnvoltura");
   if (envoltura) envoltura.innerHTML = `<p class="nota">Leyendo ${esc(nombre)}…</p>`;
 
-  // Esquema: tipos de columna para convertir bien los valores al editar.
-  const esq = api("sqlite", { accion: "esquema", tabla: nombre });
-  if (esq.ok && esq.data) {
-    (esq.data.columnas || []).forEach((c) => {
-      hoja.tipos[c.nombre] = (c.tipo || "").toUpperCase();
+  // Esquema y filas van encadenados en segundo plano: la hoja se abre al
+  // instante y los datos llegan cuando el núcleo puede.
+  apiTarde("sqlite", { accion: "esquema", tabla: nombre }, { maxMs: 25000 })
+    .then(function (esq) {
+      if (esq.ok && esq.data) {
+        (esq.data.columnas || []).forEach((c) => {
+          hoja.tipos[c.nombre] = (c.tipo || "").toUpperCase();
+        });
+        hoja.columnasEsquema = esq.data.columnas || [];
+      }
+      return hojaCargarFilas();
     });
-    hoja.columnasEsquema = esq.data.columnas || [];
-  }
-
-  hojaCargarFilas();
 }
 
 function hojaCargarFilas() {
-  if (!hoja.tabla) return;
+  if (!hoja.tabla) return Promise.resolve();
+  // Se guarda la tabla pedida: si el usuario abre otra mientras esta llega, la
+  // respuesta vieja no debe pintar encima de la nueva.
+  const pedida = hoja.tabla;
   hoja.cargando = true;
-  const r = api("sqlite", {
+  return apiTarde("sqlite", {
     accion: "filas",
-    tabla: hoja.tabla,
+    tabla: pedida,
     limite: hoja.limite,
     desplazamiento: hoja.desplazamiento
+  }, { maxMs: 25000 }).then(function (r) {
+    hoja.cargando = false;
+    if (hoja.tabla !== pedida) return;
+    if (!r.ok) {
+      const envoltura = document.getElementById("sqlTablaEnvoltura");
+      if (envoltura) envoltura.innerHTML = `<div class="sql-error">${esc(r.error || "no se pudo leer la tabla")}</div>`;
+      return;
+    }
+    const d = r.data || {};
+    hoja.columnas = d.columnas || [];
+    hoja.filas = d.filas || [];
+    hoja.total = d.total || 0;
+    hoja.editable = !!d.editable;
+    hoja.cambios.clear();
+    hoja.seleccion = null;
+    hojaPintarTabla();
+    hojaPintarBotones();
   });
-  hoja.cargando = false;
-  if (!r.ok) {
-    const envoltura = document.getElementById("sqlTablaEnvoltura");
-    if (envoltura) envoltura.innerHTML = `<div class="sql-error">${esc(r.error || "no se pudo leer la tabla")}</div>`;
-    return;
-  }
-  const d = r.data || {};
-  hoja.columnas = d.columnas || [];
-  hoja.filas = d.filas || [];
-  hoja.total = d.total || 0;
-  hoja.editable = !!d.editable;
-  hoja.cambios.clear();
-  hoja.seleccion = null;
-  hojaPintarTabla();
-  hojaPintarBotones();
 }
 
 function hojaPintarBotones() {
@@ -433,7 +443,7 @@ function hojaSeleccionarFila(id) {
   hojaPintarTabla();
 }
 
-function hojaBorrarSeleccionada() {
+async function hojaBorrarSeleccionada() {
   if (!hoja.seleccion) {
     toast("Primero toca el número de la fila que quieres borrar");
     return;
@@ -445,7 +455,7 @@ function hojaBorrarSeleccionada() {
   if (!window.confirm(`¿Borrar la fila ${id}?\n\n${resumen}\n\nEsta acción no se puede deshacer.`)) {
     return;
   }
-  const r = api("sqlite", { accion: "borrar", tabla: hoja.tabla, fila: id });
+  const r = await apiTarde("sqlite", { accion: "borrar", tabla: hoja.tabla, fila: id }, { maxMs: 20000 });
   if (!r.ok) {
     toast("No se borró: " + (r.error || "error"), "error");
     return;
@@ -458,7 +468,7 @@ function hojaBorrarSeleccionada() {
 
 /* -------------------------------------------------------------------- guardar */
 
-function hojaGuardar() {
+async function hojaGuardar() {
   if (!hoja.tabla) return;
   if (!hoja.cambios.size && !hoja.borradores.length) {
     toast("No hay cambios pendientes");
@@ -469,7 +479,8 @@ function hojaGuardar() {
   const errores = [];
 
   // 1) Filas nuevas, en orden.
-  hoja.borradores.forEach((borrador, i) => {
+  for (let i = 0; i < hoja.borradores.length; i++) {
+    const borrador = hoja.borradores[i];
     const valores = {};
     let vacia = true;
     Object.keys(borrador).forEach((col) => {
@@ -477,30 +488,30 @@ function hojaGuardar() {
       if (v !== "" && v !== null && v !== undefined) vacia = false;
       valores[col] = v;
     });
-    if (vacia) return;
-    const r = api("sqlite", { accion: "insertar", tabla: hoja.tabla, valores });
+    if (vacia) continue;
+    const r = await apiTarde("sqlite", { accion: "insertar", tabla: hoja.tabla, valores }, { maxMs: 20000 });
     if (r.ok) {
       insertadas++;
     } else {
       errores.push(`fila nueva ${i + 1}: ${r.error || "error"}`);
     }
-  });
+  }
 
   // 2) Cambios por fila.
-  hoja.cambios.forEach((cambios, id) => {
-    if (!Object.keys(cambios).length) return;
-    const r = api("sqlite", {
+  for (const [id, cambios] of hoja.cambios) {
+    if (!Object.keys(cambios).length) continue;
+    const r = await apiTarde("sqlite", {
       accion: "actualizar",
       tabla: hoja.tabla,
       fila: Number(id),
       cambios
-    });
+    }, { maxMs: 20000 });
     if (r.ok) {
       actualizadas++;
     } else {
       errores.push(`fila ${id}: ${r.error || "error"}`);
     }
-  });
+  }
 
   if (errores.length) {
     toast(`${insertadas} nueva(s), ${actualizadas} actualizada(s), ${errores.length} error(es)`, "error");
@@ -546,12 +557,12 @@ function hojaCsvCampo(valor) {
   return texto;
 }
 
-function hojaAExportar() {
+async function hojaAExportar() {
   if (!hoja.tabla) {
     toast("Abre una tabla primero", "error");
     return;
   }
-  const r = api("sqlite", { accion: "exportar", tabla: hoja.tabla });
+  const r = await apiTarde("sqlite", { accion: "exportar", tabla: hoja.tabla }, { maxMs: 25000 });
   if (!r.ok) {
     toast("No se pudo exportar: " + (r.error || "error"), "error");
     return;
@@ -566,12 +577,12 @@ function hojaAExportar() {
   hojaGuardarArchivo(nombre, csv, `${filas.length} fila(s)`);
 }
 
-function hojaAExportarJson() {
+async function hojaAExportarJson() {
   if (!hoja.tabla) {
     toast("Abre una tabla primero", "error");
     return;
   }
-  const r = api("sqlite", { accion: "exportar", tabla: hoja.tabla });
+  const r = await apiTarde("sqlite", { accion: "exportar", tabla: hoja.tabla }, { maxMs: 25000 });
   if (!r.ok) {
     toast("No se pudo exportar: " + (r.error || "error"), "error");
     return;
@@ -736,19 +747,19 @@ function hojaPrepararImportacion(texto, nombreArchivo) {
   }
 }
 
-function hojaConfirmarImportacion(reemplazar) {
+async function hojaConfirmarImportacion(reemplazar) {
   if (!hoja.importacion || !hoja.tabla) return;
   const n = hoja.importacion.filas.length;
   const texto = reemplazar
     ? `¿Importar ${n} fila(s) en ${hoja.tabla} reemplazando las que tengan la misma clave?`
     : `¿Agregar ${n} fila(s) a ${hoja.tabla}?`;
   if (!window.confirm(texto)) return;
-  const r = api("sqlite", {
+  const r = await apiTarde("sqlite", {
     accion: "importar",
     tabla: hoja.tabla,
     filas: hoja.importacion.filas,
     reemplazar: !!reemplazar
-  });
+  }, { maxMs: 25000 });
   if (!r.ok) {
     toast("No se importó: " + (r.error || "error"), "error");
     return;
@@ -769,13 +780,13 @@ function hojaCancelarImportacion() {
 
 /* ------------------------------------------------------------------ auditoría */
 
-function hojaVerAuditoria() {
+async function hojaVerAuditoria() {
   const bloque = document.getElementById("sqlAuditoriaBloque");
   const tabla = document.getElementById("sqlAuditoriaTabla");
   if (!bloque || !tabla) return;
   bloque.hidden = false;
   tabla.innerHTML = `<p class="nota">Leyendo la auditoría…</p>`;
-  const r = api("sqlite", { accion: "auditoria", limite: 60 });
+  const r = await apiTarde("sqlite", { accion: "auditoria", limite: 60 }, { maxMs: 20000 });
   if (!r.ok) {
     tabla.innerHTML = `<div class="sql-error">${esc(r.error || "no se pudo leer la auditoría")}</div>`;
     return;
@@ -799,7 +810,7 @@ function hojaVerAuditoria() {
 
 /* ------------------------------------------------------------ consulta rápida */
 
-function hojaEjecutarConsulta() {
+async function hojaEjecutarConsulta() {
   const entrada = document.getElementById("sqlConsulta");
   const salida = document.getElementById("sqlResultado");
   if (!entrada || !salida) return;
@@ -809,7 +820,7 @@ function hojaEjecutarConsulta() {
     return;
   }
   salida.innerHTML = `<p class="nota">Ejecutando…</p>`;
-  const r = api("sqlite", { accion: "consultar", sql });
+  const r = await apiTarde("sqlite", { accion: "consultar", sql }, { maxMs: 25000 });
   if (!r.ok) {
     salida.innerHTML = `<div class="sql-error">${esc(r.error || "error")}</div>`;
     return;

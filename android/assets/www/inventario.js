@@ -110,10 +110,23 @@ function invNum(valor) {
 function invApi(accion, extra) {
   const payload = Object.assign({ accion: accion }, extra || {});
   const r = api("inventario", payload);
-  if (!r.ok) {
+  // `LENTO` y `NUCLEO_OCUPADO` son estados del núcleo, no fallos del usuario:
+  // registrarlos llenaba `revision` de ruido y tapaba el error real.
+  if (!r.ok && r.codigo !== "LENTO" && r.codigo !== "NUCLEO_OCUPADO") {
     revision("inventario", "error", "inventario." + accion + " falló", String(r.error || ""), 0, "core");
   }
   return r;
+}
+
+/** Igual que invApi, pero reintenta en segundo plano si el núcleo está ocupado. */
+function invApiTarde(accion, extra, opciones) {
+  const payload = Object.assign({ accion: accion }, extra || {});
+  return apiTarde("inventario", payload, opciones).then(function (r) {
+    if (!r.ok && r.codigo !== "LENTO" && r.codigo !== "NUCLEO_OCUPADO") {
+      revision("inventario", "error", "inventario." + accion + " falló", String(r.error || ""), 0, "core");
+    }
+    return r;
+  });
 }
 
 function invAviso(texto, tipo) {
@@ -133,6 +146,15 @@ function invIniciar() {
   INV.nube.url = localStorage.getItem("fabrick.nube.url") || "";
   INV.nube.token = localStorage.getItem("fabrick.nube.token") || "";
   invPaso(INV.paso || 1);
+  // Si el núcleo todavía migra, la guía se pinta y los datos llegan solos: no
+  // se hacen llamadas que van a expirar ni se deja la pantalla en blanco.
+  if (!nucleoPreparado()) {
+    INV.esperas = (INV.esperas || 0) + 1;
+    invAviso("El núcleo está iniciando: los datos aparecen en un momento.", "");
+    if (INV.esperas < 25) setTimeout(function () { if (estadoApp.vista === "inventario") invIniciar(); }, 700);
+    return;
+  }
+  INV.esperas = 0;
   invRefrescar();
   invSyncIniciar();
   if (!INV.iniciado) {
@@ -215,24 +237,37 @@ function invPaso(n) {
 
 /* ── carga y resumen ────────────────────────────────────────────────────── */
 
+/**
+ * Lee productos y resumen. Antes eran dos llamadas BLOQUEANTES seguidas (hasta
+ * 1,8 s con el hilo de la interfaz parado) y se repetían en cada refresco.
+ * Ahora van encadenadas en segundo plano y sin solaparse.
+ */
 function invRefrescar() {
-  const r = invApi("listar", { limite: 500 });
-  INV.productos = r.ok ? (r.data.productos || []) : [];
-  invPintarProductos();
-  invPintarResumen();
-  invPintarSelectores();
-  invPintarMargenes();
+  if (INV.cargando) return;
+  INV.cargando = true;
+  invApiTarde("listar", { limite: 500 }).then(function (r) {
+    INV.cargando = false;
+    if (r.ok) {
+      INV.productos = (r.data && r.data.productos) || [];
+      invPintarProductos();
+      invPintarSelectores();
+      invPintarMargenes();
+    } else if (!INV.productos.length) {
+      invAviso("No pude leer el inventario: " + (r.error || "error"), "error");
+    }
+    return invApiTarde("resumen").then(function (rr) {
+      if (rr.ok) { INV.resumen = rr.data; invPintarResumen(rr.data); }
+    });
+  });
 }
 
-function invPintarResumen() {
+function invPintarResumen(datos) {
   const caja = document.getElementById("invKpis");
-  const r = invApi("resumen", {});
-  if (!r.ok) {
-    if (caja) caja.innerHTML = `<div class="inv-kpi"><span>Estado</span><strong>sin datos</strong></div>`;
+  const d = datos || INV.resumen;
+  if (!d) {
+    if (caja) caja.innerHTML = `<div class="inv-kpi"><span>Estado</span><strong>cargando…</strong></div>`;
     return;
   }
-  INV.resumen = r.data;
-  const d = r.data;
   if (!caja) return;
   caja.innerHTML = [
     `<div class="inv-kpi"><span>Productos</span><strong>${d.total || 0}</strong></div>`,
@@ -334,32 +369,45 @@ async function invBuscarCodigo(codigoCrudo) {
   const codigo = String(codigoCrudo || "").replace(/\s/g, "");
   if (!codigo) { toast("Escribe o escanea un código", "error"); return; }
   const caja = document.getElementById("invResultadoApi");
-  if (caja) caja.innerHTML = `<div class="inv-card-api"><p class="inv-ayuda">Buscando ${esc(codigo)}…</p></div>`;
+  if (caja) {
+    caja.innerHTML = `<div class="inv-card-api"><p class="inv-ayuda">Buscando ${esc(codigo)}…</p></div>`;
+  }
 
-  const local = invApi("buscar_codigo", { codigo: codigo });
+  // 1) Base local, sin bloquear el hilo que pinta.
+  const local = await invApiTarde("buscar_codigo", { codigo: codigo }, { maxMs: 6000 });
   if (local.ok && local.data && local.data.encontrado) {
     invMostrarLocal(local.data.producto, caja);
     return;
   }
 
+  // 2) Bases libres. Si ninguna responde, se dice tal cual: no es un error de
+  //    la app ni del código, simplemente ese producto no está publicado.
   const api = await invConsultarApiLibre(codigo);
-  if (!api.ok) {
-    if (caja) {
-      caja.innerHTML = `
-        <div class="inv-card-api">
-          <h3>Código ${esc(codigo)}</h3>
-          <p class="inv-ayuda">${esc(api.error || "sin datos en las bases libres")}</p>
-          <div class="inv-item-acciones">
-            <button class="btn btn-primario" id="btnInvCrearDesdeCodigo">Añadirlo como producto nuevo</button>
-          </div>
-        </div>`;
-      const b = document.getElementById("btnInvCrearDesdeCodigo");
-      if (b) b.addEventListener("click", function () { invFormulario({ codigo: codigo, origen: "manual" }); });
-    }
-    revision("inventario", "aviso", "código no encontrado en bases libres", codigo);
+  if (api.ok) {
+    invMostrarApi(api.producto, caja);
+    revision("inventario", "info", "código encontrado en base libre",
+      codigo + " · " + api.producto.fuente, 0, "inventario");
     return;
   }
-  invMostrarApi(api.producto, caja);
+
+  if (caja) {
+    caja.innerHTML = `
+      <div class="inv-card-api">
+        <h3>Código ${esc(codigo)}</h3>
+        <p class="inv-ayuda">${esc(api.error)}</p>
+        <p class="inv-ayuda">Puedes darlo de alta a mano: el código queda guardado y no
+          volverá a consultarse.</p>
+        <div class="inv-item-acciones">
+          <button class="btn btn-primario" id="btnInvCrearDesdeCodigo">Añadirlo como producto nuevo</button>
+        </div>
+      </div>`;
+    const b = document.getElementById("btnInvCrearDesdeCodigo");
+    if (b) b.addEventListener("click", function () {
+      invFormulario({ codigo: codigo, origen: "manual" });
+    });
+  }
+  revision("inventario", "aviso", "código no encontrado en bases libres",
+    codigo + " · " + api.motivo, 0, "inventario");
 }
 
 function invMostrarLocal(p, caja) {
@@ -433,30 +481,65 @@ function invMostrarApi(p, caja) {
   if (d) d.addEventListener("click", function () { caja.innerHTML = ""; });
 }
 
-/** Consulta Open Food Facts → Beauty → Products (todas libres y sin clave). */
+/**
+ * Consulta Open Food Facts → Beauty → Products (todas libres y sin clave).
+ *
+ * Tres cosas que antes estaban mal y colgaban la guía:
+ *   · el timeout era de 9 s POR HOST, así que un código ausente podía tener la
+ *     pantalla 27 s esperando;
+ *   · un 404 o un 500 se mostraba como «HTTP 500», que el usuario lee como
+ *     fallo de la app (el 500 de Open Products Facts es suyo, no nuestro);
+ *   · no se distinguía «no está en las bases» de «no hay internet».
+ *
+ * Ahora: 4,5 s por host, 12 s de presupuesto total, los 404/500 se saltan en
+ * silencio y el mensaje final dice la verdad.
+ */
+const INV_API_POR_HOST_MS = 4500;
+const INV_API_TOTAL_MS = 12000;
+
 async function invConsultarApiLibre(codigo) {
   const hosts = [
     { host: "https://world.openfoodfacts.org", fuente: "Open Food Facts", tipo: "alimento" },
     { host: "https://world.openbeautyfacts.org", fuente: "Open Beauty Facts", tipo: "cosmetica" },
     { host: "https://world.openproductsfacts.org", fuente: "Open Products Facts", tipo: "otros" }
   ];
-  // Campos de ficha completa: además de nombre y marca se traen etiquetas
-  // («sin gluten», «sin azúcar»…), alérgenos, Nutri-Score, NOVA, país e imagen.
   const campos = [
     "product_name", "brands", "categories", "categories_tags", "quantity",
     "image_small_url", "image_front_small_url", "generic_name", "labels_tags",
     "allergens_tags", "nutriscore_grade", "nutriscore_score", "nova_group",
     "countries_tags", "ingredients_text_es", "ingredients_text", "serving_size"
   ].join(",");
-  let ultimoError = "";
+
+  if (typeof navigator !== "undefined" && navigator.onLine === false) {
+    return {
+      ok: false, motivo: "sin conexión",
+      error: "Sin conexión: el producto puede existir, pero ahora no se puede consultar."
+    };
+  }
+
+  const t0 = Date.now();
+  let respondioAlguno = false;
+  let sinRed = false;
+
   for (const h of hosts) {
+    const restante = INV_API_TOTAL_MS - (Date.now() - t0);
+    if (restante < 600) break;
     const url = h.host + "/api/v2/product/" + encodeURIComponent(codigo) + ".json?fields=" + campos;
     try {
       const ctrl = new AbortController();
-      const t = setTimeout(function () { ctrl.abort(); }, 9000);
-      const resp = await fetch(url, { signal: ctrl.signal, headers: { "Accept": "application/json" } });
-      clearTimeout(t);
-      if (!resp.ok) { ultimoError = h.fuente + ": HTTP " + resp.status; continue; }
+      const tope = Math.min(INV_API_POR_HOST_MS, restante);
+      const t = setTimeout(function () { ctrl.abort(); }, tope);
+      let resp;
+      try {
+        resp = await fetch(url, { signal: ctrl.signal, headers: { "Accept": "application/json" } });
+      } finally {
+        clearTimeout(t);
+      }
+      // La base RESPONDIÓ: eso ya lo distingue de «no hubo respuesta». 404 = no
+      // está en esa base; 5xx = la base está caída. En ambos casos se pasa a la
+      // siguiente sin gritar: no es un fallo de esta app.
+      respondioAlguno = true;
+      if (!resp.ok) continue;
       const datos = await resp.json();
       if (datos && datos.status === 1 && datos.product) {
         const p = datos.product;
@@ -494,11 +577,25 @@ async function invConsultarApiLibre(codigo) {
           }
         };
       }
+      respondioAlguno = true;
     } catch (e) {
-      ultimoError = h.fuente + ": " + (e && e.message ? e.message : "sin respuesta");
+      // AbortError = se agotó el tiempo de ese host. TypeError = sin red.
+      if (e && e.name === "TypeError") sinRed = true;
     }
   }
-  return { ok: false, error: ultimoError || "el código no aparece en las bases libres" };
+
+  if (!respondioAlguno) {
+    return {
+      ok: false, motivo: sinRed ? "sin red" : "bases libres sin respuesta",
+      error: sinRed
+        ? "Sin conexión a internet: no se pudo consultar el código."
+        : "Las bases libres no respondieron a tiempo. Puedes intentarlo otra vez o darlo de alta a mano."
+    };
+  }
+  return {
+    ok: false, motivo: "no publicado en bases libres",
+    error: "Ese código no está publicado en las bases libres (Open Food/Beauty/Products Facts). No es un error de la app."
+  };
 }
 
 function invCategoriaDesdeTags(tags, porDefecto) {
@@ -683,15 +780,18 @@ function invGuardar() {
     return;
   }
   invAviso("Guardando en SQLite…");
-  const r = invApi("guardar", { producto: producto });
-  if (!r.ok) { invAviso("No se pudo guardar: " + (r.error || "error"), "error"); return; }
-  const p = r.data.producto || {};
-  invAviso("Guardado · " + (p.nombre || producto.nombre) + " · " + (p.codigo || producto.codigo));
-  revision("inventario", "info", "producto guardado: " + (p.nombre || producto.nombre),
-    (p.codigo || producto.codigo) + " · stock " + (p.stock || 0), 0, "core");
-  invFormularioCerrar();
-  invRefrescar();
-  invSello("Guardado en la base");
+  // Sin bloquear: si el núcleo está ocupado, el guardado espera solo y la
+  // pantalla sigue respondiendo (antes se perdía el producto y salía «LENTO»).
+  invApiTarde("guardar", { producto: producto }, { maxMs: 20000 }).then(function (r) {
+    if (!r.ok) { invAviso("No se pudo guardar: " + (r.error || "error"), "error"); return; }
+    const p = (r.data && r.data.producto) || {};
+    invAviso("Guardado · " + (p.nombre || producto.nombre) + " · " + (p.codigo || producto.codigo));
+    revision("inventario", "info", "producto guardado: " + (p.nombre || producto.nombre),
+      (p.codigo || producto.codigo) + " · stock " + (p.stock || 0), 0, "core");
+    invFormularioCerrar();
+    invRefrescar();
+    invSello("Guardado en la base");
+  });
 }
 
 function invSello(texto) {
@@ -708,16 +808,19 @@ function invSello(texto) {
 function invBorrar(codigo) {
   const p = invPorCodigo(codigo);
   if (!confirm("¿Borrar " + (p ? p.nombre : codigo) + " de tu inventario?")) return;
-  const r = invApi("borrar", { codigo: codigo });
-  if (!r.ok) { toast("No se pudo borrar: " + r.error, "error"); return; }
-  revision("inventario", "aviso", "producto borrado", codigo);
-  invRefrescar();
+  invApiTarde("borrar", { codigo: codigo }).then(function (r) {
+    if (!r.ok) { toast("No se pudo borrar: " + r.error, "error"); return; }
+    revision("inventario", "aviso", "producto borrado", codigo);
+    invRefrescar();
+  });
 }
 
 function invMovimiento(codigo, tipo, cantidad) {
-  const r = invApi("movimiento", { codigo: codigo, tipo: tipo, cantidad: cantidad, motivo: "ajuste rápido" });
-  if (!r.ok) { toast("Stock: " + (r.error || "error"), "error"); return; }
-  invRefrescar();
+  invApiTarde("movimiento", { codigo: codigo, tipo: tipo, cantidad: cantidad, motivo: "ajuste rápido" })
+    .then(function (r) {
+      if (!r.ok) { toast("Stock: " + (r.error || "error"), "error"); return; }
+      invRefrescar();
+    });
 }
 
 /* ── paso 3 · precios ───────────────────────────────────────────────────── */
@@ -747,9 +850,20 @@ function invPintarPrecios() {
   if (!caja) return;
   const codigo = INV.sel || (document.getElementById("invPrecioProducto") || {}).value || "";
   if (!codigo) { caja.innerHTML = `<div class="inv-vacio">Elige un producto.</div>`; return; }
-  const r = invApi("precios", { codigo: codigo });
-  if (!r.ok) { caja.innerHTML = `<div class="inv-vacio">No se pudieron leer los precios.</div>`; return; }
-  const d = r.data;
+  caja.innerHTML = `<div class="inv-vacio">Leyendo precios…</div>`;
+  invApiTarde("precios", { codigo: codigo }).then(function (r) {
+    if (!r.ok) {
+      caja.innerHTML = `<div class="inv-vacio">No se pudieron leer los precios.</div>`;
+      return;
+    }
+    invPintarPreciosCon(codigo, r.data);
+  });
+}
+
+/** Pinta la comparativa ya leída. Separado para no bloquear al pedirla. */
+function invPintarPreciosCon(codigo, d) {
+  const caja = document.getElementById("invComparativa");
+  if (!caja) return;
   const p = invPorCodigo(codigo);
   const lista = d.precios || [];
   const filas = lista.length ? lista.map(function (x) {
@@ -785,13 +899,15 @@ function invPrecioAgregar() {
   const nota = document.getElementById("invPnota").value.trim();
   if (!codigo) { toast("Elige un producto", "error"); return; }
   if (precio <= 0) { toast("El precio debe ser mayor que 0", "error"); return; }
-  const r = invApi("precio_agregar", { codigo: codigo, proveedor: proveedor, precio: precio, nota: nota });
-  if (!r.ok) { toast("No se pudo guardar: " + r.error, "error"); return; }
-  document.getElementById("invPprecio").value = "";
-  document.getElementById("invPnota").value = "";
-  invPintarPrecios();
-  invSello("Precio agregado");
-  revision("inventario", "info", "precio agregado", codigo + " · " + invClp(precio) + " · " + proveedor);
+  invApiTarde("precio_agregar", { codigo: codigo, proveedor: proveedor, precio: precio, nota: nota })
+    .then(function (r) {
+      if (!r.ok) { toast("No se pudo guardar: " + r.error, "error"); return; }
+      document.getElementById("invPprecio").value = "";
+      document.getElementById("invPnota").value = "";
+      invPintarPrecios();
+      invSello("Precio agregado");
+      revision("inventario", "info", "precio agregado", codigo + " · " + invClp(precio) + " · " + proveedor);
+    });
 }
 
 /* ── paso 4 · márgenes y Excel ──────────────────────────────────────────── */
@@ -799,20 +915,27 @@ function invPrecioAgregar() {
 function invCalcularMargen() {
   const caja = document.getElementById("invCalcSalida");
   if (!caja) return;
-  const costo = invNum(document.getElementById("invMcosto").value);
-  const precio = invNum(document.getElementById("invMprecio").value);
-  const objetivo = invNum(document.getElementById("invMobjetivo").value);
-  const iva = invNum(document.getElementById("invMiva").value);
-  const r = invApi("margen", { costo: costo, precio: precio, objetivo: objetivo, iva: iva });
-  if (!r.ok) { caja.innerHTML = ""; return; }
-  const d = r.data;
-  caja.innerHTML = [
-    `<div class="inv-comp-caja ${d.rentable ? "mejor" : ""}"><span>Utilidad</span><strong>${invClp(d.utilidad)}</strong></div>`,
-    `<div class="inv-comp-caja"><span>Margen s/ venta</span><strong>${d.margen_venta}%</strong></div>`,
-    `<div class="inv-comp-caja"><span>Markup s/ costo</span><strong>${d.markup}%</strong></div>`,
-    `<div class="inv-comp-caja"><span>Precio con IVA</span><strong>${invClp(d.precio_con_iva)}</strong></div>`,
-    objetivo > 0 ? `<div class="inv-comp-caja mejor"><span>Para ${objetivo}%</span><strong>${invClp(d.precio_sugerido)}</strong></div>` : ""
-  ].join("");
+  // Cada tecla disparaba una llamada BLOQUEANTE al núcleo: escribir un precio
+  // de cuatro cifras congelaba la pantalla cuatro veces. Ahora hay un freno de
+  // 140 ms y la respuesta llega en segundo plano.
+  clearTimeout(INV.calcTimer);
+  INV.calcTimer = setTimeout(function () {
+    const costo = invNum(document.getElementById("invMcosto").value);
+    const precio = invNum(document.getElementById("invMprecio").value);
+    const objetivo = invNum(document.getElementById("invMobjetivo").value);
+    const iva = invNum(document.getElementById("invMiva").value);
+    invApiTarde("margen", { costo: costo, precio: precio, objetivo: objetivo, iva: iva }).then(function (r) {
+      if (!r.ok) { caja.innerHTML = ""; return; }
+      const d = r.data;
+      caja.innerHTML = [
+        `<div class="inv-comp-caja ${d.rentable ? "mejor" : ""}"><span>Utilidad</span><strong>${invClp(d.utilidad)}</strong></div>`,
+        `<div class="inv-comp-caja"><span>Margen s/ venta</span><strong>${d.margen_venta}%</strong></div>`,
+        `<div class="inv-comp-caja"><span>Markup s/ costo</span><strong>${d.markup}%</strong></div>`,
+        `<div class="inv-comp-caja"><span>Precio con IVA</span><strong>${invClp(d.precio_con_iva)}</strong></div>`,
+        objetivo > 0 ? `<div class="inv-comp-caja mejor"><span>Para ${objetivo}%</span><strong>${invClp(d.precio_sugerido)}</strong></div>` : ""
+      ].join("");
+    });
+  }, 140);
 }
 
 function invPintarMargenes() {
@@ -848,7 +971,10 @@ function invPintarMargenes() {
 }
 
 function invExportar() {
-  const r = invApi("exportar", {});
+  invApiTarde("exportar", {}, { maxMs: 20000 }).then(invExportarCon);
+}
+
+function invExportarCon(r) {
   if (!r.ok) { toast("No se pudo exportar: " + r.error, "error"); return; }
   const csv = "\uFEFF" + r.data.csv;   // BOM: Excel abre los acentos bien
   const nombre = "inventario-" + new Date().toISOString().slice(0, 10) + ".csv";
@@ -954,17 +1080,42 @@ function invEmitirBoleta() {
     pago: (document.getElementById("invPago") || {}).value || "efectivo",
     items: INV.carrito
   };
-  const r = invApi("boleta_crear", payload);
-  if (!r.ok) { toast("No se pudo emitir: " + (r.error || "error"), "error"); return; }
-  INV.boleta = r.data;
-  revision("inventario", "info", "boleta emitida", "folio " + r.data.folio + " · " + invClp(r.data.total));
-  const vista = document.getElementById("invBoletaVista");
-  if (vista) vista.innerHTML = invBoletaHtml(r.data, true);
-  INV.carrito = [];
-  invPintarCarrito();
-  invRefrescar();
-  invBoletasHistorial();
-  invSello("Boleta " + r.data.folio + " emitida");
+  invApiTarde("boleta_crear", payload, { maxMs: 20000 }).then(function (r) {
+    if (!r.ok) { toast("No se pudo emitir: " + (r.error || "error"), "error"); return; }
+    INV.boleta = r.data;
+    revision("inventario", "info", "boleta emitida", "folio " + r.data.folio + " · " + invClp(r.data.total));
+    const vista = document.getElementById("invBoletaVista");
+    if (vista) vista.innerHTML = invBoletaHtml(r.data, true);
+    INV.carrito = [];
+    invPintarCarrito();
+    invRefrescar();
+    invBoletasHistorial();
+    invSello("Boleta " + r.data.folio + " emitida");
+  });
+}
+
+/**
+ * Identidad del negocio para la boleta. Sale de la caché que mantiene la
+ * página «Mi identidad»; si todavía no hay ficha, cae a FABRI-CORE para que
+ * la boleta nunca salga en blanco.
+ */
+function invNegocio() {
+  let c = {};
+  try {
+    c = (typeof idDeCache === "function") ? idDeCache() : {};
+  } catch (e) { c = {}; }
+  const d = c.datos || {};
+  return {
+    nombre: c.nombre || "FABRI-CORE",
+    razon: d.razon_social || "",
+    rut: d.rut || "",
+    giro: d.giro || "",
+    direccion: d.direccion || "",
+    telefono: d.telefono || "",
+    email: d.email || "",
+    cliente: d.id_cliente || "",
+    logo: d.logo || ""
+  };
 }
 
 function invBoletaHtml(b, imprimible) {
@@ -975,8 +1126,24 @@ function invBoletaHtml(b, imprimible) {
     return `<div class="linea"><span>${esc(x.nombre || x.codigo)} × ${cant}</span>
       <span>${invClp(Number(x.precio || 0) * cant)}</span></div>`;
   }).join("");
+  const n = invNegocio();
+  const logo = n.logo
+    ? `<img src="${esc(n.logo)}" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:12px;display:block;margin:0 auto 6px" />`
+    : "";
+  const lineasNegocio = [
+    n.razon ? esc(n.razon) : "",
+    n.rut ? "RUT " + esc(n.rut) : "",
+    n.giro ? esc(n.giro) : "",
+    n.direccion ? esc(n.direccion) : "",
+    n.telefono ? "Tel. " + esc(n.telefono) : "",
+    n.email ? esc(n.email) : ""
+  ].filter(Boolean).map(function (x) { return `<div class="nota">${x}</div>`; }).join("");
   return `
-    <h3>FABRI-CORE</h3>
+    ${logo}
+    <h3>${esc(n.nombre)}</h3>
+    ${lineasNegocio}
+    ${n.cliente ? `<div class="nota">ID cliente: ${esc(n.cliente)}</div>` : ""}
+    <hr />
     <div class="nota">Boleta N° ${esc(b.folio)} · ${esc(fecha)}</div>
     <div class="nota">${esc(b.cliente || "Consumidor final")}${b.rut ? " · " + esc(b.rut) : ""}</div>
     <div class="nota">Pago: ${esc(b.pago || "efectivo")}</div>
@@ -1001,6 +1168,18 @@ function invBoletaDocumento(b, formato) {
     return `<div class="linea"><span>${esc(x.nombre || x.codigo)} × ${cant}</span>
       <span>${invClp(Number(x.precio || 0) * cant)}</span></div>`;
   }).join("");
+  const n = invNegocio();
+  const logoDoc = n.logo
+    ? `<img src="${esc(n.logo)}" alt="" style="width:22mm;height:22mm;object-fit:contain;display:block;margin:0 auto 2mm" />`
+    : "";
+  const lineasDoc = [
+    n.razon ? esc(n.razon) : "",
+    n.rut ? "RUT " + esc(n.rut) : "",
+    n.giro ? esc(n.giro) : "",
+    n.direccion ? esc(n.direccion) : "",
+    n.telefono ? "Tel. " + esc(n.telefono) : "",
+    n.email ? esc(n.email) : ""
+  ].filter(Boolean).map(function (x) { return `<div class="nota">${x}</div>`; }).join("");
   return `<!doctype html><html lang="es"><head><meta charset="utf-8">
     <title>Boleta ${esc(b.folio)}</title>
     <style>
@@ -1019,7 +1198,11 @@ function invBoletaDocumento(b, formato) {
       .total { font-size: ${base + 4}px; font-weight: 700; }
       .pie { text-align: center; font-size: ${base - 2}px; margin-top: 2mm; }
     </style></head><body>
-    <h1>FABRI-CORE</h1>
+    ${logoDoc}
+    <h1>${esc(n.nombre)}</h1>
+    ${lineasDoc}
+    ${n.cliente ? `<div class="nota">ID cliente: ${esc(n.cliente)}</div>` : ""}
+    <hr />
     <h2>Boleta N° ${esc(b.folio)}</h2>
     <div class="nota">${esc(fecha)}</div>
     <div class="nota">${esc(b.cliente || "Consumidor final")}${b.rut ? " · " + esc(b.rut) : ""}</div>
@@ -1063,9 +1246,15 @@ function invImprimir(formato, boleta) {
 function invBoletasHistorial() {
   const caja = document.getElementById("invBoletasHist");
   if (!caja) return;
-  const r = invApi("boletas", { limite: 20 });
-  if (!r.ok) { caja.innerHTML = ""; return; }
-  const lista = r.data.boletas || [];
+  invApiTarde("boletas", { limite: 20 }).then(function (r) {
+    if (!r.ok) { caja.innerHTML = ""; return; }
+    invPintarBoletas((r.data && r.data.boletas) || []);
+  });
+}
+
+function invPintarBoletas(lista) {
+  const caja = document.getElementById("invBoletasHist");
+  if (!caja) return;
   if (!lista.length) { caja.innerHTML = `<div class="inv-vacio">Sin boletas emitidas.</div>`; return; }
   caja.innerHTML = lista.map(function (b) {
     const fecha = new Date((b.ts || 0) * 1000).toLocaleString("es-CL");
