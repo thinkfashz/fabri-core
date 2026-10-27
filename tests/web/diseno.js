@@ -76,9 +76,9 @@ console.log('\n▸ nube · contrato del shell');
   const sinPantalla = unicos.filter(d => !new RegExp('id="s-' + d + '"').test(appHtml));
   ok('los ' + unicos.length + ' destinos del nav tienen pantalla', sinPantalla.length === 0,
     sinPantalla.join(', '));
-  const sinBoton = ['panel', 'chat', 'sql', 'mem', 'inv', 'flow', 'datos', 'ia', 'hoja', 'cuenta']
+  const sinBoton = ['panel', 'chat', 'sql', 'mem', 'inv', 'wiki', 'flow', 'datos', 'ia', 'hoja', 'cuenta']
     .filter(d => !unicos.includes(d));
-  ok('las 10 pantallas son alcanzables desde el nav', sinBoton.length === 0, sinBoton.join(', '));
+  ok('las 11 pantallas son alcanzables desde el nav', sinBoton.length === 0, sinBoton.join(', '));
 }
 
 /* 4 · La barra inferior no puede quedar con más de 5 destinos + «Más». */
@@ -125,7 +125,7 @@ console.log('\n▸ nube · sistema visual');
   const sinEstilo = [];
   let total = 0;
 
-  for (const archivo of ['app.js', 'core-pro.js', 'core-sheet.js', 'cloud.js']) {
+  for (const archivo of ['app.js', 'core-pro.js', 'core-sheet.js', 'cloud.js', 'core-scan.js', 'core-wiki.js']) {
     const fuente = leer(path.join(APP, archivo));
     const propias = [...fuente.matchAll(/<style>([\s\S]*?)<\/style>/g)]
       .map(m => m[1]).join('\n');
@@ -243,11 +243,30 @@ console.log('\n▸ nube · offline y arranque');
   ok('no hay scripts ni hojas remotas', remotos.length === 0, remotos.join(', '));
   ok('la app carga sus scripts en orden', /vendor\/lottie\.min\.js[\s\S]*app\.js[\s\S]*cloud\.js/.test(appHtml));
   ok('la app carga el cargador Lottie compartido', /lottie-mount\.js/.test(appHtml));
+  ok('el escáner y la wiki cargan antes de app.js',
+    /core-scan\.js[\s\S]*core-wiki\.js[\s\S]*app\.js/.test(appHtml));
+  ok('el decodificador de respaldo no se precachea (se carga sólo si hace falta)',
+    !/zxing\.min\.js/.test(sw) && existe(path.join(APP, 'vendor', 'zxing.min.js')));
+}
+
+/* 12b · Los ids que usa la wiki existen: en el HTML estático o en una
+       plantilla de la propia wiki (el formulario de «completar ficha» se
+       inyecta sólo cuando la búsqueda no encuentra nada). */
+{
+  const wiki = leer(path.join(APP, 'core-wiki.js'));
+  const ids = new Set();
+  for (const m of wiki.matchAll(/\$\('#([A-Za-z][\w-]*)'/g)) ids.add(m[1]);
+  const existeId = id => new RegExp('id="' + id + '"').test(appHtml) ||
+    new RegExp('id="' + id + '"').test(wiki);
+  const faltan = [...ids].filter(id => !existeId(id));
+  ok('la wiki encuentra sus ' + ids.size + ' ids (HTML o plantilla propia)', faltan.length === 0,
+    faltan.join(', '));
 }
 
 /* 13 · Sintaxis de todos los JS de la web. */
 {
-  const js = ['app.js', 'cloud.js', 'lottie-mount.js', 'core-pro.js', 'core-sec.js', 'core-sheet.js', 'core-xlsx.js']
+  const js = ['app.js', 'cloud.js', 'lottie-mount.js', 'core-pro.js', 'core-sec.js', 'core-sheet.js',
+    'core-xlsx.js', 'core-scan.js', 'core-wiki.js']
     .filter(f => existe(path.join(APP, f)));
   const malos = [];
   for (const f of js) {

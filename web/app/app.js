@@ -384,6 +384,7 @@
     if (id === 'inv') Pro.renderInv();
     if (id === 'hoja') Sheet.mount($('#pro-hoja'));
     if (id === 'cuenta') Pro.renderCuenta();
+    if (id === 'wiki' && window.Wiki) Wiki.render();
     history.replaceState(null, '', '#' + id);
   }
 

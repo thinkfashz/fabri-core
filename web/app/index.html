@@ -59,6 +59,7 @@
       <div class="nav-group">
         <span class="nav-lbl">Operación</span>
         <button data-go="inv" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7.5 12 3l9 4.5v9L12 21l-9-4.5v-9Z"/><path d="M3 7.5 12 12l9-4.5M12 12v9"/></svg><span>Stock</span></button>
+        <button data-go="wiki" data-mas type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5v-15Z"/><path d="M4 20.5A2.5 2.5 0 0 1 6.5 18H20v3H6.5"/><path d="M8 7h8M8 10.5h5"/></svg><span>Wiki</span></button>
         <button data-go="flow" data-mas type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="2.5"/><circle cx="19" cy="6" r="2.5"/><circle cx="19" cy="18" r="2.5"/><path d="M7.5 12h4a3 3 0 0 0 3-3V8.5"/><path d="M7.5 12h4a3 3 0 0 1 3 3v.5"/></svg><span>Flujos</span></button>
         <button data-go="datos" data-mas type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V9m5 10V5m5 14v-7m5 7V8"/></svg><span>Datos</span></button>
         <button data-go="ia" data-mas type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v3m0 12v3M3 12h3m12 0h3"/><circle cx="12" cy="12" r="3.6"/></svg><span>IA</span></button>
@@ -307,6 +308,19 @@
 
         <div class="card" id="inv-guia-2">
           <div class="eyebrow">2 · Productos · alta con código de barras</div>
+
+          <div class="scan-strip">
+            <span class="scan-strip-ico" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M4 8V5h3M17 5h3v3M20 16v3h-3M7 19H4v-3"/><path d="M7 9v6M10 8v8M13 9v6M16 8v8"/></svg>
+            </span>
+            <div class="grow">
+              <div class="t">Escanea y completa solo</div>
+              <div class="s" id="invScanSub">EAN-13, UPC, Code 128 y QR · la ficha llega de la wiki</div>
+            </div>
+            <button class="btn primary sm" id="btnInvScan" type="button">Escanear</button>
+          </div>
+          <div id="invFicha"></div>
+
           <div class="inv-form">
             <input class="field" id="invFcodigo" inputmode="numeric" placeholder="Código de barras (EAN/UPC)">
             <input class="field" id="invFnombre" placeholder="Nombre *">
@@ -365,6 +379,47 @@
           </div>
           <p class="hint" style="margin-top:8px">Se imprime con el diálogo del sistema: sirve para una
             térmica de 80 mm y también para «Guardar como PDF». No es boleta tributaria electrónica.</p>
+        </div>
+      </section>
+
+      <!-- ══════════════ WIKI DE PRODUCTOS ══════════════ -->
+      <section class="screen" id="s-wiki">
+        <div class="screen-head wiki-head">
+          <div>
+            <p class="eyebrow">Wiki de productos</p>
+            <h1>Un código, <em>toda la ficha</em></h1>
+            <p class="sub">Escanea o escribe un código de barras: nombre, marca, categoría,
+              Nutri-Score e ingredientes llegan desde las bases abiertas. Lo que no esté,
+              lo completas una vez y queda guardado en este navegador.</p>
+          </div>
+          <div class="lot scan oculto-movil" data-lottie="./anim/scan.json" data-loop="1" aria-hidden="true"></div>
+        </div>
+
+        <div class="card wiki-buscar">
+          <div class="wiki-barra">
+            <input class="field" id="wikiQ" autocomplete="off" spellcheck="false"
+                   placeholder="Código de barras, nombre o marca">
+            <button class="btn primary" id="btnWikiScan" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V5h3M17 5h3v3M20 16v3h-3M7 19H4v-3"/><path d="M7 9v6M10 8v8M13 9v6M16 8v8"/></svg>
+              Escanear
+            </button>
+          </div>
+          <div class="wiki-barra-pie">
+            <p class="hint" id="wikiEstado">Wiki local · datos de Open Food Facts (ODbL).</p>
+            <button class="btn ghost sm" id="btnWikiLimpiar" type="button">Limpiar</button>
+          </div>
+        </div>
+
+        <div id="wikiFicha"></div>
+
+        <div class="card">
+          <div class="eyebrow">Guardado en este navegador</div>
+          <div class="wiki-lista" id="wikiLista"></div>
+          <p class="hint wiki-credito">Datos de <a href="https://world.openfoodfacts.org" target="_blank"
+            rel="noopener noreferrer">Open Food Facts</a>, <a href="https://world.openbeautyfacts.org"
+            target="_blank" rel="noopener noreferrer">Open Beauty Facts</a> y
+            <a href="https://world.openproductsfacts.org" target="_blank" rel="noopener noreferrer">Open
+            Products Facts</a>, disponibles bajo Open Database License (ODbL).</p>
         </div>
       </section>
 
@@ -454,6 +509,8 @@
 <script src="./core-sec.js"></script>
 <script src="./core-pro.js"></script>
 <script src="./core-sheet.js"></script>
+<script src="./core-scan.js"></script>
+<script src="./core-wiki.js"></script>
 <script src="./app.js"></script>
 <script src="./cloud.js"></script>
 </body>

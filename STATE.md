@@ -2,6 +2,48 @@
 
 Última actualización: 2026-10-27
 
+## Sesión 2026-10-27 (20) · Nube: escáner con cámara y wiki de productos
+
+La consola web ya no pide el código a mano: lo lee con la cámara y trae la
+ficha del producto. **La APK no cambia en esta sesión.**
+
+### Qué se hizo
+| Qué | Dónde |
+|---|---|
+| **Escáner** con `BarcodeDetector` nativo, respaldo **ZXing** (336 KB, Apache-2.0, carga diferida), linterna, cambio de cámara, recorte central y entrada manual | `web/app/core-scan.js`, `web/app/vendor/zxing.min.js` |
+| **Verificación GS1** antes de aceptar (EAN-8/UPC-A/EAN-13/EAN-14) | `core-scan.js` (`digitoGS1`, `pareceCodigo`) |
+| **Wiki de productos**: cascada Open Food → Open Beauty → Open Products Facts, normalización y caché en `product_wiki` | `web/app/core-wiki.js` |
+| **Ficha manual** para códigos que las bases no conocen (catálogo chileno) | `core-wiki.js` |
+| **Pantalla Wiki** `#s-wiki` + destino en el nav (hoja «Más» en móvil) | `index.html`, `styles.css` |
+| **Franja de escaneo** en el alta de inventario, con relleno de campos vacíos | `index.html`, `core-pro.js` |
+| **Overlay** de cámara con marco, láser y confirmación | `styles.css` |
+| Prueba `tests/web/escaneo.js` | checksums, categorías, NOVA, XSS |
+
+### Verificación
+- `node tests/web/diseno.js` **en verde** (11 pantallas, 106 clases del HTML,
+  71 de plantillas, 25 archivos del precache, 9 scripts).
+- `node tests/web/escaneo.js` **en verde** (34 comprobaciones).
+- `node tests/web/boleta.js` **en verde**.
+- SQL real contra el `sql.js` del proyecto: insertar, leer, **upsert**,
+  filtrar y `save()`; sin `Fabri` no revienta.
+- API real de Open Food Facts (Nutella 3017620422003): nombre, marca,
+  cantidad, categoría `dulces`, NOVA 3, alérgenos e ingredientes correctos.
+
+### Decisiones
+- **Tres capas de lectura**: nativo → ZXing → manual. El respaldo no se
+  precachea: se descarga sólo si el navegador no trae detector, así el
+  arranque offline sigue liviano.
+- **Checksum antes de la red**: un EAN mal tecleado no gasta una consulta ni
+  inventa un producto. `7801610001015`, que parecía válido, falla GS1.
+- **La wiki es local primero**: lo consultado se guarda en SQLite; el segundo
+  escaneo funciona sin conexión y el catálogo chileno se completa a mano.
+- **`Permissions-Policy: camera=(self)`**: con `camera=()` la cámara queda
+  bloqueada en producción aunque el código sea correcto.
+
+### Pendiente
+- Revisión visual en dispositivo real (sin navegador headless en el entorno).
+- Probar la cámara en el teléfono: permisos, linterna y enfoque continuo.
+
 ## Sesión 2026-10-27 (19) · Nube v2.0 — «Aurora», Lottie y d3
 
 La PWA deja de ser «la APK sin base local»: tiene su propio contexto visual.

@@ -2,6 +2,51 @@
 
 Registro de cambios del sistema de diseño y branding.
 
+## [2.13.0] — 2026-10-27 · Nube: escáner con cámara y wiki de productos
+
+La nube deja de pedir el código a mano. La APK no cambia en esta entrega.
+
+### Añadido
+- **Escáner de códigos** (`web/app/core-scan.js`): overlay a pantalla completa
+  con marco, láser y confirmación. Tres capas: `BarcodeDetector` nativo
+  (EAN-13/8, UPC-A/E, Code 128/39, ITF, Codabar, QR y Data Matrix), respaldo
+  **ZXing** vendorizado (336 KB, Apache-2.0, cargado sólo si el navegador no
+  trae detector y fuera del precache) y entrada manual siempre disponible.
+- **Robustez de cámara**: `facingMode: environment` con reintento sin
+  restricciones, enfoque continuo, linterna cuando la cámara la expone, cambio
+  de cámara, recorte central del fotograma, pausa al ocultar la pestaña,
+  apagado de pistas al cerrar, pitido y vibración al leer.
+- **Verificación GS1**: el checksum de EAN-8, UPC-A, EAN-13 y EAN-14 se
+  comprueba antes de aceptar; un código mal tecleado no llega a la API.
+- **Wiki de productos** (`web/app/core-wiki.js`): consulta en cascada Open
+  Food Facts → Open Beauty Facts → Open Products Facts (libres, sin clave,
+  CORS abierto, ODbL), normaliza la ficha —nombre, marca, cantidad, categoría
+  del inventario, Nutri-Score, NOVA, etiquetas, alérgenos, ingredientes— y la
+  guarda en la SQLite del navegador (`product_wiki`).
+- **Ficha manual**: cuando ninguna base conoce el código se puede completar el
+  nombre, la marca y la categoría; queda en la wiki local, que es lo que
+  resuelve el catálogo chileno.
+- **Pantalla Wiki** (`#s-wiki`) con buscador, ficha editorial, lista de lo
+  guardado y atribución ODbL visible; «Usar en el inventario» rellena el alta.
+- **Franja de escaneo** en el alta de productos: escanear → ficha → campos
+  rellenados (sólo los vacíos) con miniatura y acción «Usar».
+- **Prueba** `tests/web/escaneo.js`: checksums reales, rechazo de códigos
+  rotos, normalización de Open Food Facts, categorías, NOVA y escapado de HTML.
+
+### Cambiado
+- `Permissions-Policy` pasa de `camera=()` a **`camera=(self)`**: la cabecera
+  anterior apagaba la cámara en producción aunque el código estuviera bien.
+- Service worker **`fcore-v5`**: precachea `core-scan.js` y `core-wiki.js`.
+- La landing menciona el escáner y la wiki en el bento y en la comparativa.
+- `docs/APK.md` §5 documenta el escáner web y la wiki.
+
+### Corregido
+- `te\b` en el clasificador de categorías casaba con «chocolate» y metía los
+  dulces en bebidas; ahora exige límite de palabra inicial.
+- «hola mundo» pasaba como Code 128 al normalizarse; un código alfanumérico
+  debe contener al menos un dígito.
+- La cantidad «400 g e» arrastraba la marca de estimación ℮.
+
 ## [2.12.0] — 2026-10-27 · Nube v2.0 «Aurora» (PWA)
 
 La versión web deja de ser «la APK sin base local» y estrena contexto propio:

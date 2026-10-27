@@ -768,6 +768,47 @@
       invEstado.chipsListos = true;
     }
 
+    // Escanear → código → ficha de la wiki → campos del alta. El escáner y la
+    // wiki son módulos aparte; aquí sólo se orquesta el flujo de inventario.
+    const btnScan = $('#btnInvScan');
+    if (btnScan) btnScan.onclick = async () => {
+      if (!window.Scan) { toast('El escáner no está cargado en esta versión'); return; }
+      const codigo = await window.Scan.abrir({ subtitulo: 'apunta al código del producto' });
+      if (!codigo) return;
+
+      const campo = $('#invFcodigo');
+      if (campo) campo.value = codigo;
+      const sub = $('#invScanSub');
+      const caja = $('#invFicha');
+      if (caja) caja.innerHTML = '';
+      if (sub) sub.textContent = 'buscando ' + codigo + ' en la wiki…';
+
+      const p = window.Wiki ? await window.Wiki.buscar(codigo, { silencioso: true }) : null;
+      if (!p) {
+        if (sub) sub.textContent = 'código ' + codigo + ' · sin ficha: escribe el nombre';
+        const nombre = $('#invFnombre');
+        if (nombre) nombre.focus();
+        return;
+      }
+
+      if (sub) sub.textContent = 'ficha de ' + (p.fuenteNombre || 'la wiki') + ' · revisa y completa';
+      if (caja) {
+        caja.innerHTML = window.Wiki.miniFicha(p);
+        const usar = caja.querySelector('[data-inv-usar]');
+        if (usar) usar.onclick = () => window.Wiki.usarEnInventario(p);
+      }
+      // Sólo se rellenan campos vacíos: lo que la persona ya escribió manda.
+      const llenar = (id, v) => {
+        const e = document.getElementById(id);
+        if (e && !e.value) e.value = v || '';
+      };
+      llenar('invFnombre', p.nombre);
+      llenar('invFmarca', p.marca);
+      const sel = $('#invFcategoria');
+      if (sel && p.categoria && [...sel.options].some(o => o.value === p.categoria)) sel.value = p.categoria;
+      toast('Ficha encontrada: ' + p.nombre);
+    };
+
     // La guía usa `data-guia`, no `#ancla`: el hash de la URL es el router de
     // pantallas (`go()`), y un ancla lo dejaría apuntando a una pantalla
     // inexistente al recargar.

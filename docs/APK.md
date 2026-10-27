@@ -170,7 +170,8 @@ visual**: la APK es un instrumento de bolsillo; la nube es una sala de control.
 | Navegación | barra inferior | barra inferior en móvil, **rail lateral** desde 960 px |
 | Base | SQLite nativo (Rust) | SQLite WASM + IndexedDB |
 | Acceso | PIN / contraseña local | PBKDF2-SHA256 120k, sesión con token |
-| Escáner | cámara + decodificador EAN propio | formulario (cámara pendiente) |
+| Escáner | cámara + decodificador EAN propio | cámara + `BarcodeDetector` nativo, respaldo ZXing y entrada manual |
+| Ficha de producto | catálogo local | wiki con Open Food/Beauty/Products Facts + caché local |
 | Impresión | `PrintManager` (80/58 mm, A4) | documento propio en iframe oculto (80/58 mm, A4) |
 | Nube | sync manual a `/api/inventario` | subida directa a `/api/inventario` |
 | IA | llama.cpp local, apagada por defecto | función en Vercel, opcional |
@@ -186,6 +187,14 @@ visual**: la APK es un instrumento de bolsillo; la nube es una sala de control.
   Se repinta solo si cambia la firma de los datos, no en cada temporizador.
 - **Paleta de comandos ⌘K**, hoja «Más», migas, contadores animados y un hito
   de instalación con Lottie.
+- **Escáner de códigos con la cámara** (`core-scan.js`): `BarcodeDetector`
+  nativo, respaldo ZXing cargado sólo si hace falta (336 KB, Apache-2.0),
+  linterna, cambio de cámara, recorte central, verificación GS1 y entrada
+  manual. `Permissions-Policy` abre `camera=(self)`.
+- **Wiki de productos** (`core-wiki.js`): cascada Open Food Facts → Open Beauty
+  Facts → Open Products Facts (libres, sin clave, ODbL), caché en la SQLite
+  del navegador (`product_wiki`) y ficha manual para lo que las bases no
+  cubren —el caso normal del catálogo chileno—.
 - **Materiales**: fondo aurora con rejilla y grano, superficies de vidrio con
   borde capilar, héroe con dos halos. El acento ocupa menos del 5 % de los píxeles.
 

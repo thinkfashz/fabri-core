@@ -672,6 +672,158 @@ tbody tr:hover td{background:rgba(255,255,255,.025);color:var(--tx)}
   .chart{height:200px}
 }
 
+/* ── escáner de códigos ────────────────────────────────────────────────── */
+.scan{position:fixed;inset:0;z-index:220;display:none;flex-direction:column;background:#04060d}
+.scan.abierto{display:flex;animation:scan-entra var(--t2) var(--ease) both}
+.scan-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000}
+.scan-velo{position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(120% 85% at 50% 46%,transparent 26%,rgba(4,6,13,.5) 72%,rgba(4,6,13,.92) 100%)}
+.scan-marco{position:absolute;left:50%;top:46%;transform:translate(-50%,-50%);
+  width:min(78vw,340px);aspect-ratio:1.6/1;border-radius:16px;
+  box-shadow:0 0 0 1px rgba(255,255,255,.18),0 0 0 9999px rgba(4,6,13,.34)}
+.scan-marco i{position:absolute;width:26px;height:26px;border:2.5px solid var(--accent);border-radius:3px}
+.scan-marco i:nth-child(1){top:-2px;left:-2px;border-right:0;border-bottom:0;border-top-left-radius:12px}
+.scan-marco i:nth-child(2){top:-2px;right:-2px;border-left:0;border-bottom:0;border-top-right-radius:12px}
+.scan-marco i:nth-child(3){bottom:-2px;left:-2px;border-right:0;border-top:0;border-bottom-left-radius:12px}
+.scan-marco i:nth-child(4){bottom:-2px;right:-2px;border-left:0;border-top:0;border-bottom-right-radius:12px}
+.scan-laser{position:absolute;left:7%;right:7%;top:6%;height:2px;border-radius:2px;
+  background:linear-gradient(90deg,transparent,var(--accent) 22%,#fff 50%,var(--accent) 78%,transparent);
+  box-shadow:0 0 18px var(--accent),0 0 46px rgba(140,140,255,.55);
+  animation:scan-laser 2.6s var(--ease) infinite alternate}
+.scan-top{position:relative;z-index:2;display:flex;align-items:center;gap:12px;
+  padding:calc(14px + env(safe-area-inset-top)) 16px 14px;
+  background:linear-gradient(180deg,rgba(4,6,13,.92),transparent)}
+.scan-tit{flex:1;min-width:0}
+.scan-tit b{display:block;font-size:15px;font-weight:700;letter-spacing:-.02em}
+.scan-tit span{display:block;margin-top:2px;font-size:11.6px;color:var(--tx3)}
+.scan-x{width:38px;height:38px;flex:0 0 auto;border-radius:50%;border:1px solid var(--line-2);
+  background:rgba(255,255,255,.07);color:var(--tx);display:grid;place-items:center}
+.scan-x svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round}
+.scan-x:active{transform:scale(.92)}
+.scan-pie{position:relative;z-index:2;margin-top:auto;display:flex;flex-direction:column;align-items:center;gap:9px;
+  padding:14px 16px calc(20px + env(safe-area-inset-bottom));
+  background:linear-gradient(0deg,rgba(4,6,13,.96),transparent)}
+.scan-acciones{display:flex;gap:10px}
+.scan-tool{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;
+  border:1px solid var(--line-2);background:rgba(255,255,255,.07);color:var(--tx);
+  transition:background var(--t1),color var(--t1),transform 120ms}
+.scan-tool svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.scan-tool:active{transform:scale(.92)}
+.scan-tool.on{background:var(--accent);border-color:transparent;color:var(--on-accent)}
+.scan-estado{min-height:16px;font-size:11.6px;color:var(--tx3);text-align:center;line-height:1.45;padding:0 8px}
+.scan-hit{position:absolute;left:14px;right:14px;bottom:calc(104px + env(safe-area-inset-bottom));z-index:4;
+  padding:15px;border-radius:var(--r-lg);text-align:center;
+  background:rgba(18,23,40,.97);border:1px solid var(--line-2);
+  box-shadow:0 40px 90px -40px #000,inset 0 1px 0 rgba(255,255,255,.08);
+  animation:scan-hit var(--t2) var(--spring) both}
+.scan-hit-cod{font-size:20px;font-weight:750;letter-spacing:.06em;color:var(--accent)}
+.scan-hit-txt{margin-top:4px;font-size:11.6px;color:var(--tx3)}
+.scan-hit-botones{display:flex;gap:8px;margin-top:13px}
+.scan-hit-botones .btn{flex:1}
+.scan-manual{position:absolute;left:14px;right:14px;bottom:calc(112px + env(safe-area-inset-bottom));z-index:5;
+  display:flex;gap:8px;padding:10px;border-radius:var(--r-lg);
+  background:rgba(18,23,40,.97);border:1px solid var(--line-2);box-shadow:var(--sh-2)}
+.scan-manual .field{flex:1;min-width:0}
+.scan-error{position:absolute;left:14px;right:14px;top:calc(74px + env(safe-area-inset-top));z-index:5;
+  padding:12px 14px;border-radius:var(--r-md);font-size:12.2px;line-height:1.5;
+  background:rgba(255,122,138,.13);border:1px solid rgba(255,122,138,.4);color:#ffd9de}
+.scan-hit[hidden],.scan-manual[hidden],.scan-error[hidden],.scan-tool[hidden]{display:none}
+body.con-scan{overflow:hidden}
+
+/* franja de escaneo dentro del alta de inventario */
+.scan-strip{display:flex;align-items:center;gap:12px;padding:12px;margin-bottom:12px;border-radius:var(--r-md);
+  background:linear-gradient(120deg,var(--accent-soft),rgba(255,255,255,.022) 72%);
+  border:1px solid rgba(140,140,255,.24)}
+.scan-strip-ico{width:40px;height:40px;flex:0 0 auto;border-radius:12px;display:grid;place-items:center;
+  background:rgba(140,140,255,.18);color:var(--accent)}
+.scan-strip-ico svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round}
+.scan-strip .t{font-size:13.4px;font-weight:650;letter-spacing:-.01em}
+.scan-strip .s{margin-top:2px;font-size:11.2px;line-height:1.45;color:var(--tx3)}
+.scan-strip .btn{flex:0 0 auto}
+
+/* ── wiki de productos ─────────────────────────────────────────────────── */
+.wiki-head{display:flex;align-items:center;gap:16px}
+.wiki-head > div:first-child{flex:1;min-width:0}
+.wiki-buscar{padding:13px 14px}
+.wiki-barra{display:flex;gap:8px}
+.wiki-barra .field{flex:1;min-width:0}
+.wiki-barra .btn{flex:0 0 auto;gap:7px}
+.wiki-barra .btn svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round}
+.wiki-barra-pie{display:flex;align-items:center;gap:10px;margin-top:8px}
+.wiki-barra-pie .hint{flex:1;min-width:0}
+.wiki-aviso{color:var(--warn)}
+.wiki-ficha{display:grid;grid-template-columns:1fr;gap:14px;margin:0 0 12px;padding:16px;
+  border-radius:var(--r-lg);border:1px solid var(--line);box-shadow:var(--sh-1);
+  background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.018));
+  animation:ficha-entra var(--t3) var(--ease) both}
+.wiki-foto{position:relative;display:grid;place-items:center;min-height:160px;border-radius:var(--r-md);
+  overflow:hidden;background:rgba(255,255,255,.04);border:1px solid var(--line)}
+.wiki-img{width:100%;height:100%;max-height:230px;object-fit:contain}
+.wiki-foto.sin-foto::after{content:"sin foto";font-size:9.4px;letter-spacing:.16em;text-transform:uppercase;color:var(--tx4)}
+.wiki-marca-agua{position:absolute;left:8px;bottom:8px;padding:3px 7px;border-radius:6px;
+  font-size:8.6px;letter-spacing:.13em;text-transform:uppercase;color:var(--tx3);
+  background:rgba(4,6,13,.72);border:1px solid var(--line)}
+.wiki-cuerpo{min-width:0}
+.wiki-marca{font-size:9.8px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+.wiki-nombre{margin:3px 0 7px;font-size:19px;line-height:1.22;letter-spacing:-.025em}
+.wiki-linea{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-bottom:11px}
+.wiki-cant{font-size:12px;color:var(--tx3)}
+.wiki-nutri{font-size:9.2px;font-weight:750;letter-spacing:.05em;text-transform:uppercase;
+  padding:3px 8px;border-radius:var(--r-pill);color:#06070f;background:var(--tx3)}
+.wiki-nutri.n-a{background:#3ddc84}.wiki-nutri.n-b{background:#a8d84a}
+.wiki-nutri.n-c{background:#ffc24b}.wiki-nutri.n-d{background:#ff9f45}
+.wiki-nutri.n-e{background:#ff7a8a}
+.wiki-nova{font-size:9.2px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+  padding:3px 8px;border-radius:var(--r-pill);color:var(--tx2);
+  background:rgba(255,255,255,.05);border:1px solid var(--line-2)}
+.wiki-datos{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:11px}
+.wiki-dato{padding:7px 9px;border-radius:var(--r-xs);background:rgba(0,0,0,.2);border:1px solid var(--line)}
+.wiki-dato b{display:block;font-size:8.6px;font-weight:700;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--tx4)}
+.wiki-dato span{font-size:12px;color:var(--tx2)}
+.wiki-chips{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:9px}
+.wiki-chip{font-size:10.2px;padding:3px 9px;border-radius:var(--r-pill);
+  color:var(--tx2);background:rgba(255,255,255,.05);border:1px solid var(--line)}
+.wiki-alerg{margin-bottom:9px;font-size:11.2px;color:var(--warn)}
+.wiki-alerg b{font-size:9px;letter-spacing:.12em;text-transform:uppercase}
+.wiki-ing{margin:0 0 13px;font-size:11.4px;line-height:1.55;color:var(--tx3);
+  display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.wiki-acciones{display:flex;flex-wrap:wrap;gap:8px}
+.wiki-acciones .btn{flex:1;min-width:132px}
+.wiki-lista{display:grid;gap:7px}
+.wiki-item{display:flex;align-items:center;gap:11px;width:100%;padding:9px 10px;text-align:left;
+  border-radius:var(--r-md);color:inherit;background:rgba(255,255,255,.025);
+  border:1px solid var(--line);transition:background var(--t1),border-color var(--t1)}
+.wiki-item:hover{border-color:var(--line-2);background:rgba(255,255,255,.05)}
+.wiki-item:active{transform:scale(.995)}
+.wiki-item-foto{width:38px;height:38px;flex:0 0 auto;display:grid;place-items:center;overflow:hidden;
+  border-radius:9px;background:rgba(255,255,255,.05)}
+.wiki-item-foto img{width:100%;height:100%;object-fit:contain}
+.wiki-item .t{display:block;font-size:12.8px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wiki-item .s{display:block;margin-top:1px;font-size:10.4px;color:var(--tx3)}
+.wiki-credito{margin-top:11px;font-size:10.4px;line-height:1.6}
+.wiki-credito a{color:var(--tx2);text-decoration:underline;text-decoration-color:var(--line-2)}
+.wiki-vacio h3{margin:2px 0 6px}
+.wiki-vacio .inv-form{margin-top:10px}
+.inv-ficha{display:flex;align-items:center;gap:10px;margin:0 0 11px;padding:9px 10px;
+  border-radius:var(--r-md);background:rgba(140,140,255,.09);border:1px solid rgba(140,140,255,.26)}
+.inv-ficha-foto{width:36px;height:36px;flex:0 0 auto;display:grid;place-items:center;overflow:hidden;
+  border-radius:8px;background:rgba(255,255,255,.06)}
+.inv-ficha-foto img{width:100%;height:100%;object-fit:contain}
+.inv-ficha .t{display:block;font-size:12.6px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.inv-ficha .s{display:block;margin-top:1px;font-size:10.6px;color:var(--tx3)}
+.inv-ficha .btn{flex:0 0 auto}
+
+@media(min-width:620px){
+  .wiki-ficha{grid-template-columns:190px minmax(0,1fr)}
+  .wiki-foto{min-height:190px}
+}
+
+@keyframes scan-entra{from{opacity:0}to{opacity:1}}
+@keyframes scan-laser{from{top:6%}to{top:92%}}
+@keyframes scan-hit{from{opacity:0;transform:translateY(16px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes ficha-entra{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
 /* ── movimiento reducido: nada de esto es imprescindible ───────────────── */
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{
@@ -683,7 +835,7 @@ tbody tr:hover td{background:rgba(255,255,255,.025);color:var(--tx)}
 
 /* Impresión: solo el documento de la boleta viaja al iframe. */
 @media print{
-  .nav,.topbar,.toast,.boot,.cmdk,.sheet,.aurora,.grain{display:none!important}
+  .nav,.topbar,.toast,.boot,.cmdk,.sheet,.scan,.aurora,.grain{display:none!important}
   body{background:#fff;color:#000}
 }
 /* ── piezas de la capa cloud.js ────────────────────────────────────────── */
