@@ -19,7 +19,7 @@ fallos=0
 ok()  { printf '  \033[1;32m✔\033[0m %s\n' "$*"; }
 mal() { printf '  \033[1;31m✖\033[0m %s\n' "$*"; fallos=$((fallos + 1)); }
 
-echo "▸ 1/3 lector de códigos (bases libres)"
+echo "▸ 1/4 lector de códigos (bases libres)"
 if node "$RAIZ/tests/inventario/lector.js" > /tmp/fabri-inv-lector.log 2>&1; then
   ok "el lector distingue «no publicado» de «sin red» y respeta el presupuesto"
 else
@@ -27,7 +27,7 @@ else
   tail -8 /tmp/fabri-inv-lector.log
 fi
 
-echo "▸ 2/3 decodificador EAN propio"
+echo "▸ 2/4 decodificador EAN propio"
 if node "$RAIZ/tests/inventario/ean.js" > /tmp/fabri-inv-ean.log 2>&1; then
   ok "el decodificador EAN-13/EAN-8/UPC-A valida el dígito de control"
 else
@@ -35,12 +35,20 @@ else
   tail -8 /tmp/fabri-inv-ean.log
 fi
 
-echo "▸ 3/3 las 2 bases (local + nube) y el escáner pro"
+echo "▸ 3/4 las 2 bases (local + nube) y el escáner pro"
 if node "$RAIZ/tests/inventario/nube.js" > /tmp/fabri-inv-nube.log 2>&1; then
   ok "la búsqueda usa tu nube y la malla del escáner se enciende/apaga"
 else
   mal "fallo la prueba de la nube/escáner (ver /tmp/fabri-inv-nube.log)"
   tail -8 /tmp/fabri-inv-nube.log
+fi
+
+echo "▸ 4/4 importación masiva, apilador, catálogo y boleta"
+if node "$RAIZ/tests/inventario/nuevo.js" > /tmp/fabri-inv-nuevo.log 2>&1; then
+  ok "CSV/TSV/JSON, barras, apilador y ticket imprimible"
+else
+  mal "fallo la prueba de importación/apilador/boleta (ver /tmp/fabri-inv-nuevo.log)"
+  tail -10 /tmp/fabri-inv-nuevo.log
 fi
 
 echo

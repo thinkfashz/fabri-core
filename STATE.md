@@ -2,6 +2,51 @@
 
 Última actualización: 2026-10-27
 
+## Sesión 2026-10-27 (17) · APK 0.9.25 — el módulo de inventario completo
+
+APK: `dist/FABRI-CORE-0.9.25.apk` · **4.168.907 B** ·
+sha256 `0284b890e89d17393f71eccc99254f2a952968b65daae67a9d5639154263d828` ·
+versionCode **40** · copiada a `/sdcard/FABRI-CORE-0.9.25.apk` y a
+`/data/local/tmp/FABRI-CORE-0.9.25.apk`.
+Firma debug, minSdk 24, target 34. Instalar **encima** de la 0.9.24.
+
+### Qué se hizo (el módulo entero, de escanear a cobrar)
+| Qué | Dónde |
+|---|---|
+| **Apilador continuo**: escaneo sin cerrar la cámara; lista con miniatura, nombre y precio; repetidos suman cantidad; guarda el lote con UNA escritura | `inventario.js` (`invModoApilador`, `invApilador*`, `NVAP`), `index.html` (`#invApiladorCaja`), `inventario.css` |
+| **Importación masiva** (Eleventa/Excel/CSV/TSV/JSON): alias de columnas, número chileno, vista previa y ejecución en lote | `inventario.js` (`invParseImportacion`, `invCampoImport`, `invNumImport`, `invImportar*`), `index.html` (`#invImportarPanel`) |
+| **Catálogo en tarjetas**: miniatura en canvas (color por producto + iniciales), código de barras SVG, chips, acciones, paginación de 80 | `inventario.js` (`invPintarCatalogo`, `invCardHtml`, `invDibujarMiniatura`, `invHash`), `inventario.css` (`.inv-catalogo`, `.inv-card*`) |
+| **Código de barras SVG**: EAN-13 (95 módulos) si el dígito de control es válido, Code 39 si no | `inventario.js` (`invBitsEan13`, `invBitsCode39`, `invBarrasSvg`) |
+| **Boleta con efecto de impresión**: cuerpo de ticket compartido pantalla/papel, identidad del negocio, detalle, neto/IVA/total, barras del folio, «¡GRACIAS POR SU COMPRA!», `@page` 80/58/A4 | `inventario.js` (`invTicketCuerpo`, `invBoletaDocumento`, `invImprimir`), `inventario.css` (`.tk-*`, `ticketEmerger`) |
+| **Iconos SVG en línea** (fin de los emoji del módulo) | `inventario.js` (`INV_SVG`, `ico`, `invPintarIconos`), `index.html` (`data-ico`) |
+| **Verificación real del sistema** + limpieza de errores por versión | `src-tauri/src/lib.rs` (`revision_limpiar_db`, `revision_verificar_db`, `op_mantenimiento`), `app.js` (`revisionVerificar`, `revisionLimpiar`), `index.html` |
+| **Un solo camino de escritura**: alta individual e importación usan `inv_upsert`; acción `importar` (lote en una transacción) | `src-tauri/src/lib.rs` |
+| **OCR con degradación honesta**: por reflexión (ML Kit v2 / visión de GMS); sin motor, el botón **no aparece** | `android/java/cl/fabrick/core/OcrNativo.java`, `NativeBridge.ocrEstado()/ocr()` |
+| Prueba nueva del módulo | `tests/inventario/nuevo.js` (paso 4/4 de `correr.sh`) |
+
+### Verificación
+- `cargo check --target aarch64-linux-android --release` ✔ (solo el warning preexistente `token`)
+- `javac` de todo `android/java` ✔ · `node --check` de `inventario.js` y `app.js` ✔
+- `tests/inventario/correr.sh` **4/4** ✔ · `tests/arranque/correr.sh` **7/7** ✔
+- APK verificada: `versionCode=40`, `versionName=0.9.25`, contiene
+  `assets/www/inventario.js` con el parser, el apilador y `invBarrasSvg`, y
+  `ocrEstado`/`OcrNativo` dentro de `classes.dex`.
+
+### Decisiones
+- **ML Kit se evalúa pero no se empaqueta en este build**: el build es sin Gradle
+  (`javac → d8 → aapt2`) y `text-recognition:16.0.1` arrastra ~30 AAR de androidx
+  que exigirían fusionar manifiestos y recursos a mano. Queda el puente por
+  reflexión, apagado y honesto, que se enciende solo con un build Gradle.
+- La vista previa del ticket ya no dibuja un EAN falso: el código de barras dice
+  `PREVIA`.
+
+### Pendiente
+- **OCR offline real**: requiere migrar el build a Gradle (tarea aparte).
+- **S3 / factura servida**: empaquetar el JSON, enviarlo a su base con token,
+  guardarlo en tablas y servirlo como factura HTML/canvas. No iniciado.
+- Endpoint de embeddings tipo Gemini (no cabe en la APK). No iniciado.
+- Puente de Termux: el usuario dijo «después lo vemos».
+
 ## Sesión 2026-10-27 (16) · APK 0.9.24 — escáner pro, las 2 bases y más fuentes libres
 
 APK: `dist/FABRI-CORE-0.9.24.apk` · **4.140.235 B** ·

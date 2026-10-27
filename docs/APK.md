@@ -248,12 +248,21 @@ volver a consultar internet.
 | 0.9.11 | 26 | arranque sin bloqueo, loader CSS, bitácora, poda de registros |
 | 0.9.12 | 27 | retirada del loader al volver del segundo plano, `LENTO` como estado normal, ficha del producto, lector EAN propio, impresión 80/58/A4, reimpresión, sync con `/api/inventario` |
 | **0.9.13** | **28** | carril **asíncrono** del puente (las lecturas ya no bloquean el hilo), página «Mi identidad» con logo y ID de cliente, lector que salta 404/500 y dice la verdad |
-| **0.9.14** | **29** | **corrección de dos fallos en el teléfono**: bloque de utilidades/estado restaurado (`toast`, `hora`, `esc`, `estadoApp`…), `datos` de `perfil` migrado en el arranque |
-| **0.9.13** | **28** | carril **asíncrono** del puente (las lecturas ya no bloquean el hilo), página «Mi identidad» con logo y ID de cliente, lector que salta 404/500 y dice la verdad |
+| **0.9.14** | **29** | **corrección de dos fallos en el teléfono**: bloque de utilidades/estado restaurado (`toast`, `hora`, `esc`, `estadoApp`...), `datos` de `perfil` migrado en el arranque |
+| 0.9.16 | 31 | UI pulida (doble-bezel, botones pill, motion físico) y avisos reales del lector y de la boleta |
+| 0.9.18 | 33 | núcleo estabilizado, candado acotado, monitoreo de rendimiento y selector de módulo |
+| 0.9.20 | 35 | el refresco del Flujo ya no espera: carril asíncrono con respaldo síncrono, Flujo a prueba de nulos |
+| 0.9.21 | 36 | el token asíncrono no coincidía (dejaba SQL, Inventario y Flujo en blanco) |
+| 0.9.22 | 37 | auto-bloqueo del carril (`con_estado` siempre ocupado) |
+| 0.9.23 | 38 | SQLite afinado (`synchronous`, caché, mmap, `temp_store`) + op `panel` (todo el Flujo en un viaje) |
+| 0.9.24 | 39 | escáner pro (malla en canvas), las 2 bases (local + tu nube) y más fuentes libres (Open Prices, Wikipedia) |
+| **0.9.25** | **40** | **el módulo de inventario completo**: apilador continuo, importación masiva (Eleventa/CSV/TSV/JSON), catálogo en tarjetas con miniatura y código de barras SVG, boleta con efecto de impresión, iconos SVG en línea, verificación real del sistema y limpieza de errores por versión |
 
-`dist/FABRI-CORE-0.9.14.apk` · **4.107.467 B** ·
-sha256 `1a44edfa1a2295eb77ac57325f378b381a37495c3f51e1384b34d6c41eaae716`
-sha256 `2e843acebc81e927b58680ef64ab202ccd374f15e07c37cfeab404e810bc80d5`
+`dist/FABRI-CORE-0.9.25.apk` · **4.168.907 B** ·
+sha256 `0284b890e89d17393f71eccc99254f2a952968b65daae67a9d5639154263d828`
+versionCode **40** · copiada a `/sdcard/FABRI-CORE-0.9.25.apk` y a
+`/data/local/tmp/FABRI-CORE-0.9.25.apk`. Firma debug, minSdk 24, target 34.
+Instalar **encima** de la 0.9.24 (no borra datos).
 
 ---
 

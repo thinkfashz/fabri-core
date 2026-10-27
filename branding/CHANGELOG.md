@@ -2,129 +2,53 @@
 
 Registro de cambios del sistema de diseño y branding.
 
-## [2.13.0] — 2026-10-27 · APK 0.9.24
+## [2.10.0] — 2026-10-27 · Inventario completo (0.9.25)
 
-### Escáner pro, las DOS bases (local + nube) y más fuentes libres
-
-El escáner solo miraba la base local y las bases libres: **tu nube nunca se
-consultaba**. Y la mira de la cámara era un borde estático.
-
-### Añadido
-- **Malla de escaneo en canvas** (`#invMalla`): grilla, barrido vertical con
-  degradado, esquinas de encuadre y destello al leer. Se dibuja en
-  `requestAnimationFrame` mientras la cámara está activa y se apaga al cerrar;
-  con «reducir movimiento» se pinta un fotograma fijo.
-- **Búsqueda en tu nube** (`invNubeBuscarCodigo`): el escáner ahora resuelve
-  local → **nube** (fabri-api `/api/inventario`) → bases libres. Chip «ya está
-  en tu nube» y botón «Guardar en este teléfono».
-- **Acción `buscar`** en `api-telefono/api/inventario.ts`: por `codigo`
-  (producto exacto) o por `q` (nombre/marca/código, para el autocompletado).
-  Desplegada en producción (`fabri-api.vercel.app`).
-- **Open Prices (OFF)**: precios reales reportados para el mismo código, con
-  distinción de moneda y tienda.
-- **Wikipedia/Wikidata (es)**: descripción breve del producto por su nombre.
-- **Autocompletado de códigos** (`<datalist id="invCodigos">`): al escribir un
-  par de dígitos aparecen los códigos ya guardados, clasificados con nombre y
-  categoría, para no dar de alta dos veces el mismo producto.
-- **Resumen de tu nube** en el paso 2 (botón «Resumen de mi nube»): totales,
-  valor de venta, utilidad y stock bajo calculados en InsForge, con las
-  categorías con más productos.
-
-### Verificación
-- `tests/inventario/correr.sh` (nuevo) **3/3** ✔: lector, EAN y las 2 bases +
-  escáner pro (`tests/inventario/nube.js`).
-- `tests/arranque/correr.sh` **7/7** ✔.
-
-## [2.12.0] — 2026-10-27 · APK 0.9.23
-
-### Rendimiento sólido: SQLite afinado y una sola llamada para el Flujo
-
-Con el carril ya sin auto-bloqueo (0.9.22), quedaba la otra mitad del problema:
-**serialización y E/S**. Cada panel hacía cinco viajes al núcleo, y la base no
-estaba ajustada para el teléfono.
+Entrega del módulo de inventario como sistema entero: escanear, cargar, ver y
+cobrar. Todo funciona sin red, sin librerías nuevas y sin recursos externos
+(los iconos y las miniaturas se dibujan en el propio código).
 
 ### Añadido
-- **`afinar(db)`**: ajustes de SQLite por conexión, aplicados en las tres
-  aperturas (init, `graphrag_buscar`, `consultar_seguro`):
-  - `synchronous = NORMAL` (seguro con WAL: como mucho se pierde la última
-    transacción si el teléfono se apaga de golpe, nunca se corrompe la base)
-  - `cache_size = -16000` (16 MB de caché de páginas)
-  - `mmap_size = 268435456` (256 MB de lectura por memoria mapeada: menos
-    `syscalls`, más uso de la RAM libre)
-  - `temp_store = MEMORY` (los ORDER BY / GROUP BY no tocan disco)
-  - `busy_timeout = 1500` (antes 400 ms: menos falsos «ocupado»)
-  - `foreign_keys = ON`
-- **Operación `panel`**: devuelve en **una sola llamada y un solo candado**
-  todo el estado del panel Flujo: `núcleo`, `sqlite`, `inventario` y
-  `revision` (resumen + lista). Antes eran cinco llamadas serializadas por el
-  carril del núcleo; ahora es una.
+- **Apilador continuo**: modo de escaneo que no cierra la cámara. Cada código
+  entra a una lista con **miniatura, nombre y precio**, con sonido y vibración;
+  los repetidos suman cantidad. Al terminar se guarda el lote completo con
+  **una sola escritura** en la base. El nombre se resuelve en segundo plano
+  (base local → tu nube → bases libres) sin frenar el escaneo.
+- **Importación masiva desde otra base** (Eleventa, Excel, CSV/TSV/JSON):
+  reconoce las columnas por su nombre (`Producto`/`Descripción`, `Código de
+  barras`, `Precio`, `Costo`, `Existencia`, `Marca`, `Categoría`), tolera
+  formato de número chileno (`1.490`, `1.234,56`) y **muestra una vista previa**
+  antes de escribir. Las filas sin nombre se omiten y se informan.
+- **Catálogo en tarjetas**: miniatura dibujada en canvas (color estable por
+  producto + iniciales; si la ficha trae imagen real, manda la imagen),
+  **código de barras SVG** (EAN-13 si el dígito de control es válido; Code 39
+  si no) y acciones por producto. Con paginación de 80 tarjetas.
+- **Boleta con efecto de impresión**: cuerpo de ticket compartido entre la
+  pantalla y el papel, con identidad del negocio, folio, cliente, detalle con
+  cantidad y unitario, neto/IVA/total, código de barras del folio, agradecimiento
+  y pie legal. Documento de impresión con `@page` real para 80 mm, 58 mm y A4;
+  el carrito ya no borra el ticket al emitirlo.
+- **Iconos SVG en línea** (`ico()` + `data-ico`): fuera los emoji del módulo.
+- **Verificación real del sistema** (página Revisión): `Verificar ahora` ejecuta
+  pruebas contra SQLite y el disco y muestra el resultado; `Limpiar errores`
+  borra el registro viejo. En cada actualización, el núcleo **limpia solo** los
+  errores de la versión anterior.
+- **OCR del inventario con degradación honesta**: `OcrNativo` busca por reflexión
+  un motor local (ML Kit v2 o visión de Play Services); si no hay, **el botón no
+  aparece**. Se encenderá solo cuando el build pase a Gradle, sin tocar la
+  interfaz ni el núcleo.
 
 ### Cambiado
-- `revision.listar` / `revision.resumen` se separaron en funciones que reciben
-  la conexión (`revision_listar_db`, `revision_resumen_db`); los
-  `op_revision_*` quedan como envoltorios finos y `op_panel` reusa los mismos
-  núcleos **sin volver a tomar el candado** (nada de anidar `con_estado`).
-- `flujo.js`: `flujoRefrescar` hace 2 llamadas (`ping` + `panel`) en vez de 5.
-  Conserva `flujoRefrescarIndividual` como respaldo para APKs sin `panel`.
+- Alta individual y importación masiva escriben por el **mismo camino**
+  (`inv_upsert`): una sola forma de guardar producto, sin divergencias.
+- Núcleo: `importar` (lote en una transacción, devuelve nuevos/actualizados/errores),
+  `revision.limpiar`, `revision.verificar` y limpieza por versión dentro de
+  `op_mantenimiento`.
 
-### Verificación
-- `cargo check --target aarch64-linux-android --release` ✔
-- `tests/arranque/correr.sh` **7/7** ✔ (la prueba del candado ahora verifica
-  también `op_panel` y los pragmas de `afinar()`)
-- `tests/inventario/lector.js` ✔ · `tests/inventario/ean.js` ✔
-
-## [2.11.0] — 2026-10-27 · APK 0.9.22
-
-### Corregido
-- **«Todo dice núcleo ocupado»: auto-bloqueo del carril (`con_estado`).**
-  `dir_datos()` tomaba `ESTADO.lock()` (bloqueante) y se llamaba desde DENTRO
-  de un `con_estado(...)` —por la ruta `datos_manifiesto()` →
-  `manifiestos_dinamicos()`—. Un `std::sync::Mutex` no es reentrante: el mismo
-  hilo se esperaba a sí mismo **para siempre** y dejaba el carril tomado. El
-  disparador era la acción `componentes accion:"estado"` (cuando se descarga o
-  verifica un módulo/modelo); a partir de ahí SQL, Inventario, Revisión y Flujo
-  respondían «núcleo ocupado: no se pudo tomar el carril en 800 ms» y el
-  diagnóstico fallaba en cascada (`sys`, `perfil`, `usuarios`, `inventario`,
-  `revision.resumen`, `manifiestos 20002 ms`). Ahora el directorio de datos vive
-  en su propio candado (`DIR_DATOS`), `dir_datos()` no toca `ESTADO`, y
-  `con_estado()` tiene una **guardia de reentrancia** (`EN_ESTADO`): si una
-  operación pide el carril desde dentro del carril, responde error en vez de
-  colgarse.
-- `con_estado()` **suelta el carril antes** de tocar el anillo de rendimiento
-  (`ULTIMAS_OPS`): sin inversión de candados.
-- `componentes accion:"estado"` resuelve `datos_manifiesto()` **antes** de tomar
-  el carril (no hace E/S con el candado tomado).
-
-### Añadido
-- Prueba de regresión `tests/arranque/candado.js` (§ 7/7): verifica que
-  `dir_datos()` no toca `ESTADO`, que `con_estado()` detecta reentrancia, que
-  acota la espera y que no queda ningún `ESTADO.lock()` bloqueante salvo el de
-  `init`.
-
-## [2.10.0] — 2026-10-27 · APK 0.9.21
-
-### Corregido
-- **SQL no cargaba, Inventario no cargaba y Flujo no mostraba nada: el token del
-  carril asíncrono no coincidía.** Java decide la clave del resultado
-  (`callAsync` → `"a" + ASYNC_SEQ`), pero JavaScript se inventaba la suya
-  (`"a" + (++fabriAsyncSeq) + "_" + Date.now()`). Como `window.__fabriAsync`
-  busca el callback por el token de **Java**, la clave nunca existía y el
-  resultado se descartaba en silencio. Toda lectura asíncrona se resolvía sólo al
-  agotar su tope de tiempo —de ahí el registro repetido `ping tardó 6003 ms`,
-  `sqlite tardó 6009 ms`, `modulos tardó 15011 ms` y `refresco del flujo lento`—.
-  Un `ping` manual en la consola sí respondía al instante porque usa la vía
-  síncrona, sin token. Ahora `apiAsync` registra el callback bajo `acuse.token`
-  (el que devolvió Java) y hay un colchón (`FABRI_TARDIOS`) por si el resultado
-  llegó una fracción antes del registro. Es la causa raíz de los tres síntomas.
-- **`inventario.listar falló · núcleo ocupado`.** Con el carril asíncrono sano
-  las operaciones se despachan y liberan el mutex en milisegundos, así que el
-  `try_lock` de 800 ms del núcleo ya no aparece como fallo.
-
-### Añadido
-- Prueba de regresión `tests/arranque/puente.js` § «contrato del token asíncrono»:
-  verifica que el acuse de Java lleva el token, que `callAsync` devuelve
-  `acuse(token)`, que `apiAsync` usa `acuse.token` como clave y que JavaScript no
-  vuelve a inventarse su propio token.
+### Pruebas
+- `tests/inventario/nuevo.js`: importación (CSV/TSV/JSON/sin encabezado),
+  código de barras EAN-13 y Code 39, ticket y documento imprimible, apilador
+  y marcado. Integrada como paso 4/4 de `tests/inventario/correr.sh`.
 
 ## [2.9.0] — 2026-10-26
 

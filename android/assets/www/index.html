@@ -1053,8 +1053,13 @@ npx -y omniroute@latest
       <div class="bloque">
         <div class="bloque-cab">
           <h3>Resumen persistente (SQLite)</h3>
-          <button class="btn btn-mini" id="btnRevisionRefrescar" type="button">Refrescar</button>
+          <div class="fila-botones">
+            <button class="btn btn-mini" id="btnRevisionRefrescar" type="button">Refrescar</button>
+            <button class="btn btn-mini" id="btnRevisionVerificar" type="button">Verificar ahora</button>
+            <button class="btn btn-mini" id="btnRevisionLimpiar" type="button">Limpiar errores</button>
+          </div>
         </div>
+        <div class="revision-verificacion" id="revisionVerificacion" hidden></div>
         <div class="revision-kpis" id="revisionKpis"></div>
         <div class="fila-botones" id="revisionFiltros">
           <button class="btn btn-mini btn-filtro activo" data-rev-filtro="" type="button">Todo</button>
@@ -1186,34 +1191,51 @@ npx -y omniroute@latest
           </div>
           <div class="inv-scan-controles">
             <div class="inv-modo-escaner">
-              <button class="btn btn-mini btn-primario" id="btnInvModoNormal" type="button">🔍 Modo Individual</button>
-              <button class="btn btn-mini" id="btnInvModoApilador" type="button">⚡ Apilador Continuo</button>
+              <button class="btn btn-mini btn-primario" id="btnInvModoNormal" type="button"><span data-ico="scan"></span> Modo individual</button>
+              <button class="btn btn-mini" id="btnInvModoApilador" type="button"><span data-ico="apilar"></span> Apilador continuo</button>
             </div>
-            <button class="btn btn-primario" id="btnInvCamara" type="button">Abrir cámara</button>
+            <button class="btn btn-primario" id="btnInvCamara" type="button"><span data-ico="camara"></span> Abrir cámara</button>
             <button class="btn" id="btnInvCamaraParar" type="button" hidden>Detener</button>
+            <button class="btn" id="btnInvOcr" type="button" hidden><span data-ico="texto"></span> Leer texto de una foto</button>
             <label class="campo">
               <span>Código de barras</span>
               <input id="invCodigo" inputmode="numeric" autocomplete="off" list="invCodigos" placeholder="Ej. 7801234567890" />
               <datalist id="invCodigos"></datalist>
             </label>
-            <button class="btn" id="btnInvBuscarCodigo" type="button">Buscar código</button>
+            <button class="btn" id="btnInvBuscarCodigo" type="button"><span data-ico="buscar"></span> Buscar código</button>
             <p class="inv-ayuda">Si la cámara no está disponible, escribe el código: se busca en
               <b>tu base local</b>, en <b>tu nube</b> y en las bases libres
               (Open Food/Beauty/Products Facts, Open Prices, Wikipedia).</p>
           </div>
         </div>
         <div id="invResultadoApi" class="inv-resultado"></div>
+        <div id="invOcrPanel" class="inv-ocr" hidden>
+          <div class="inv-ocr-cab">
+            <h4><span data-ico="texto"></span> Texto de la foto</h4>
+            <button class="btn btn-mini" id="btnInvOcrCerrar" type="button"><span data-ico="cerrar"></span></button>
+          </div>
+          <p class="inv-ayuda" id="invOcrEstado"></p>
+          <label class="campo">
+            <span>Foto del producto o de la etiqueta</span>
+            <input type="file" id="invOcrImagen" accept="image/*" />
+          </label>
+          <textarea id="invOcrTexto" rows="5" placeholder="El texto reconocido aparecerá aquí."></textarea>
+          <div class="inv-toolbar-acciones">
+            <button class="btn btn-primario" id="btnInvOcrNombre" type="button">Usar como nombre del producto</button>
+            <button class="btn" id="btnInvOcrCopiar" type="button">Copiar texto</button>
+          </div>
+        </div>
 
         <!-- Apilador Continuo (Multi-scan rápido) -->
         <div class="inv-apilador-caja" id="invApiladorCaja" hidden>
           <div class="inv-apilador-cab">
             <div class="inv-apilador-titulo">
               <span class="punto-vivo"></span>
-              <h4>🛒 Apilador Continuo (<span id="invApiladorContador">0</span>)</h4>
+              <h4><span data-ico="apilar"></span> Apilador continuo (<span id="invApiladorContador">0</span>)</h4>
             </div>
             <div class="inv-apilador-acciones">
-              <button class="btn btn-mini btn-primario" id="btnInvApiladorGuardarLote" type="button">Guardar Lote en Base</button>
-              <button class="btn btn-mini" id="btnInvApiladorLimpiar" type="button">Vaciar</button>
+              <button class="btn btn-mini btn-primario" id="btnInvApiladorGuardarLote" type="button"><span data-ico="ok"></span> Guardar lote</button>
+              <button class="btn btn-mini" id="btnInvApiladorLimpiar" type="button"><span data-ico="limpiar"></span> Vaciar</button>
             </div>
           </div>
           <p class="inv-ayuda">Apunta la cámara a los productos sin parar: se registran con sonido y vibración.</p>
@@ -1262,12 +1284,37 @@ npx -y omniroute@latest
           </label>
         </div>
         <div class="inv-toolbar-acciones">
-          <button class="btn btn-primario" id="btnInvNuevo" type="button">+ Nuevo producto</button>
-          <button class="btn" id="btnInvRefrescar" type="button">Refrescar</button>
-          <button class="btn" id="btnInvSincronizar" type="button">Sincronizar</button>
-          <button class="btn" id="btnInvNubeResumen" type="button">Resumen de mi nube</button>
+          <button class="btn btn-primario" id="btnInvNuevo" type="button"><span data-ico="nuevo"></span> Nuevo producto</button>
+          <button class="btn" id="btnInvImportar" type="button"><span data-ico="importar"></span> Importar</button>
+          <button class="btn" id="btnInvRefrescar" type="button"><span data-ico="refrescar"></span> Refrescar</button>
+          <button class="btn" id="btnInvSincronizar" type="button"><span data-ico="sync"></span> Sincronizar</button>
+          <button class="btn" id="btnInvNubeResumen" type="button"><span data-ico="nube"></span> Mi nube</button>
         </div>
         <div id="invNubeResumen" class="inv-nube-resumen"></div>
+
+        <!-- Importación masiva desde otra base (Eleventa, Excel, CSV/TSV/JSON) -->
+        <div id="invImportarPanel" class="inv-importar" hidden>
+          <div class="inv-importar-cab">
+            <h3><span data-ico="importar"></span> Importar productos de otra base</h3>
+            <button class="btn btn-mini" id="btnInvImportarCerrar" type="button"><span data-ico="cerrar"></span></button>
+          </div>
+          <p class="inv-ayuda">Elige el archivo exportado (CSV, TSV o JSON) o pega los datos.
+            Se reconocen las columnas por su nombre: <b>Producto/Descripción</b>,
+            <b>Código de barras</b>, <b>Precio</b>, <b>Costo</b>, <b>Existencia</b>,
+            <b>Marca</b>, <b>Categoría</b>. Nada se guarda hasta que lo confirmes.</p>
+          <label class="campo">
+            <span>Archivo de la otra base</span>
+            <input type="file" id="invImportarArchivo" accept=".csv,.tsv,.txt,.json,text/csv,text/plain,application/json" />
+          </label>
+          <label class="campo">
+            <span>…o pega los datos aquí</span>
+            <textarea id="invImportarTexto" rows="6" placeholder="Producto;Código de barras;Precio;Existencia&#10;Arroz grado 1;7801234567890;1490;24"></textarea>
+          </label>
+          <div id="invImportarPrevia" class="inv-importar-previa"></div>
+          <div class="inv-toolbar-acciones">
+            <button class="btn btn-primario" id="btnInvImportarEjecutar" type="button" disabled><span data-ico="ok"></span> Importar a mi base</button>
+          </div>
+        </div>
         <div id="invFormulario" class="inv-form" hidden>
           <h3 id="invFormTitulo">Nuevo producto</h3>
           <div class="inv-form-grid">
@@ -1365,9 +1412,9 @@ npx -y omniroute@latest
               </label>
             </div>
             <div class="inv-toolbar-acciones">
-              <button class="btn btn-primario" id="btnInvEmitir" type="button">Emitir boleta</button>
-              <button class="btn" id="btnInvImprimir" type="button">🖨️ Imprimir Ticket</button>
-              <button class="btn" id="btnInvCompartir" type="button">📲 Compartir WhatsApp</button>
+              <button class="btn btn-primario" id="btnInvEmitir" type="button"><span data-ico="ok"></span> Emitir boleta</button>
+              <button class="btn" id="btnInvImprimir" type="button"><span data-ico="imprimir"></span> Imprimir ticket</button>
+              <button class="btn" id="btnInvCompartir" type="button"><span data-ico="compartir"></span> Compartir WhatsApp</button>
               <label class="campo">
                 <span>Papel</span>
                 <select id="invFormatoImpresion">
@@ -1381,7 +1428,7 @@ npx -y omniroute@latest
           <div class="impresora-termica">
             <div class="impresora-boca" aria-hidden="true"><div class="impresora-ranura"></div></div>
             <div class="inv-boleta-der ticket-termico" id="invBoletaVista">
-              <p class="inv-ayuda">El carrito está vacío.</p>
+              <div class="tk-vacio"><span data-ico="carrito" data-ico-tam="30"></span><p>El carrito está vacío.<br>Agrega un producto para ver la boleta.</p></div>
             </div>
           </div>
         </div>

@@ -678,14 +678,76 @@ fn op_init(payload: &Value) -> Result<Value, String> {
 /// el bloqueo de escritura justo cuando la WebView empezaba a pedir datos.
 fn op_mantenimiento(_payload: &Value) -> Result<Value, String> {
     con_estado(|e| {
-        // Poda acotada: se borra en lotes pequeños para no retener el mutex
-        // durante un escaneo gigante. `podar_registro` ya usa conservar=3000;
-        // aquí solo corroboramos que la tabla no esté creciendo sin control.
+        // 1) Limpieza por actualización. Cuando la APK cambia de versión, los
+        //    errores de la versión anterior quedaban PEGADOS en el panel para
+        //    siempre (los «6 errores» de hace días) y tapaban los de verdad.
+        //    Se borran al detectar versión nueva y se deja constancia de ello.
+        let version_actual = env!("CARGO_PKG_VERSION");
+        let version_vista: Option<String> = e
+            .db
+            .query_row("SELECT valor FROM config WHERE clave='revision.version'", [], |r| r.get(0))
+            .optional()
+            .unwrap_or(None);
+        let mut limpieza: Option<Value> = None;
+        if version_vista.as_deref() != Some(version_actual) {
+            let errores = e
+                .db
+                .execute("DELETE FROM revision WHERE severidad IN ('error','critico')", [])
+                .unwrap_or(0);
+            // Los avisos de lentitud son de la carga puntual de cada versión:
+            // tampoco sirven de una versión a otra.
+            let lentos = e
+                .db
+                .execute("DELETE FROM revision WHERE tipo = 'lento'", [])
+                .unwrap_or(0);
+            let _ = e.db.execute(
+                "INSERT INTO config (clave,valor,actualizado) VALUES ('revision.version',?1,?2)
+                 ON CONFLICT(clave) DO UPDATE SET valor=excluded.valor, actualizado=excluded.actualizado",
+                params![version_actual, ahora()],
+            );
+            let _ = e.db.execute(
+                "INSERT INTO revision (ts,tipo,severidad,origen,mensaje,detalle,ms)
+                 VALUES (?1,'mantenimiento','info','nucleo',?2,?3,0)",
+                params![
+                    ahora(),
+                    format!("registro limpiado al actualizar a {}", version_actual),
+                    format!(
+                        "errores borrados={} · avisos de lentitud borrados={} · versión anterior={}",
+                        errores,
+                        lentos,
+                        version_vista.as_deref().unwrap_or("ninguna")
+                    )
+                ],
+            );
+            limpieza = Some(json!({
+                "version": version_actual,
+                "version_anterior": version_vista,
+                "errores_borrados": errores,
+                "lentos_borrados": lentos
+            }));
+        }
+
+        // 2) Verificación REAL del sistema (no lee el registro: ejecuta pruebas).
+        let verificacion = revision_verificar_db(&e.db, &e.data_dir).unwrap_or_else(|x| {
+            json!({ "ok": false, "errores": 1, "avisos": 0,
+                    "hallazgos": [{ "nivel": "error", "prueba": "verificacion",
+                                    "detalle": x }] })
+        });
+
+        // 3) Poda acotada: se borra en lotes pequeños para no retener el mutex
+        //    durante un escaneo gigante. `podar_registro` ya usa conservar=3000;
+        //    aquí solo corroboramos que la tabla no esté creciendo sin control.
         let _ = podar_registro(&e.db, "logs", 3000);
         let _ = podar_registro(&e.db, "revision", 3000);
-        // Checkpoint pasivo: no fuerza la escritura, solo compacta si puede.
+        // 4) Checkpoint pasivo: no fuerza la escritura, solo compacta si puede.
         let _ = e.db.execute_batch("PRAGMA wal_checkpoint(PASSIVE);");
-        Ok(json!({ "ok": true, "poda": "logs/revision", "wal": "pasivo" }))
+        Ok(json!({
+            "ok": true,
+            "poda": "logs/revision",
+            "wal": "pasivo",
+            "limpieza": limpieza,
+            "verificacion": verificacion
+        }))
     })
 }
 
@@ -1818,6 +1880,162 @@ fn op_revision_resumen(_payload: &Value) -> Result<Value, String> {
     con_estado(|e| revision_resumen_db(&e.db))
 }
 
+/// Borra del registro las filas que ya no aportan. Se usa al actualizar la app
+/// y desde el botón «Limpiar errores» del panel de revisión.
+fn revision_limpiar_db(db: &Connection, modo: &str) -> Result<Value, String> {
+    let (sql, etiqueta) = match modo {
+        "todo" => ("DELETE FROM revision", "todo"),
+        // Por defecto: errores y críticos, que son los que ensucian el piloto
+        // de la cabecera y el resumen. La historia útil (info/aviso) se conserva.
+        _ => (
+            "DELETE FROM revision WHERE severidad IN ('error','critico')",
+            "errores",
+        ),
+    };
+    let borrados = db.execute(sql, []).map_err(|e| e.to_string())?;
+    Ok(json!({ "ok": true, "borrados": borrados, "modo": etiqueta }))
+}
+
+fn op_revision_limpiar(payload: &Value) -> Result<Value, String> {
+    let modo = payload.get("modo").and_then(|v| v.as_str()).unwrap_or("errores").to_string();
+    con_estado(move |e| revision_limpiar_db(&e.db, &modo))
+}
+
+/// Comprobación REAL del sistema.
+///
+/// No mira el registro (eso sería contestar con lo que ya se escribió, aunque
+/// fuese de una versión vieja): ejecuta pruebas contra la base y el disco y
+/// devuelve lo que encuentra. Es la respuesta a «¿hay errores de verdad?».
+///
+/// Cada hallazgo queda además en `revision`, para que el panel y la vigilancia
+/// de la cabecera lo vean sin volver a preguntar.
+fn revision_verificar_db(db: &Connection, data_dir: &std::path::Path) -> Result<Value, String> {
+    // (nivel, prueba, detalle)
+    let mut hallazgos: Vec<(String, String, String)> = Vec::new();
+    let mut push = |nivel: &str, prueba: &str, detalle: String| {
+        hallazgos.push((nivel.to_string(), prueba.to_string(), detalle));
+    };
+
+    // 1. Integridad de SQLite.
+    match db.query_row("PRAGMA quick_check", [], |r| r.get::<_, String>(0)) {
+        Ok(v) if v == "ok" => push("info", "sqlite.integridad", "quick_check: ok".into()),
+        Ok(v) => push("error", "sqlite.integridad", format!("quick_check: {}", v)),
+        Err(e) => push("error", "sqlite.integridad", format!("no se pudo comprobar: {}", e)),
+    }
+
+    // 2. Modo de journal (debe ser WAL para que la escritura no bloquee la UI).
+    let journal: String = db
+        .query_row("PRAGMA journal_mode", [], |r| r.get(0))
+        .unwrap_or_else(|_| "?".into());
+    if journal.eq_ignore_ascii_case("wal") {
+        push("info", "sqlite.journal", "WAL activo".into());
+    } else {
+        push("aviso", "sqlite.journal", format!("journal_mode = {} (se esperaba WAL)", journal));
+    }
+
+    // 3. Tablas esenciales presentes.
+    let mut faltan: Vec<String> = Vec::new();
+    for tabla in ["inv_productos", "inv_boletas", "revision", "logs", "config", "usuarios"] {
+        let n: i64 = db
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?1",
+                params![tabla],
+                |r| r.get(0),
+            )
+            .unwrap_or(0);
+        if n == 0 {
+            faltan.push(tabla.to_string());
+        }
+    }
+    if faltan.is_empty() {
+        push("info", "esquema", "todas las tablas esenciales están presentes".into());
+    } else {
+        push("error", "esquema", format!("faltan tablas: {}", faltan.join(", ")));
+    }
+
+    // 4. Inventario legible de verdad (no sólo que la tabla exista).
+    match db.query_row(
+        "SELECT COUNT(*), COALESCE(SUM(stock),0) FROM inv_productos",
+        [],
+        |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?)),
+    ) {
+        Ok((n, stock)) => push(
+            "info",
+            "inventario",
+            format!("{} producto(s) · {} unidad(es) en stock", n, stock),
+        ),
+        Err(e) => push("error", "inventario", format!("no se pudo leer: {}", e)),
+    }
+
+    // 5. Escritura real: se escribe y se borra una clave de prueba en `config`.
+    let sonda = format!("_probe_{}", ahora());
+    let escritura = db
+        .execute(
+            "INSERT INTO config (clave,valor,actualizado) VALUES (?1,'ok',?2)
+             ON CONFLICT(clave) DO UPDATE SET valor='ok', actualizado=excluded.actualizado",
+            params![sonda, ahora()],
+        )
+        .and_then(|_| db.execute("DELETE FROM config WHERE clave=?1", params![sonda]));
+    match escritura {
+        Ok(_) => push("info", "sqlite.escritura", "escritura verificada".into()),
+        Err(e) => push("error", "sqlite.escritura", format!("la base no acepta escritura: {}", e)),
+    }
+
+    // 6. El directorio de datos es usable (se deja un archivo y se borra).
+    let prueba = data_dir.join(".probe-verificacion");
+    let disco_ok = fs::write(&prueba, b"ok").is_ok();
+    let _ = fs::remove_file(&prueba);
+    if disco_ok {
+        push("info", "disco", "el directorio de datos acepta escritura".into());
+    } else {
+        push("aviso", "disco", "no se pudo escribir en el directorio de datos".into());
+    }
+
+    let errores = hallazgos.iter().filter(|h| h.0 == "error").count() as i64;
+    let avisos = hallazgos.iter().filter(|h| h.0 == "aviso").count() as i64;
+
+    // Constancia en el registro: un resumen + una fila por cada problema real.
+    // Los hallazgos «info» no se escriben uno a uno para no llenar el registro
+    // de ruido verde en cada comprobación.
+    let _ = db.execute(
+        "INSERT INTO revision (ts,tipo,severidad,origen,mensaje,detalle,ms)
+         VALUES (?1,'verificacion',?2,'nucleo',?3,?4,0)",
+        params![
+            ahora(),
+            if errores > 0 { "error" } else { "info" },
+            format!(
+                "verificación del sistema: {} prueba(s), {} error(es), {} aviso(s)",
+                hallazgos.len(),
+                errores,
+                avisos
+            ),
+            hallazgos
+                .iter()
+                .map(|h| format!("[{}] {}: {}", h.0, h.1, h.2))
+                .collect::<Vec<String>>()
+                .join(" · ")
+        ],
+    );
+
+    let lista: Vec<Value> = hallazgos
+        .iter()
+        .map(|h| json!({ "nivel": h.0, "prueba": h.1, "detalle": h.2 }))
+        .collect();
+
+    Ok(json!({
+        "ok": errores == 0,
+        "errores": errores,
+        "avisos": avisos,
+        "total": hallazgos.len(),
+        "cuando": ahora(),
+        "hallazgos": lista
+    }))
+}
+
+fn op_revision_verificar(_payload: &Value) -> Result<Value, String> {
+    con_estado(|e| revision_verificar_db(&e.db, &e.data_dir))
+}
+
 /// Estado completo del panel «Flujo en tiempo real» en UN solo viaje y con UN
 /// solo candado. Antes la interfaz hacía cinco llamadas (ping, sqlite,
 /// inventario, revision.resumen, revision.listar) y, como el carril del núcleo
@@ -2507,6 +2725,8 @@ pub extern "system" fn Java_cl_fabrick_core_NativeBridge_exec<'local>(
         "revision.registrar" => op_revision_registrar(&payload_json),
         "revision.listar" => op_revision_listar(&payload_json),
         "revision.resumen" => op_revision_resumen(&payload_json),
+        "revision.limpiar" => op_revision_limpiar(&payload_json),
+        "revision.verificar" => op_revision_verificar(&payload_json),
         "panel" => op_panel(&payload_json),
         "operaciones" => op_operaciones(&payload_json),
         "rendimiento" => op_rendimiento(&payload_json),
@@ -3170,6 +3390,69 @@ fn op_usuarios(payload: &Value, db: &Connection) -> Result<Value, String> {
     }
 }
 
+/// Inserta o actualiza un producto desde un objeto JSON. Devuelve `true` si ya
+/// existía (actualización) o `false` si es nuevo. Lo usan el alta individual y
+/// la importación masiva para que ambas escriban exactamente igual.
+fn inv_upsert(
+    conn: &Connection,
+    p: &Value,
+    codigo: &str,
+    origen_def: &str,
+    ts: i64,
+) -> Result<bool, String> {
+    let existia: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM inv_productos WHERE codigo=?1",
+            params![codigo],
+            |r| r.get(0),
+        )
+        .unwrap_or(0);
+    conn.execute(
+        "INSERT INTO inv_productos
+           (codigo,nombre,marca,categoria,unidad,costo,precio,stock,stock_minimo,
+            iva,proveedor,origen,notas,ficha,creado,actualizado,sync_ts)
+         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?15,0)
+         ON CONFLICT(codigo) DO UPDATE SET
+           nombre=excluded.nombre, marca=excluded.marca, categoria=excluded.categoria,
+           unidad=excluded.unidad, costo=excluded.costo, precio=excluded.precio,
+           stock=excluded.stock, stock_minimo=excluded.stock_minimo, iva=excluded.iva,
+           proveedor=excluded.proveedor, origen=excluded.origen, notas=excluded.notas,
+           ficha=excluded.ficha,
+           actualizado=excluded.actualizado, sync_ts=0",
+        params![
+            codigo,
+            inv_txt(p, "nombre"),
+            inv_txt(p, "marca"),
+            {
+                let c = inv_txt(p, "categoria");
+                if c.is_empty() { "abarrotes".to_string() } else { c }
+            },
+            {
+                let u = inv_txt(p, "unidad");
+                if u.is_empty() { "unidad".to_string() } else { u }
+            },
+            inv_num(p, "costo"),
+            inv_num(p, "precio"),
+            inv_entero(p, "stock"),
+            inv_entero(p, "stock_minimo"),
+            {
+                let iva = inv_entero(p, "iva");
+                if p.get("iva").is_some() { iva } else { 19 }
+            },
+            inv_txt(p, "proveedor"),
+            {
+                let o = inv_txt(p, "origen");
+                if o.is_empty() { origen_def.to_string() } else { o }
+            },
+            inv_txt(p, "notas"),
+            inv_ficha(p),
+            ts
+        ],
+    )
+    .map_err(|e| format!("no se pudo guardar {}: {}", codigo, e))?;
+    Ok(existia > 0)
+}
+
 fn op_inventario(payload: &Value, db: &Connection) -> Result<Value, String> {
     if !ESQUEMA_LISTO.load(std::sync::atomic::Ordering::Relaxed) {
         inv_esquema(db).map_err(|e| format!("no se pudo crear el esquema de inventario: {}", e))?;
@@ -3222,52 +3505,63 @@ fn op_inventario(payload: &Value, db: &Connection) -> Result<Value, String> {
                     "error": "el producto necesita un nombre" }));
             }
             let ts = ahora();
-            let categoria = {
-                let c = inv_txt(&p, "categoria");
-                if c.is_empty() { "abarrotes".to_string() } else { c }
-            };
-            db.execute(
-                "INSERT INTO inv_productos
-                   (codigo,nombre,marca,categoria,unidad,costo,precio,stock,stock_minimo,
-                    iva,proveedor,origen,notas,ficha,creado,actualizado,sync_ts)
-                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?15,0)
-                 ON CONFLICT(codigo) DO UPDATE SET
-                   nombre=excluded.nombre, marca=excluded.marca, categoria=excluded.categoria,
-                   unidad=excluded.unidad, costo=excluded.costo, precio=excluded.precio,
-                   stock=excluded.stock, stock_minimo=excluded.stock_minimo, iva=excluded.iva,
-                   proveedor=excluded.proveedor, origen=excluded.origen, notas=excluded.notas,
-                   ficha=excluded.ficha,
-                   actualizado=excluded.actualizado, sync_ts=0",
-                params![
-                    codigo,
-                    nombre,
-                    inv_txt(&p, "marca"),
-                    categoria,
-                    {
-                        let u = inv_txt(&p, "unidad");
-                        if u.is_empty() { "unidad".to_string() } else { u }
-                    },
-                    inv_num(&p, "costo"),
-                    inv_num(&p, "precio"),
-                    inv_entero(&p, "stock"),
-                    inv_entero(&p, "stock_minimo"),
-                    {
-                        let iva = inv_entero(&p, "iva");
-                        if p.get("iva").is_some() { iva } else { 19 }
-                    },
-                    inv_txt(&p, "proveedor"),
-                    {
-                        let o = inv_txt(&p, "origen");
-                        if o.is_empty() { "manual".to_string() } else { o }
-                    },
-                    inv_txt(&p, "notas"),
-                    inv_ficha(&p),
-                    ts
-                ],
-            )
-            .map_err(|e| format!("no se pudo guardar el producto: {}", e))?;
+            // Un solo camino de escritura: el mismo helper que usa la
+            // importación masiva, para que alta individual y lote escriban
+            // exactamente igual (categoría, IVA por defecto, `sync_ts`).
+            inv_upsert(db, &p, &codigo, "manual", ts)?;
             let guardado = inv_producto(db, &codigo)?;
             Ok(json!({ "ok": true, "producto": guardado, "codigo": codigo }))
+        }
+
+        // -------------------------------------------------------------- importar
+        // Alta masiva: se pega o se elige el archivo exportado de otra base
+        // (Eleventa, Excel, CSV/TSV, JSON) y se cargan todos de un viaje, en una
+        // sola transacción. Antes no existía: había que dar de alta uno por uno.
+        "importar" => {
+            let lista = payload
+                .get("productos")
+                .and_then(|v| v.as_array())
+                .cloned()
+                .unwrap_or_default();
+            if lista.is_empty() {
+                return Ok(json!({ "ok": false, "codigo": "INV_SIN_DATOS",
+                    "error": "no llegaron productos para importar" }));
+            }
+            let origen = {
+                let o = inv_txt(payload, "origen");
+                if o.is_empty() { "importado".to_string() } else { o }
+            };
+            let ts = ahora();
+            let mut nuevos = 0i64;
+            let mut actualizados = 0i64;
+            let mut errores: Vec<Value> = Vec::new();
+            let tx = db.unchecked_transaction().map_err(|e| e.to_string())?;
+            for (i, p) in lista.iter().enumerate() {
+                if inv_txt(p, "nombre").is_empty() {
+                    errores.push(json!({ "fila": i + 1, "error": "sin nombre" }));
+                    continue;
+                }
+                let mut codigo = inv_txt(p, "codigo");
+                if codigo.is_empty() {
+                    codigo = format!("IMP-{}", ts + i as i64);
+                }
+                match inv_upsert(&tx, p, &codigo, &origen, ts) {
+                    Ok(true) => actualizados += 1,
+                    Ok(false) => nuevos += 1,
+                    Err(e) => errores.push(json!({ "fila": i + 1, "codigo": codigo, "error": e })),
+                }
+            }
+            tx.commit()
+                .map_err(|e| format!("no se pudo confirmar la importación: {}", e))?;
+            Ok(json!({
+                "ok": true,
+                "nuevos": nuevos,
+                "actualizados": actualizados,
+                "con_error": errores.len(),
+                "total": lista.len(),
+                "errores": errores.into_iter().take(20).collect::<Vec<Value>>(),
+                "origen": origen
+            }))
         }
 
         // ---------------------------------------------------------------- borrar

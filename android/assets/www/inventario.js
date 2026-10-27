@@ -101,6 +101,58 @@ const INV_CATEGORIAS = {
   otros: "Otros"
 };
 
+/* ── iconos ───────────────────────────────────────────────────────────────
+   Iconos dibujados aquí mismo (24×24, trazo), no emoji ni fuentes externas.
+   Se pintan con el color del texto (`currentColor`) para que sigan al botón y
+   a los temas. Motivos libres estilo Lucide/Feather, reescritos a mano para
+   que el módulo funcione sin red ni recursos fuera del APK. */
+const INV_SVG = {
+  scan: '<path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><line x1="3" y1="12" x2="21" y2="12"/>',
+  apilar: '<path d="m12 2 9 5-9 5-9-5 9-5Z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/>',
+  camara: '<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3Z"/><circle cx="12" cy="13" r="3.5"/>',
+  buscar: '<circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>',
+  nuevo: '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
+  refrescar: '<path d="M21 12a9 9 0 1 1-2.64-6.36"/><polyline points="21 3 21 9 15 9"/>',
+  nube: '<path d="M17.5 19a4.5 4.5 0 0 0 .5-8.97A6 6 0 0 0 6.2 9.2 4.5 4.5 0 0 0 6.5 19h11Z"/>',
+  sync: '<path d="M12 3v3m0 12v3M3 12h3m12 0h3M6.3 6.3l2.1 2.1m7.2 7.2 2.1 2.1m0-11.4-2.1 2.1M8.4 15.6l-2.1 2.1"/>',
+  importar: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 9 12 4 17 9"/><line x1="12" y1="4" x2="12" y2="16"/>',
+  imprimir: '<polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/>',
+  compartir: '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="10.5" x2="15.4" y2="6.5"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/>',
+  editar: '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
+  etiqueta: '<path d="M20.6 13.4 12 22l-9-9V4a1 1 0 0 1 1-1h9l7.6 7.6a2 2 0 0 1 0 2.8Z"/><circle cx="7.5" cy="7.5" r="1.3"/>',
+  mas: '<circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>',
+  menos: '<circle cx="12" cy="12" r="9"/><line x1="8" y1="12" x2="16" y2="12"/>',
+  carrito: '<circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2 3h2.2l2.2 12.2a1.6 1.6 0 0 0 1.6 1.3h8.9a1.6 1.6 0 0 0 1.6-1.3L21 7H5"/>',
+  borrar: '<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>',
+  ok: '<polyline points="20 6 9 17 4 12"/>',
+  barras: '<path d="M4 5v14M7 5v14M10 5v9M13 5v14M16 5v9M19 5v14"/>',
+  caja: '<path d="m12 2 9 4.5v11L12 22l-9-4.5v-11L12 2Z"/><path d="M3.3 6.7 12 11l8.7-4.3M12 11v11"/>',
+  cerrar: '<line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/>',
+  texto: '<path d="M4 6h10M4 11h16M4 16h12"/><path d="M18 15l3 3-3 3"/>',
+  limpiar: '<path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M6 6l1 14a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-14"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>',
+  verificar: '<path d="M22 11.5V12a10 10 0 1 1-5.9-9.1"/><polyline points="22 4 12 14.01 9 11.01"/>',
+  alerta: '<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>'
+};
+
+/** Icono SVG en línea. `nombre` existe en INV_SVG; si no, devuelve "". */
+function ico(nombre, tam) {
+  const d = INV_SVG[nombre];
+  if (!d) return "";
+  const t = tam || 16;
+  return '<svg class="inv-ico" viewBox="0 0 24 24" width="' + t + '" height="' + t +
+    '" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" ' +
+    'stroke-linejoin="round" aria-hidden="true">' + d + "</svg>";
+}
+
+/** Pinta todos los huecos `<span data-ico="...">` del documento una sola vez. */
+function invPintarIconos() {
+  document.querySelectorAll("[data-ico]").forEach(function (el) {
+    if (el.dataset.pintado) return;
+    el.innerHTML = ico(el.dataset.ico, Number(el.dataset.icoTam || 16));
+    el.dataset.pintado = "1";
+  });
+}
+
 /* Etiquetas «free» que se leen de las bases libres (Open Food Facts). Se
    guardan en la ficha del producto para poder filtrar sin volver a consultar
    internet: sin gluten, sin azúcar, sin lactosa, vegano, etc. */
@@ -208,6 +260,7 @@ function invIniciar() {
   if (!INV.iniciado) {
     INV.iniciado = true;
     invConectarEventos();
+    invOcrIniciar();
     revision("inventario", "info", "módulo inventario abierto");
   }
 }
@@ -228,6 +281,10 @@ function invConectarEventos() {
 
   if ($("btnInvCamara")) $("btnInvCamara").addEventListener("click", invCamaraAbrir);
   if ($("btnInvCamaraParar")) $("btnInvCamaraParar").addEventListener("click", invCamaraParar);
+  if ($("btnInvModoNormal")) $("btnInvModoNormal").addEventListener("click", function () { invModoApilador(false); });
+  if ($("btnInvModoApilador")) $("btnInvModoApilador").addEventListener("click", function () { invModoApilador(true); });
+  if ($("btnInvApiladorGuardarLote")) $("btnInvApiladorGuardarLote").addEventListener("click", invApiladorGuardarLote);
+  if ($("btnInvApiladorLimpiar")) $("btnInvApiladorLimpiar").addEventListener("click", invApiladorLimpiar);
   if ($("btnInvBuscarCodigo")) $("btnInvBuscarCodigo").addEventListener("click", function () {
     invBuscarCodigo($("invCodigo").value);
   });
@@ -265,6 +322,25 @@ function invConectarEventos() {
   if ($("btnInvBoletaAgregar")) $("btnInvBoletaAgregar").addEventListener("click", invCarritoAgregar);
   if ($("btnInvEmitir")) $("btnInvEmitir").addEventListener("click", invEmitirBoleta);
   if ($("btnInvImprimir")) $("btnInvImprimir").addEventListener("click", invImprimir);
+
+  // Importación masiva (otra base: Eleventa, Excel, CSV/TSV/JSON).
+  if ($("btnInvImportar")) $("btnInvImportar").addEventListener("click", invImportarPanel);
+  if ($("btnInvImportarCerrar")) $("btnInvImportarCerrar").addEventListener("click", invImportarCerrar);
+  if ($("btnInvImportarEjecutar")) $("btnInvImportarEjecutar").addEventListener("click", invImportarEjecutar);
+  if ($("invImportarArchivo")) $("invImportarArchivo").addEventListener("change", invImportarArchivo);
+  if ($("invImportarTexto")) $("invImportarTexto").addEventListener("input", invImportarPrevia);
+
+  // OCR (sólo aparece si el proceso tiene motor).
+  if ($("btnInvOcr")) $("btnInvOcr").addEventListener("click", function () { invOcrPanel(true); });
+  if ($("btnInvOcrCerrar")) $("btnInvOcrCerrar").addEventListener("click", function () { invOcrPanel(false); });
+  if ($("invOcrImagen")) $("invOcrImagen").addEventListener("change", invOcrImagen);
+  if ($("btnInvOcrNombre")) $("btnInvOcrNombre").addEventListener("click", invOcrUsarNombre);
+  if ($("btnInvOcrCopiar")) $("btnInvOcrCopiar").addEventListener("click", function () {
+    const t = (document.getElementById("invOcrTexto") || {}).value || "";
+    if (t) copiar(t, "Texto copiado");
+  });
+
+  invPintarIconos();
 }
 
 function invPaso(n) {
@@ -526,6 +602,23 @@ function invBucleEscaneo() {
         valor = invEscanearCuadro();
       }
       if (valor) {
+        // Modo Apilador: no se cierra la cámara; se apila el código y se sigue.
+        // El freno evita que el mismo código entre dos veces seguidas mientras
+        // el producto todavía está delante del lente.
+        if (INV.modoApilador) {
+          const ahora = Date.now();
+          if (valor === INV.ultimoCodigo && ahora - INV.ultimoEscaneo < 1600) {
+            if (INV.camara) invBucleEscaneo();
+            return;
+          }
+          INV.ultimoCodigo = valor;
+          INV.ultimoEscaneo = ahora;
+          INV.mallaFlash = Date.now();
+          invApiladorAgregar(valor);
+          if (INV.camara) invBucleEscaneo();
+          return;
+        }
+        // Modo individual: confirma, cierra la cámara y muestra la ficha.
         INV.mallaFlash = Date.now();
         const caja = document.getElementById("invCamaraCaja");
         if (caja) caja.classList.remove("mira");
@@ -543,6 +636,194 @@ function invBucleEscaneo() {
     if (INV.camara) invBucleEscaneo();
   }, INV.detector ? 420 : 550);
 }
+
+/* ── apilador continuo ──────────────────────────────────────────────────────
+   Modo de trabajo para cargar una compra entera sin tocar la pantalla: cada
+   código que entra se apila con su nombre, su precio y una miniatura. Los
+   repetidos suman cantidad en vez de duplicarse. Al terminar, el lote completo
+   entra a la base de una sola escritura (acción `importar`). El nombre se
+   resuelve en segundo plano: base local → tu nube → bases libres. */
+
+function invModoApilador(activar) {
+  INV.modoApilador = !!activar;
+  const caja = document.getElementById("invApiladorCaja");
+  if (caja) caja.hidden = !INV.modoApilador;
+  const bNormal = document.getElementById("btnInvModoNormal");
+  const bApila = document.getElementById("btnInvModoApilador");
+  if (bNormal) bNormal.classList.toggle("btn-primario", !INV.modoApilador);
+  if (bApila) bApila.classList.toggle("btn-primario", INV.modoApilador);
+  const help = document.getElementById("invCamaraNota");
+  if (INV.modoApilador) {
+    if (help) help.textContent = "Apilador activo · apunta a cada producto sin parar";
+    invApiladorPintar();
+    if (!INV.camara) invCamaraAbrir();
+  }
+}
+
+/** Tono de confirmación del apilador. */
+const NVAP = { freq: 1046 };
+
+/** Sonido + vibración de confirmación. Nunca rompe si el WebView no vibra. */
+function invApiladorAviso() {
+  try { sonidoBeep(NVAP.freq, 0.06); } catch (e) {}
+  try { if (navigator.vibrate) navigator.vibrate(35); } catch (e) {}
+}
+
+/** Añade un código al apilador (dedupe por código; sube la cantidad). */
+function invApiladorAgregar(codigoCrudo) {
+  const codigo = String(codigoCrudo || "").replace(/\s/g, "");
+  if (!codigo) return;
+  const existente = INV.apilador.find(function (x) { return x.codigo === codigo; });
+  if (existente) {
+    existente.cantidad = (existente.cantidad || 1) + 1;
+    existente.nuevo = false;
+    invApiladorPintar();
+    invApiladorAviso();
+    return;
+  }
+  const local = invPorCodigo(codigo);
+  const item = {
+    codigo: codigo,
+    nombre: local ? local.nombre : "",
+    marca: local ? local.marca : "",
+    precio: local ? Number(local.precio || 0) : 0,
+    categoria: local ? local.categoria : "",
+    ficha: local ? invFichaDe(local) : {},
+    cantidad: 1,
+    origen: local ? "local" : "",
+    resuelto: !!local
+  };
+  INV.apilador.unshift(item);
+  invApiladorPintar(true);
+  invApiladorAviso();
+  if (!local) invApiladorResolver(item);
+}
+
+/** Resuelve nombre/precio de un código apilado: local → nube → bases libres. */
+async function invApiladorResolver(item) {
+  try {
+    const local = await invApiTarde("buscar_codigo", { codigo: item.codigo }, { maxMs: 6000 });
+    if (local.ok && local.data && local.data.encontrado) {
+      invApiladorCompletar(item, local.data.producto, "local");
+      return;
+    }
+  } catch (e) {}
+  try {
+    const nube = await invNubeBuscarCodigo(item.codigo);
+    if (nube.ok && nube.producto) {
+      invApiladorCompletar(item, nube.producto, "nube");
+      return;
+    }
+  } catch (e) {}
+  try {
+    const api = await invConsultarApiLibre(item.codigo);
+    if (api.ok && api.producto) {
+      invApiladorCompletar(item, api.producto, api.producto.fuente || "libre");
+    }
+  } catch (e) {}
+}
+
+/** Copia los datos resueltos a un item del apilador y repinta su fila. */
+function invApiladorCompletar(item, p, origen) {
+  if (!p) return;
+  item.nombre = p.nombre || item.nombre;
+  item.marca = p.marca || item.marca || "";
+  item.precio = Number(p.precio || item.precio || 0);
+  item.categoria = p.categoria || item.categoria || "";
+  if (p.ficha) item.ficha = p.ficha;
+  item.origen = origen;
+  item.resuelto = true;
+  invApiladorPintar();
+}
+
+/** Miniatura del producto para el apilador y el catálogo. */
+function invMiniaturaHtml(p, tam) {
+  const f = invFichaDe(p);
+  if (f.imagen) {
+    return `<img class="inv-mini" src="${esc(f.imagen)}" alt="" loading="lazy" ` +
+      `style="width:${tam}px;height:${tam}px" onerror="this.style.display='none'" />`;
+  }
+  const cat = (p && p.categoria) || "otros";
+  return `<span class="inv-mini inv-mini-icono cat-${esc(cat)}" style="width:${tam}px;height:${tam}px">` +
+    ico("caja", Math.round(tam * 0.52)) + "</span>";
+}
+
+function invApiladorPintar(pop) {
+  const caja = document.getElementById("invApiladorLista");
+  const contador = document.getElementById("invApiladorContador");
+  if (contador) contador.textContent = INV.apilador.length;
+  if (!caja) return;
+  if (!INV.apilador.length) {
+    caja.innerHTML = `<div class="inv-vacio">Apunta la cámara a un código: se apila aquí solo.</div>`;
+    return;
+  }
+  caja.innerHTML = INV.apilador.map(function (x, i) {
+    const nombre = x.nombre || "Producto nuevo";
+    const sinNombre = x.nombre ? "" : " inv-apilador-sinnombre";
+    return `<div class="inv-apilador-card${pop && i === 0 ? " entra" : ""}">
+      ${invMiniaturaHtml(x, 38)}
+      <div class="inv-apilador-card-info">
+        <strong class="${sinNombre.trim()}">${esc(nombre)}${x.cantidad > 1 ? " × " + x.cantidad : ""}</strong>
+        <span>${esc(x.codigo)}${x.origen ? " · " + esc(x.origen) : ""}</span>
+      </div>
+      <div class="inv-apilador-card-precio">${x.precio > 0 ? invClp(x.precio) : "—"}</div>
+      <button class="btn btn-mini" data-inv-apilador-quitar="${i}" title="Quitar" aria-label="Quitar">${ico("cerrar", 14)}</button>
+    </div>`;
+  }).join("");
+  caja.querySelectorAll("[data-inv-apilador-quitar]").forEach(function (b) {
+    b.addEventListener("click", function () { invApiladorQuitar(Number(b.dataset.invApiladorQuitar)); });
+  });
+}
+
+function invApiladorQuitar(i) {
+  INV.apilador.splice(i, 1);
+  invApiladorPintar();
+}
+
+function invApiladorLimpiar() {
+  INV.apilador = [];
+  INV.ultimoCodigo = "";
+  invApiladorPintar();
+  invAviso("Apilador vaciado");
+}
+
+/** Guarda el lote completo en la base con UNA sola escritura. */
+function invApiladorGuardarLote() {
+  if (!INV.apilador.length) { toast("El apilador está vacío", "error"); return; }
+  const productos = INV.apilador.map(function (x) {
+    return {
+      codigo: x.codigo,
+      nombre: x.nombre || ("Producto " + x.codigo),
+      marca: x.marca || "",
+      categoria: x.categoria || "abarrotes",
+      unidad: "unidad",
+      precio: Number(x.precio || 0),
+      stock: Number(x.cantidad || 1),
+      stock_minimo: 0,
+      iva: 19,
+      origen: "apilador",
+      ficha: x.ficha || {}
+    };
+  });
+  const btn = document.getElementById("btnInvApiladorGuardarLote");
+  if (btn) { btn.disabled = true; }
+  invAviso("Guardando " + productos.length + " producto(s)...");
+  invApiTarde("importar", { productos: productos, origen: "apilador" }, { maxMs: 30000 })
+    .then(function (r) {
+      if (btn) btn.disabled = false;
+      if (!r.ok) { invAviso("No se pudo guardar el lote: " + (r.error || "error"), "error"); return; }
+      const d = r.data || {};
+      revision("inventario", "info", "lote del apilador guardado",
+        (d.nuevos || 0) + " nuevos · " + (d.actualizados || 0) + " actualizados");
+      invAviso("Lote guardado · " + (d.nuevos || 0) + " nuevos · " + (d.actualizados || 0) + " actualizados");
+      invSello("Lote en la base");
+      INV.apilador = [];
+      INV.ultimoCodigo = "";
+      invApiladorPintar();
+      invRefrescar();
+    });
+}
+
 
 /* ── tu nube (fabri-api → InsForge) ────────────────────────────────────────
    La segunda base del inventario. Se consulta con el MISMO contrato que usa la
@@ -1040,7 +1321,544 @@ function invCategoriaDesdeTags(tags, porDefecto) {
   return porDefecto || "otros";
 }
 
+/* ── importación masiva ────────────────────────────────────────────────────
+   Trae productos de otra base sin darlos de alta uno por uno. Acepta lo que
+   exportan Eleventa, Excel y casi cualquier sistema: CSV o TSV con encabezado,
+   o un JSON con la lista. El encabezado se reconoce por alias («Producto»,
+   «Descripción», «Código de barras», «Precio»...), así que no hay que renombrar
+   columnas ni reordenarlas. Todo se revisa en una vista previa antes de tocar
+   la base. */
+
+function invImportarPanel() {
+  const caja = document.getElementById("invImportarPanel");
+  if (caja) { caja.hidden = false; caja.scrollIntoView({ behavior: "smooth", block: "nearest" }); }
+  const t = document.getElementById("invImportarTexto");
+  if (t) setTimeout(function () { t.focus(); }, 120);
+  invImportarPrevia();
+}
+
+function invImportarCerrar() {
+  const caja = document.getElementById("invImportarPanel");
+  if (caja) caja.hidden = true;
+}
+
+/** Lee el archivo elegido y lo vuelca al cuadro de texto para revisarlo. */
+function invImportarArchivo(ev) {
+  const input = ev && ev.target ? ev.target : document.getElementById("invImportarArchivo");
+  const f = input && input.files && input.files[0];
+  if (!f) return;
+  const lector = new FileReader();
+  lector.onload = function () {
+    const t = document.getElementById("invImportarTexto");
+    if (t) t.value = String(lector.result || "");
+    invImportarPrevia();
+    invAviso("Archivo cargado: " + f.name);
+  };
+  lector.onerror = function () { invAviso("No se pudo leer el archivo", "error"); };
+  lector.readAsText(f, "utf-8");
+}
+
+/** Número tolerante a formato chileno (1.234,56) y anglosajón (1,234.56). */
+function invNumImport(valor) {
+  if (typeof valor === "number") return isFinite(valor) ? valor : 0;
+  let s = String(valor == null ? "" : valor).replace(/[^\d.,-]/g, "").trim();
+  if (!s) return 0;
+  const tienePunto = s.indexOf(".") >= 0;
+  const tieneComa = s.indexOf(",") >= 0;
+  if (tienePunto && tieneComa) {
+    // El último separador es el decimal.
+    if (s.lastIndexOf(",") > s.lastIndexOf(".")) {
+      s = s.replace(/\./g, "").replace(",", ".");
+    } else {
+      s = s.replace(/,/g, "");
+    }
+  } else if (tieneComa) {
+    s = s.replace(",", ".");
+  } else if (tienePunto) {
+    const partes = s.split(".");
+    if (partes.length > 2 || (partes[1] && partes[1].length === 3 && partes[0].length <= 3)) {
+      s = s.replace(/\./g, "");
+    }
+  }
+  const n = Number(s);
+  return isFinite(n) ? n : 0;
+}
+
+/** Separa una línea respetando comillas dobles (CSV real, no un split). */
+function invSepararLinea(linea, delim) {
+  const salida = [];
+  let actual = "";
+  let entreComillas = false;
+  for (let i = 0; i < linea.length; i++) {
+    const c = linea[i];
+    if (entreComillas) {
+      if (c === '"') {
+        if (linea[i + 1] === '"') { actual += '"'; i++; }
+        else entreComillas = false;
+      } else actual += c;
+    } else if (c === '"') {
+      entreComillas = true;
+    } else if (c === delim) {
+      salida.push(actual);
+      actual = "";
+    } else {
+      actual += c;
+    }
+  }
+  salida.push(actual);
+  return salida.map(function (x) { return x.trim(); });
+}
+
+/** Delimitador más probable en las primeras líneas. */
+function invDetectarDelimitador(texto) {
+  const lineas = texto.split(/\r?\n/).filter(function (l) { return l.trim(); }).slice(0, 6);
+  const cand = ["\t", ";", "|", ","];
+  let mejor = ",";
+  let mejorPuntaje = -1;
+  cand.forEach(function (d) {
+    let media = 0;
+    let consistente = true;
+    let base = -1;
+    lineas.forEach(function (l) {
+      const n = invSepararLinea(l, d).length;
+      media += n;
+      if (base < 0) base = n;
+      else if (n !== base) consistente = false;
+    });
+    const puntaje = media / Math.max(1, lineas.length) + (consistente ? 2 : 0);
+    if (puntaje > mejorPuntaje) { mejorPuntaje = puntaje; mejor = d; }
+  });
+  return mejor;
+}
+
+/** Normaliza un encabezado: minúsculas, sin tildes ni signos. */
+function invClaveCampo(s) {
+  return String(s || "").toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+}
+
+/** Alias de encabezado → campo del producto. */
+const INV_ALIAS = {
+  nombre: ["nombre", "producto", "descripcion", "description", "name", "articulo", "detalle", "item"],
+  codigo: ["codigo", "codigo_barras", "codigo_de_barras", "barcode", "barra", "ean", "ean13", "upc", "sku", "clave", "cod"],
+  precio: ["precio", "precio_venta", "precio_de_venta", "pvp", "price", "venta", "precio_publico"],
+  costo: ["costo", "precio_costo", "precio_compra", "cost", "compra", "costo_neto"],
+  stock: ["stock", "existencia", "existencias", "cantidad", "qty", "quantity", "inventario", "saldo"],
+  stock_minimo: ["stock_minimo", "minimo", "min", "stock_min", "punto_de_pedido"],
+  marca: ["marca", "brand", "fabricante", "laboratorio"],
+  categoria: ["categoria", "category", "rubro", "familia", "linea", "grupo"],
+  unidad: ["unidad", "unidad_de_medida", "um", "unit", "medida", "presentacion"],
+  iva: ["iva", "impuesto", "tax"],
+  proveedor: ["proveedor", "supplier", "distribuidor"],
+  notas: ["notas", "observaciones", "comentario", "nota", "descripcion_larga"]
+};
+
+function invCampoImport(clave) {
+  const k = invClaveCampo(clave);
+  for (const campo in INV_ALIAS) {
+    if (INV_ALIAS[campo].indexOf(k) >= 0) return campo;
+  }
+  // Coincidencia parcial: "precio_final", "cod_barra", "nom_producto".
+  for (const campo in INV_ALIAS) {
+    const alias = INV_ALIAS[campo];
+    for (let i = 0; i < alias.length; i++) {
+      if (alias[i].length >= 4 && k.indexOf(alias[i]) >= 0) return campo;
+    }
+  }
+  return "";
+}
+
+/** Convierte una fila (objeto ya mapeado) en un producto del núcleo. */
+function invProductoImport(fila, i) {
+  const nombre = String(fila.nombre || "").trim();
+  let codigo = String(fila.codigo || "").replace(/\s/g, "");
+  if (!codigo) codigo = "IMP-" + Date.now().toString(36).toUpperCase() + "-" + (i + 1);
+  const cat = invClaveCampo(fila.categoria || "");
+  const categoria = Object.keys(INV_CATEGORIAS).indexOf(cat) >= 0
+    ? cat
+    : invCategoriaDesdeTags([cat], "abarrotes");
+  return {
+    codigo: codigo,
+    nombre: nombre,
+    marca: String(fila.marca || "").trim(),
+    categoria: categoria,
+    unidad: String(fila.unidad || "unidad").trim() || "unidad",
+    costo: invNumImport(fila.costo),
+    precio: invNumImport(fila.precio),
+    stock: Math.round(invNumImport(fila.stock)),
+    stock_minimo: Math.round(invNumImport(fila.stock_minimo)),
+    iva: fila.iva != null && String(fila.iva).trim() !== "" ? Math.round(invNumImport(fila.iva)) : 19,
+    proveedor: String(fila.proveedor || "").trim(),
+    notas: String(fila.notas || "").trim(),
+    origen: "importado",
+    ficha: {}
+  };
+}
+
+/** Devuelve { productos, errores, formato } desde el texto pegado/elegido. */
+function invParseImportacion(textoCrudo) {
+  const texto = String(textoCrudo || "").replace(/^\uFEFF/, "").trim();
+  const vacio = { productos: [], errores: [], formato: "" };
+  if (!texto) return vacio;
+
+  // 1) JSON: lista de objetos o {productos:[...]} / {items:[...]}.
+  if (texto[0] === "[" || texto[0] === "{") {
+    try {
+      const d = JSON.parse(texto);
+      let lista = [];
+      if (Array.isArray(d)) lista = d;
+      else if (d && Array.isArray(d.productos)) lista = d.productos;
+      else if (d && Array.isArray(d.items)) lista = d.items;
+      else if (d && Array.isArray(d.data)) lista = d.data;
+      const productos = [];
+      const errores = [];
+      lista.forEach(function (o, i) {
+        if (!o || typeof o !== "object") { errores.push({ fila: i + 1, error: "no es un objeto" }); return; }
+        const fila = {};
+        Object.keys(o).forEach(function (k) {
+          const campo = invCampoImport(k);
+          if (campo && (fila[campo] == null || fila[campo] === "")) fila[campo] = o[k];
+        });
+        // JSON ya puede venir con los nombres del núcleo.
+        ["nombre", "codigo", "precio", "costo", "stock", "stock_minimo", "marca", "categoria", "unidad", "iva", "proveedor", "notas"].forEach(function (c) {
+          if (fila[c] == null && o[c] != null) fila[c] = o[c];
+        });
+        if (!String(fila.nombre || "").trim()) { errores.push({ fila: i + 1, error: "sin nombre" }); return; }
+        productos.push(invProductoImport(fila, i));
+      });
+      return { productos: productos, errores: errores, formato: "JSON" };
+    } catch (e) {
+      // Si el JSON está mal, se intenta como tabla: puede ser un CSV que
+      // empieza con una llave en el primer campo.
+    }
+  }
+
+  // 2) Tabla CSV/TSV.
+  const delim = invDetectarDelimitador(texto);
+  const lineas = texto.split(/\r?\n/).filter(function (l) { return l.trim(); });
+  if (!lineas.length) return vacio;
+
+  let encabezados = invSepararLinea(lineas[0], delim);
+  let mapeados = encabezados.map(invCampoImport);
+  let desde = 1;
+  const sinMapeo = mapeados.filter(function (m) { return !!m; }).length;
+  // Sin encabezado reconocible: se asume el orden clásico
+  // código, nombre, precio, stock.
+  if (sinMapeo === 0) {
+    encabezados = ["codigo", "nombre", "precio", "stock", "costo", "stock_minimo", "marca", "categoria", "unidad"];
+    mapeados = encabezados.slice();
+    desde = 0;
+  }
+
+  const productos = [];
+  const errores = [];
+  for (let i = desde; i < lineas.length; i++) {
+    const celdas = invSepararLinea(lineas[i], delim);
+    if (!celdas.length || (celdas.length === 1 && !celdas[0])) continue;
+    const fila = {};
+    mapeados.forEach(function (campo, j) {
+      if (campo && celdas[j] != null && fila[campo] == null) fila[campo] = celdas[j];
+    });
+    if (!String(fila.nombre || "").trim()) { errores.push({ fila: i + 1, error: "sin nombre" }); continue; }
+    productos.push(invProductoImport(fila, productos.length));
+  }
+  return { productos: productos, errores: errores, formato: delim === "\t" ? "TSV" : "CSV" };
+}
+
+/** Vista previa antes de importar. No escribe nada en la base. */
+function invImportarPrevia() {
+  const texto = (document.getElementById("invImportarTexto") || {}).value || "";
+  const caja = document.getElementById("invImportarPrevia");
+  const btn = document.getElementById("btnInvImportarEjecutar");
+  if (!caja) return;
+  if (!texto.trim()) {
+    INV.importar = null;
+    caja.innerHTML = `<p class="inv-ayuda">Pega los datos o elige el archivo exportado de la otra base.</p>`;
+    if (btn) btn.disabled = true;
+    return;
+  }
+  const r = invParseImportacion(texto);
+  INV.importar = r;
+  const muestra = r.productos.slice(0, 6).map(function (p) {
+    return `<tr><td>${esc(p.codigo)}</td><td>${esc(p.nombre)}</td><td class="num">${invClp(p.precio)}</td><td class="num">${p.stock}</td></tr>`;
+  }).join("");
+  caja.innerHTML = `
+    <div class="inv-meta">
+      <span class="inv-chip lima">${r.formato || "?"}</span>
+      <span class="inv-chip">${r.productos.length} producto(s) válidos</span>
+      ${r.errores.length ? `<span class="inv-chip baja">${r.errores.length} fila(s) con problema</span>` : ""}
+    </div>
+    <div class="inv-tabla-scroll">
+      <table class="inv-tabla">
+        <thead><tr><th>Código</th><th>Nombre</th><th class="num">Precio</th><th class="num">Stock</th></tr></thead>
+        <tbody>${muestra || `<tr><td colspan="4">Nada reconocible todavía.</td></tr>`}</tbody>
+      </table>
+    </div>
+    ${r.errores.length ? `<p class="inv-ayuda">Se omitirán ${r.errores.length} fila(s) sin nombre (fila ${r.errores.slice(0, 5).map(function (e) { return e.fila; }).join(", ")}).</p>` : ""}`;
+  if (btn) btn.disabled = r.productos.length === 0;
+}
+
+/** Envía el lote a la base en una sola operación. */
+function invImportarEjecutar() {
+  const r = INV.importar || invParseImportacion((document.getElementById("invImportarTexto") || {}).value || "");
+  if (!r || !r.productos.length) { invAviso("No hay productos válidos para importar", "error"); return; }
+  const btn = document.getElementById("btnInvImportarEjecutar");
+  if (btn) btn.disabled = true;
+  invAviso("Importando " + r.productos.length + " producto(s)...");
+  invApiTarde("importar", { productos: r.productos, origen: "importado" }, { maxMs: 60000 })
+    .then(function (res) {
+      if (btn) btn.disabled = false;
+      if (!res.ok) { invAviso("Importación fallida: " + (res.error || "error"), "error"); return; }
+      const d = res.data || {};
+      revision("inventario", "info", "importación masiva completada",
+        (d.nuevos || 0) + " nuevos · " + (d.actualizados || 0) + " actualizados · " +
+        (d.con_error || 0) + " con error", 0, "inventario");
+      invAviso("Importado · " + (d.nuevos || 0) + " nuevos · " + (d.actualizados || 0) + " actualizados" +
+        ((d.con_error || 0) ? " · " + d.con_error + " con error" : ""));
+      invSello("Importación lista");
+      const t = document.getElementById("invImportarTexto");
+      if (t) t.value = "";
+      INV.importar = null;
+      invImportarPrevia();
+      invRefrescar();
+    });
+}
+
+/* ── dibujo: miniatura y código de barras ──────────────────────────────────
+   La miniatura se dibuja en canvas a partir del código del producto (color
+   estable por producto + iniciales), así que no dependen de internet ni de
+   archivos. Si la ficha trae una imagen real de las bases libres, esa manda.
+   El código de barras se dibuja como SVG en línea (EAN-13 si el dígito de
+   control es válido, Code 39 si no), sin librerías. */
+
+const EAN_L_BITS = ["0001101", "0011001", "0010011", "0111101", "0100011",
+  "0110001", "0101111", "0111011", "0110111", "0001011"];
+const EAN_G_BITS = ["0100111", "0110011", "0011011", "0100001", "0011101",
+  "0111001", "0000101", "0010001", "0001001", "0010111"];
+const EAN_R_BITS = ["1110010", "1100110", "1101100", "1000010", "1011100",
+  "1001110", "1010000", "1000100", "1001000", "1110100"];
+
+/** Módulos (0/1) de un EAN-13 válido, o "" si no lo es. */
+function invBitsEan13(codigo) {
+  const c = String(codigo || "");
+  if (!/^\d{13}$/.test(c) || !invEanValido(c)) return "";
+  const paridad = EAN_PARIDAD[Number(c[0])] || "LLLLLL";
+  let bits = "101";
+  for (let i = 1; i <= 6; i++) {
+    const d = Number(c[i]);
+    bits += paridad[i - 1] === "G" ? EAN_G_BITS[d] : EAN_L_BITS[d];
+  }
+  bits += "01010";
+  for (let i = 7; i <= 12; i++) bits += EAN_R_BITS[Number(c[i])];
+  bits += "101";
+  return bits;
+}
+
+/* Code 39: 9 elementos por carácter (5 barras + 4 espacios), 3 anchos. */
+const CODE39_BITS = {
+  "0": "101001101101", "1": "110100101011", "2": "101100101011",
+  "3": "110110010101", "4": "101001101011", "5": "110100110101",
+  "6": "101100110101", "7": "101001011011", "8": "110100101101",
+  "9": "101100101101", "A": "110101001011", "B": "101101001011",
+  "C": "110110100101", "D": "101011001011", "E": "110101100101",
+  "F": "101101100101", "G": "101010011011", "H": "110101001101",
+  "I": "101101001101", "J": "101011001101", "K": "110101010011",
+  "L": "101101010011", "M": "110110101001", "N": "101011010011",
+  "O": "110101101001", "P": "101101101001", "Q": "101010110011",
+  "R": "110101011001", "S": "101101011001", "T": "101011011001",
+  "U": "110010101011", "V": "100110101011", "W": "110011010101",
+  "X": "100101101011", "Y": "110010110101", "Z": "100110110101",
+  "-": "100101011011", ".": "110010101101", " ": "100110101101",
+  "$": "100100100101", "/": "100100101001", "+": "100101001001",
+  "%": "101001001001", "*": "100101101101"
+};
+
+/** Módulos (0/1) de un Code 39, o "" si no queda ningún carácter válido. */
+function invBitsCode39(texto) {
+  const limpio = String(texto || "").toUpperCase().replace(/[^0-9A-Z\-. $/+%]/g, "");
+  if (!limpio) return "";
+  const cadena = ("*" + limpio + "*").split("");
+  const partes = [];
+  for (let i = 0; i < cadena.length; i++) {
+    const b = CODE39_BITS[cadena[i]];
+    if (b) partes.push(b);
+  }
+  return partes.join("0");
+}
+
+/** SVG en línea del código de barras (vacío si no hay nada que dibujar). */
+function invBarrasSvg(codigo, alto) {
+  const txt = String(codigo || "").replace(/\s/g, "");
+  if (!txt) return "";
+  let bits = invBitsEan13(txt);
+  if (!bits) bits = invBitsCode39(txt);
+  if (!bits) return "";
+  const h = alto || 30;
+  let x = 0;
+  let rects = "";
+  for (let i = 0; i < bits.length; i++) {
+    if (bits[i] !== "1") { x++; continue; }
+    let w = 1;
+    while (i + w < bits.length && bits[i + w] === "1") w++;
+    rects += `<rect x="${x}" y="0" width="${w}" height="${h}"/>`;
+    x += w;
+    i += w - 1;
+  }
+  return `<svg class="inv-barras" viewBox="0 0 ${bits.length} ${h}" ` +
+    `preserveAspectRatio="none" role="img" aria-label="código ${esc(txt)}" ` +
+    `fill="currentColor" shape-rendering="crispEdges">${rects}</svg>`;
+}
+
+/** Hash estable de una cadena (para el color de la miniatura). */
+function invHash(s) {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return Math.abs(h);
+}
+
+/** Dibuja la miniatura de un producto en su canvas (sin red, determinista). */
+function invDibujarMiniatura(cv, p) {
+  if (!cv || !p) return;
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const lado = 64;
+  const w = Math.round(lado * dpr);
+  if (cv.width !== w || cv.height !== w) { cv.width = w; cv.height = w; }
+  const ctx = cv.getContext("2d");
+  if (!ctx) return;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, w, w);
+
+  const h = invHash(String(p.codigo || p.nombre || "?"));
+  const tono = h % 360;
+  const grad = ctx.createLinearGradient(0, 0, w, w);
+  grad.addColorStop(0, "hsl(" + tono + ", 62%, 42%)");
+  grad.addColorStop(1, "hsl(" + ((tono + 42) % 360) + ", 58%, 26%)");
+  // Fondo redondeado.
+  const r = Math.round(w * 0.24);
+  ctx.beginPath();
+  ctx.moveTo(r, 0);
+  ctx.arcTo(w, 0, w, w, r);
+  ctx.arcTo(w, w, 0, w, r);
+  ctx.arcTo(0, w, 0, 0, r);
+  ctx.arcTo(0, 0, w, 0, r);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Brillo diagonal sutil.
+  ctx.save();
+  ctx.clip();
+  ctx.globalAlpha = 0.10;
+  ctx.strokeStyle = "#FFFFFF";
+  ctx.lineWidth = Math.max(2, w * 0.06);
+  for (let k = -w; k < w * 2; k += Math.max(10, w * 0.22)) {
+    ctx.beginPath();
+    ctx.moveTo(k, 0);
+    ctx.lineTo(k - w, w);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // Iniciales (o inicial del nombre).
+  const nombre = String(p.nombre || p.codigo || "?").trim();
+  const partes = nombre.split(/\s+/).filter(Boolean);
+  const ini = (partes.length > 1
+    ? (partes[0][0] || "") + (partes[1][0] || "")
+    : nombre.slice(0, 2)).toUpperCase();
+  ctx.fillStyle = "rgba(255,255,255,0.96)";
+  ctx.font = "700 " + Math.round(w * 0.40) + "px -apple-system, Roboto, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(ini, w / 2, w * 0.54);
+}
+
+/**
+ * OCR: comprueba si el proceso tiene un motor de reconocimiento y, sólo en ese
+ * caso, muestra el botón. Un botón que siempre dice «no disponible» es peor que
+ * no tenerlo; así la función se enciende sola cuando el build lo incluya.
+ */
+function invOcrIniciar() {
+  if (INV.ocrComprobado) return;
+  INV.ocrComprobado = true;
+  let st = null;
+  try {
+    if (window.FabrickNative && typeof window.FabrickNative.ocrEstado === "function") {
+      st = JSON.parse(window.FabrickNative.ocrEstado());
+    }
+  } catch (e) { st = null; }
+  INV.ocr = st || { disponible: false, motivo: "sin puente nativo" };
+  const btn = document.getElementById("btnInvOcr");
+  if (btn) btn.hidden = !INV.ocr.disponible;
+  if (INV.ocr.disponible) {
+    revision("inventario", "info", "OCR disponible", String(INV.ocr.motor || ""), 0, "ocr");
+  }
+}
+
+function invOcrPanel(abrir) {
+  const caja = document.getElementById("invOcrPanel");
+  if (!caja) return;
+  caja.hidden = !abrir;
+  if (abrir) {
+    const estado = document.getElementById("invOcrEstado");
+    if (estado) estado.textContent = "Motor: " + (INV.ocr && INV.ocr.motor ? INV.ocr.motor : "—") +
+      " · la imagen no sale del teléfono.";
+  }
+}
+
+/** Lee la foto elegida y pide el texto al motor nativo. */
+function invOcrImagen(ev) {
+  const input = ev && ev.target ? ev.target : document.getElementById("invOcrImagen");
+  const f = input && input.files && input.files[0];
+  if (!f) return;
+  const estado = document.getElementById("invOcrEstado");
+  const salida = document.getElementById("invOcrTexto");
+  if (estado) estado.textContent = "Reconociendo el texto de la foto...";
+  if (salida) salida.value = "";
+  const lector = new FileReader();
+  lector.onload = function () {
+    const dataUrl = String(lector.result || "");
+    // Se cede un cuadro para que el aviso se pinte antes de la llamada.
+    setTimeout(function () {
+      let r = null;
+      const t0 = Date.now();
+      try {
+        r = JSON.parse(window.FabrickNative.ocr(dataUrl));
+      } catch (e) {
+        r = { ok: false, error: String(e) };
+      }
+      const ms = Date.now() - t0;
+      if (!r || !r.ok) {
+        if (estado) estado.textContent = "OCR: " + ((r && (r.error || r.motivo)) || "sin respuesta");
+        revision("inventario", "aviso", "OCR sin resultado", String((r && (r.error || r.motivo)) || ""), ms, "ocr");
+        return;
+      }
+      if (salida) salida.value = r.texto || "";
+      if (estado) estado.textContent = (r.texto ? "Texto reconocido" : "No se encontró texto legible") +
+        " · " + ms + " ms";
+      revision("inventario", "info", "OCR completado", (r.texto || "").slice(0, 60), ms, "ocr");
+    }, 40);
+  };
+  lector.onerror = function () { if (estado) estado.textContent = "No se pudo leer la imagen."; };
+  lector.readAsDataURL(f);
+}
+
+/** Usa la primera línea reconocida como nombre del producto nuevo. */
+function invOcrUsarNombre() {
+  const texto = ((document.getElementById("invOcrTexto") || {}).value || "").trim();
+  if (!texto) { toast("No hay texto reconocido", "error"); return; }
+  const nombre = texto.split(/\r?\n/).map(function (x) { return x.trim(); })
+    .filter(Boolean).slice(0, 2).join(" ").slice(0, 90);
+  invOcrPanel(false);
+  invFormulario({ nombre: nombre, origen: "ocr" });
+}
+
 /* ── paso 2 · productos ─────────────────────────────────────────────────── */
+
+const INV_CAT_LOTE = 80;
 
 function invPintarProductos() {
   const caja = document.getElementById("invLista");
@@ -1051,7 +1869,7 @@ function invPintarProductos() {
   const bajo = (document.getElementById("invSoloBajo") || {}).checked ? 1 : 0;
 
   const t = texto.trim().toLowerCase();
-  let lista = INV.productos.filter(function (p) {
+  const lista = INV.productos.filter(function (p) {
     if (categoria && p.categoria !== categoria) return false;
     if (free && (invFichaDe(p).etiquetas || []).indexOf(free) < 0) return false;
     if (bajo && !(p.stock <= p.stock_minimo)) return false;
@@ -1059,47 +1877,42 @@ function invPintarProductos() {
     return (p.nombre + " " + p.marca + " " + p.codigo + " " + p.categoria).toLowerCase().indexOf(t) >= 0;
   });
 
+  INV._catLista = lista;
+  INV._catMostrar = INV_CAT_LOTE;
+  invPintarCatalogo();
+}
+
+/** Pinta el catálogo en tarjetas (miniatura + código de barras + acciones). */
+function invPintarCatalogo() {
+  const caja = document.getElementById("invLista");
+  if (!caja) return;
+  const lista = INV._catLista || [];
   if (!lista.length) {
     caja.innerHTML = `<div class="inv-vacio">${INV.productos.length
       ? "Ningún producto coincide con el filtro."
-      : "Todavía no hay productos. Escanea un código o crea uno con «Nuevo producto»."}</div>`;
+      : "Todavía no hay productos. Escanea un código, impórtalos o crea uno con «Nuevo producto»."}</div>`;
     return;
   }
+  const hasta = Math.min(lista.length, INV._catMostrar || INV_CAT_LOTE);
+  const restantes = lista.length - hasta;
+  caja.innerHTML = `<div class="inv-catalogo">` +
+    lista.slice(0, hasta).map(invCardHtml).join("") + `</div>` +
+    (restantes > 0
+      ? `<button class="btn inv-cat-mas" id="invCatMas" type="button">${ico("mas", 15)} Ver ${restantes} más</button>`
+      : "");
 
-  caja.innerHTML = lista.map(function (p) {
-    const bajoStock = p.stock <= p.stock_minimo;
-    return `
-      <article class="inv-item">
-        <div class="inv-item-cab">
-          <div>
-            <h4>${esc(p.nombre)}</h4>
-            <p>${esc(p.codigo)}${p.marca ? " · " + esc(p.marca) : ""}</p>
-          </div>
-          <span class="inv-precio">${invClp(p.precio)}</span>
-        </div>
-        <div class="inv-item-meta">
-          <span class="inv-chip">${esc(INV_CATEGORIAS[p.categoria] || p.categoria)}</span>
-          <span class="inv-chip ${bajoStock ? "lima" : ""}">stock ${p.stock}${bajoStock ? " · bajo" : ""}</span>
-          <span class="inv-chip">costo ${invClp(p.costo)}</span>
-          <span class="inv-chip">margen ${p.margen}%</span>
-          ${(invFichaDe(p).etiquetas || []).map(function (id) {
-            return `<span class="inv-chip lima">${esc(invFreeEtiqueta(id))}</span>`;
-          }).join("")}
-          ${invFichaDe(p).nutriscore
-            ? `<span class="inv-chip">Nutri-Score ${esc(String(invFichaDe(p).nutriscore).toUpperCase())}</span>`
-            : ""}
-          ${p.pendiente_sync ? `<span class="inv-chip">sin sync</span>` : ""}
-        </div>
-        <div class="inv-item-acciones">
-          <button class="btn" data-inv-editar="${esc(p.codigo)}">Editar</button>
-          <button class="btn" data-inv-precios="${esc(p.codigo)}">Precios</button>
-          <button class="btn" data-inv-mas="${esc(p.codigo)}">+1</button>
-          <button class="btn" data-inv-menos="${esc(p.codigo)}">−1</button>
-          <button class="btn" data-inv-carrito="${esc(p.codigo)}">A boleta</button>
-          <button class="btn" data-inv-borrar="${esc(p.codigo)}">Borrar</button>
-        </div>
-      </article>`;
-  }).join("");
+  // Miniaturas: se dibujan en el siguiente cuadro para no bloquear el toque.
+  requestAnimationFrame(function () {
+    caja.querySelectorAll("canvas[data-inv-mini]").forEach(function (cv) {
+      invDibujarMiniatura(cv, invPorCodigo(cv.dataset.invMini));
+    });
+  });
+
+  const mas = document.getElementById("invCatMas");
+  if (mas) mas.addEventListener("click", function () {
+    INV._catMostrar = (INV._catMostrar || INV_CAT_LOTE) + INV_CAT_LOTE;
+    invPintarCatalogo();
+  });
 
   caja.querySelectorAll("[data-inv-editar]").forEach(function (b) {
     b.addEventListener("click", function () { invFormulario(invPorCodigo(b.dataset.invEditar)); });
@@ -1119,6 +1932,53 @@ function invPintarProductos() {
   caja.querySelectorAll("[data-inv-borrar]").forEach(function (b) {
     b.addEventListener("click", function () { invBorrar(b.dataset.invBorrar); });
   });
+}
+
+/** Tarjeta de catálogo de un producto. */
+function invCardHtml(p) {
+  const bajoStock = Number(p.stock) <= Number(p.stock_minimo);
+  const f = invFichaDe(p);
+  const cat = INV_CATEGORIAS[p.categoria] || p.categoria || "Otros";
+  const mini = f.imagen
+    ? `<img src="${esc(f.imagen)}" alt="" loading="lazy" onerror="this.parentNode.classList.add('sin-img');this.remove()" />`
+    : `<canvas data-inv-mini="${esc(p.codigo)}" width="64" height="64" aria-hidden="true"></canvas>`;
+  const chips = [
+    `<span class="inv-chip">${esc(cat)}</span>`,
+    `<span class="inv-chip ${bajoStock ? "baja" : ""}">stock ${p.stock}${bajoStock ? " · bajo" : ""}</span>`,
+    `<span class="inv-chip">costo ${invClp(p.costo)}</span>`
+  ];
+  (f.etiquetas || []).slice(0, 2).forEach(function (id) {
+    chips.push(`<span class="inv-chip lima">${esc(invFreeEtiqueta(id))}</span>`);
+  });
+  if (f.nutriscore) chips.push(`<span class="inv-chip">Nutri-Score ${esc(String(f.nutriscore).toUpperCase())}</span>`);
+  if (p.pendiente_sync) chips.push(`<span class="inv-chip">sin sync</span>`);
+
+  return `<article class="inv-card${bajoStock ? " bajo" : ""}">
+    <div class="inv-card-cab">
+      <div class="inv-card-mini">${mini}</div>
+      <div class="inv-card-id">
+        <h4>${esc(p.nombre)}</h4>
+        <p>${p.marca ? esc(p.marca) + " · " : ""}${esc(cat)}</p>
+        <div class="inv-card-cod">
+          ${invBarrasSvg(p.codigo, 26)}
+          <span>${esc(p.codigo)}</span>
+        </div>
+      </div>
+      <div class="inv-card-precio">
+        <strong>${invClp(p.precio)}</strong>
+        <span>margen ${p.margen != null ? p.margen : 0}%</span>
+      </div>
+    </div>
+    <div class="inv-item-meta">${chips.join("")}</div>
+    <div class="inv-item-acciones">
+      <button class="btn" data-inv-editar="${esc(p.codigo)}" title="Editar">${ico("editar", 14)} Editar</button>
+      <button class="btn" data-inv-precios="${esc(p.codigo)}" title="Precios">${ico("etiqueta", 14)} Precios</button>
+      <button class="btn" data-inv-mas="${esc(p.codigo)}" title="Sumar 1 al stock">${ico("mas", 14)} 1</button>
+      <button class="btn" data-inv-menos="${esc(p.codigo)}" title="Restar 1 al stock">${ico("menos", 14)} 1</button>
+      <button class="btn" data-inv-carrito="${esc(p.codigo)}" title="Agregar a la boleta">${ico("carrito", 14)} A boleta</button>
+      <button class="btn" data-inv-borrar="${esc(p.codigo)}" title="Borrar">${ico("borrar", 14)}</button>
+    </div>
+  </article>`;
 }
 
 function invPorCodigo(codigo) {
@@ -1465,13 +2325,17 @@ function invPintarCarrito() {
   if (!caja) return;
   if (!INV.carrito.length) {
     caja.innerHTML = `<div class="inv-vacio">Carrito vacío.</div>`;
-    if (vista) vista.innerHTML = `<p class="inv-ayuda">El carrito está vacío.</p>`;
+    if (vista) vista.innerHTML = `<div class="tk-vacio">${ico("carrito", 30)}<p>El carrito está vacío.<br>Agrega un producto para ver la boleta.</p></div>`;
     return;
   }
   caja.innerHTML = INV.carrito.map(function (x, i) {
     return `<div class="inv-carrito-item">
-      <span>${esc(x.nombre)} × ${x.cantidad}</span>
-      <span>${invClp(x.precio * x.cantidad)} <button data-inv-quitar="${i}" aria-label="Quitar">×</button></span>
+      <div class="inv-carrito-nom">
+        <strong>${esc(x.nombre)}</strong>
+        <span>${x.cantidad} × ${invClp(x.precio)}</span>
+      </div>
+      <span class="inv-carrito-sub">${invClp(x.precio * x.cantidad)}</span>
+      <button class="inv-carrito-quitar" data-inv-quitar="${i}" aria-label="Quitar" title="Quitar">${ico("cerrar", 14)}</button>
     </div>`;
   }).join("");
   caja.querySelectorAll("[data-inv-quitar]").forEach(function (b) {
@@ -1482,20 +2346,78 @@ function invPintarCarrito() {
   });
 
   const total = INV.carrito.reduce(function (a, x) { return a + x.precio * x.cantidad; }, 0);
-  const iva = total - total / 1.19;
   if (vista) {
-    vista.innerHTML = `
-      <h3>FABRI-CORE</h3>
-      <div class="nota">Boleta pendiente de emitir</div>
-      <hr />
-      ${INV.carrito.map(function (x) {
-        return `<div class="linea"><span>${esc(x.nombre)} × ${x.cantidad}</span><span>${invClp(x.precio * x.cantidad)}</span></div>`;
-      }).join("")}
-      <hr />
-      <div class="linea"><span>Neto</span><span>${invClp(total / 1.19)}</span></div>
-      <div class="linea"><span>IVA 19%</span><span>${invClp(iva)}</span></div>
-      <div class="linea total"><span>Total</span><span>${invClp(total)}</span></div>`;
+    const pseudo = {
+      folio: "—",
+      fecha: Math.floor(Date.now() / 1000),
+      cliente: (document.getElementById("invCliente") || {}).value || "",
+      rut: (document.getElementById("invRut") || {}).value || "",
+      pago: (document.getElementById("invPago") || {}).value || "efectivo",
+      items: INV.carrito,
+      neto: total - total / 1.19,
+      iva: total - total / 1.19,
+      total: total
+    };
+    vista.innerHTML = invTicketCuerpo(pseudo, { vista: true });
   }
+}
+
+/**
+ * Cuerpo del ticket, compartido por la vista en pantalla y el documento de
+ * impresión. Lleva identidad del negocio, folio, cliente, detalle con cantidad
+ * y precio unitario, totales, código de barras del folio y «¡GRACIAS!».
+ */
+function invTicketCuerpo(b, opts) {
+  const o = opts || {};
+  const n = invNegocio();
+  const fecha = new Date(((b.fecha || b.ts || Math.floor(Date.now() / 1000))) * 1000)
+    .toLocaleString("es-CL", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  const items = (b.items || []).map(function (x) {
+    const cant = Number(x.cantidad || 1);
+    const precio = Number(x.precio || 0);
+    return `<div class="tk-item">
+      <div class="tk-item-nom">${esc(x.nombre || x.codigo)}</div>
+      <div class="tk-item-calc"><span>${cant} × ${invClp(precio)}</span><span>${invClp(precio * cant)}</span></div>
+    </div>`;
+  }).join("");
+  const total = Number(b.total || 0);
+  const neto = b.neto != null ? Number(b.neto) : total / 1.19;
+  const iva = b.iva != null ? Number(b.iva) : total - neto;
+  const logo = n.logo
+    ? `<img class="tk-logo-img" src="${esc(n.logo)}" alt="" />`
+    : `<div class="tk-logo">${esc((n.nombre || "F").slice(0, 1).toUpperCase())}</div>`;
+  const lineas = [
+    n.razon && n.razon !== n.nombre ? n.razon : "",
+    n.rut ? "RUT " + n.rut : "",
+    n.giro || "",
+    n.direccion || "",
+    n.telefono ? "Tel. " + n.telefono : "",
+    n.email || ""
+  ].filter(Boolean);
+
+  return `<div class="tk">
+    <div class="tk-cab">
+      ${logo}
+      <h3 class="tk-nombre">${esc(n.nombre)}</h3>
+      ${lineas.map(function (x) { return `<p class="tk-dato">${esc(x)}</p>`; }).join("")}
+    </div>
+    <div class="tk-sep"></div>
+    <div class="tk-fila tk-fuerte"><span>BOLETA</span><span>N° ${esc(b.folio)}</span></div>
+    <div class="tk-fila"><span>${esc(fecha)}</span><span>${esc(b.pago || "efectivo")}</span></div>
+    <div class="tk-fila"><span>${esc(b.cliente || "Consumidor final")}</span>${b.rut ? `<span>${esc(b.rut)}</span>` : ""}</div>
+    <div class="tk-sep"></div>
+    <div class="tk-cabecera-items"><span>Detalle</span><span>Subtotal</span></div>
+    <div class="tk-items">${items || `<div class="tk-fila"><span>Sin productos</span><span>—</span></div>`}</div>
+    <div class="tk-sep"></div>
+    <div class="tk-fila"><span>Neto</span><span>${invClp(neto)}</span></div>
+    <div class="tk-fila"><span>IVA 19%</span><span>${invClp(iva)}</span></div>
+    <div class="tk-total"><span>TOTAL</span><span>${invClp(total)}</span></div>
+    <div class="tk-sep"></div>
+    <div class="tk-barras">${invBarrasSvg(o.vista ? "PREVIA" : b.folio, 34)}</div>
+    <p class="tk-folio">${o.vista ? "vista previa · sin emitir" : "Folio " + esc(b.folio)}</p>
+    <div class="tk-gracias">¡GRACIAS POR SU COMPRA!</div>
+    <p class="tk-pie">Documento generado por FABRI-CORE<br />no es boleta tributaria electrónica</p>
+  </div>`;
 }
 
 function invEmitirBoleta() {
@@ -1510,10 +2432,18 @@ function invEmitirBoleta() {
     if (!r.ok) { toast("No se pudo emitir: " + (r.error || "error"), "error"); return; }
     INV.boleta = r.data;
     revision("inventario", "info", "boleta emitida", "folio " + r.data.folio + " · " + invClp(r.data.total));
-    const vista = document.getElementById("invBoletaVista");
-    if (vista) vista.innerHTML = invBoletaHtml(r.data, true);
+    // El carrito se vacía primero y la boleta se pinta después: si no, el
+    // pintado del carrito vacío tapaba el ticket recién emitido.
     INV.carrito = [];
     invPintarCarrito();
+    const vista = document.getElementById("invBoletaVista");
+    if (vista) {
+      vista.innerHTML = invTicketCuerpo(r.data, {});
+      vista.classList.remove("imprimiendo");
+      void vista.offsetWidth;
+      vista.classList.add("imprimiendo");
+    }
+    try { sonidoImpresion(); } catch (e) {}
     invRefrescar();
     invBoletasHistorial();
     invSello("Boleta " + r.data.folio + " emitida");
@@ -1544,104 +2474,56 @@ function invNegocio() {
   };
 }
 
-function invBoletaHtml(b, imprimible) {
-  const fecha = new Date((b.fecha || Math.floor(Date.now() / 1000)) * 1000)
-    .toLocaleString("es-CL");
-  const items = (b.items || []).map(function (x) {
-    const cant = Number(x.cantidad || 1);
-    return `<div class="linea"><span>${esc(x.nombre || x.codigo)} × ${cant}</span>
-      <span>${invClp(Number(x.precio || 0) * cant)}</span></div>`;
-  }).join("");
-  const n = invNegocio();
-  const logo = n.logo
-    ? `<img src="${esc(n.logo)}" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:12px;display:block;margin:0 auto 6px" />`
-    : "";
-  const lineasNegocio = [
-    n.razon ? esc(n.razon) : "",
-    n.rut ? "RUT " + esc(n.rut) : "",
-    n.giro ? esc(n.giro) : "",
-    n.direccion ? esc(n.direccion) : "",
-    n.telefono ? "Tel. " + esc(n.telefono) : "",
-    n.email ? esc(n.email) : ""
-  ].filter(Boolean).map(function (x) { return `<div class="nota">${x}</div>`; }).join("");
-  return `
-    ${logo}
-    <h3>${esc(n.nombre)}</h3>
-    ${lineasNegocio}
-    ${n.cliente ? `<div class="nota">ID cliente: ${esc(n.cliente)}</div>` : ""}
-    <hr />
-    <div class="nota">Boleta N° ${esc(b.folio)} · ${esc(fecha)}</div>
-    <div class="nota">${esc(b.cliente || "Consumidor final")}${b.rut ? " · " + esc(b.rut) : ""}</div>
-    <div class="nota">Pago: ${esc(b.pago || "efectivo")}</div>
-    <hr />
-    ${items}
-    <hr />
-    <div class="linea"><span>Neto</span><span>${invClp(b.neto)}</span></div>
-    <div class="linea"><span>IVA</span><span>${invClp(b.iva)}</span></div>
-    <div class="linea total"><span>Total</span><span>${invClp(b.total)}</span></div>
-    ${imprimible ? `<hr /><div class="nota">Documento generado por FABRI-CORE · no es boleta tributaria electrónica</div>` : ""}`;
-}
-
 /** Documento completo listo para imprimir (rollo térmico o A4). */
 function invBoletaDocumento(b, formato) {
   const fmt = formato || "80mm";
-  const ancho = fmt === "a4" ? "190mm" : (fmt === "58mm" ? "48mm" : "72mm");
-  const base = fmt === "a4" ? 12 : 11;
-  const fecha = new Date((b.fecha || b.ts || Math.floor(Date.now() / 1000)) * 1000)
-    .toLocaleString("es-CL");
-  const items = (b.items || []).map(function (x) {
-    const cant = Number(x.cantidad || 1);
-    return `<div class="linea"><span>${esc(x.nombre || x.codigo)} × ${cant}</span>
-      <span>${invClp(Number(x.precio || 0) * cant)}</span></div>`;
-  }).join("");
-  const n = invNegocio();
-  const logoDoc = n.logo
-    ? `<img src="${esc(n.logo)}" alt="" style="width:22mm;height:22mm;object-fit:contain;display:block;margin:0 auto 2mm" />`
-    : "";
-  const lineasDoc = [
-    n.razon ? esc(n.razon) : "",
-    n.rut ? "RUT " + esc(n.rut) : "",
-    n.giro ? esc(n.giro) : "",
-    n.direccion ? esc(n.direccion) : "",
-    n.telefono ? "Tel. " + esc(n.telefono) : "",
-    n.email ? esc(n.email) : ""
-  ].filter(Boolean).map(function (x) { return `<div class="nota">${x}</div>`; }).join("");
+  const ancho = fmt === "a4" ? "190mm" : (fmt === "58mm" ? "50mm" : "72mm");
+  const base = fmt === "a4" ? 13 : 11;
+  const cuerpo = invTicketCuerpo(b, {});
   return `<!doctype html><html lang="es"><head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Boleta ${esc(b.folio)}</title>
     <style>
       @page { size: ${ancho} auto; margin: 0; }
-      * { box-sizing: border-box; }
-      body { font-family: -apple-system, Roboto, "Courier New", monospace;
-             color: #000; margin: 0 auto; padding: 4mm; max-width: ${ancho};
-             font-size: ${base}px; line-height: 1.35; }
-      h1 { font-size: ${base + 5}px; letter-spacing: .28em; margin: 0 0 2mm; text-align: center; }
-      h2 { font-size: ${base + 1}px; margin: 0 0 1mm; text-align: center; font-weight: 600; }
-      .nota { font-size: ${base - 1}px; color: #222; }
-      hr { border: 0; border-top: 1px dashed #000; margin: 2mm 0; }
-      .linea { display: flex; justify-content: space-between; gap: 6px;
-               font-size: ${base}px; padding: .6mm 0; }
-      .linea span:first-child { flex: 1; }
-      .total { font-size: ${base + 4}px; font-weight: 700; }
-      .pie { text-align: center; font-size: ${base - 2}px; margin-top: 2mm; }
-    </style></head><body>
-    ${logoDoc}
-    <h1>${esc(n.nombre)}</h1>
-    ${lineasDoc}
-    ${n.cliente ? `<div class="nota">ID cliente: ${esc(n.cliente)}</div>` : ""}
-    <hr />
-    <h2>Boleta N° ${esc(b.folio)}</h2>
-    <div class="nota">${esc(fecha)}</div>
-    <div class="nota">${esc(b.cliente || "Consumidor final")}${b.rut ? " · " + esc(b.rut) : ""}</div>
-    <div class="nota">Pago: ${esc(b.pago || "efectivo")}</div>
-    <hr />
-    ${items}
-    <hr />
-    <div class="linea"><span>Neto</span><span>${invClp(b.neto)}</span></div>
-    <div class="linea"><span>IVA</span><span>${invClp(b.iva)}</span></div>
-    <div class="linea total"><span>Total</span><span>${invClp(b.total)}</span></div>
-    <hr />
-    <div class="pie">Documento generado por FABRI-CORE<br />no es boleta tributaria electrónica</div>
-    </body></html>`;
+      * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      html, body { margin: 0; padding: 0; background: #fff; color: #000; }
+      body { font-family: "Courier New", ui-monospace, Menlo, monospace;
+             font-size: ${base}px; line-height: 1.34; max-width: ${ancho};
+             margin: 0 auto; padding: ${fmt === "a4" ? "12mm" : "3mm"}; }
+      .tk { display: block; }
+      .tk-cab { text-align: center; }
+      .tk-logo { display: none; }
+      .tk-logo-img { width: 14mm; height: 14mm; object-fit: contain;
+                     display: block; margin: 0 auto 1mm; }
+      .tk-nombre { font-size: ${base + 5}px; font-weight: 800; margin: 0 0 1mm;
+                   letter-spacing: -0.01em; text-transform: uppercase; }
+      .tk-dato { margin: 0; font-size: ${base - 1}px; color: #222; }
+      .tk-sep { border: 0; border-top: 1px dashed #000; margin: 2mm 0; }
+      .tk-fila { display: flex; justify-content: space-between; gap: 4mm;
+                 font-size: ${base}px; padding: 0.3mm 0; }
+      .tk-fuerte { font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
+      .tk-cabecera-items { display: flex; justify-content: space-between;
+                 font-size: ${base - 1}px; text-transform: uppercase;
+                 letter-spacing: 0.08em; color: #333; margin-bottom: 0.6mm; }
+      .tk-items { display: block; }
+      .tk-item { padding: 0.5mm 0; }
+      .tk-item-nom { font-weight: 600; font-size: ${base}px; word-break: break-word; }
+      .tk-item-calc { display: flex; justify-content: space-between; gap: 4mm;
+                      font-size: ${base - 1}px; color: #333; }
+      .tk-total { display: flex; justify-content: space-between; align-items: baseline;
+                  font-size: ${base + 4}px; font-weight: 800;
+                  border-top: 2px solid #000; border-bottom: 2px solid #000;
+                  padding: 1mm 0; margin: 1mm 0; }
+      .tk-barras { margin: 2.5mm auto 0; width: 78%; height: 10mm; }
+      .tk-barras svg { width: 100%; height: 10mm; display: block; }
+      .tk-folio { text-align: center; font-size: ${base - 1}px; letter-spacing: 0.14em;
+                  margin: 1mm 0 0; text-transform: uppercase; }
+      .tk-gracias { text-align: center; font-weight: 800; font-size: ${base + 2}px;
+                    letter-spacing: 0.10em; margin: 2.5mm 0 1mm; }
+      .tk-pie { text-align: center; font-size: ${base - 2}px; color: #333;
+                margin: 1mm 0 0; line-height: 1.3; }
+      .tk-vacio { display: none; }
+    </style></head><body>${cuerpo}</body></html>`;
 }
 
 function invImprimir(formato, boleta) {
@@ -1655,6 +2537,13 @@ function invImprimir(formato, boleta) {
   if (btnImprimir) {
     btnImprimir.classList.add("btn-imprimiendo");
     btnImprimir.classList.remove("btn-listo");
+  }
+  try { sonidoImpresion(); } catch (e) {}
+  const vista = document.getElementById("invBoletaVista");
+  if (vista && vista.firstElementChild) {
+    vista.classList.remove("imprimiendo");
+    void vista.offsetWidth;
+    vista.classList.add("imprimiendo");
   }
   const finalizarAnimacion = function (ok) {
     if (!btnImprimir) return;

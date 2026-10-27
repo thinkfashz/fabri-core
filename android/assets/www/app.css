@@ -2551,3 +2551,48 @@ body {
   transform: scale(0.985);
   background: rgba(200, 255, 0, 0.07);
 }
+
+/* ── Verificación real del sistema (panel de revisión) ──────────────────── */
+.revision-verificacion {
+  margin: 10px 0;
+  padding: 12px;
+  border: 1px solid var(--borde);
+  border-radius: 12px;
+  background: var(--card);
+  display: grid;
+  gap: 10px;
+}
+.rev-verif-cab {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.rev-verif-cab strong { font-size: 14px; }
+.rev-verif-cab span { font-size: 11px; color: var(--texto-3); }
+.rev-verif-cab.bien strong { color: var(--acento); }
+.rev-verif-cab.mal strong { color: var(--error); }
+.rev-verif-lista { display: grid; gap: 4px; }
+.rev-verif-item {
+  display: grid;
+  grid-template-columns: minmax(120px, auto) 1fr;
+  gap: 10px;
+  padding: 6px 9px;
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  background: var(--elevado);
+  font-size: 12px;
+}
+.rev-verif-item.error { border-left: 3px solid var(--error); }
+.rev-verif-item.aviso { border-left: 3px solid var(--alerta); }
+.rev-verif-item.info { border-left: 3px solid var(--ok); }
+.rev-verif-prueba {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--texto-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rev-verif-detalle { color: var(--texto-3); font-size: 11px; }

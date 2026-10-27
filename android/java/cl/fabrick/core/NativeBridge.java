@@ -574,6 +574,23 @@ public final class NativeBridge {
         return RuntimeNativo.info();
     }
 
+    /**
+     * OCR del inventario. `ocrEstado` dice si hay motor de reconocimiento
+     * realmente disponible en el proceso (y con qué motor); `ocr` recibe una
+     * data URL y devuelve el texto. Se usa por reflexión (ver OcrNativo) para
+     * no mentir cuando el build no lo incluye: la interfaz sólo muestra el
+     * botón cuando `disponible` es verdadero.
+     */
+    @JavascriptInterface
+    public String ocrEstado() {
+        return OcrNativo.estado();
+    }
+
+    @JavascriptInterface
+    public String ocr(String dataUrl) {
+        return OcrNativo.texto(contexto, dataUrl);
+    }
+
     // ---------------------------------------------------- chat local (A2/A3)
 
     /** Estado del modelo local; no carga nada por sí solo. */

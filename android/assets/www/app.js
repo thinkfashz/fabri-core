@@ -3935,6 +3935,81 @@ function revisionExportar() {
   copiar(JSON.stringify(revCache, null, 2), "Registro copiado como JSON");
 }
 
+/**
+ * Comprobación REAL del sistema. No lee el registro (eso contestaría con lo
+ * que ya se escribió, aunque fuera de una versión vieja): pide al núcleo que
+ * ejecute las pruebas contra SQLite y el disco. El resultado se muestra aquí
+ * mismo y queda anotado en el registro.
+ */
+function revisionVerificar() {
+  const caja = document.getElementById("revisionVerificacion");
+  const btn = document.getElementById("btnRevisionVerificar");
+  if (caja) {
+    caja.hidden = false;
+    caja.innerHTML = '<p class="nota">Ejecutando pruebas reales sobre la base y el disco...</p>';
+  }
+  if (btn) btn.disabled = true;
+  if (!window.FabrickNative) {
+    if (caja) caja.innerHTML = '<p class="nota">El puente nativo no está disponible.</p>';
+    if (btn) btn.disabled = false;
+    return;
+  }
+  let r = null;
+  try {
+    const crudo = window.FabrickNative.call("revision.verificar", "{}");
+    r = crudo ? JSON.parse(crudo) : null;
+  } catch (e) {
+    r = { ok: false, error: String(e) };
+  }
+  if (btn) btn.disabled = false;
+  if (!r || !r.ok) {
+    if (caja) caja.innerHTML = '<p class="nota">No se pudo verificar: ' + esc((r && r.error) || "sin respuesta") + "</p>";
+    return;
+  }
+  const d = r.data || r;
+  const hallazgos = d.hallazgos || [];
+  const icono = d.errores > 0 ? "alerta" : "ok";
+  if (caja) {
+    caja.innerHTML =
+      '<div class="rev-verif-cab ' + (d.errores > 0 ? "mal" : "bien") + '">' +
+        '<strong>' + (d.errores > 0 ? "Se encontraron " + d.errores + " error(es)" : "Todo en orden") + "</strong>" +
+        '<span>' + (d.total || hallazgos.length) + " prueba(s) · " + (d.avisos || 0) + " aviso(s)</span>" +
+      "</div>" +
+      '<div class="rev-verif-lista">' +
+        hallazgos.map(function (h) {
+          return '<div class="rev-verif-item ' + esc(h.nivel) + '">' +
+            '<span class="rev-verif-prueba">' + esc(h.prueba) + "</span>" +
+            '<span class="rev-verif-detalle">' + esc(h.detalle) + "</span>" +
+          "</div>";
+        }).join("") +
+      "</div>";
+  }
+  toast(d.errores > 0 ? ("Verificación: " + d.errores + " error(es)") : "Verificación: sin errores",
+    d.errores > 0 ? "error" : "ok");
+  pintarRevision();
+}
+
+/** Borra del registro los errores viejos (o todo, si se confirma dos veces). */
+function revisionLimpiar() {
+  if (!window.FabrickNative) { toast("El puente nativo no está disponible", "error"); return; }
+  const todo = confirm("¿Borrar TODO el registro de revisión?\n\nAceptar = borrar todo · Cancelar = borrar solo errores y críticos.");
+  const modo = todo ? "todo" : "errores";
+  if (!todo && !confirm("Se borrarán los errores y críticos del registro. La historia útil (info y avisos) se conserva.\n\n¿Continuar?")) return;
+  let r = null;
+  try {
+    const crudo = window.FabrickNative.call("revision.limpiar", JSON.stringify({ modo: modo }));
+    r = crudo ? JSON.parse(crudo) : null;
+  } catch (e) {
+    r = { ok: false, error: String(e) };
+  }
+  if (!r || !r.ok) { toast("No se pudo limpiar: " + ((r && r.error) || "sin respuesta"), "error"); return; }
+  const d = r.data || r;
+  toast("Limpieza: " + (d.borrados || 0) + " fila(s) borrada(s)");
+  const caja = document.getElementById("revisionVerificacion");
+  if (caja) caja.hidden = true;
+  pintarRevision();
+}
+
 /* Errores globales: cualquier excepción no capturada queda registrada con su
    archivo y línea, en vez de morir en la consola del WebView. */
 window.addEventListener("error", function (ev) {
@@ -4984,6 +5059,8 @@ document.addEventListener("click", function (ev) {
   }
 
   if (ev.target.id === "btnRevisionRefrescar") { pintarRevision(); toast("Registro refrescado"); return; }
+  if (ev.target.id === "btnRevisionVerificar") { revisionVerificar(); return; }
+  if (ev.target.id === "btnRevisionLimpiar") { revisionLimpiar(); return; }
   if (ev.target.id === "btnRevisionExportar") { revisionExportar(); return; }
 
   if (ev.target.id === "btnBitacoraRefrescar") { bitacoraPintar(); toast("Bitácora refrescada"); return; }

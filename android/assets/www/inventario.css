@@ -894,3 +894,393 @@
   50% { transform: scale3d(1.1, 1.1, 1); }
 }
 
+
+/* ==========================================================================
+   Catálogo en tarjetas, apilador, importación, OCR y ticket
+   --------------------------------------------------------------------------
+   Iconos SVG en línea, miniaturas canvas, código de barras SVG y la boleta
+   con efecto de impresión. Nada de recursos externos.
+   ========================================================================== */
+
+/* ── iconos ─────────────────────────────────────────────────────────────── */
+.inv-ico {
+  display: inline-block;
+  vertical-align: -2px;
+  flex: 0 0 auto;
+  pointer-events: none;
+}
+.btn .inv-ico { margin-right: 1px; }
+.inv-paso .inv-ico { vertical-align: -3px; }
+
+/* ── catálogo en tarjetas ───────────────────────────────────────────────── */
+.inv-catalogo {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(286px, 1fr));
+  gap: 10px;
+}
+.inv-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--borde);
+  border-radius: 14px;
+  background: linear-gradient(180deg, var(--card), var(--elevado));
+  transition: border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+  animation: inv-card-in 200ms cubic-bezier(0.2, 0.9, 0.3, 1) both;
+}
+@keyframes inv-card-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .inv-card { animation: none; }
+}
+.inv-card:hover { border-color: var(--borde-fuerte); }
+.inv-card.bajo { border-color: rgba(200, 255, 0, 0.28); }
+.inv-card-cab {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+}
+.inv-card-mini {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--hundido);
+  display: grid;
+  place-items: center;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+.inv-card-mini canvas,
+.inv-card-mini img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+.inv-card-mini.sin-img::before {
+  content: "";
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: var(--borde);
+}
+.inv-card-id { min-width: 0; display: grid; gap: 3px; }
+.inv-card-id h4 {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.inv-card-id p { margin: 0; font-size: 11px; color: var(--texto-3); }
+.inv-card-cod {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+  color: var(--texto-2);
+  min-width: 0;
+}
+.inv-card-cod .inv-barras {
+  width: 92px;
+  height: 20px;
+  flex: 0 0 auto;
+  opacity: 0.9;
+}
+.inv-card-cod span {
+  font-family: var(--mono);
+  font-size: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0.85;
+}
+.inv-card-precio { text-align: right; display: grid; gap: 2px; }
+.inv-card-precio strong {
+  font-size: 16px;
+  color: var(--acento);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.inv-card-precio span { font-size: 10px; color: var(--texto-3); white-space: nowrap; }
+.inv-cat-mas { width: 100%; margin-top: 10px; }
+.inv-chip.baja {
+  color: #1a0505;
+  background: var(--alerta);
+  border-color: var(--alerta);
+  font-weight: 700;
+}
+
+/* ── miniatura reutilizable (apilador) ──────────────────────────────────── */
+.inv-mini {
+  border-radius: 10px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  background: var(--hundido);
+}
+img.inv-mini { object-fit: cover; }
+.inv-mini-icono { color: #fff; }
+.inv-mini-icono.cat-abarrotes { background: linear-gradient(135deg, #3f6212, #1a2e05); }
+.inv-mini-icono.cat-bebidas  { background: linear-gradient(135deg, #0e7490, #083344); }
+.inv-mini-icono.cat-alcohol  { background: linear-gradient(135deg, #7c2d12, #431407); }
+.inv-mini-icono.cat-dulces   { background: linear-gradient(135deg, #a21caf, #4a044e); }
+.inv-mini-icono.cat-lacteos  { background: linear-gradient(135deg, #1d4ed8, #172554); }
+.inv-mini-icono.cat-congelados { background: linear-gradient(135deg, #0891b2, #164e63); }
+.inv-mini-icono.cat-cosmetica { background: linear-gradient(135deg, #be185d, #500724); }
+.inv-mini-icono.cat-limpieza { background: linear-gradient(135deg, #0369a1, #0c4a6e); }
+.inv-mini-icono.cat-mascotas { background: linear-gradient(135deg, #b45309, #451a03); }
+.inv-mini-icono.cat-otros    { background: linear-gradient(135deg, #3f3f46, #18181b); }
+
+/* ── apilador ───────────────────────────────────────────────────────────── */
+.inv-apilador-card.entra { animation: apilador-pop 260ms cubic-bezier(0.18, 0.89, 0.32, 1.28) both; }
+@keyframes apilador-pop {
+  from { opacity: 0; transform: translateY(-6px) scale(0.97); }
+  to   { opacity: 1; transform: none; }
+}
+.inv-apilador-card .inv-ico { color: var(--texto-3); }
+.inv-apilador-sinnombre { color: var(--texto-3); font-style: italic; }
+.inv-apilador-card button {
+  background: none;
+  border: 0;
+  color: var(--texto-3);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 8px;
+}
+.inv-apilador-card button:hover { color: var(--error); background: rgba(248, 113, 113, 0.12); }
+
+/* ── importación masiva ─────────────────────────────────────────────────── */
+.inv-importar {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  margin: 12px 0;
+  border: 1px solid rgba(200, 255, 0, 0.28);
+  border-radius: 14px;
+  background: var(--card);
+  animation: inv-entra 220ms ease both;
+}
+.inv-importar-cab {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+.inv-importar-cab h3 {
+  margin: 0;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.inv-importar-previa { display: grid; gap: 8px; }
+.inv-importar-previa:empty { display: none; }
+
+/* ── OCR ────────────────────────────────────────────────────────────────── */
+.inv-ocr {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  margin: 12px 0;
+  border: 1px solid var(--borde);
+  border-radius: 14px;
+  background: var(--card);
+  animation: inv-entra 220ms ease both;
+}
+.inv-ocr-cab {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+.inv-ocr-cab h4 {
+  margin: 0;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* campos de texto largos (importación y OCR) */
+.inv-importar textarea,
+.inv-ocr textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+  background: var(--hundido);
+  color: var(--texto);
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.45;
+  resize: vertical;
+}
+.inv-importar textarea:focus,
+.inv-ocr textarea:focus {
+  outline: none;
+  border-color: var(--acento);
+}
+.inv-importar input[type="file"],
+.inv-ocr input[type="file"] {
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px dashed var(--borde-fuerte);
+  border-radius: 10px;
+  background: var(--hundido);
+  color: var(--texto-2);
+  font-size: 12px;
+}
+
+/* ── carrito ────────────────────────────────────────────────────────────── */
+.inv-carrito-nom { display: grid; gap: 1px; min-width: 0; flex: 1; }
+.inv-carrito-nom strong {
+  font-size: 12px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.inv-carrito-nom span { font-size: 10px; color: var(--texto-3); font-variant-numeric: tabular-nums; }
+.inv-carrito-sub {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  white-space: nowrap;
+  align-self: center;
+}
+.inv-carrito-quitar {
+  background: none;
+  border: 0;
+  color: var(--texto-3);
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 6px;
+  align-self: center;
+}
+.inv-carrito-quitar:hover { color: var(--error); background: rgba(248, 113, 113, 0.12); }
+
+/* ── ticket (pantalla) ──────────────────────────────────────────────────── */
+.ticket-termico .tk {
+  color: #18181B;
+  font-family: "Courier New", ui-monospace, monospace;
+  font-size: 12px;
+  line-height: 1.38;
+}
+.tk-logo {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  margin: 0 auto 6px;
+  background: #18181B;
+  color: #F7F7F8;
+  font-weight: 800;
+  font-size: 20px;
+  font-family: -apple-system, Roboto, sans-serif;
+}
+.tk-logo-img {
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
+  display: block;
+  margin: 0 auto 6px;
+  border-radius: 10px;
+}
+.tk-cab { text-align: center; }
+.tk-nombre {
+  margin: 0 0 3px;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+  color: #000;
+}
+.tk-dato { margin: 0; font-size: 11px; color: #3F3F46; }
+.tk-sep {
+  border: 0;
+  border-top: 1px dashed currentColor;
+  opacity: 0.4;
+  margin: 8px 0;
+}
+.tk-fila {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 1px 0;
+}
+.tk-fuerte { font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+.tk-cabecera-items {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.65;
+  margin-bottom: 3px;
+}
+.tk-item { padding: 3px 0; }
+.tk-item-nom { font-weight: 600; word-break: break-word; }
+.tk-item-calc {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  opacity: 0.75;
+  font-variant-numeric: tabular-nums;
+}
+.tk-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 16px;
+  font-weight: 800;
+  border-top: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  padding: 4px 0;
+  margin: 4px 0;
+  font-variant-numeric: tabular-nums;
+}
+.tk-barras { width: 78%; margin: 8px auto 2px; height: 34px; color: #18181B; }
+.tk-barras svg { width: 100%; height: 34px; display: block; }
+.tk-folio {
+  text-align: center;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin: 4px 0 0;
+  opacity: 0.7;
+}
+.tk-gracias {
+  text-align: center;
+  font-weight: 800;
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  margin: 8px 0 2px;
+  color: #000;
+}
+.tk-pie { text-align: center; font-size: 9px; opacity: 0.6; margin: 2px 0 0; }
+.tk-vacio {
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  padding: 26px 8px;
+  opacity: 0.55;
+  text-align: center;
+}
+.tk-vacio p { margin: 0; font-size: 12px; line-height: 1.5; }
+
+/* Efecto de salida del papel al emitir/imprimir. */
+.ticket-termico.imprimiendo {
+  animation: ticketEmerger 1.15s cubic-bezier(0.2, 0.8, 0.25, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ticket-termico.imprimiendo { animation: none; }
+}
