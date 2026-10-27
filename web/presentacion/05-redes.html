@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>05 · Redes Sociales · FABRI-CORE</title>
+<link rel="stylesheet" href="shared.css">
+</head>
+<body>
+<canvas id="bg-canvas"></canvas>
+<div class="scanline"></div>
+
+<nav class="nav-strip">
+  <a class="nav-home" href="index.html">← Inicio</a>
+  <span class="nav-section-tag">05 / REDES</span>
+  <div class="nav-links">
+    <a class="nav-link" href="01-marca.html">01 Marca</a>
+    <a class="nav-link" href="02-funciones.html">02 Funciones</a>
+    <a class="nav-link" href="03-beneficios.html">03 Beneficios</a>
+    <a class="nav-link" href="04-mercado.html">04 Mercado</a>
+    <a class="nav-link active" href="05-redes.html">05 Redes</a>
+    <a class="nav-link" href="06-ia.html">06 IA</a>
+  </div>
+</nav>
+
+<div class="timer-bar"><div class="timer-fill" id="timer-fill"></div></div>
+
+<div class="chapters" id="chapters">
+  <div class="chapter-dot active"></div>
+  <div class="chapter-dot"></div>
+  <div class="chapter-dot"></div>
+  <div class="chapter-dot"></div>
+  <div class="chapter-dot"></div>
+  <div class="chapter-dot"></div>
+  <div class="chapter-dot"></div>
+</div>
+
+<div class="slide-deck">
+
+  <!-- SLIDE 1: ESTRATEGIA -->
+  <section class="slide active" data-dur="5000">
+    <div class="stack" style="gap:28px;">
+      <div class="label">Redes Sociales</div>
+      <h1 class="h1">De la cámara al <span class="accent">viral.</span></h1>
+      <p class="lead">Una estrategia en 4 canales para llevar FABRI-CORE a 150.000 almaceneros.</p>
+      <div class="row mt-20" style="gap:16px;">
+        <div class="platform" style="background:#010101;color:#fff;">T</div>
+        <div class="platform" style="background:#1877F2;">f</div>
+        <div class="platform" style="background:#0A66C2;">in</div>
+        <div class="platform" style="background:#FF0000;">▶</div>
+      </div>
+      <div class="row mt-12" style="gap:12px;">
+        <span class="pill">TikTok · Prioridad #1</span>
+        <span class="pill">Facebook · Comunidad</span>
+        <span class="pill">LinkedIn · B2B</span>
+        <span class="pill">YouTube · Confianza</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 2: TIKTOK -->
+  <section class="slide" data-dur="8000">
+    <div class="stack" style="gap:24px;width:100%;max-width:1000px;">
+      <div class="label">Canal Prioritario</div>
+      <h2 class="h2">TikTok — El almacenero también scrollea.</h2>
+      <div class="row" style="gap:40px;align-items:center;flex-wrap:wrap;justify-content:center;">
+        <div class="phone float" style="width:200px;height:380px;">
+          <div class="phone-screen" style="padding:16px 12px;position:relative;">
+            <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0.3),transparent 30%,transparent 70%,rgba(0,0,0,0.6));pointer-events:none;"></div>
+            <div style="position:absolute;bottom:60px;left:12px;right:12px;">
+              <div style="font-size:11px;font-weight:700;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,0.8);margin-bottom:4px;">@fabricore.cl</div>
+              <div style="font-size:13px;font-weight:800;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,0.8);line-height:1.3;">Le pregunté a mi app cuánto vendí esta semana 📦</div>
+            </div>
+            <div style="position:absolute;right:8px;bottom:80px;display:flex;flex-direction:column;gap:12px;align-items:center;">
+              <div style="font-size:20px;">❤️</div>
+              <div style="font-size:20px;">💬</div>
+              <div style="font-size:20px;">↗️</div>
+            </div>
+            <div style="position:absolute;bottom:12px;left:12px;right:12px;">
+              <div style="font-size:9px;color:rgba(255,255,255,0.7);">¿Dónde la bajo? · Esto necesito en mi local! · ¿Funciona sin internet?</div>
+            </div>
+          </div>
+        </div>
+        <div style="flex:1;max-width:500px;display:flex;flex-direction:column;gap:12px;">
+          <div class="card">
+            <div class="card-title" style="font-size:14px;">Demo escaneo en vivo</div>
+            <div class="card-desc">"Escaneo 50 productos en 2 minutos" — Meta: 100K vistas</div>
+          </div>
+          <div class="card">
+            <div class="card-title" style="font-size:14px;">IA responde en tiempo real</div>
+            <div class="card-desc">"¿Qué producto me da más margen?" — Meta: 50K vistas</div>
+          </div>
+          <div class="card card-lime">
+            <div class="card-title" style="font-size:14px;">Sin internet challenge</div>
+            <div class="card-desc">"Mi app funciona en el cerro" — Meta: 200K vistas</div>
+          </div>
+          <div class="row" style="gap:8px;flex-wrap:wrap;">
+            <span class="pill">@fabricore.cl</span>
+            <span class="pill">#almacen</span>
+            <span class="pill">#inteligenciaartificial</span>
+            <span class="pill">#sininternet</span>
+            <span class="pill">#chile</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 3: FACEBOOK -->
+  <section class="slide" data-dur="7000">
+    <div class="stack" style="gap:24px;width:100%;max-width:900px;">
+      <div class="label">Comunidad</div>
+      <h2 class="h2">Facebook — Donde están los almaceneros.</h2>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title" style="font-size:14px;">Grupos objetivo</div>
+          <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px;">
+            <div class="card-desc">📌 "Almaceneros Chile" (>15K miembros)</div>
+            <div class="card-desc">📌 "Minimarket y Botillerías Chile"</div>
+            <div class="card-desc">📌 "Ferias libres Chile"</div>
+            <div class="card-desc">📌 "PYMEs Chile — Digitalización"</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title" style="font-size:14px;">Contenido</div>
+          <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px;">
+            <div class="card-desc">📊 Antes/después de digitalizar</div>
+            <div class="card-desc">🎓 Tutoriales paso a paso</div>
+            <div class="card-desc">💬 Testimoniales reales</div>
+            <div class="card-desc">📋 Polling: "¿Cuánto pagas de sistema?"</div>
+          </div>
+        </div>
+      </div>
+      <div class="card card-lime" style="padding:20px;">
+        <div class="card-title" style="font-size:14px;">Meta Ads</div>
+        <div class="card-desc">Target: Chile, 25-55 años, dueños de negocio, intereses en retail y tecnología.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 4: LINKEDIN -->
+  <section class="slide" data-dur="6000">
+    <div class="stack" style="gap:24px;width:100%;max-width:900px;">
+      <div class="label">B2B y Técnico</div>
+      <h2 class="h2">LinkedIn — El caso de negocio.</h2>
+      <div class="grid-3">
+        <div class="card">
+          <div class="card-title" style="font-size:14px;">Técnico</div>
+          <div class="card-desc">"Cómo construimos un POS con IA local en Android desde Termux"</div>
+          <div class="mt-12"><span class="pill">Dev community</span></div>
+        </div>
+        <div class="card">
+          <div class="card-title" style="font-size:14px;">Business</div>
+          <div class="card-desc">"Por qué el 70% de los almaceneros chilenos aún no usa software"</div>
+          <div class="mt-12"><span class="pill">PYMEs + inversores</span></div>
+        </div>
+        <div class="card card-lime">
+          <div class="card-title" style="font-size:14px;">Product</div>
+          <div class="card-desc">"FABRI-CORE: MVP analysis after 26 versions"</div>
+          <div class="mt-12"><span class="pill">Product managers</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 5: YOUTUBE -->
+  <section class="slide" data-dur="6000">
+    <div class="stack" style="gap:24px;width:100%;max-width:900px;">
+      <div class="label">Contenido Largo</div>
+      <h2 class="h2">YouTube — El canal de confianza.</h2>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title" style="font-size:14px;">Tutorial completo (20 min)</div>
+          <div class="card-desc">"Configura tu inventario desde cero con FABRI-CORE"</div>
+        </div>
+        <div class="card">
+          <div class="card-title" style="font-size:14px;">Review técnica</div>
+          <div class="card-desc">"Cómo funciona llama.cpp en Android — explicado"</div>
+        </div>
+        <div class="card">
+          <div class="card-title" style="font-size:14px;">Case study</div>
+          <div class="card-desc">"Del cuaderno al sistema — historia de Don Pedro del almacén"</div>
+        </div>
+        <div class="card card-lime">
+          <div class="card-title" style="font-size:14px;">Comparativa</div>
+          <div class="card-desc">"FABRI-CORE vs Bsale — comparativa honesta"</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 6: CALENDARIO -->
+  <section class="slide" data-dur="7000">
+    <div class="stack" style="gap:24px;width:100%;max-width:900px;">
+      <div class="label">Calendario Editorial</div>
+      <h2 class="h2">Un plan, cuatro canales.</h2>
+      <div style="width:100%;display:flex;flex-direction:column;gap:8px;">
+        <div class="card" style="padding:14px 20px;display:flex;align-items:center;gap:16px;">
+          <span style="font-size:12px;font-weight:700;color:var(--lime);min-width:80px;">LUNES</span>
+          <span style="font-size:14px;">TikTok demo escaneo</span>
+        </div>
+        <div class="card" style="padding:14px 20px;display:flex;align-items:center;gap:16px;">
+          <span style="font-size:12px;font-weight:700;color:var(--lime);min-width:80px;">MIÉRCOLES</span>
+          <span style="font-size:14px;">Facebook tutorial + grupo</span>
+        </div>
+        <div class="card" style="padding:14px 20px;display:flex;align-items:center;gap:16px;">
+          <span style="font-size:12px;font-weight:700;color:var(--lime);min-width:80px;">JUEVES</span>
+          <span style="font-size:14px;">LinkedIn artículo técnico</span>
+        </div>
+        <div class="card" style="padding:14px 20px;display:flex;align-items:center;gap:16px;">
+          <span style="font-size:12px;font-weight:700;color:var(--lime);min-width:80px;">VIERNES</span>
+          <span style="font-size:14px;">YouTube long-form</span>
+        </div>
+        <div class="card" style="padding:14px 20px;display:flex;align-items:center;gap:16px;">
+          <span style="font-size:12px;font-weight:700;color:var(--lime);min-width:80px;">DOMINGO</span>
+          <span style="font-size:14px;">Stories / Reels recap</span>
+        </div>
+      </div>
+      <div class="row mt-12" style="gap:12px;">
+        <span class="pill">KPIs mes 1: 5K TikTok · 1K FB grupo · 500 LinkedIn · 200 YT</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 7: EL MENSAJE -->
+  <section class="slide" data-dur="8000">
+    <div class="stack" style="gap:24px;">
+      <div class="label">Mensaje Central</div>
+      <div class="logo-svg lg float">
+        <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="80" height="80" rx="16" fill="#050505"/>
+          <rect x="16" y="16" width="8" height="48" fill="#C8FF00"/>
+          <rect x="16" y="16" width="36" height="8" fill="#C8FF00"/>
+          <rect x="16" y="36" width="28" height="8" fill="#C8FF00"/>
+        </svg>
+      </div>
+      <h1 class="h1" style="font-size:clamp(28px,4.5vw,48px);">La caja registradora inteligente que cabe en tu bolsillo.</h1>
+      <p class="lead" style="font-size:20px;font-weight:600;color:var(--text);">Sin internet. Sin mensualidad. Con IA.</p>
+      <p class="quote-attr">FABRI-CORE · Soluciones Fabrick</p>
+    </div>
+  </section>
+
+</div>
+
+<div class="controls">
+  <button class="btn-ctrl" id="btn-prev">←</button>
+  <button class="btn-ctrl" id="btn-play"><span id="play-icon">⏸</span></button>
+  <button class="btn-ctrl" id="btn-next">→</button>
+  <div class="progress-wrap" id="progress-wrap">
+    <div class="progress-fill" id="progress-fill"></div>
+  </div>
+  <div class="slide-count"><span id="cur-slide">1</span> / 7</div>
+  <button class="btn-ctrl" id="btn-fs">⛶</button>
+</div>
+
+<script>
+const SLIDES = document.querySelectorAll('.slide');
+const DURATIONS = [...SLIDES].map(s => parseInt(s.dataset.dur || '6000'));
+let cur = 0, playing = true, timer = null;
+const $fill = document.getElementById('progress-fill');
+const $cur = document.getElementById('cur-slide');
+const $timer = document.getElementById('timer-fill');
+const $playIcon = document.getElementById('play-icon');
+const dots = document.querySelectorAll('.chapter-dot');
+
+function showSlide(n) {
+  SLIDES[cur]?.classList.remove('active');
+  SLIDES[cur]?.classList.add('exit');
+  setTimeout(() => SLIDES[cur]?.classList.remove('exit'), 800);
+  cur = (n + SLIDES.length) % SLIDES.length;
+  SLIDES[cur].classList.add('active');
+  dots.forEach((d,i) => d.classList.toggle('active', i===cur));
+  if($cur) $cur.textContent = cur+1;
+  if($fill) $fill.style.width = ((cur/(SLIDES.length-1||1))*100)+'%';
+  if($timer){$timer.style.transition='none';$timer.style.width='0%';}
+  resetTimer();
+}
+
+function resetTimer() {
+  clearTimeout(timer);
+  if(!playing) return;
+  const dur = DURATIONS[cur];
+  if($timer){ setTimeout(()=>{$timer.style.transition=`width ${dur}ms linear`;$timer.style.width='100%';},50); }
+  timer = setTimeout(()=>showSlide(cur+1), dur);
+}
+
+function togglePlay() {
+  playing = !playing;
+  if($playIcon) $playIcon.textContent = playing ? '⏸' : '▶';
+  if(playing) resetTimer(); else { clearTimeout(timer); if($timer){$timer.style.transition='none';} }
+}
+
+document.getElementById('btn-play')?.addEventListener('click', togglePlay);
+document.getElementById('btn-prev')?.addEventListener('click', ()=>{clearTimeout(timer);showSlide(cur-1);});
+document.getElementById('btn-next')?.addEventListener('click', ()=>{clearTimeout(timer);showSlide(cur+1);});
+document.getElementById('progress-wrap')?.addEventListener('click', e=>{
+  const r=e.currentTarget.getBoundingClientRect();
+  clearTimeout(timer);showSlide(Math.round((e.clientX-r.left)/r.width*(SLIDES.length-1)));
+});
+document.querySelectorAll('.chapter-dot').forEach((d,i)=>d.addEventListener('click',()=>{clearTimeout(timer);showSlide(i);}));
+document.getElementById('btn-fs')?.addEventListener('click',()=>{document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen();});
+document.addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight'||e.key==='PageDown'){clearTimeout(timer);showSlide(cur+1);}
+  if(e.key==='ArrowLeft'||e.key==='PageUp'){clearTimeout(timer);showSlide(cur-1);}
+  if(e.key===' '){e.preventDefault();togglePlay();}
+  if(e.key==='f'||e.key==='F')document.getElementById('btn-fs')?.click();
+});
+
+(function(){
+  const canvas=document.getElementById('bg-canvas');if(!canvas)return;
+  const ctx=canvas.getContext('2d');let W,H,pts=[];
+  function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight;}
+  resize();window.addEventListener('resize',resize);
+  for(let i=0;i<55;i++)pts.push({x:Math.random()*1920,y:Math.random()*1080,vx:(Math.random()-.5)*.25,vy:(Math.random()-.5)*.25,r:Math.random()*1.2+.4,a:Math.random()*.3+.05});
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    ctx.strokeStyle='rgba(200,255,0,0.025)';ctx.lineWidth=1;
+    for(let x=0;x<W;x+=80){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+    for(let y=0;y<H;y+=80){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+    pts.forEach(p=>{p.x+=p.vx;p.y+=p.vy;if(p.x<0)p.x=W;if(p.x>W)p.x=0;if(p.y<0)p.y=H;if(p.y>H)p.y=0;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fillStyle=`rgba(200,255,0,${p.a})`;ctx.fill();});
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+SLIDES[0]?.classList.add('active');
+if(dots[0])dots[0].classList.add('active');
+if($cur)$cur.textContent='1';
+if($fill)$fill.style.width='0%';
+setTimeout(()=>{if(playing)resetTimer();},500);
+</script>
+</body>
+</html>
