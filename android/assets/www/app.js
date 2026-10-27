@@ -269,12 +269,13 @@ function jsError(e, donde) {
    camino síncrono sin romperse. */
 
 const FABRI_ASYNC = new Map();
+// Resultados que llegaron ANTES de que JavaScript registrara su token. Se
+// guardan unos segundos por si el registro ocurrió una fracción de milisegundo
+// después; si nadie los reclama, se descartan solos.
+const FABRI_TARDIOS = new Map();
 let fabriAsyncSeq = 0;
 
 window.__fabriAsync = function (token, crudo) {
-  const cerrar = FABRI_ASYNC.get(token);
-  if (!cerrar) return;   // resultado de una llamada que ya expiró: se descarta
-  FABRI_ASYNC.delete(token);
   let r;
   try {
     r = crudo
@@ -283,7 +284,11 @@ window.__fabriAsync = function (token, crudo) {
   } catch (e) {
     r = { ok: false, error: String(e), codigo: "PARSE" };
   }
-  cerrar(r);
+  const cerrar = FABRI_ASYNC.get(token);
+  if (cerrar) { cerrar(r); return; }
+  // Todavía no hay quien lo espere: se guarda un instante.
+  FABRI_TARDIOS.set(token, r);
+  setTimeout(function () { FABRI_TARDIOS.delete(token); }, 10000);
 };
 
 function apiAsync(op, payload, opciones) {
@@ -295,16 +300,20 @@ function apiAsync(op, payload, opciones) {
       resolve(api(op, payload));   // APK anterior o vista previa en navegador
       return;
     }
-    const token = "a" + (++fabriAsyncSeq) + "_" + Date.now();
+    // La clave del resultado la decide JAVA: es la que viaja de vuelta en
+    // `window.__fabriAsync`. Antes JavaScript inventaba su propio token («a1_...»)
+    // y Java entregaba el suyo («a1»): nunca coincidían, TODA lectura asíncrona
+    // se quedaba sin respuesta y sólo se resolvía por el tope de tiempo. Por eso
+    // SQL, Inventario y Flujo salían en blanco o «lentos» una y otra vez.
+    let clave = null;
     let cerrado = false;
     const cerrar = function (r) {
       if (cerrado) return;
       cerrado = true;
-      FABRI_ASYNC.delete(token);
+      if (clave) FABRI_ASYNC.delete(clave);
       try { revisionAutoDiferido(op, r, Date.now() - t0); } catch (e) { /* nunca romper */ }
       resolve(r);
     };
-    FABRI_ASYNC.set(token, cerrar);
 
     let acuse;
     try {
@@ -315,6 +324,22 @@ function apiAsync(op, payload, opciones) {
     }
     if (!acuse || !acuse.ok) {
       cerrar(acuse || { ok: false, error: "el puente rechazó la llamada", codigo: "PUENTE" });
+      return;
+    }
+    if (!acuse.token) {
+      // APK viejo: el acuse no trae token, así que no hay clave con la que
+      // recibir el resultado. Se resuelve por la vía síncrona.
+      cerrar(api(op, payload));
+      return;
+    }
+    // Se registra con el token que devolvió Java y se recoge el resultado si
+    // llegó antes de que alcanzáramos a registrarnos.
+    clave = acuse.token;
+    FABRI_ASYNC.set(clave, cerrar);
+    if (FABRI_TARDIOS.has(clave)) {
+      const r = FABRI_TARDIOS.get(clave);
+      FABRI_TARDIOS.delete(clave);
+      cerrar(r);
       return;
     }
     // Red de seguridad: si el aviso de Java se pierde (página recargada a

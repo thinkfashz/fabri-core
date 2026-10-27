@@ -2,6 +2,31 @@
 
 Registro de cambios del sistema de diseño y branding.
 
+## [2.10.0] — 2026-10-27 · APK 0.9.21
+
+### Corregido
+- **SQL no cargaba, Inventario no cargaba y Flujo no mostraba nada: el token del
+  carril asíncrono no coincidía.** Java decide la clave del resultado
+  (`callAsync` → `"a" + ASYNC_SEQ`), pero JavaScript se inventaba la suya
+  (`"a" + (++fabriAsyncSeq) + "_" + Date.now()`). Como `window.__fabriAsync`
+  busca el callback por el token de **Java**, la clave nunca existía y el
+  resultado se descartaba en silencio. Toda lectura asíncrona se resolvía sólo al
+  agotar su tope de tiempo —de ahí el registro repetido `ping tardó 6003 ms`,
+  `sqlite tardó 6009 ms`, `modulos tardó 15011 ms` y `refresco del flujo lento`—.
+  Un `ping` manual en la consola sí respondía al instante porque usa la vía
+  síncrona, sin token. Ahora `apiAsync` registra el callback bajo `acuse.token`
+  (el que devolvió Java) y hay un colchón (`FABRI_TARDIOS`) por si el resultado
+  llegó una fracción antes del registro. Es la causa raíz de los tres síntomas.
+- **`inventario.listar falló · núcleo ocupado`.** Con el carril asíncrono sano
+  las operaciones se despachan y liberan el mutex en milisegundos, así que el
+  `try_lock` de 800 ms del núcleo ya no aparece como fallo.
+
+### Añadido
+- Prueba de regresión `tests/arranque/puente.js` § «contrato del token asíncrono»:
+  verifica que el acuse de Java lleva el token, que `callAsync` devuelve
+  `acuse(token)`, que `apiAsync` usa `acuse.token` como clave y que JavaScript no
+  vuelve a inventarse su propio token.
+
 ## [2.9.0] — 2026-10-26
 
 ### Corregido

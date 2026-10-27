@@ -1,6 +1,47 @@
 # STATE — FABRI-CORE
 
-Última actualización: 2026-10-26
+Última actualización: 2026-10-27
+
+## Sesión 2026-10-27 (13) · APK 0.9.21 — el token asíncrono (SQL, Inventario y Flujo)
+
+APK: `dist/FABRI-CORE-0.9.21.apk` · **4.132.043 B** ·
+sha256 `556ecabe03a6bffb889ce311bf9c0abe81b70d850b8d20c9718b8325457cbed1` ·
+versionCode **36** · copiada a `/sdcard/FABRI-CORE-0.9.21.apk`.
+Firma debug, minSdk 24, target 34. Instalar **encima** de la 0.9.20.
+
+### El fallo real (visible en el registro del teléfono)
+El log mostró que **toda** operación asíncrona agotaba su tope exacto:
+`ping tardó 6003 ms`, `sqlite tardó 6009 ms`, `modulos tardó 15011 ms`,
+`componentes tardó 15065 ms`, `logs tardó 15032 ms` y `refresco del flujo lento`
+cada 6 s. Un `ping` manual en la consola sí respondía al instante.
+
+Causa: **el token no coincidía.** Java decide la clave (`callAsync` →
+`"a" + ASYNC_SEQ`) y entrega el resultado por `window.__fabriAsync`, pero
+JavaScript se registraba con un token propio
+(`"a" + (++fabriAsyncSeq) + "_" + Date.now()`). El mapa `FABRI_ASYNC` del JS
+nunca tenía la clave que Java entregaba, así que **cada resultado se descartaba
+en silencio** y la promesa sólo se resolvía al vencer el tope. La vía síncrona
+(`call()`, la de la consola) no usa tokens: por eso funcionaba.
+
+### Corregido
+| Qué | Dónde |
+|---|---|
+| `apiAsync` registra el callback bajo `acuse.token` (el de Java) y, si el acuse no trae token, resuelve por la vía síncrona | `android/assets/www/app.js` |
+| Colchón `FABRI_TARDIOS`: si el resultado llega antes del registro, se recoge igual | `android/assets/www/app.js` |
+| `flujoPintarCon` trata cada valor como objeto seguro (no lanza al leer `.ok`) | `android/assets/www/flujo.js` |
+| Prueba de regresión del contrato del token | `tests/arranque/puente.js` |
+
+### Versión
+| Sitio | Antes → Después |
+|---|---|
+| `android/AndroidManifest.xml` | versionCode 35→36 · versionName 0.9.20→0.9.21 |
+| `src-tauri/Cargo.toml` | 0.9.20→0.9.21 |
+| `scripts/compilar.sh` | `NOMBRE` 0.9.20→0.9.21 |
+
+### Verificación
+- `tests/arranque/correr.sh` 6/6 ✔ · `tests/inventario/lector.js` ✔ · `tests/inventario/ean.js` ✔
+- `tests/arranque/puente.js` § contrato del token ✔ (habría atrapado el fallo)
+- El APK compilado contiene `acuse.token` y `FABRI_TARDIOS` (`unzip -p ... assets/www/app.js`).
 
 ## Sesión 2026-10-26 (12) · APK 0.9.14 — los dos fallos de 0.9.13 en el teléfono
 

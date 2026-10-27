@@ -13,6 +13,8 @@
      4. Hay coalescencia (`EN_VUELO`): dos llamadas idénticas no se apilan.
      5. `init`, mantenimiento y registros pasan por el MISMO carril.
      6. `nucleoEstado()` existe para diagnosticar sin adivinar.
+     7. El token asíncrono es el que devuelve Java (`acuse.token`): JavaScript
+        no puede inventarse el suyo o los resultados se descartan en silencio.
 
    Uso:  node tests/arranque/puente.js
    ========================================================================== */
@@ -89,6 +91,44 @@ else mal("mantenimiento desapareció");
 console.log("▸ diagnóstico");
 if (/public String nucleoEstado\s*\(/.test(fuente)) ok("nucleoEstado() expone cola y última lenta");
 else mal("falta nucleoEstado(): no se puede diagnosticar un cuelgue");
+
+/* ---------------------------------------------------------------------------
+   7. CONTRATO DEL TOKEN asíncrono.
+   --------------------------------------------------------------------------
+   El resultado asíncrono vuelve por `window.__fabriAsync(token, json)`. Java
+   decide el token y lo devuelve en el acuse; JavaScript DEBE registrar su
+   callback con ESE token. Cuando cada lado inventaba el suyo («a1» de Java,
+   «a1_<ms>» de JS) las claves no coincidían y el resultado se descartaba en
+   silencio: TODA lectura (SQL, Inventario, Flujo) se quedaba esperando hasta su
+   tope de tiempo. Esta comprobación impide que esa divergencia vuelva.
+   ------------------------------------------------------------------------ */
+console.log("▸ contrato del token asíncrono");
+const JS = fs.readFileSync(
+  path.resolve(__dirname, "../../android/assets/www/app.js"), "utf8");
+
+// Java: el acuse lleva el token y callAsync lo devuelve.
+const iAcuse = fuente.indexOf("private String acuse(");
+const cuerpoAcuse = iAcuse < 0 ? "" : fuente.slice(iAcuse, iAcuse + 260);
+if (cuerpoAcuse.indexOf("token") >= 0) {
+  ok("el acuse de Java incluye el token");
+} else {
+  mal("el acuse de Java no incluye el token: JS no puede correlacionar");
+}
+if (/return\s+acuse\s*\(\s*token\s*\)/.test(fuente)) ok("callAsync devuelve acuse(token)");
+else mal("callAsync no devuelve acuse(token)");
+
+// JS: el callback se registra con el token que devolvió Java.
+if (/acuse\s*\.\s*token/.test(JS)) ok("apiAsync usa acuse.token como clave");
+else mal("apiAsync no usa acuse.token: el resultado se perdería");
+if (/FABRI_ASYNC\s*\.\s*set\s*\(\s*clave\s*,/.test(JS)) ok("registra el callback bajo esa clave");
+else mal("apiAsync no registra el callback bajo la clave de Java");
+
+// Regresión exacta: JS no debe inventar su propio token.
+if (/"a"\s*\+\s*\(\s*\+\+\s*fabriAsyncSeq\s*\)/.test(JS)) {
+  mal("apiAsync volvió a inventar su propio token (nunca coincide con Java)");
+} else {
+  ok("apiAsync no inventa su propio token");
+}
 
 console.log();
 if (fallos === 0) {
