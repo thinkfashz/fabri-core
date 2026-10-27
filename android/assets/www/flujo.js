@@ -146,6 +146,14 @@ function flujoRefrescar() {
 
 function flujoPintarCon(ping, tablas, inv, rev, eventos, t0) {
 
+  // Seguridad: si `callAsync` no llegó, cada valor viene como fallo y la vista
+  // debe pintar «caído / error» — NUNCA lanzar al acceder a `.ok`.
+  ping = (ping && typeof ping === "object") ? ping : { ok: false, error: "sin respuesta del núcleo" };
+  tablas = (tablas && typeof tablas === "object") ? tablas : { ok: false, error: "SQLite no respondió" };
+  inv = (inv && typeof inv === "object") ? inv : { ok: false, error: "inventario no respondió" };
+  rev = (rev && typeof rev === "object") ? rev : { ok: false, error: "revisión no respondió" };
+  eventos = (eventos && typeof eventos === "object") ? eventos : { ok: false, error: "sin registro de fallos" };
+
   let local = null;
   try {
     if (window.FabrickNative && typeof window.FabrickNative.localEstado === "function") {

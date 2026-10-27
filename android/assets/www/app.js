@@ -321,6 +321,18 @@ function apiAsync(op, payload, opciones) {
     // mitad), la promesa se resuelve como LENTO y la vista puede reintentar.
     setTimeout(function () {
       if (!cerrado) {
+        // Intento de recuperación: si el resultado asíncrono no llegó, se
+        // intenta una sola vez por la vía SÍNCRONA (`call`). `call` responde
+        // siempre (tope 600 ms / 20 s según pesadez) y es lo que garantiza
+        // que la pantalla no se quede en «Cargando…» para siempre si el
+        // hilo asíncrono de Java no logró entregar por `__fabriAsync`.
+        if (typeof window.FabrickNative.call === "function") {
+          try {
+            const crudo = window.FabrickNative.call(op, JSON.stringify(payload || {}));
+            const r = crudo ? JSON.parse(crudo) : null;
+            if (r) { cerrar(r); return; }
+          } catch (e) { /* se cae al LENTO de abajo */ }
+        }
         cerrar({
           ok: false, error: "el núcleo no respondió a tiempo",
           codigo: "LENTO", op: op, reintentar: true

@@ -637,8 +637,12 @@ fn op_init(payload: &Value) -> Result<Value, String> {
 /// el bloqueo de escritura justo cuando la WebView empezaba a pedir datos.
 fn op_mantenimiento(_payload: &Value) -> Result<Value, String> {
     con_estado(|e| {
+        // Poda acotada: se borra en lotes pequeños para no retener el mutex
+        // durante un escaneo gigante. `podar_registro` ya usa conservar=3000;
+        // aquí solo corroboramos que la tabla no esté creciendo sin control.
         let _ = podar_registro(&e.db, "logs", 3000);
         let _ = podar_registro(&e.db, "revision", 3000);
+        // Checkpoint pasivo: no fuerza la escritura, solo compacta si puede.
         let _ = e.db.execute_batch("PRAGMA wal_checkpoint(PASSIVE);");
         Ok(json!({ "ok": true, "poda": "logs/revision", "wal": "pasivo" }))
     })
