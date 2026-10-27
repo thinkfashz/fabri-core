@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>02 · Funciones · FABRI-CORE</title>
+<link rel="stylesheet" href="shared.css">
+</head>
+<body>
+<canvas id="bg-canvas"></canvas>
+<div class="scanline"></div>
+
+<nav class="nav-strip">
+  <a class="nav-home" href="index.html">← Inicio</a>
+  <span class="nav-section-tag">02 / FUNCIONES</span>
+  <div class="nav-links">
+    <a class="nav-link" href="01-marca.html">01 Marca</a>
+    <a class="nav-link active" href="02-funciones.html">02 Funciones</a>
+    <a class="nav-link" href="03-beneficios.html">03 Beneficios</a>
+    <a class="nav-link" href="04-mercado.html">04 Mercado</a>
+    <a class="nav-link" href="05-redes.html">05 Redes</a>
+    <a class="nav-link" href="06-ia.html">06 IA</a>
+  </div>
+</nav>
+
+<div class="timer-bar"><div class="timer-fill" id="timer-fill"></div></div>
+
+<div class="chapters" id="chapters">
+  <div class="chapter-dot active"></div>
+  <div class="chapter-dot"></div>
+  <div class="chapter-dot"></div>
+  <div class="chapter-dot"></div>
+  <div class="chapter-dot"></div>
+  <div class="chapter-dot"></div>
+  <div class="chapter-dot"></div>
+  <div class="chapter-dot"></div>
+</div>
+
+<div class="slide-deck">
+
+  <!-- SLIDE 1: OVERVIEW -->
+  <section class="slide active" data-dur="5000">
+    <div class="stack" style="gap:32px;">
+      <div class="label">Funciones</div>
+      <h1 class="h1">17 Módulos. <span class="accent">Un solo teléfono.</span></h1>
+      <p class="lead">Inventario, IA local, terminal Linux, facturación, RAG y más — <strong>todo sin internet.</strong></p>
+      <div class="row mt-20" style="gap:16px;">
+        <div class="stat"><div class="stat-num">17</div><div class="stat-label">Módulos</div></div>
+        <div class="stat"><div class="stat-num">10</div><div class="stat-label">Instalables</div></div>
+        <div class="stat"><div class="stat-num">4.2MB</div><div class="stat-label">APK</div></div>
+        <div class="stat"><div class="stat-num">13/13</div><div class="stat-label">Tests OK</div></div>
+        <div class="stat"><div class="stat-num">v0.9.26</div><div class="stat-label">Versión</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 2: INVENTARIO -->
+  <section class="slide" data-dur="7000">
+    <div class="stack" style="gap:28px;width:100%;max-width:1000px;">
+      <div class="label">Módulo Inventario</div>
+      <h2 class="h2">Escanea. Vende. Cobra.</h2>
+      <div class="grid-3">
+        <div class="card">
+          <div class="icon">📷</div>
+          <div class="card-title mt-12">Escaneo EAN propio</div>
+          <div class="card-desc">Decodificador desde cero. Sin ML, sin Google Vision. 13/13 tests pasando.</div>
+        </div>
+        <div class="card">
+          <div class="icon">📦</div>
+          <div class="card-title mt-12">Apilador continuo</div>
+          <div class="card-desc">Escaneo sin cerrar cámara. Un registro SQLite por lote.</div>
+        </div>
+        <div class="card">
+          <div class="icon">📥</div>
+          <div class="card-title mt-12">Importación masiva</div>
+          <div class="card-desc">CSV / Excel / Eleventa con alias chilenos. Deduplicación por EAN.</div>
+        </div>
+      </div>
+      <p class="lead" style="font-size:15px;">El decodificador EAN funciona desde cero, sin librerías externas. Compatible con todos los códigos de barras estándar.</p>
+    </div>
+  </section>
+
+  <!-- SLIDE 3: IA LOCAL -->
+  <section class="slide" data-dur="7000">
+    <div class="stack" style="gap:28px;width:100%;max-width:1000px;">
+      <div class="label">Inteligencia Artificial Local</div>
+      <h2 class="h2">El modelo corre en tu teléfono.</h2>
+      <div class="row" style="gap:40px;align-items:center;">
+        <div class="phone float">
+          <div class="phone-screen">
+            <div style="font-size:11px;color:#858585;text-transform:uppercase;letter-spacing:0.08em;font-weight:600;">FABRI-CORE IA</div>
+            <div class="chat-bubble chat-user">¿Cuánto vendí esta semana?</div>
+            <div class="chat-bubble chat-ai">
+              Esta semana vendiste $47.823 CLP en 34 transacciones. Tu producto top fue Coca-Cola 1.5L con 12 unidades.
+              <div class="meta">IA Local · Sin internet · 2.3s</div>
+            </div>
+            <div class="chat-bubble chat-user">¿Qué producto me da más margen?</div>
+            <div class="chat-bubble chat-ai">
+              Nescafé 100g tiene el mayor margen: 41%.
+              <div class="meta">IA Local · Sin internet · 1.8s</div>
+            </div>
+          </div>
+        </div>
+        <div style="flex:1;max-width:480px;">
+          <div class="stack" style="gap:16px;align-items:flex-start;">
+            <div class="card" style="width:100%;">
+              <div class="card-title">llama.cpp runtime</div>
+              <div class="card-desc">Motor de inferencia en Rust/JNI. Sin JVM overhead.</div>
+            </div>
+            <div class="card" style="width:100%;">
+              <div class="card-title">Modelos GGUF</div>
+              <div class="card-desc">Quantización Q4_K_M. 1-2 GB RAM. 10-25 tok/s.</div>
+            </div>
+            <div class="card" style="width:100%;">
+              <div class="card-title">Sin internet</div>
+              <div class="card-desc">Cero datos enviados. Cero costo por consulta. Cero suscripción.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 4: TERMINAL -->
+  <section class="slide" data-dur="6000">
+    <div class="stack" style="gap:28px;width:100%;max-width:800px;">
+      <div class="label">Terminal Integrada</div>
+      <h2 class="h2">Una terminal real. En el bolsillo.</h2>
+      <div class="terminal">
+<span class="prompt">$</span> ls inventario/
+<span class="out">productos.db  boletas.json  config.yaml</span>
+<span class="prompt">$</span> cat stats.json | jq '.ventas_semana'
+<span class="out">47823</span>
+<span class="prompt">$</span> fabri sync --push
+<span class="ok">✓ Sincronizado: 847 registros</span>
+<span class="prompt">$</span> fabri ia "¿qué producto me da más margen?"
+<span class="out">Analizando 342 productos...</span>
+<span class="ok">✓ Nescafé 100g — 41% de margen</span>
+      </div>
+      <div class="row mt-12" style="gap:12px;">
+        <span class="pill">PTY real</span>
+        <span class="pill">SSH out</span>
+        <span class="pill">Scripts automáticos</span>
+        <span class="pill">Root/proot compatible</span>
+        <span class="pill">Comandos IA</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 5: RAG -->
+  <section class="slide" data-dur="7000">
+    <div class="stack" style="gap:28px;width:100%;max-width:1000px;">
+      <div class="label">RAG · Memoria Híbrida</div>
+      <h2 class="h2">Tu IA sabe lo que vendiste.</h2>
+      <div class="flow">
+        <div class="flow-node">Documentos</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-node">FTS5</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-node">Embeddings</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-node">Vector Search</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-node lime">Fusión BM25+coseno</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-node lime">Contexto al LLM</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-node lime">Respuesta</div>
+      </div>
+      <div class="grid-3 mt-20">
+        <div class="card">
+          <div class="card-title">FTS5 Léxico</div>
+          <div class="card-desc">Búsqueda textual BM25 nativa en SQLite. Sin dependencias externas.</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Embeddings</div>
+          <div class="card-desc">Similitud semántica vectorial. Encuentra por significado, no por palabra.</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Procedencia</div>
+          <div class="card-desc">Cada resultado sabe de dónde vino. Trazabilidad total.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 6: FACTURACIÓN -->
+  <section class="slide" data-dur="6000">
+    <div class="stack" style="gap:28px;width:100%;max-width:900px;">
+      <div class="label">Facturación y Documentos</div>
+      <h2 class="h2">Boletas, PDFs y tu logo.</h2>
+      <div class="grid-2">
+        <div class="card">
+          <div class="icon">🧾</div>
+          <div class="card-title mt-12">Boleta electrónica</div>
+          <div class="card-desc">Generación de boletas con datos del negocio. Formato estándar.</div>
+        </div>
+        <div class="card">
+          <div class="icon">📄</div>
+          <div class="card-title mt-12">Exportar PDF</div>
+          <div class="card-desc">PDF con logo, encabezado y pie personalizados. Vista previa de impresión.</div>
+        </div>
+        <div class="card">
+          <div class="icon">📊</div>
+          <div class="card-title mt-12">Excel / CSV</div>
+          <div class="card-desc">Exportación masiva de inventario, ventas y reportes.</div>
+        </div>
+        <div class="card">
+          <div class="icon">🔖</div>
+          <div class="card-title mt-12">OCR de facturas</div>
+          <div class="card-desc">Arquitectura lista para reconocimiento de texto en facturas.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 7: MÓDULOS INSTALABLES -->
+  <section class="slide" data-dur="6000">
+    <div class="stack" style="gap:28px;width:100%;max-width:1000px;">
+      <div class="label">Sistema de Módulos</div>
+      <h2 class="h2">Expande sin actualizar.</h2>
+      <p class="lead" style="font-size:15px;">15 módulos instalables en caliente. El sistema crece contigo.</p>
+      <div class="row" style="gap:10px;flex-wrap:wrap;justify-content:center;max-width:900px;">
+        <span class="pill">Analíticas</span>
+        <span class="pill">Catálogos</span>
+        <span class="pill">Conexiones</span>
+        <span class="pill">Repositorio</span>
+        <span class="pill">Base de datos</span>
+        <span class="pill">Marca</span>
+        <span class="pill">Memoria</span>
+        <span class="pill">Exportación</span>
+        <span class="pill">Sistema</span>
+        <span class="pill">Chat IA</span>
+        <span class="pill">Terminal</span>
+        <span class="pill">Proyectos</span>
+        <span class="pill">Documentos</span>
+        <span class="pill">Facturas</span>
+        <span class="pill">Flujos en vivo</span>
+      </div>
+      <div class="row mt-20" style="gap:16px;">
+        <div class="stat"><div class="stat-num">15</div><div class="stat-label">Módulos</div></div>
+        <div class="stat"><div class="stat-num">Hot</div><div class="stat-label">Install</div></div>
+        <div class="stat"><div class="stat-num">0</div><div class="stat-label">Reinstalación</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 8: ECOSISTEMA CLOUD -->
+  <section class="slide" data-dur="6000">
+    <div class="stack" style="gap:28px;width:100%;max-width:1000px;">
+      <div class="label">Ecosistema Cloud (Opcional)</div>
+      <h2 class="h2">La nube hace lo que el teléfono no debe.</h2>
+      <div class="grid-3">
+        <div class="card card-lime">
+          <div class="card-title">fabri-api</div>
+          <div class="card-desc">Vercel · Go. Sync, stats, health. Opcional: el teléfono opera sin ella.</div>
+        </div>
+        <div class="card">
+          <div class="card-title">fabrick-tg-bot</div>
+          <div class="card-desc">Bot Telegram con voz. 15 capas LLM. Rotador de modelos.</div>
+        </div>
+        <div class="card">
+          <div class="card-title">fabrick-cloud</div>
+          <div class="card-desc">Cloudflare Worker. TTS MeloTTS, KV cache, R2 storage.</div>
+        </div>
+      </div>
+      <p class="lead" style="font-size:14px;">El teléfono es el centro. La nube es un satélite opcional para sync y voz.</p>
+    </div>
+  </section>
+
+</div>
+
+<div class="controls">
+  <button class="btn-ctrl" id="btn-prev">←</button>
+  <button class="btn-ctrl" id="btn-play"><span id="play-icon">⏸</span></button>
+  <button class="btn-ctrl" id="btn-next">→</button>
+  <div class="progress-wrap" id="progress-wrap">
+    <div class="progress-fill" id="progress-fill"></div>
+  </div>
+  <div class="slide-count"><span id="cur-slide">1</span> / 8</div>
+  <button class="btn-ctrl" id="btn-fs">⛶</button>
+</div>
+
+<script>
+const SLIDES = document.querySelectorAll('.slide');
+const DURATIONS = [...SLIDES].map(s => parseInt(s.dataset.dur || '6000'));
+let cur = 0, playing = true, timer = null;
+const $fill = document.getElementById('progress-fill');
+const $cur = document.getElementById('cur-slide');
+const $timer = document.getElementById('timer-fill');
+const $playIcon = document.getElementById('play-icon');
+const dots = document.querySelectorAll('.chapter-dot');
+
+function showSlide(n) {
+  SLIDES[cur]?.classList.remove('active');
+  SLIDES[cur]?.classList.add('exit');
+  setTimeout(() => SLIDES[cur]?.classList.remove('exit'), 800);
+  cur = (n + SLIDES.length) % SLIDES.length;
+  SLIDES[cur].classList.add('active');
+  dots.forEach((d,i) => d.classList.toggle('active', i===cur));
+  if($cur) $cur.textContent = cur+1;
+  if($fill) $fill.style.width = ((cur/(SLIDES.length-1||1))*100)+'%';
+  if($timer){$timer.style.transition='none';$timer.style.width='0%';}
+  resetTimer();
+}
+
+function resetTimer() {
+  clearTimeout(timer);
+  if(!playing) return;
+  const dur = DURATIONS[cur];
+  if($timer){ setTimeout(()=>{$timer.style.transition=`width ${dur}ms linear`;$timer.style.width='100%';},50); }
+  timer = setTimeout(()=>showSlide(cur+1), dur);
+}
+
+function togglePlay() {
+  playing = !playing;
+  if($playIcon) $playIcon.textContent = playing ? '⏸' : '▶';
+  if(playing) resetTimer(); else { clearTimeout(timer); if($timer){$timer.style.transition='none';} }
+}
+
+document.getElementById('btn-play')?.addEventListener('click', togglePlay);
+document.getElementById('btn-prev')?.addEventListener('click', ()=>{clearTimeout(timer);showSlide(cur-1);});
+document.getElementById('btn-next')?.addEventListener('click', ()=>{clearTimeout(timer);showSlide(cur+1);});
+document.getElementById('progress-wrap')?.addEventListener('click', e=>{
+  const r=e.currentTarget.getBoundingClientRect();
+  clearTimeout(timer);showSlide(Math.round((e.clientX-r.left)/r.width*(SLIDES.length-1)));
+});
+document.querySelectorAll('.chapter-dot').forEach((d,i)=>d.addEventListener('click',()=>{clearTimeout(timer);showSlide(i);}));
+document.getElementById('btn-fs')?.addEventListener('click',()=>{document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen();});
+document.addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight'||e.key==='PageDown'){clearTimeout(timer);showSlide(cur+1);}
+  if(e.key==='ArrowLeft'||e.key==='PageUp'){clearTimeout(timer);showSlide(cur-1);}
+  if(e.key===' '){e.preventDefault();togglePlay();}
+  if(e.key==='f'||e.key==='F')document.getElementById('btn-fs')?.click();
+});
+
+(function(){
+  const canvas=document.getElementById('bg-canvas');if(!canvas)return;
+  const ctx=canvas.getContext('2d');let W,H,pts=[];
+  function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight;}
+  resize();window.addEventListener('resize',resize);
+  for(let i=0;i<55;i++)pts.push({x:Math.random()*1920,y:Math.random()*1080,vx:(Math.random()-.5)*.25,vy:(Math.random()-.5)*.25,r:Math.random()*1.2+.4,a:Math.random()*.3+.05});
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    ctx.strokeStyle='rgba(200,255,0,0.025)';ctx.lineWidth=1;
+    for(let x=0;x<W;x+=80){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+    for(let y=0;y<H;y+=80){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+    pts.forEach(p=>{p.x+=p.vx;p.y+=p.vy;if(p.x<0)p.x=W;if(p.x>W)p.x=0;if(p.y<0)p.y=H;if(p.y>H)p.y=0;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fillStyle=`rgba(200,255,0,${p.a})`;ctx.fill();});
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+SLIDES[0]?.classList.add('active');
+if(dots[0])dots[0].classList.add('active');
+if($cur)$cur.textContent='1';
+if($fill)$fill.style.width='0%';
+setTimeout(()=>{if(playing)resetTimer();},500);
+</script>
+</body>
+</html>
