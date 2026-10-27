@@ -609,6 +609,25 @@ fn migrar(conn: &Connection) -> rusqlite::Result<()> {
 // Operaciones de la API interna
 // ---------------------------------------------------------------------------
 
+/// Ajustes de SQLite pensados para un teléfono: menos E/S y más memoria mapeada.
+///
+/// Son POR CONEXIÓN (no se guardan en el archivo), así que se aplican en cada
+/// apertura. `synchronous=NORMAL` es seguro con WAL: como mucho se pierde la
+/// última transacción si el teléfono se apaga de golpe, nunca se corrompe la
+/// base. `cache_size=-16000` son 16 MB de caché de páginas y `mmap_size` deja
+/// que SQLite lea por memoria mapeada en vez de syscalls: menos I/O y más
+/// aprovechamiento de la RAM libre.
+fn afinar(db: &Connection) {
+    let _ = db.execute_batch(
+        "PRAGMA busy_timeout = 1500;
+         PRAGMA synchronous = NORMAL;
+         PRAGMA temp_store = MEMORY;
+         PRAGMA cache_size = -16000;
+         PRAGMA mmap_size = 268435456;
+         PRAGMA foreign_keys = ON;",
+    );
+}
+
 fn op_init(payload: &Value) -> Result<Value, String> {
     let data_dir = PathBuf::from(campo(payload, "dataDir")?);
     fs::create_dir_all(&data_dir).map_err(|e| format!("no se pudo crear {}: {}", data_dir.display(), e))?;
@@ -616,10 +635,8 @@ fn op_init(payload: &Value) -> Result<Value, String> {
 
     let db = Connection::open(data_dir.join("fabrick.db"))
         .map_err(|e| format!("no se pudo abrir SQLite: {}", e))?;
-    // Tope de espera por bloqueo: si otra conexión está escribiendo, la consulta
-    // falla en 400 ms en vez de quedarse esperando. Es la diferencia entre una
-    // interfaz que responde y una pantalla congelada.
-    let _ = db.execute_batch("PRAGMA busy_timeout = 400;");
+    // Ajustes para el dispositivo (WAL + caché + mmap + espera de bloqueo).
+    afinar(&db);
     migrar(&db).map_err(|e| format!("migración falló: {}", e))?;
 
     // La poda y el checkpoint YA NO se hacen aquí. Eran lo más caro del
@@ -1435,6 +1452,7 @@ fn sql_consultar_seguro(data_dir: &Path, sql: &str) -> Result<Value, String> {
 fn graphrag_buscar(data_dir: &Path, tema: &str, limite: i64) -> Result<Value, String> {
     let con = rusqlite::Connection::open(data_dir.join("fabrick.db"))
         .map_err(|e| e.to_string())?;
+    afinar(&con);
     let lim = limite.clamp(1, 20);
 
     // Buscar en conocimiento_vector por tema o contenido similar (LIKE)
@@ -1691,101 +1709,139 @@ fn op_revision_registrar(payload: &Value) -> Result<Value, String> {
     })
 }
 
+/// Núcleo de `revision.listar` sobre una conexión ya abierta. Se separa del
+/// envoltorio `con_estado` para poder reusarlo dentro de `op_panel` sin volver a
+/// tomar el candado (lo que sería un auto-bloqueo).
+fn revision_listar_db(
+    db: &Connection,
+    limite: i64,
+    severidad: &str,
+    tipo: &str,
+    origen: &str,
+) -> Result<Value, String> {
+    let mut stmt = db
+        .prepare(
+            "SELECT id,ts,tipo,severidad,origen,mensaje,detalle,ms FROM revision
+             WHERE (?1 = '' OR severidad = ?1)
+               AND (?2 = '' OR tipo = ?2)
+               AND (?3 = '' OR origen = ?3)
+             ORDER BY id DESC LIMIT ?4",
+        )
+        .map_err(|x| x.to_string())?;
+    let filas = stmt
+        .query_map(params![severidad, tipo, origen, limite], |r| {
+            Ok(json!({
+                "id": r.get::<_, i64>(0)?,
+                "ts": r.get::<_, i64>(1)?,
+                "tipo": r.get::<_, String>(2)?,
+                "severidad": r.get::<_, String>(3)?,
+                "origen": r.get::<_, String>(4)?,
+                "mensaje": r.get::<_, String>(5)?,
+                "detalle": r.get::<_, String>(6)?,
+                "ms": r.get::<_, i64>(7)?
+            }))
+        })
+        .map_err(|x| x.to_string())?;
+    let mut salida = Vec::new();
+    for f in filas {
+        salida.push(f.map_err(|x| x.to_string())?);
+    }
+    Ok(json!({ "eventos": salida, "total": salida.len() }))
+}
+
 fn op_revision_listar(payload: &Value) -> Result<Value, String> {
     let limite = payload.get("limite").and_then(|v| v.as_i64()).unwrap_or(200).clamp(1, 2000);
-    let severidad = payload.get("severidad").and_then(|v| v.as_str()).unwrap_or("");
-    let tipo = payload.get("tipo").and_then(|v| v.as_str()).unwrap_or("");
-    let origen = payload.get("origen").and_then(|v| v.as_str()).unwrap_or("");
-    con_estado(|e| {
-        let mut stmt = e
-            .db
-            .prepare(
-                "SELECT id,ts,tipo,severidad,origen,mensaje,detalle,ms FROM revision
-                 WHERE (?1 = '' OR severidad = ?1)
-                   AND (?2 = '' OR tipo = ?2)
-                   AND (?3 = '' OR origen = ?3)
-                 ORDER BY id DESC LIMIT ?4",
-            )
-            .map_err(|x| x.to_string())?;
-        let filas = stmt
-            .query_map(params![severidad, tipo, origen, limite], |r| {
-                Ok(json!({
-                    "id": r.get::<_, i64>(0)?,
-                    "ts": r.get::<_, i64>(1)?,
-                    "tipo": r.get::<_, String>(2)?,
-                    "severidad": r.get::<_, String>(3)?,
-                    "origen": r.get::<_, String>(4)?,
-                    "mensaje": r.get::<_, String>(5)?,
-                    "detalle": r.get::<_, String>(6)?,
-                    "ms": r.get::<_, i64>(7)?
-                }))
-            })
-            .map_err(|x| x.to_string())?;
-        let mut salida = Vec::new();
-        for f in filas {
-            salida.push(f.map_err(|x| x.to_string())?);
+    let severidad = payload.get("severidad").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let tipo = payload.get("tipo").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let origen = payload.get("origen").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    con_estado(move |e| revision_listar_db(&e.db, limite, &severidad, &tipo, &origen))
+}
+
+/// Núcleo de `revision.resumen` sobre una conexión ya abierta (ver
+/// `revision_listar_db` para el porqué de separarlo del envoltorio).
+fn revision_resumen_db(db: &Connection) -> Result<Value, String> {
+    let total: i64 = db
+        .query_row("SELECT COUNT(*) FROM revision", [], |r| r.get(0))
+        .unwrap_or(0);
+    let errores: i64 = db
+        .query_row(
+            "SELECT COUNT(*) FROM revision WHERE severidad IN ('error','critico')",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap_or(0);
+    let avisos: i64 = db
+        .query_row(
+            "SELECT COUNT(*) FROM revision WHERE severidad = 'aviso'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap_or(0);
+    let ultimo: i64 = db
+        .query_row("SELECT COALESCE(MAX(ts),0) FROM revision", [], |r| r.get(0))
+        .unwrap_or(0);
+    let mut origenes = Vec::new();
+    if let Ok(mut stmt) = db.prepare(
+        "SELECT origen, COUNT(*) c FROM revision GROUP BY origen ORDER BY c DESC LIMIT 8",
+    ) {
+        if let Ok(filas) = stmt.query_map([], |r| {
+            Ok(json!({ "origen": r.get::<_, String>(0)?, "n": r.get::<_, i64>(1)? }))
+        }) {
+            for f in filas.flatten() {
+                origenes.push(f);
+            }
         }
-        Ok(json!({ "eventos": salida, "total": salida.len() }))
-    })
+    }
+    let mut tipos = Vec::new();
+    if let Ok(mut stmt) = db.prepare(
+        "SELECT tipo, COUNT(*) c FROM revision GROUP BY tipo ORDER BY c DESC LIMIT 8",
+    ) {
+        if let Ok(filas) = stmt.query_map([], |r| {
+            Ok(json!({ "tipo": r.get::<_, String>(0)?, "n": r.get::<_, i64>(1)? }))
+        }) {
+            for f in filas.flatten() {
+                tipos.push(f);
+            }
+        }
+    }
+    Ok(json!({
+        "total": total,
+        "errores": errores,
+        "avisos": avisos,
+        "ultimo": ultimo,
+        "origenes": origenes,
+        "tipos": tipos
+    }))
 }
 
 fn op_revision_resumen(_payload: &Value) -> Result<Value, String> {
-    con_estado(|e| {
-        let total: i64 = e
-            .db
-            .query_row("SELECT COUNT(*) FROM revision", [], |r| r.get(0))
-            .unwrap_or(0);
-        let errores: i64 = e
-            .db
-            .query_row(
-                "SELECT COUNT(*) FROM revision WHERE severidad IN ('error','critico')",
-                [],
-                |r| r.get(0),
-            )
-            .unwrap_or(0);
-        let avisos: i64 = e
-            .db
-            .query_row(
-                "SELECT COUNT(*) FROM revision WHERE severidad = 'aviso'",
-                [],
-                |r| r.get(0),
-            )
-            .unwrap_or(0);
-        let ultimo: i64 = e
-            .db
-            .query_row("SELECT COALESCE(MAX(ts),0) FROM revision", [], |r| r.get(0))
-            .unwrap_or(0);
-        let mut origenes = Vec::new();
-        if let Ok(mut stmt) = e.db.prepare(
-            "SELECT origen, COUNT(*) c FROM revision GROUP BY origen ORDER BY c DESC LIMIT 8",
-        ) {
-            if let Ok(filas) = stmt.query_map([], |r| {
-                Ok(json!({ "origen": r.get::<_, String>(0)?, "n": r.get::<_, i64>(1)? }))
-            }) {
-                for f in filas.flatten() {
-                    origenes.push(f);
-                }
-            }
-        }
-        let mut tipos = Vec::new();
-        if let Ok(mut stmt) = e.db.prepare(
-            "SELECT tipo, COUNT(*) c FROM revision GROUP BY tipo ORDER BY c DESC LIMIT 8",
-        ) {
-            if let Ok(filas) = stmt.query_map([], |r| {
-                Ok(json!({ "tipo": r.get::<_, String>(0)?, "n": r.get::<_, i64>(1)? }))
-            }) {
-                for f in filas.flatten() {
-                    tipos.push(f);
-                }
-            }
-        }
+    con_estado(|e| revision_resumen_db(&e.db))
+}
+
+/// Estado completo del panel «Flujo en tiempo real» en UN solo viaje y con UN
+/// solo candado. Antes la interfaz hacía cinco llamadas (ping, sqlite,
+/// inventario, revision.resumen, revision.listar) y, como el carril del núcleo
+/// está serializado, eso era cinco veces la espera. Ahora es una sola vez.
+fn op_panel(payload: &Value) -> Result<Value, String> {
+    let limite = payload
+        .get("limite")
+        .and_then(|v| v.as_i64())
+        .unwrap_or(80)
+        .clamp(1, 500);
+    con_estado(move |e| {
+        // Todo con la misma conexión y el mismo candado: nada se repite.
+        let sqlite = sqlite_tablas(&e.db, &e.data_dir)?;
+        let inventario = op_inventario(&json!({ "accion": "resumen" }), &e.db)?;
+        let resumen = revision_resumen_db(&e.db)?;
+        let lista = revision_listar_db(&e.db, limite, "", "", "")?;
         Ok(json!({
-            "total": total,
-            "errores": errores,
-            "avisos": avisos,
-            "ultimo": ultimo,
-            "origenes": origenes,
-            "tipos": tipos
+            "nucleo": {
+                "version": env!("CARGO_PKG_VERSION"),
+                "abi": std::env::consts::ARCH
+            },
+            "sqlite": sqlite,
+            "inventario": inventario,
+            "revision": { "resumen": resumen, "lista": lista }
         }))
     })
 }
@@ -2292,6 +2348,7 @@ fn sqlite_consultar(data_dir: &Path, sql: &str) -> Result<Value, String> {
     let ruta = data_dir.join("fabrick.db");
     let conn = Connection::open_with_flags(&ruta, OpenFlags::SQLITE_OPEN_READ_ONLY)
         .map_err(|e| format!("no se pudo abrir en sólo lectura: {}", e))?;
+    afinar(&conn);
     let mut stmt = conn.prepare(&limpio).map_err(|e| format!("SQL: {}", e))?;
     let (columnas, filas, truncado) = leer_filas(&mut stmt, 200)?;
     let cantidad = filas.len();
@@ -2450,6 +2507,7 @@ pub extern "system" fn Java_cl_fabrick_core_NativeBridge_exec<'local>(
         "revision.registrar" => op_revision_registrar(&payload_json),
         "revision.listar" => op_revision_listar(&payload_json),
         "revision.resumen" => op_revision_resumen(&payload_json),
+        "panel" => op_panel(&payload_json),
         "operaciones" => op_operaciones(&payload_json),
         "rendimiento" => op_rendimiento(&payload_json),
         "sys" => op_sys(&payload_json),

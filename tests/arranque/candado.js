@@ -85,6 +85,46 @@ const bloqueantes = (codigo.match(/ESTADO\s*\.\s*lock\s*\(/g) || []).length;
 if (bloqueantes <= 1) ok("a lo sumo un ESTADO.lock() bloqueante (init)");
 else mal("hay " + bloqueantes + " ESTADO.lock() bloqueantes: riesgo de cuelgue");
 
+console.log("▸ op `panel` sin candado anidado");
+const panel = cuerpo("op_panel");
+if (!panel) {
+  mal("no se encontró op_panel()");
+} else {
+  const veces = (panel.match(/con_estado\s*\(/g) || []).length;
+  if (veces === 1) ok("op_panel() toma el carril una sola vez");
+  else mal("op_panel() toma el carril " + veces + " veces (riesgo de auto-bloqueo)");
+  if (/revision_listar_db/.test(panel) && /revision_resumen_db/.test(panel)) {
+    ok("op_panel() reusa los núcleos sobre la conexión (sin envoltorios)");
+  } else {
+    mal("op_panel() no reusa revision_*_db()");
+  }
+  if (/op_revision_(listar|resumen)\s*\(/.test(panel)) {
+    mal("op_panel() llama al envoltorio con candado (auto-bloqueo)");
+  } else {
+    ok("op_panel() no llama a los envoltorios con candado");
+  }
+}
+if (cuerpo("revision_listar_db") && cuerpo("revision_resumen_db")) {
+  ok("existen revision_listar_db() y revision_resumen_db()");
+} else {
+  mal("faltan los núcleos revision_*_db()");
+}
+
+console.log("▸ SQLite afinado para el teléfono");
+const af = cuerpo("afinar");
+if (!af) {
+  mal("no se encontró afinar()");
+} else {
+  [["synchronous = NORMAL", /synchronous\s*=\s*NORMAL/],
+   ["mmap_size", /mmap_size/],
+   ["cache_size", /cache_size/],
+   ["temp_store = MEMORY", /temp_store\s*=\s*MEMORY/],
+   ["busy_timeout", /busy_timeout/]].forEach(function (par) {
+    if (par[1].test(af)) ok("afinar(): " + par[0]);
+    else mal("afinar() no define " + par[0]);
+  });
+}
+
 console.log();
 if (fallos === 0) {
   console.log("\u001b[1;32m✔ candado del núcleo: todo en orden\u001b[0m");

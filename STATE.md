@@ -2,6 +2,39 @@
 
 Última actualización: 2026-10-27
 
+## Sesión 2026-10-27 (15) · APK 0.9.23 — rendimiento sólido (SQLite afinado + op `panel`)
+
+APK: `dist/FABRI-CORE-0.9.23.apk` · **4.136.139 B** ·
+sha256 `5c56a31cf95ded67a3bb88039617ed10e1331122c8dbbe832e9a1ff2bc0b14b3` ·
+versionCode **38** · copiada a `/sdcard/FABRI-CORE-0.9.23.apk`.
+Firma debug, minSdk 24, target 34. Instalar **encima** de la 0.9.22.
+
+### Por qué (rumbo elegido: «Rendimiento sólido», 1 + 3)
+Con el carril ya arreglado (0.9.22), quedaba la mitad del problema que **sí** se
+puede mejorar de verdad: el núcleo tiene **una sola conexión detrás de un solo
+candado**, así que aunque el teléfono tiene 8 núcleos, las consultas van de a
+una; y cada panel hacía cinco viajes. No era potencia, era **serialización y
+E/S**. Se descartaron el pool de lectura (opción 2, toca ~30 operaciones) y las
+capacidades nuevas (opción 4, embeddings reales exigen nube/clave).
+
+### Hecho
+| Qué | Dónde |
+|---|---|
+| `afinar(db)`: `synchronous=NORMAL`, `cache_size=-16000` (16 MB), `mmap_size=256 MB`, `temp_store=MEMORY`, `busy_timeout=1500` | `src-tauri/src/lib.rs` (3 aperturas) |
+| `op_panel`: todo el estado del Flujo (`sqlite` + `inventario` + `revision`) en un solo candado | `src-tauri/src/lib.rs` |
+| `revision_listar_db` / `revision_resumen_db` reusables sin anidar candado | `src-tauri/src/lib.rs` |
+| Flujo de 5 llamadas a 2 (`ping` + `panel`), con respaldo individual | `android/assets/www/flujo.js` |
+| Prueba ampliada: `op_panel` sin candado anidado + pragmas de `afinar()` | `tests/arranque/candado.js` |
+
+### Verificación
+- `cargo check --target aarch64-linux-android --release` ✔ (solo el warning preexistente `token`)
+- `tests/arranque/correr.sh` **7/7** ✔ · `tests/inventario/lector.js` ✔ · `tests/inventario/ean.js` ✔
+
+### Pendiente / sin confirmar
+- Endpoint de embeddings tipo Gemini en `fabri-api.vercel.app` (no cabe dentro de
+  la APK: necesita clave y red). No iniciado.
+- Pool de lectura (opción 2) queda como mejora futura si la base crece.
+
 ## Sesión 2026-10-27 (14) · APK 0.9.22 — el auto-bloqueo del carril (núcleo ocupado siempre)
 
 APK: `dist/FABRI-CORE-0.9.22.apk` · **4.132.043 B** ·

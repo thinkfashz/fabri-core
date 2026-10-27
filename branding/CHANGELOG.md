@@ -2,6 +2,44 @@
 
 Registro de cambios del sistema de diseño y branding.
 
+## [2.12.0] — 2026-10-27 · APK 0.9.23
+
+### Rendimiento sólido: SQLite afinado y una sola llamada para el Flujo
+
+Con el carril ya sin auto-bloqueo (0.9.22), quedaba la otra mitad del problema:
+**serialización y E/S**. Cada panel hacía cinco viajes al núcleo, y la base no
+estaba ajustada para el teléfono.
+
+### Añadido
+- **`afinar(db)`**: ajustes de SQLite por conexión, aplicados en las tres
+  aperturas (init, `graphrag_buscar`, `consultar_seguro`):
+  - `synchronous = NORMAL` (seguro con WAL: como mucho se pierde la última
+    transacción si el teléfono se apaga de golpe, nunca se corrompe la base)
+  - `cache_size = -16000` (16 MB de caché de páginas)
+  - `mmap_size = 268435456` (256 MB de lectura por memoria mapeada: menos
+    `syscalls`, más uso de la RAM libre)
+  - `temp_store = MEMORY` (los ORDER BY / GROUP BY no tocan disco)
+  - `busy_timeout = 1500` (antes 400 ms: menos falsos «ocupado»)
+  - `foreign_keys = ON`
+- **Operación `panel`**: devuelve en **una sola llamada y un solo candado**
+  todo el estado del panel Flujo: `núcleo`, `sqlite`, `inventario` y
+  `revision` (resumen + lista). Antes eran cinco llamadas serializadas por el
+  carril del núcleo; ahora es una.
+
+### Cambiado
+- `revision.listar` / `revision.resumen` se separaron en funciones que reciben
+  la conexión (`revision_listar_db`, `revision_resumen_db`); los
+  `op_revision_*` quedan como envoltorios finos y `op_panel` reusa los mismos
+  núcleos **sin volver a tomar el candado** (nada de anidar `con_estado`).
+- `flujo.js`: `flujoRefrescar` hace 2 llamadas (`ping` + `panel`) en vez de 5.
+  Conserva `flujoRefrescarIndividual` como respaldo para APKs sin `panel`.
+
+### Verificación
+- `cargo check --target aarch64-linux-android --release` ✔
+- `tests/arranque/correr.sh` **7/7** ✔ (la prueba del candado ahora verifica
+  también `op_panel` y los pragmas de `afinar()`)
+- `tests/inventario/lector.js` ✔ · `tests/inventario/ean.js` ✔
+
 ## [2.11.0] — 2026-10-27 · APK 0.9.22
 
 ### Corregido

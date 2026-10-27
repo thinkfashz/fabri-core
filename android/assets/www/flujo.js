@@ -123,24 +123,59 @@ function flujoRefrescar() {
   if (FLUJO.consultando) return;
   FLUJO.consultando = true;
   const t0 = Date.now();
-  // Timeouts CORTOS: esto es un panel de estado, no una consulta de datos.
-  // Si el núcleo está ocupado, cada nodo se marca "lento" al instante en vez
-  // de hacer esperar al panel 25 s con `Promise.all`.
+  // Un solo viaje: `panel` devuelve SQLite, Inventario y Revisión juntos, con un
+  // único candado del núcleo. El `ping` va aparte porque lo contesta Java al
+  // instante. Antes eran cinco llamadas serializadas por el carril.
   const tl = { maxMs: 6000 };
   Promise.allSettled([
     apiTarde("ping", undefined, tl),
+    apiTarde("panel", { limite: 80 }, tl)
+  ]).then(function (res) {
+    FLUJO.consultando = false;
+    const ping = res[0].status === "fulfilled" ? res[0].value
+      : { ok: false, error: "carga cancelada" };
+    const p = res[1].status === "fulfilled" ? res[1].value
+      : { ok: false, error: "carga cancelada" };
+    if (p && p.ok) {
+      const d = p.data || {};
+      const rev = d.revision || {};
+      flujoPintarCon(
+        ping,
+        { ok: true, data: d.sqlite || {} },
+        { ok: true, data: d.inventario || {} },
+        { ok: true, data: rev.resumen || {} },
+        { ok: true, data: { eventos: (rev.lista && rev.lista.eventos) || [] } },
+        t0
+      );
+      return;
+    }
+    // Respaldo: si la APK es anterior y no trae `panel`, se usan las llamadas
+    // sueltas de siempre para no romper nada.
+    if (p && p.codigo === "CORE_ERROR" && /desconocida/i.test(p.error || "")) {
+      flujoRefrescarIndividual(ping, t0);
+      return;
+    }
+    const e = (p && p.error) || "el núcleo no respondió";
+    flujoPintarCon(ping, { ok: false, error: e }, { ok: false, error: e },
+      { ok: false, error: e }, { ok: false, error: e }, t0);
+  }).catch(function () {
+    FLUJO.consultando = false;
+  });
+}
+
+/** Camino anterior (APK sin la op `panel`): cuatro llamadas por separado. */
+function flujoRefrescarIndividual(ping, t0) {
+  const tl = { maxMs: 6000 };
+  Promise.allSettled([
     apiTarde("sqlite", { accion: "tablas" }, tl),
     apiTarde("inventario", { accion: "resumen" }, tl),
     apiTarde("revision.resumen", undefined, tl),
     apiTarde("revision.listar", { limite: 80 }, tl)
   ]).then(function (res) {
-    FLUJO.consultando = false;
     const r = res.map(function (x) {
       return x.status === "fulfilled" ? x.value : { ok: false, error: "carga cancelada" };
     });
-    flujoPintarCon(r[0], r[1], r[2], r[3], r[4], t0);
-  }).catch(function () {
-    FLUJO.consultando = false;
+    flujoPintarCon(ping, r[0], r[1], r[2], r[3], t0);
   });
 }
 
