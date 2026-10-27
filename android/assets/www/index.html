@@ -1180,6 +1180,7 @@ npx -y omniroute@latest
         <div class="inv-scan">
           <div class="inv-camara" id="invCamaraCaja">
             <video id="invVideo" playsinline muted></video>
+            <canvas id="invMalla" class="inv-malla" aria-hidden="true"></canvas>
             <div class="inv-camara-mira" aria-hidden="true"></div>
             <p class="inv-camara-nota" id="invCamaraNota">La imagen nunca sale del teléfono.</p>
           </div>
@@ -1192,11 +1193,13 @@ npx -y omniroute@latest
             <button class="btn" id="btnInvCamaraParar" type="button" hidden>Detener</button>
             <label class="campo">
               <span>Código de barras</span>
-              <input id="invCodigo" inputmode="numeric" autocomplete="off" placeholder="Ej. 7801234567890" />
+              <input id="invCodigo" inputmode="numeric" autocomplete="off" list="invCodigos" placeholder="Ej. 7801234567890" />
+              <datalist id="invCodigos"></datalist>
             </label>
             <button class="btn" id="btnInvBuscarCodigo" type="button">Buscar código</button>
-            <p class="inv-ayuda">Si la cámara no está disponible, escribe el código: la búsqueda
-              funciona contra el pipeline de Google y bases libres.</p>
+            <p class="inv-ayuda">Si la cámara no está disponible, escribe el código: se busca en
+              <b>tu base local</b>, en <b>tu nube</b> y en las bases libres
+              (Open Food/Beauty/Products Facts, Open Prices, Wikipedia).</p>
           </div>
         </div>
         <div id="invResultadoApi" class="inv-resultado"></div>
@@ -1262,11 +1265,13 @@ npx -y omniroute@latest
           <button class="btn btn-primario" id="btnInvNuevo" type="button">+ Nuevo producto</button>
           <button class="btn" id="btnInvRefrescar" type="button">Refrescar</button>
           <button class="btn" id="btnInvSincronizar" type="button">Sincronizar</button>
+          <button class="btn" id="btnInvNubeResumen" type="button">Resumen de mi nube</button>
         </div>
+        <div id="invNubeResumen" class="inv-nube-resumen"></div>
         <div id="invFormulario" class="inv-form" hidden>
           <h3 id="invFormTitulo">Nuevo producto</h3>
           <div class="inv-form-grid">
-            <label class="campo"><span>Código de barras</span><input id="invFcodigo" inputmode="numeric" /></label>
+            <label class="campo"><span>Código de barras</span><input id="invFcodigo" inputmode="numeric" list="invCodigos" /></label>
             <label class="campo"><span>Nombre *</span><input id="invFnombre" /></label>
             <label class="campo"><span>Marca</span><input id="invFmarca" /></label>
             <label class="campo"><span>Categoría</span>

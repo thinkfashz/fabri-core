@@ -2,6 +2,36 @@
 
 Última actualización: 2026-10-27
 
+## Sesión 2026-10-27 (16) · APK 0.9.24 — escáner pro, las 2 bases y más fuentes libres
+
+APK: `dist/FABRI-CORE-0.9.24.apk` · **4.140.235 B** ·
+sha256 `e1172093df80f98b774b9c6b573aa9421c2e77e82314b03daee9191217297403` ·
+versionCode **39** · copiada a `/sdcard/FABRI-CORE-0.9.24.apk`.
+Firma debug, minSdk 24, target 34. Instalar **encima** de la 0.9.23.
+
+### Qué se hizo (alcance elegido: escáner pro + 2 bases + UI)
+| Qué | Dónde |
+|---|---|
+| Malla de escaneo en canvas (grilla + barrido + esquinas + destello) | `index.html` (`#invMalla`), `inventario.css`, `inventario.js` (`invMalla*`) |
+| Búsqueda en TU nube: local → nube → libres | `inventario.js` (`invNubeBuscarCodigo`, `invMostrarNube`) |
+| Acción `buscar` (por código y por texto) + desplegada | `api-telefono/api/inventario.ts` |
+| Open Prices (precios reales) | `inventario.js` (`invOpenPrices`) |
+| Wikipedia/Wikidata (descripción) | `inventario.js` (`invWikiDescripcion`) |
+| Autocompletado de códigos clasificado | `index.html` (`#invCodigos`), `inventario.js` (`invPoblarDatalist`) |
+| Resumen de tu nube en el paso 2 | `inventario.js` (`invNubeResumenPintar`) |
+| Prueba nueva de las 2 bases + escáner | `tests/inventario/nube.js`, `tests/inventario/correr.sh` |
+
+### Verificación
+- `tests/inventario/correr.sh` **3/3** ✔ · `tests/arranque/correr.sh` **7/7** ✔
+- API en producción: `GET /api/inventario` lista `acciones` con `buscar` ✔; sin
+  token responde `SIN_TOKEN` ✔.
+
+### Pendiente (segunda entrega)
+- **S3 / factura servida**: el usuario quiere empaquetar el JSON del producto y
+  enviarlo a su base con un token, organizado en tablas, y luego servirlo como
+  factura HTML/canvas con efecto de impresión profesional. No iniciado.
+- Pool de lectura del núcleo (opción 2 de rendimiento), si la base crece.
+
 ## Sesión 2026-10-27 (15) · APK 0.9.23 — rendimiento sólido (SQLite afinado + op `panel`)
 
 APK: `dist/FABRI-CORE-0.9.23.apk` · **4.136.139 B** ·

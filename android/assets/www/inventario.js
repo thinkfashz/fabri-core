@@ -14,8 +14,7 @@
    - Ningún fallo se silencia: todo queda en `revision` y se muestra en pantalla.
    ========================================================================== */
 
-/* ── Efectos sonoros nativos vía Web Audio API (cero dependencias) ── */
-function sonidoBeep(freq, dur) {
+/* ── Efectos sonoros nativos vía Web Audio API (cero dependencias) ── */function sonidoBeep(freq, dur) {
   try {
     const f = freq || 880;
     const d = dur || 0.08;
@@ -86,6 +85,8 @@ const INV = {
     token: ""
   }
 };
+// Copia accesible desde la consola del teléfono (diagnóstico) y las pruebas.
+window.INV = INV;
 
 const INV_CATEGORIAS = {
   abarrotes: "Alimentos",
@@ -239,6 +240,7 @@ function invConectarEventos() {
   if ($("btnInvGuardar")) $("btnInvGuardar").addEventListener("click", invGuardar);
   if ($("btnInvCancelar")) $("btnInvCancelar").addEventListener("click", invFormularioCerrar);
   if ($("btnInvSincronizar")) $("btnInvSincronizar").addEventListener("click", invSincronizar);
+  if ($("btnInvNubeResumen")) $("btnInvNubeResumen").addEventListener("click", invNubeResumenPintar);
 
   ["invBuscar", "invFiltroCategoria", "invFiltroFree", "invSoloBajo"].forEach(function (id) {
     const el = $(id);
@@ -299,6 +301,7 @@ function invRefrescar() {
       invPintarProductos();
       invPintarSelectores();
       invPintarMargenes();
+      invPoblarDatalist();
     } else if (!INV.productos.length) {
       invAviso("No pude leer el inventario: " + (r.error || "error"), "error");
     }
@@ -306,6 +309,23 @@ function invRefrescar() {
       if (rr.ok) { INV.resumen = rr.data; invPintarResumen(rr.data); }
     });
   });
+}
+
+/** Rellena el autocompletado de códigos con los productos ya guardados.
+ *  Así, al escribir un par de dígitos, aparecen los códigos conocidos y se
+ *  evita dar de alta dos veces el mismo producto. Los códigos quedan
+ *  «clasificados»: cada opción muestra el nombre y la categoría. */
+function invPoblarDatalist() {
+  const dl = document.getElementById("invCodigos");
+  if (!dl) return;
+  const vistos = {};
+  dl.innerHTML = (INV.productos || []).map(function (p) {
+    if (!p.codigo || vistos[p.codigo]) return "";
+    vistos[p.codigo] = 1;
+    const cat = INV_CATEGORIAS[p.categoria] || p.categoria || "";
+    const etiqueta = p.codigo + " — " + (p.nombre || "") + (cat ? " · " + cat : "");
+    return `<option value="${esc(p.codigo)}" label="${esc(etiqueta)}"></option>`;
+  }).join("");
 }
 
 function invPintarResumen(datos) {
@@ -345,6 +365,7 @@ async function invCamaraAbrir() {
     caja.classList.add("activa");
     caja.classList.add("mira");
     if (btnParar) btnParar.hidden = false;
+    invMallaIniciar();
 
     if (typeof window.BarcodeDetector === "function") {
       INV.detector = new window.BarcodeDetector({
@@ -372,6 +393,7 @@ async function invCamaraAbrir() {
 
 function invCamaraParar() {
   if (INV.timerScan) { clearTimeout(INV.timerScan); INV.timerScan = null; }
+  invMallaParar();
   if (INV.camara) {
     INV.camara.getTracks().forEach(function (t) { try { t.stop(); } catch (e) {} });
     INV.camara = null;
@@ -383,6 +405,112 @@ function invCamaraParar() {
   const btnParar = document.getElementById("btnInvCamaraParar");
   if (btnParar) btnParar.hidden = true;
   INV.detector = null;
+}
+
+/* ── malla de escaneo (canvas) ──────────────────────────────────────────────
+   Encima del vídeo se dibuja una malla con un barrido vertical, esquinas de
+   encuadre y un destello al leer. Es solo presentación: el barrido muestra
+   dónde está mirando el lector y el destello confirma la lectura. Se dibuja en
+   `requestAnimationFrame` mientras la cámara está activa y se apaga al cerrar.
+   Con «reducir movimiento» activo se pinta un fotograma fijo. */
+
+function invMallaAjustar() {
+  const cv = document.getElementById("invMalla");
+  const caja = document.getElementById("invCamaraCaja");
+  if (!cv || !caja) return;
+  const r = caja.getBoundingClientRect();
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const w = Math.max(1, Math.round((r.width || 320) * dpr));
+  const h = Math.max(1, Math.round((r.height || 240) * dpr));
+  if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+}
+
+function invMallaIniciar() {
+  const cv = document.getElementById("invMalla");
+  if (!cv) return;
+  INV.mallaActiva = true;
+  INV.mallaT0 = Date.now();
+  invMallaAjustar();
+  const reducir = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reducir) {
+    invMallaDibujar(cv, 0);
+    return;
+  }
+  if (!INV.mallaResize) {
+    INV.mallaResize = function () { invMallaAjustar(); };
+    window.addEventListener("resize", INV.mallaResize);
+  }
+  const paso = function () {
+    if (!INV.mallaActiva) return;
+    invMallaDibujar(cv, (Date.now() - INV.mallaT0) / 1000);
+    INV.mallaRaf = requestAnimationFrame(paso);
+  };
+  INV.mallaRaf = requestAnimationFrame(paso);
+}
+
+function invMallaParar() {
+  INV.mallaActiva = false;
+  if (INV.mallaRaf) { cancelAnimationFrame(INV.mallaRaf); INV.mallaRaf = null; }
+  const cv = document.getElementById("invMalla");
+  if (cv) {
+    const ctx = cv.getContext("2d");
+    if (ctx) ctx.clearRect(0, 0, cv.width, cv.height);
+  }
+}
+
+/** Pinta un fotograma de la malla. `t` en segundos (0 = fotograma fijo). */
+function invMallaDibujar(cv, t) {
+  const ctx = cv.getContext("2d");
+  if (!ctx) return;
+  const w = cv.width, h = cv.height;
+  const lima = "200,255,0";
+  ctx.clearRect(0, 0, w, h);
+
+  // 1) Malla: grilla sutil que da la sensación de «barrido por malla».
+  const paso = Math.max(34, Math.round(w / 14));
+  ctx.lineWidth = Math.max(1, Math.round(w / 900));
+  ctx.strokeStyle = "rgba(" + lima + ",0.10)";
+  ctx.beginPath();
+  for (let x = paso; x < w; x += paso) { ctx.moveTo(x, 0); ctx.lineTo(x, h); }
+  for (let y = paso; y < h; y += paso) { ctx.moveTo(0, y); ctx.lineTo(w, y); }
+  ctx.stroke();
+
+  // 2) Barrido vertical (ida y vuelta) con degradado.
+  const yB = t <= 0 ? h * 0.5 : ((Math.sin(t * 1.6) + 1) / 2) * h;
+  const banda = h * 0.5;
+  const grad = ctx.createLinearGradient(0, yB - banda / 2, 0, yB + banda / 2);
+  grad.addColorStop(0, "rgba(" + lima + ",0)");
+  grad.addColorStop(0.5, "rgba(" + lima + ",0.22)");
+  grad.addColorStop(1, "rgba(" + lima + ",0)");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, yB - banda / 2, w, banda);
+  ctx.strokeStyle = "rgba(" + lima + ",0.7)";
+  ctx.lineWidth = Math.max(1.5, w / 320);
+  ctx.beginPath();
+  ctx.moveTo(0, yB); ctx.lineTo(w, yB);
+  ctx.stroke();
+
+  // 3) Esquinas de encuadre.
+  const m = Math.round(w * 0.09), l = Math.round(w * 0.055);
+  ctx.strokeStyle = "rgba(" + lima + ",0.9)";
+  ctx.lineWidth = Math.max(2, w / 220);
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(m, m + l); ctx.lineTo(m, m); ctx.lineTo(m + l, m);
+  ctx.moveTo(w - m - l, m); ctx.lineTo(w - m, m); ctx.lineTo(w - m, m + l);
+  ctx.moveTo(m, h - m - l); ctx.lineTo(m, h - m); ctx.lineTo(m + l, h - m);
+  ctx.moveTo(w - m - l, h - m); ctx.lineTo(w - m, h - m); ctx.lineTo(w - m, h - m - l);
+  ctx.stroke();
+
+  // 4) Destello al leer un código.
+  if (INV.mallaFlash) {
+    const e = Date.now() - INV.mallaFlash;
+    if (e < 450) {
+      const a = (1 - e / 450) * 0.3;
+      ctx.fillStyle = "rgba(" + lima + "," + a + ")";
+      ctx.fillRect(0, 0, w, h);
+    }
+  }
 }
 
 function invBucleEscaneo() {
@@ -398,6 +526,7 @@ function invBucleEscaneo() {
         valor = invEscanearCuadro();
       }
       if (valor) {
+        INV.mallaFlash = Date.now();
         const caja = document.getElementById("invCamaraCaja");
         if (caja) caja.classList.remove("mira");
         if (caja) caja.classList.add("leyo");
@@ -413,6 +542,108 @@ function invBucleEscaneo() {
     }
     if (INV.camara) invBucleEscaneo();
   }, INV.detector ? 420 : 550);
+}
+
+/* ── tu nube (fabri-api → InsForge) ────────────────────────────────────────
+   La segunda base del inventario. Se consulta con el MISMO contrato que usa la
+   sincronización (`/api/inventario` + `Authorization: Bearer <token>`), pero
+   con la acción `buscar`. Sin URL o sin token se devuelve «sin nube» y el
+   escáner sigue con las bases libres: nunca se inventa un resultado. */
+
+/** URL final del endpoint de inventario, tolerando que ya venga con /api/inventario. */
+function invNubeDestino() {
+  const base = String(INV.nube.url || "").replace(/\/+$/, "");
+  if (!base) return "";
+  return /\/api\/inventario$/.test(base) ? base : base + "/api/inventario";
+}
+
+/** Una petición a la nube, con tope de tiempo y sin lanzar nunca. */
+async function invNubePedir(cuerpo, maxMs) {
+  const destino = invNubeDestino();
+  if (!destino) return { ok: false, error: "sin nube configurada", codigo: "SIN_NUBE" };
+  const ctrl = new AbortController();
+  const t = setTimeout(function () { ctrl.abort(); }, maxMs || 8000);
+  try {
+    const resp = await fetch(destino, {
+      method: "POST",
+      headers: Object.assign(
+        { "Content-Type": "application/json" },
+        INV.nube.token ? { "Authorization": "Bearer " + INV.nube.token } : {}
+      ),
+      body: JSON.stringify(cuerpo),
+      signal: ctrl.signal
+    });
+    if (resp.status === 401) return { ok: false, error: "token de la nube rechazado", codigo: "SIN_TOKEN" };
+    if (!resp.ok) return { ok: false, error: "HTTP " + resp.status, codigo: "NUBE" };
+    const datos = await resp.json().catch(function () { return {}; });
+    if (datos && datos.ok === false) {
+      return { ok: false, error: datos.error || "la nube rechazó la consulta", codigo: datos.codigo || "NUBE" };
+    }
+    return { ok: true, data: datos };
+  } catch (e) {
+    const msg = (e && e.name === "AbortError")
+      ? "la nube tardó demasiado"
+      : (e && e.message ? e.message : String(e));
+    return { ok: false, error: msg, codigo: "NUBE" };
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+/** Busca UN código en la nube. Devuelve {ok, producto} o {ok:false, motivo}. */
+async function invNubeBuscarCodigo(codigo) {
+  if (!INV.nube.url) return { ok: false, motivo: "sin nube" };
+  if (!INV.nube.token) return { ok: false, motivo: "sin token" };
+  const r = await invNubePedir({ accion: "buscar", codigo: codigo }, 7000);
+  if (r.ok && r.data && r.data.encontrado && r.data.producto) {
+    return { ok: true, producto: r.data.producto };
+  }
+  return { ok: false, motivo: r.error || "no está en tu nube" };
+}
+
+/** Busca por texto en la nube (para el autocompletado de códigos). */
+async function invNubeBuscarTexto(q, limite) {
+  if (!INV.nube.url || !INV.nube.token) return { ok: false, productos: [] };
+  const r = await invNubePedir({ accion: "buscar", q: q, limite: limite || 20 }, 7000);
+  if (r.ok && r.data && Array.isArray(r.data.productos)) {
+    return { ok: true, productos: r.data.productos };
+  }
+  return { ok: false, productos: [] };
+}
+
+/** Resumen de la nube (totales y stock bajo, calculados en InsForge). */
+async function invNubeResumen() {
+  const r = await invNubePedir({ accion: "resumen" }, 12000);
+  if (r.ok && r.data) return { ok: true, resumen: r.data.resumen, categorias: r.data.categorias };
+  return { ok: false, error: r.error || "sin respuesta" };
+}
+
+/** Pinta el resumen de la nube dentro del paso 2. */
+async function invNubeResumenPintar() {
+  const caja = document.getElementById("invNubeResumen");
+  if (!caja) return;
+  if (!INV.nube.url) {
+    caja.innerHTML = `<p class="inv-ayuda">Sin nube configurada: ve a Integración y define la URL y el token.</p>`;
+    return;
+  }
+  caja.innerHTML = `<p class="inv-ayuda">Consultando tu nube…</p>`;
+  const r = await invNubeResumen();
+  if (!r.ok) {
+    caja.innerHTML = `<p class="inv-ayuda">Nube: ${esc(r.error)}. Si no configuraste el token, ve a Integración.</p>`;
+    return;
+  }
+  const d = r.resumen || {};
+  const cats = (r.categorias || []).slice(0, 6).map(function (c) {
+    return `<span class="inv-chip">${esc(INV_CATEGORIAS[c.categoria] || c.categoria)} ${c.n}</span>`;
+  }).join("");
+  caja.innerHTML = `
+    <div class="inv-kpis">
+      <div class="inv-kpi"><span>En tu nube</span><strong>${d.total || 0}</strong></div>
+      <div class="inv-kpi ok"><span>Valor venta</span><strong>${invClp(d.valor_venta)}</strong></div>
+      <div class="inv-kpi"><span>Utilidad</span><strong>${invClp(d.utilidad)}</strong></div>
+      <div class="inv-kpi ${d.stock_bajo > 0 ? "alerta" : ""}"><span>Stock bajo</span><strong>${d.stock_bajo || 0}</strong></div>
+    </div>
+    ${cats ? `<div class="inv-meta" style="margin-top:8px">${cats}</div>` : ""}`;
 }
 
 /** Busca primero en la base local y, si no está, en las APIs libres. */
@@ -431,7 +662,17 @@ async function invBuscarCodigo(codigoCrudo) {
     return;
   }
 
-  // 2) Bases libres. Si ninguna responde, se dice tal cual: no es un error de
+  // 2) Tu nube (fabri-api → InsForge). Es la otra mitad de «mis 2 bases»: si el
+  //    producto ya se sincronizó desde otro dispositivo, aparece aquí aunque
+  //    todavía no esté en este teléfono.
+  const nube = await invNubeBuscarCodigo(codigo);
+  if (nube.ok) {
+    invMostrarNube(nube.producto, caja);
+    revision("inventario", "info", "código encontrado en tu nube", codigo, 0, "inventario");
+    return;
+  }
+
+  // 3) Bases libres. Si ninguna responde, se dice tal cual: no es un error de
   //    la app ni del código, simplemente ese producto no está publicado.
   const api = await invConsultarApiLibre(codigo);
   if (api.ok) {
@@ -487,6 +728,41 @@ function invMostrarLocal(p, caja) {
   if (ca) ca.addEventListener("click", function () { INV.sel = p.codigo; invCarritoAgregar(); });
 }
 
+/** Tarjeta cuando el código aparece en TU nube (fabri-api → InsForge). */
+function invMostrarNube(p, caja) {
+  if (!caja) return;
+  caja.innerHTML = `
+    <div class="inv-card-api">
+      <h3>${esc(p.nombre)}</h3>
+      <div class="inv-meta">
+        <span class="inv-chip nube">ya está en tu nube</span>
+        <span class="inv-chip">${esc(p.codigo)}</span>
+        ${p.marca ? `<span class="inv-chip">${esc(p.marca)}</span>` : ""}
+        <span class="inv-chip">${esc(INV_CATEGORIAS[p.categoria] || p.categoria)}</span>
+        <span class="inv-chip">stock ${p.stock != null ? p.stock : 0}</span>
+        <span class="inv-chip">${invClp(p.precio)}</span>
+      </div>
+      <p class="inv-ayuda">Vino de la nube (sincronizado desde otro dispositivo).
+        Guárdalo aquí para tenerlo sin conexión.</p>
+      <div class="inv-item-acciones">
+        <button class="btn btn-primario" id="btnInvGuardarNube">Guardar en este teléfono</button>
+        <button class="btn" id="btnInvDescartarNube">Descartar</button>
+      </div>
+    </div>`;
+  const g = document.getElementById("btnInvGuardarNube");
+  if (g) g.addEventListener("click", function () {
+    invFormulario({
+      codigo: p.codigo, nombre: p.nombre, marca: p.marca, categoria: p.categoria,
+      unidad: p.unidad || "unidad", costo: p.costo, precio: p.precio,
+      stock: p.stock, stock_minimo: p.stock_minimo, iva: p.iva,
+      proveedor: p.proveedor, origen: "nube", notas: p.notas,
+      ficha: (p.ficha && typeof p.ficha === "object") ? p.ficha : {}
+    });
+  });
+  const d = document.getElementById("btnInvDescartarNube");
+  if (d) d.addEventListener("click", function () { caja.innerHTML = ""; });
+}
+
 function invMostrarApi(p, caja) {
   if (!caja) return;
   const f = p.ficha || {};
@@ -514,12 +790,15 @@ function invMostrarApi(p, caja) {
       </div>
       ${img}
       ${alergenos}
+      <div id="invExtra"></div>
       <p class="inv-ayuda">No está en tu base. Revísalo y guárdalo con tu costo y precio.</p>
       <div class="inv-item-acciones">
         <button class="btn btn-primario" id="btnInvGuardarApi">Añadir a mi inventario</button>
         <button class="btn" id="btnInvDescartarApi">Descartar</button>
       </div>
     </div>`;
+  // Enriquecimiento en segundo plano: no bloquea el pintado de la tarjeta.
+  invEnriquecerLibre(p.codigo, p.nombre);
   const g = document.getElementById("btnInvGuardarApi");
   if (g) g.addEventListener("click", function () {
     invFormulario({
@@ -647,6 +926,102 @@ async function invConsultarApiLibre(codigo) {
     ok: false, motivo: "no publicado en bases libres",
     error: "Ese código no está publicado en las bases libres (Open Food/Beauty/Products Facts). No es un error de la app."
   };
+}
+
+/* ── enriquecimiento con más fuentes libres ────────────────────────────────
+   Dos fuentes que suman información que Open Food/Beauty/Products no dan:
+     · Open Prices (OFF): precios reales que otras personas reportaron para ese
+       mismo código de barras. Útil para el paso 3 (comparativa) y para sugerir
+       un precio de venta.
+     · Wikipedia/Wikidata (vía es.wikipedia.org): una descripción breve del
+       producto por su NOMBRE (no por código, que casi nunca existe).
+   Ambas son opcionales: si fallan, la tarjeta se muestra igual. */
+
+/** Precios reportados en Open Prices para un código. */
+async function invOpenPrices(codigo) {
+  const url = "https://prices.openfoodfacts.org/api/v1/prices?product_code=" +
+    encodeURIComponent(codigo) + "&order_by=-date&size=5";
+  const ctrl = new AbortController();
+  const t = setTimeout(function () { ctrl.abort(); }, 4500);
+  try {
+    const resp = await fetch(url, { signal: ctrl.signal, headers: { "Accept": "application/json" } });
+    if (!resp.ok) return [];
+    const datos = await resp.json();
+    const items = (datos && datos.items) || [];
+    return items.map(function (x) {
+      const loc = x.location || {};
+      return {
+        precio: Number(x.price) || 0,
+        moneda: x.currency || "EUR",
+        tienda: loc.osm_address_city || loc.osm_display_name || "",
+        fecha: x.date || ""
+      };
+    }).filter(function (x) { return x.precio > 0; });
+  } catch (e) {
+    return [];
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+/** Descripción breve de Wikipedia (es) para un nombre de producto. */
+async function invWikiDescripcion(nombre) {
+  const busca = String(nombre || "").trim();
+  if (busca.length < 3) return null;
+  const b = "https://es.wikipedia.org/w/api.php?format=json&origin=*";
+  const ctrl = new AbortController();
+  const t = setTimeout(function () { ctrl.abort(); }, 4500);
+  try {
+    const r1 = await fetch(b + "&action=query&list=search&srlimit=1&srsearch=" + encodeURIComponent(busca),
+      { signal: ctrl.signal, headers: { "Accept": "application/json" } });
+    if (!r1.ok) return null;
+    const d1 = await r1.json();
+    const hit = (((d1 || {}).query || {}).search || [])[0];
+    if (!hit || !hit.title) return null;
+    const r2 = await fetch(b + "&action=query&prop=extracts&exintro=1&explaintext=1&redirects=1&titles=" +
+      encodeURIComponent(hit.title), { signal: ctrl.signal, headers: { "Accept": "application/json" } });
+    if (!r2.ok) return null;
+    const d2 = await r2.json();
+    const paginas = ((d2 || {}).query || {}).pages || {};
+    const pid = Object.keys(paginas)[0];
+    const texto = pid && paginas[pid] && paginas[pid].extract ? String(paginas[pid].extract) : "";
+    if (!texto) return null;
+    return {
+      titulo: hit.title,
+      texto: texto.replace(/\s+/g, " ").slice(0, 260),
+      url: "https://es.wikipedia.org/wiki/" + encodeURIComponent(hit.title)
+    };
+  } catch (e) {
+    return null;
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+/** Enriquecimiento de la tarjeta de una base libre: precios y descripción. */
+async function invEnriquecerLibre(codigo, nombre) {
+  const caja = document.getElementById("invExtra");
+  if (!caja) return;
+  let precio = `<span class="inv-chip">Open Prices: sin datos</span>`;
+  let wiki = "";
+  const [precios, desc] = await Promise.all([
+    invOpenPrices(codigo),
+    invWikiDescripcion(nombre)
+  ]);
+  if (precios && precios.length) {
+    const p0 = precios[0];
+    const otros = precios.slice(1, 4).map(function (x) {
+      return `<span class="inv-chip">${esc(x.moneda)} ${invNum(x.precio)}${x.tienda ? " · " + esc(x.tienda) : ""}</span>`;
+    }).join("");
+    precio = `<span class="inv-chip lima">Open Prices ${esc(p0.moneda)} ${invNum(p0.precio)}` +
+      (p0.tienda ? " · " + esc(p0.tienda) : "") + `</span>` + otros;
+  }
+  if (desc) {
+    wiki = `<p class="inv-ayuda"><b>${esc(desc.titulo)}</b> (Wikipedia): ${esc(desc.texto)}…</p>`;
+  }
+  caja.innerHTML = `
+    <div class="inv-meta" style="margin-top:8px">${precio}</div>
+    ${wiki}`;
 }
 
 function invCategoriaDesdeTags(tags, porDefecto) {

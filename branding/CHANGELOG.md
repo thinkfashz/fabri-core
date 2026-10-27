@@ -2,6 +2,39 @@
 
 Registro de cambios del sistema de diseño y branding.
 
+## [2.13.0] — 2026-10-27 · APK 0.9.24
+
+### Escáner pro, las DOS bases (local + nube) y más fuentes libres
+
+El escáner solo miraba la base local y las bases libres: **tu nube nunca se
+consultaba**. Y la mira de la cámara era un borde estático.
+
+### Añadido
+- **Malla de escaneo en canvas** (`#invMalla`): grilla, barrido vertical con
+  degradado, esquinas de encuadre y destello al leer. Se dibuja en
+  `requestAnimationFrame` mientras la cámara está activa y se apaga al cerrar;
+  con «reducir movimiento» se pinta un fotograma fijo.
+- **Búsqueda en tu nube** (`invNubeBuscarCodigo`): el escáner ahora resuelve
+  local → **nube** (fabri-api `/api/inventario`) → bases libres. Chip «ya está
+  en tu nube» y botón «Guardar en este teléfono».
+- **Acción `buscar`** en `api-telefono/api/inventario.ts`: por `codigo`
+  (producto exacto) o por `q` (nombre/marca/código, para el autocompletado).
+  Desplegada en producción (`fabri-api.vercel.app`).
+- **Open Prices (OFF)**: precios reales reportados para el mismo código, con
+  distinción de moneda y tienda.
+- **Wikipedia/Wikidata (es)**: descripción breve del producto por su nombre.
+- **Autocompletado de códigos** (`<datalist id="invCodigos">`): al escribir un
+  par de dígitos aparecen los códigos ya guardados, clasificados con nombre y
+  categoría, para no dar de alta dos veces el mismo producto.
+- **Resumen de tu nube** en el paso 2 (botón «Resumen de mi nube»): totales,
+  valor de venta, utilidad y stock bajo calculados en InsForge, con las
+  categorías con más productos.
+
+### Verificación
+- `tests/inventario/correr.sh` (nuevo) **3/3** ✔: lector, EAN y las 2 bases +
+  escáner pro (`tests/inventario/nube.js`).
+- `tests/arranque/correr.sh` **7/7** ✔.
+
 ## [2.12.0] — 2026-10-27 · APK 0.9.23
 
 ### Rendimiento sólido: SQLite afinado y una sola llamada para el Flujo

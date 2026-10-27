@@ -13,6 +13,7 @@
 //   POST { accion: "asegurar" }                      → crea tabla e índice
 //   POST { accion: "subir",  productos: [ ... ] }     → upsert por `codigo`
 //   POST { accion: "bajar",  limite?, offset? }       → lista desde la nube
+//   POST { accion: "buscar", codigo, q? }             → un producto o una búsqueda
 //   POST { accion: "borrar", codigos: [ ... ] }       → elimina por código
 //   POST { accion: "resumen" }                        → totales y stock bajo
 //   GET  /api/inventario                              → estado del puente
@@ -203,7 +204,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       token_configurado: Boolean(process.env.FABRI_API_TOKEN),
       tabla_existe,
       base_detalle,
-      acciones: ['asegurar', 'subir', 'bajar', 'borrar', 'resumen'],
+      acciones: ['asegurar', 'subir', 'bajar', 'buscar', 'borrar', 'resumen'],
     });
   }
 
@@ -328,6 +329,49 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         limite,
         offset,
       });
+    }
+
+    if (accion === 'buscar') {
+      // Dos modos en la misma acción, para que el escáner resuelva de un solo
+      // viaje:
+      //   · con `codigo`  → devuelve ese producto exacto (o encontrado:false);
+      //   · con `q`       → busca por nombre/marca/código (autocompletado).
+      const codigo = texto(cuerpo.codigo, 64).trim();
+      const q = texto(cuerpo.q, 120).trim();
+      const limite = Math.min(50, Math.max(1, entero(cuerpo.limite, 50) || 20));
+
+      if (codigo) {
+        const r = await pool.query(
+          `SELECT codigo,nombre,marca,categoria,unidad,
+                  costo::float8 AS costo, precio::float8 AS precio, stock,
+                  stock_minimo,iva,proveedor,origen,notas,ficha,
+                  actualizado::float8 AS actualizado
+             FROM ${TABLA} WHERE codigo = $1 LIMIT 1`,
+          [codigo]
+        );
+        const p = r.rows[0] || null;
+        return json(res, { ok: true, accion, encontrado: Boolean(p), producto: p });
+      }
+
+      if (q) {
+        // `%` y `_` del usuario se escapan para que no alteren el LIKE.
+        const patron = '%' + q.replace(/[\\%_]/g, (m) => '\\' + m) + '%';
+        const r = await pool.query(
+          `SELECT codigo,nombre,marca,categoria,unidad,
+                  costo::float8 AS costo, precio::float8 AS precio, stock,
+                  stock_minimo,iva,proveedor,origen,notas,ficha,
+                  actualizado::float8 AS actualizado
+             FROM ${TABLA}
+            WHERE nombre ILIKE $1 ESCAPE '\\'
+               OR marca ILIKE $1 ESCAPE '\\'
+               OR codigo ILIKE $1 ESCAPE '\\'
+            ORDER BY nombre COLLATE "C" LIMIT $2`,
+          [patron, limite]
+        );
+        return json(res, { ok: true, accion, productos: r.rows, total: r.rowCount });
+      }
+
+      return json(res, { ok: false, error: 'falta `codigo` o `q`' }, 400);
     }
 
     if (accion === 'borrar') {

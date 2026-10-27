@@ -148,6 +148,18 @@
   display: none;
 }
 .inv-camara.activa video { display: block; }
+/* Malla de escaneo: dibujada en canvas, encima del vídeo. Se ve solo con la
+   cámara activa y no intercepta toques. */
+.inv-malla {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 220ms ease;
+}
+.inv-camara.activa .inv-malla { opacity: 1; }
 .inv-camara-mira {
   position: absolute;
   inset: 18% 10%;
@@ -199,7 +211,23 @@
   color: var(--texto-3);
 }
 .inv-chip.lima { color: #050505; background: var(--acento); border-color: var(--acento); font-weight: 700; }
+/* Chip de origen «nube»: distinto del lima local para saber de qué base vino. */
+.inv-chip.nube {
+  color: #04121a;
+  background: linear-gradient(180deg, #6fe3ff, #35b8e6);
+  border-color: #35b8e6;
+  font-weight: 700;
+}
 .inv-card-api img { max-width: 84px; border-radius: 8px; background: #111; }
+/* Resumen de la nube dentro del paso 2. */
+.inv-nube-resumen:empty { display: none; }
+.inv-nube-resumen {
+  margin-bottom: 12px;
+  padding: 12px;
+  border: 1px solid var(--borde);
+  border-radius: var(--fb-radio-tarjeta, 12px);
+  background: var(--card);
+}
 
 /* ── Toolbar / listas ─────────────────────────────────────────────────────── */
 .inv-toolbar {
@@ -430,3 +458,439 @@
   .inv-sello { animation: none; }
   .inv-envio i { transition: none; }
 }
+
+/* ==========================================================================
+   UPGRADE FABRI-CORE 0.9.16 · MATERIAL 3 NATIVO & FABRICK TOKENS
+   Flujo Canvas en vivo, Apilador Continuo, Boleta Térmica, Modal de Transmisión
+   ========================================================================== */
+
+/* ── Punto vivo animado ── */
+.punto-vivo {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--acento, #C8FF00);
+  box-shadow: 0 0 10px var(--acento, #C8FF00);
+  animation: pulso-vivo 1.8s infinite ease-in-out;
+  flex-shrink: 0;
+}
+@keyframes pulso-vivo {
+  0% { transform: scale(0.9); opacity: 0.6; box-shadow: 0 0 4px var(--acento, #C8FF00); }
+  50% { transform: scale(1.25); opacity: 1; box-shadow: 0 0 14px var(--acento, #C8FF00); }
+  100% { transform: scale(0.9); opacity: 0.6; box-shadow: 0 0 4px var(--acento, #C8FF00); }
+}
+
+/* ── Banner de flujo Canvas en SQLite (#v-sql) ── */
+.sql-flujo-banner {
+  margin: 14px 0 18px;
+  padding: 14px 16px;
+  background: radial-gradient(120% 120% at 100% 0%, rgba(200, 255, 0, 0.08), transparent 65%), var(--card, #0B0B0B);
+  border: 1px solid var(--borde, #2A2A2A);
+  border-radius: 16px;
+  display: grid;
+  gap: 12px;
+}
+.sql-flujo-cab {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.sql-flujo-estado {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--texto, #FFFFFF);
+}
+.sql-flujo-acciones {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.sql-canvas-caja {
+  position: relative;
+  width: 100%;
+  height: 84px;
+  background: #050505;
+  border: 1px solid #1E1E1E;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.sql-canvas-caja canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* ── Selector de Modo Escáner y Apilador Continuo ── */
+.inv-modo-escaner {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.inv-apilador-caja {
+  margin: 14px 0;
+  padding: 16px;
+  background: var(--card, #0B0B0B);
+  border: 1px solid var(--borde, #2A2A2A);
+  border-radius: 16px;
+  display: grid;
+  gap: 10px;
+  animation: apilador-in 240ms cubic-bezier(0.2, 0.9, 0.3, 1) both;
+}
+@keyframes apilador-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.inv-apilador-cab {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+.inv-apilador-titulo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.inv-apilador-titulo h4 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--texto, #FFFFFF);
+}
+.inv-apilador-acciones {
+  display: flex;
+  gap: 8px;
+}
+.inv-apilador-lista {
+  display: grid;
+  gap: 8px;
+  max-height: 240px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.inv-apilador-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--elevado, #121212);
+  border: 1px solid var(--borde, #2A2A2A);
+  border-radius: 12px;
+  font-size: 13px;
+  animation: item-pop 200ms cubic-bezier(0.18, 0.89, 0.32, 1.28) both;
+}
+@keyframes item-pop {
+  from { opacity: 0; transform: scale(0.94); }
+  to { opacity: 1; transform: scale(1); }
+}
+.inv-apilador-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.inv-apilador-card-info strong {
+  color: var(--texto, #FFFFFF);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.inv-apilador-card-info span {
+  font-size: 11px;
+  color: var(--texto-3, #8A8A8A);
+  font-family: var(--mono);
+}
+.inv-apilador-card-precio {
+  font-weight: 700;
+  color: var(--acento, #C8FF00);
+  font-size: 14px;
+}
+.inv-apilador-card button {
+  background: none;
+  border: 0;
+  color: var(--error, #f87171);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 2px 6px;
+}
+
+/* ── Sellos Nutricionales Chilenos (Octógonos Negros) ── */
+.inv-sellos-contenedor {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0;
+}
+.inv-sello-octogono {
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  width: 68px;
+  height: 68px;
+  background: #000000;
+  border: 2px solid #FFFFFF;
+  color: #FFFFFF;
+  font-family: var(--fuente, sans-serif);
+  font-weight: 800;
+  text-align: center;
+  line-height: 1.05;
+  text-transform: uppercase;
+  clip-path: polygon(29% 0%, 71% 0%, 100% 29%, 100% 71%, 71% 100%, 29% 100%, 0% 71%, 0% 29%);
+  padding: 4px;
+  font-size: 9px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.6);
+}
+.inv-sello-octogono span {
+  display: block;
+}
+.inv-sello-octogono .sello-tipo {
+  font-size: 8px;
+  color: #E2E8F0;
+  margin-top: 1px;
+}
+
+/* ── Ficha Nutricional y Alérgenos ── */
+.inv-ficha-nutricional {
+  margin: 10px 0;
+  padding: 12px 14px;
+  background: var(--elevado, #121212);
+  border: 1px solid var(--borde, #2A2A2A);
+  border-radius: 12px;
+  display: grid;
+  gap: 8px;
+}
+.inv-tabla-nutricion {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.inv-tabla-nutricion th, .inv-tabla-nutricion td {
+  padding: 6px 8px;
+  border-bottom: 1px solid #222222;
+  text-align: left;
+}
+.inv-tabla-nutricion th {
+  color: var(--texto-3, #8A8A8A);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.inv-tabla-nutricion td:last-child {
+  text-align: right;
+  font-family: var(--mono);
+  font-weight: 600;
+  color: var(--texto, #FFFFFF);
+}
+
+/* ── Impresora Térmica Física & Boleta en Vivo ── */
+.impresora-termica {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+.impresora-boca {
+  height: 12px;
+  background: #181818;
+  border-radius: 8px;
+  box-shadow: inset 0 3px 6px rgba(0,0,0,0.8), 0 2px 4px rgba(0,0,0,0.4);
+  margin-bottom: -5px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.impresora-ranura {
+  height: 3px;
+  background: #000000;
+  width: 88%;
+  border-radius: 2px;
+  box-shadow: 0 1px 1px rgba(255,255,255,0.05);
+}
+.ticket-termico {
+  background: #F7F7F8 !important;
+  color: #1A1A1A !important;
+  border: 1px solid #D1D5DB !important;
+  border-radius: 0 0 12px 12px !important;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.7) !important;
+  font-family: 'Courier New', Courier, monospace !important;
+  font-size: 12px !important;
+  padding: 22px 18px !important;
+  transform-origin: top center;
+}
+.ticket-termico h3 {
+  color: #000000 !important;
+  font-family: inherit !important;
+  font-size: 16px !important;
+  text-align: center;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  margin-bottom: 2px !important;
+}
+.ticket-termico hr {
+  border-top: 1px dashed #71717A !important;
+  margin: 8px 0 !important;
+}
+.ticket-termico .total {
+  color: #000000 !important;
+  font-size: 16px !important;
+  font-weight: 800 !important;
+}
+.ticket-termico .nota {
+  color: #52525B !important;
+  font-size: 11px !important;
+}
+.ticket-termico.imprimiendo {
+  animation: ticketEmerger 1.3s cubic-bezier(0.2, 0.8, 0.25, 1) both;
+}
+@keyframes ticketEmerger {
+  0% {
+    clip-path: inset(0 0 100% 0);
+    transform: translateY(-20px);
+    opacity: 0.4;
+  }
+  100% {
+    clip-path: inset(0 0 0 0);
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* ── Modal de Transmisión Canvas/SVG con Cronómetro ── */
+.modal-envio-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: rgba(5, 5, 5, 0.88);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: modal-fade-in 200ms ease both;
+}
+@keyframes modal-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.modal-envio-card {
+  background: #0B0B0B;
+  border: 1px solid var(--borde, #2A2A2A);
+  border-radius: 24px;
+  padding: 24px 20px;
+  width: 100%;
+  max-width: 440px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.9), 0 0 30px rgba(200, 255, 0, 0.08);
+  text-align: center;
+  display: grid;
+  gap: 14px;
+}
+.modal-envio-cab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.modal-envio-cab h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--texto, #FFFFFF);
+}
+.modal-envio-canvas-caja {
+  width: 100%;
+  height: 120px;
+  background: #050505;
+  border: 1px solid #1E1E1E;
+  border-radius: 16px;
+  overflow: hidden;
+}
+.modal-envio-canvas-caja canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.modal-cronometro-caja {
+  display: grid;
+  gap: 2px;
+}
+.modal-cronometro-etq {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--texto-3, #8A8A8A);
+}
+.modal-cronometro-digitos {
+  font-family: var(--mono);
+  font-size: 36px;
+  font-weight: 800;
+  color: var(--acento, #C8FF00);
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  margin: 2px 0;
+  text-shadow: 0 0 20px rgba(200, 255, 0, 0.35);
+}
+.modal-envio-sub {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--texto-3, #8A8A8A);
+}
+.modal-progreso-barra {
+  width: 100%;
+  height: 6px;
+  background: #1A1A1A;
+  border-radius: 999px;
+  overflow: hidden;
+}
+.modal-progreso-fill {
+  width: 0%;
+  height: 100%;
+  background: var(--acento, #C8FF00);
+  border-radius: 999px;
+  transition: width 150ms linear;
+  box-shadow: 0 0 10px var(--acento, #C8FF00);
+}
+.modal-envio-exito {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+.modal-svg-check {
+  width: 52px;
+  height: 52px;
+  stroke: var(--acento, #C8FF00);
+  stroke-width: 3.5;
+  stroke-miterlimit: 10;
+  animation: check-fill 0.4s ease-in-out 0.3s forwards, check-scale 0.3s ease-in-out 0.7s both;
+}
+.modal-svg-circle {
+  stroke-dasharray: 166;
+  stroke-dashoffset: 166;
+  stroke-width: 3.5;
+  stroke: var(--acento, #C8FF00);
+  animation: check-stroke 0.5s cubic-bezier(0.65, 0, 0.45, 1) forwards;
+}
+.modal-svg-path {
+  transform-origin: 50% 50%;
+  stroke-dasharray: 48;
+  stroke-dashoffset: 48;
+  animation: check-stroke 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.5s forwards;
+}
+@keyframes check-stroke {
+  100% { stroke-dashoffset: 0; }
+}
+@keyframes check-scale {
+  0%, 100% { transform: none; }
+  50% { transform: scale3d(1.1, 1.1, 1); }
+}
+
