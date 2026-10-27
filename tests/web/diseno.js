@@ -127,6 +127,18 @@ console.log('\n▸ nube · sistema visual');
   ok('el tema por defecto es Aurora', /theme:\s*localStorage\.getItem\('fcore\.theme'\)\s*\|\|\s*'aurora'/.test(appJs));
 }
 
+/* 7b · Los tokens que usan los módulos también deben existir: un `var(--bd)`
+       sin declarar deja el borde en currentColor y nadie lo nota hasta verlo. */
+{
+  const definidos = new Set([...css.matchAll(/(--[a-z0-9-]+)\s*:/g)].map(m => m[1]));
+  const usados = new Set();
+  for (const f of ['index.html', 'core-pro.js', 'core-sec.js', 'core-sheet.js', 'app.js', 'cloud.js']) {
+    for (const m of leer(path.join(APP, f)).matchAll(/var\((--[a-z0-9-]+)/g)) usados.add(m[1]);
+  }
+  const faltan = [...usados].filter(t => !definidos.has(t));
+  ok('los ' + usados.size + ' tokens usados por los módulos existen', faltan.length === 0, faltan.join(', '));
+}
+
 /* 8 · El modo reducido y la impresión no pueden faltar. */
 ok('respeta prefers-reduced-motion', /prefers-reduced-motion:reduce/.test(css));
 ok('tiene hoja de impresión aislada', /@media print/.test(css));

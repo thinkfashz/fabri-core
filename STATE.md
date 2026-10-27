@@ -22,6 +22,7 @@ Deployment `dpl_7p9B4n1bZKboQc52qu9tNWVhM3vx`, estado `READY`, alias de producci
 | **Shell nuevo**: héroe con orbe, 4 KPIs, 2 gráficos, módulos, acento e instalación; cabeceras propias para Datos/IA/Hoja/Cuenta | `web/app/index.html` |
 | **Landing editorial**: héroe con orbe y chips, bento de 7 módulos, APK vs Nube, 3 pasos, malla real y stack | `web/index.html` |
 | **Iconos Aurora** (192, 512, maskable, favicon) | `scripts/iconos-nube.py` |
+| **Imagen social 1200×630** con el titular de la landing | `scripts/og-nube.py` → `web/og.png` |
 | **Prueba de la nube** (contrato, sistema, Lottie, offline, manifest, cabeceras) | `tests/web/diseno.js` |
 | **Skill del sistema de diseño** | `~/.config/opencode/skills/fabricore-nube/` |
 

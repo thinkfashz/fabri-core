@@ -34,6 +34,8 @@ azul noche, vidrio, Lottie y gráficos d3. La APK no cambia en esta entrega.
   real de `/api/estado`, stack y cierre. Reveal con `IntersectionObserver`.
 - **Iconos Aurora** generados por `scripts/iconos-nube.py` (192, 512, maskable
   y favicon), con degradado iris→aqua y zona segura para Android.
+- **Imagen social 1200×630** generada por `scripts/og-nube.py`, con el titular
+  de la landing y la marca; `og:image` apunta a la URL absoluta de producción.
 - **Prueba de la nube** (`tests/web/diseno.js`): contrato de 42 ids de `app.js`,
   45 de inventario, clases del HTML y de los módulos, tokens, Lottie, precache,
   ausencia de CDN, sintaxis, manifest, iconos y cabeceras de Vercel.

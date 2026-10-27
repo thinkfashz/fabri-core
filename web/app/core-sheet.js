@@ -669,19 +669,19 @@
   .sh-wrap{display:flex;flex-direction:column;gap:8px}
   .sh-tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
   .sh-tab{display:flex;align-items:center;gap:6px;flex:0 0 auto;padding:6px 10px;border-radius:9px;
-    border:1px solid var(--bd);background:transparent;color:inherit;font:inherit;font-size:11.5px;cursor:pointer}
+    border:1px solid var(--line);background:transparent;color:inherit;font:inherit;font-size:11.5px;cursor:pointer}
   .sh-tab.on{border-color:var(--accent);color:var(--accent);font-weight:800}
   .sh-tab i{font-style:normal;opacity:.5;padding:0 2px}
   .sh-bar{display:flex;align-items:center;gap:7px}
   .sh-addr{flex:0 0 auto;min-width:46px;text-align:center;font-family:var(--mono);font-size:11px;
-    padding:6px 4px;border:1px solid var(--bd);border-radius:8px;font-weight:700}
-  .sh-fx{flex:1;min-width:0;background:transparent;border:1px solid var(--bd);border-radius:8px;
+    padding:6px 4px;border:1px solid var(--line);border-radius:8px;font-weight:700}
+  .sh-fx{flex:1;min-width:0;background:transparent;border:1px solid var(--line);border-radius:8px;
     padding:7px 9px;color:inherit;font-family:var(--mono);font-size:11.5px}
   .sh-tools{display:flex;gap:6px;flex-wrap:wrap}
-  .sh-grid{overflow:auto;max-height:58vh;border:1px solid var(--bd);border-radius:11px;background:rgba(0,0,0,.12)}
+  .sh-grid{overflow:auto;max-height:58vh;border:1px solid var(--line);border-radius:11px;background:rgba(0,0,0,.12)}
   .sh-grid table{border-collapse:separate;border-spacing:0;font-size:12px;font-family:var(--sans)}
   .sh-grid th{position:sticky;background:#161b2b;color:rgba(255,255,255,.55);font-size:10px;
-    font-weight:700;text-align:center;padding:4px 0;border-right:1px solid var(--bd);border-bottom:1px solid var(--bd);z-index:2}
+    font-weight:700;text-align:center;padding:4px 0;border-right:1px solid var(--line);border-bottom:1px solid var(--line);z-index:2}
   .sh-grid th.corner{left:0;z-index:4;min-width:34px}
   .sh-grid th.colh{top:0}
   .sh-grid th.rowh{left:0;z-index:3;min-width:34px}
