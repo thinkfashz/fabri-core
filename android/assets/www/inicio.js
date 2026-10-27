@@ -53,6 +53,15 @@ function inPeso(n) {
   }
 }
 
+/** Pesos compactos para las tarjetas: $2,18 M en vez de $2.180.000. */
+function inPesoCorto(n) {
+  var v = Math.round(Number(n) || 0);
+  if (Math.abs(v) >= 1e6) {
+    return "$" + (v / 1e6).toFixed(2).replace(".", ",") + " M";
+  }
+  return inPeso(v);
+}
+
 /** Fecha corta «lun 27» a partir de segundos Unix. */
 var IN_DIAS = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
 function inDiaCorto(ms) {
@@ -161,9 +170,9 @@ function inPintarKpis(d) {
   var tarjetas = [
     { icono: "package-check", et: "Productos", val: total.toLocaleString("es-CL"),
       sub: bajo ? bajo + " con stock bajo" : "todo con stock" },
-    { icono: "coins", et: "Valor de venta", val: inPeso(venta),
-      sub: "invertido " + inPeso(costo) },
-    { icono: "percent", et: "Utilidad potencial", val: inPeso(utilidad),
+    { icono: "coins", et: "Valor de venta", val: inPesoCorto(venta),
+      sub: "invertido " + inPesoCorto(costo) },
+    { icono: "percent", et: "Utilidad potencial", val: inPesoCorto(utilidad),
       sub: margen ? margen.toFixed(0) + "% de margen" : "sin margen calculado" },
     { icono: "tag", et: "Stock bajo", val: bajo.toLocaleString("es-CL"),
       sub: bajo ? "conviene reponer" : "nada por reponer", alerta: bajo > 0 }

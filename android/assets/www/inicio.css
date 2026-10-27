@@ -88,10 +88,12 @@
   text-overflow: ellipsis;
 }
 .in-kpi strong {
-  font-size: 22px;
+  font-size: 21px;
   letter-spacing: -0.03em;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .in-kpi small { font-size: 11px; color: var(--texto-3); }
 .in-kpi.alerta { border-color: rgba(251, 191, 36, 0.4); }

@@ -5,7 +5,7 @@
 ## Sesión 2026-10-27 (18) · APK 0.9.26 — la portada del producto
 
 APK: `dist/FABRI-CORE-0.9.26.apk` · **4.218.325 B** ·
-sha256 `66f955609f40d3a3f16f726ceeb4d595dbe7c098b9fef09dde8e5019c8f4aa78` ·
+sha256 `4ef65bea9d905593f4fecf2da43b8287fe08be86b66b5ca41f8f64268aaaebc1` ·
 versionCode **41** · copiada a `/sdcard/FABRI-CORE-0.9.26.apk` y a
 `/data/local/tmp/FABRI-CORE-0.9.26.apk`.
 Firma debug, minSdk 24, target 34. Instalar **encima** de la 0.9.25.
