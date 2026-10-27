@@ -109,14 +109,53 @@ console.log('\n▸ nube · sistema visual');
     sinEstilo.join(', '));
 }
 
-/* 6 · Clases que genera el JS y que el CSS debe cubrir. */
+/* 6 · Toda clase de una plantilla de los módulos debe tener regla, en
+       styles.css o en la hoja propia del documento que la usa. La boleta
+       impresa se abre en un iframe con su <style> aislado: sus clases
+       (.nota, .total, .pie) no tienen por qué existir en la app, pero sí en
+       su propio documento. Antes se comparaban todas contra styles.css y
+       esas tres salían como error. */
 {
-  const generadas = ['card', 'tight', 'kpi-grid', 'stat', 'k', 'v', 'd', 'row', 'grow', 't', 's',
-    'badge', 'ok', 'warn', 'err', 'acc', 'chip', 'field', 'empty', 'console-out', 'tbl-wrap',
-    'msg', 'me', 'ai', 'who', 'inv-item', 'carrito', 'linea', 'n', 'c', 'p', 'campo'];
-  const sinEstilo = generadas.filter(c =>
-    !new RegExp('\\.' + c.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&') + '(?![\\w-])').test(css));
-  ok('las clases que inyectan los módulos están estiladas', sinEstilo.length === 0, sinEstilo.join(', '));
+  const escapar = c => c.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+  const tieneRegla = (fuente, c) =>
+    new RegExp('\\.' + escapar(c) + '(?![\\w-])').test(fuente);
+
+  // Estados que sólo marcan un nodo para el JS; no pintan nada.
+  const marcadores = new Set(['listo', 'in']);
+  const sinEstilo = [];
+  let total = 0;
+
+  for (const archivo of ['app.js', 'core-pro.js', 'core-sheet.js', 'cloud.js']) {
+    const fuente = leer(path.join(APP, archivo));
+    const propias = [...fuente.matchAll(/<style>([\s\S]*?)<\/style>/g)]
+      .map(m => m[1]).join('\n');
+    // Las interpolaciones se vacían: `class="badge ${x}"` deja de ser un
+    // nombre de clase inventado y pasa a ser `badge`. Y las concatenaciones
+    // (`class="item ' + (cond ? ' sel' : '') + '"`) se colapsan a su texto.
+    const markup = fuente
+      .replace(/\$\{[^}]*\}/g, '')
+      .replace(/'\s*\+\s*[\s\S]*?\+\s*'/g, ' ');
+    const clases = new Set();
+    for (const m of markup.matchAll(/class="([^"]+)"/g)) {
+      m[1].split(/\s+/).filter(c => /^[A-Za-z][\w-]*$/.test(c)).forEach(c => clases.add(c));
+    }
+    for (const c of clases) {
+      if (marcadores.has(c)) continue;
+      total++;
+      if (!tieneRegla(css, c) && !tieneRegla(propias, c)) sinEstilo.push(archivo + ' · ' + c);
+    }
+  }
+
+  ok('las ' + total + ' clases de las plantillas tienen regla', sinEstilo.length === 0,
+    sinEstilo.join(', '));
+
+  // La boleta no puede depender de styles.css: si un día deja de traer su
+  // propia hoja, se imprimiría sin estilos y sin aviso.
+  const boleta = leer(path.join(APP, 'core-pro.js'));
+  const suHoja = (boleta.match(/<style>([\s\S]*?)<\/style>/) || [])[1] || '';
+  const suyas = ['nota', 'linea', 'total', 'pie'];
+  const faltan = suyas.filter(c => !tieneRegla(suHoja, c));
+  ok('la boleta impresa lleva su propia hoja', faltan.length === 0, faltan.join(', '));
 }
 
 /* 7 · Tokens que app.js escribe y el CSS debe declarar. */
