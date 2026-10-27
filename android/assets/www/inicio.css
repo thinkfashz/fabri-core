@@ -1,0 +1,278 @@
+/* ==========================================================================
+   FABRI-CORE · pantalla de inicio
+   --------------------------------------------------------------------------
+   Portada del producto: estado del negocio con gráficos reales, explicación de
+   qué es el sistema y qué aporta a un local o minimarket, funciones con iconos
+   animados y las marcas sobre las que está construido. El bloque técnico queda
+   plegado al final para no perder nada de lo que ya había.
+
+   Reglas de la casa: fondo oscuro, acento lima, tarjetas planas, radios
+   generosos, cero sombras pesadas y motion solo si el sistema lo permite.
+   ========================================================================== */
+
+/* ---------- héroe ---------- */
+.in-hero {
+  position: relative;
+  overflow: hidden;
+  background: radial-gradient(130% 130% at 0% 0%, #1d2a0c 0%, #0b0b0b 46%, #0b0b0b 100%);
+  border: 1px solid var(--borde);
+  border-radius: var(--r-lg);
+  padding: 20px 18px 18px;
+  margin-bottom: 18px;
+  isolation: isolate;
+}
+.in-hero-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.55;
+  z-index: 0;
+  pointer-events: none;
+}
+.in-hero-contenido { position: relative; z-index: 1; }
+.in-hero-marca { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.in-hero-marca img { width: 34px; height: 34px; display: block; }
+.in-hero-nombre {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  color: var(--texto);
+}
+.in-hero-nombre span { color: var(--acento); }
+.in-hero .etiqueta { margin-top: 0; }
+.in-hero h2 { margin: 0 0 6px; font-size: 26px; letter-spacing: -0.03em; }
+.in-hero .hero-texto { margin: 0; color: var(--texto-2); font-size: 13.5px; line-height: 1.55; max-width: 46ch; }
+.in-hero .hero-datos { margin-top: 14px; }
+.in-acciones { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.in-acciones .btn { min-height: 44px; }
+
+/* ---------- secciones ---------- */
+.in-seccion { margin-bottom: 18px; }
+.in-cab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.in-cab h3 { margin: 0; font-size: 15px; letter-spacing: 0.01em; }
+.in-nota { margin: 0 0 12px; font-size: 11.5px; color: var(--texto-3); }
+
+/* ---------- KPIs del negocio ---------- */
+.in-kpis {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.in-kpi {
+  background: var(--card);
+  border: 1px solid var(--borde);
+  border-radius: var(--r-md);
+  padding: 13px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.in-kpi-fila { display: flex; align-items: center; gap: 7px; }
+.in-kpi-fila svg { width: 16px; height: 16px; flex: none; color: var(--acento); opacity: 0.9; }
+.in-kpi-et {
+  font-size: 10px;
+  color: var(--texto-3);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.in-kpi strong {
+  font-size: 22px;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.in-kpi small { font-size: 11px; color: var(--texto-3); }
+.in-kpi.alerta { border-color: rgba(251, 191, 36, 0.4); }
+.in-kpi.alerta .in-kpi-fila svg { color: var(--alerta); }
+.in-kpi.alerta strong { color: var(--alerta); }
+
+/* ---------- gráficos ---------- */
+.in-graficos { display: grid; gap: 10px; }
+.in-tarjeta {
+  background: var(--card);
+  border: 1px solid var(--borde);
+  border-radius: var(--r-md);
+  padding: 13px 12px;
+}
+.in-tarjeta h4 {
+  margin: 0 0 10px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--texto-3);
+}
+.in-chart { position: relative; width: 100%; }
+.in-chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.in-chart .d3-eje { fill: var(--texto-3); font-size: 10px; font-family: var(--mono); }
+.in-chart .d3-etiqueta { fill: var(--texto-2); font-size: 10px; font-family: var(--mono); }
+.in-chart .d3-barra { fill: var(--acento); }
+.in-chart .d3-barra-tenue { fill: rgba(200, 255, 0, 0.28); }
+.in-chart .d3-linea { fill: none; stroke: var(--acento); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.in-chart .d3-rejilla { stroke: var(--borde); stroke-width: 1; }
+.in-chart .d3-vacio { fill: var(--texto-3); font-size: 12px; text-anchor: middle; font-family: var(--fuente); }
+.in-pie { margin: 8px 0 0; font-size: 11px; color: var(--texto-3); }
+.in-leyenda { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 10px; }
+.in-leyenda-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--texto-2); }
+.in-leyenda-item i { width: 9px; height: 9px; border-radius: 3px; flex: none; }
+
+/* ---------- qué es / valor ---------- */
+.in-quees {
+  background: linear-gradient(160deg, #101508 0%, var(--card) 60%);
+  border: 1px solid var(--borde);
+  border-radius: var(--r-lg);
+  padding: 18px;
+}
+.in-quees h3 { margin: 4px 0 10px; font-size: 19px; letter-spacing: -0.02em; line-height: 1.3; }
+.in-quees p { margin: 0 0 10px; font-size: 13.5px; line-height: 1.6; color: var(--texto-2); }
+.in-quees p:last-child { margin-bottom: 0; }
+.in-valor {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 14px;
+}
+.in-valor-item {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--borde);
+  border-radius: var(--r-md);
+  padding: 11px 12px;
+}
+.in-valor-item strong { display: block; font-size: 15px; color: var(--acento); letter-spacing: -0.01em; }
+.in-valor-item span { font-size: 11.5px; color: var(--texto-3); line-height: 1.45; }
+
+/* ---------- fichas de funciones (iconos animados retro iluminados) ---------- */
+.in-fichas { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.in-ficha {
+  background: var(--card);
+  border: 1px solid var(--borde);
+  border-radius: var(--r-md);
+  padding: 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  transition: border-color 0.25s ease, transform 0.25s ease;
+}
+.in-ficha:active { transform: scale(0.985); }
+.in-ico {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  color: var(--acento);
+  background: radial-gradient(120% 120% at 30% 20%, rgba(200, 255, 0, 0.16) 0%, rgba(200, 255, 0, 0.03) 70%);
+  border: 1px solid rgba(200, 255, 0, 0.24);
+  box-shadow: 0 0 20px rgba(200, 255, 0, 0.1), inset 0 0 14px rgba(200, 255, 0, 0.07);
+}
+.in-ico svg { filter: drop-shadow(0 0 5px rgba(200, 255, 0, 0.4)); }
+.in-ficha:hover .in-ico, .in-ficha:focus-within .in-ico {
+  box-shadow: 0 0 26px rgba(200, 255, 0, 0.22), inset 0 0 16px rgba(200, 255, 0, 0.1);
+}
+.in-ficha h4 { margin: 0; font-size: 13.5px; letter-spacing: -0.01em; }
+.in-ficha p { margin: 0; font-size: 11.5px; line-height: 1.5; color: var(--texto-3); }
+.in-ficha .in-dato {
+  margin-top: auto;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  color: var(--acento);
+  opacity: 0.85;
+}
+
+/* ---------- marcas ---------- */
+.in-marcas { padding-top: 2px; }
+.in-marca-tira {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.in-marca {
+  flex: 1 1 auto;
+  min-width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  background: var(--hundido);
+  border: 1px solid var(--borde);
+  color: var(--texto-2);
+  transition: color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+}
+.in-marca svg { width: 22px; height: 22px; }
+.in-marca:hover, .in-marca:focus-visible {
+  color: var(--acento);
+  border-color: rgba(200, 255, 0, 0.35);
+  box-shadow: 0 0 18px rgba(200, 255, 0, 0.12);
+}
+.in-marcas-nota { margin: 10px 0 0; font-size: 10.5px; color: var(--texto-3); line-height: 1.5; }
+.in-marca small {
+  display: none;
+}
+
+/* ---------- bloque técnico plegado ---------- */
+.in-tecnico {
+  background: var(--card);
+  border: 1px solid var(--borde);
+  border-radius: var(--r-lg);
+  margin-bottom: 18px;
+  overflow: hidden;
+}
+.in-tecnico > summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 16px 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  min-height: 44px;
+}
+.in-tecnico > summary::-webkit-details-marker { display: none; }
+.in-tecnico > summary::after {
+  content: "▾";
+  margin-left: auto;
+  color: var(--acento);
+  transition: transform 0.22s ease;
+}
+.in-tecnico[open] > summary::after { transform: rotate(180deg); }
+.in-tecnico > summary .in-tecnico-sub { margin-left: 8px; font-size: 11px; color: var(--texto-3); }
+.in-tecnico-cuerpo { padding: 0 18px 18px; }
+.in-tecnico-cuerpo .bloque { margin-bottom: 14px; }
+
+/* ---------- revelado suave al entrar en pantalla ---------- */
+.in-rev {
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.in-rev.in-visible { opacity: 1; transform: none; }
+
+/* ---------- pantallas más anchas ---------- */
+@media (min-width: 560px) {
+  .in-kpis { grid-template-columns: repeat(4, 1fr); }
+  .in-graficos { grid-template-columns: 1fr 1fr; }
+  .in-grafico-ancho { grid-column: 1 / -1; }
+  .in-fichas { grid-template-columns: repeat(3, 1fr); }
+  .in-valor { grid-template-columns: repeat(4, 1fr); }
+}
+
+/* ---------- accesibilidad: menos movimiento ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .in-rev { opacity: 1; transform: none; transition: none; }
+  .in-hero-canvas { display: none; }
+  .in-ficha, .in-ico, .in-marca { transition: none; }
+}

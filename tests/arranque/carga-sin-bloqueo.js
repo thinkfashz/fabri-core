@@ -12,7 +12,7 @@ const vm = require("vm");
 const path = require("path");
 
 const WWW = path.resolve(__dirname, "../../android/assets/www");
-const archivos = ["diagnostico.js", "app.js", "datos.js", "conexiones.js", "inventario.js", "identidad.js", "flujo.js"];
+const archivos = ["d3-mini.js", "marcas.js", "diagnostico.js", "app.js", "datos.js", "conexiones.js", "inventario.js", "identidad.js", "flujo.js", "inicio.js"];
 const PERMITIDAS = new Set(["chatEstado", "localEstado", "huellaEstado"]);
 
 function nodo(id) {

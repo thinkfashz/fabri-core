@@ -2,6 +2,57 @@
 
 Registro de cambios del sistema de diseño y branding.
 
+## [2.11.0] — 2026-10-27 · Portada del producto (0.9.26)
+
+El inicio deja de ser un tablero técnico y pasa a ser la portada del producto:
+primero el negocio, después el sistema. Todo con datos reales del SQLite del
+teléfono, sin descargar nada en tiempo de ejecución.
+
+### Añadido
+- **Héroe con canvas propio** (`#inHeroCanvas`): barras de «código de barras» que
+  respiran y una línea de escaneo que recorre el lienzo. Se apaga solo con el
+  acceso abierto, fuera de la vista o si el sistema pide menos movimiento.
+- **Estadísticas del negocio**: cuatro KPIs (productos, valor de venta, utilidad
+  potencial y stock bajo) calculados con `inventario.resumen`, con el stock bajo
+  destacado en ámbar.
+- **Tres gráficos d3** (`d3-mini.js`, bundle propio de 50 KB con `d3-array`,
+  `d3-scale` y `d3-shape`): ventas de los últimos 7 días en barras, reparto del
+  catálogo por categoría en anillo con leyenda y productos más vendidos medidos
+  sobre los ítems de las boletas. Sin datos muestran un estado vacío honesto,
+  nunca cifras inventadas.
+- **Sección «Qué es FABRI-CORE»** con el valor para un almacén, minimarket o
+  local de barrio: sin mensualidad, sin internet, rápido de operar y con los
+  datos en manos del dueño.
+- **Seis fichas con iconos animados**: lector de código de barras, wiki y bases
+  libres, SQLite local, sincronización en la nube, boletas y caja, y asistente
+  con IA. Cada icono se anima al tocarlo o al pasar el dedo.
+- **Tira de marcas retro-iluminadas**: Rust, SQLite, JavaScript, Android y Tauri
+  (simple-icons, CC0) junto a los proveedores de IA y nube (lobe-icons, MIT).
+- **`marcas.js`**: 14 marcas en SVG en línea y 22 iconos animados de
+  animateicons — sólo los datos de cada icono, reproducidos con la Web
+  Animations API del propio WebView en vez de arrastrar los 20 MB de la librería.
+- **El bloque técnico no se pierde**: verificador, dispositivo, modelos y
+  acciones rápidas quedan dentro de un `<details>` al final de la portada.
+
+### Cambiado
+- `pintarInicio()` ahora engancha `inicioRefrescar()`: la portada se repinta sola
+  al navegar, al volver del segundo plano y cuando el núcleo termina de migrar.
+- Acciones nuevas en la portada: **Abrir inventario** y **Escanear código**
+  (abre el inventario y enciende la cámara).
+
+### Decisiones
+- **lottie-web no se incluye**: el efecto que se buscaba (iconos y lienzo con
+  vida) se resuelve con canvas y Web Animations API con ~0 KB de dependencia;
+  lottie-web añadiría ~250 KB y un reproductor completo para animaciones que
+  aquí son de segundos.
+- Los assets viajan **dentro de la APK** (sin red, sin CDN) y en archivos planos
+  bajo `assets/www/`, que es lo que empaqueta `aapt2 -A`.
+
+### Pruebas
+- `tests/arranque/inicio.js` (paso 8/8): ids de la portada, iconos y marcas
+  referenciados existen, el bloque técnico sigue intacto, los KPIs y los tres
+  gráficos se pintan con datos falsos y el estado vacío no inventa nada.
+
 ## [2.10.0] — 2026-10-27 · Inventario completo (0.9.25)
 
 Entrega del módulo de inventario como sistema entero: escanear, cargar, ver y

@@ -256,13 +256,14 @@ volver a consultar internet.
 | 0.9.22 | 37 | auto-bloqueo del carril (`con_estado` siempre ocupado) |
 | 0.9.23 | 38 | SQLite afinado (`synchronous`, caché, mmap, `temp_store`) + op `panel` (todo el Flujo en un viaje) |
 | 0.9.24 | 39 | escáner pro (malla en canvas), las 2 bases (local + tu nube) y más fuentes libres (Open Prices, Wikipedia) |
-| **0.9.25** | **40** | **el módulo de inventario completo**: apilador continuo, importación masiva (Eleventa/CSV/TSV/JSON), catálogo en tarjetas con miniatura y código de barras SVG, boleta con efecto de impresión, iconos SVG en línea, verificación real del sistema y limpieza de errores por versión |
+| 0.9.25 | 40 | el módulo de inventario completo: apilador continuo, importación masiva (Eleventa/CSV/TSV/JSON), catálogo en tarjetas con miniatura y código de barras SVG, boleta con efecto de impresión, iconos SVG en línea, verificación real del sistema y limpieza de errores por versión |
+| **0.9.26** | **41** | **portada del producto**: estadísticas reales del negocio con tres gráficos d3 (ventas de 7 días, categorías, más vendidos), explicación de qué es FABRI-CORE y qué aporta a un minimarket, seis fichas con iconos animados (animateicons) y marcas retro-iluminadas (lobe-icons + simple-icons), héroe con canvas propio; el bloque técnico queda plegado en un `<details>` |
 
-`dist/FABRI-CORE-0.9.25.apk` · **4.168.907 B** ·
-sha256 `0284b890e89d17393f71eccc99254f2a952968b65daae67a9d5639154263d828`
-versionCode **40** · copiada a `/sdcard/FABRI-CORE-0.9.25.apk` y a
-`/data/local/tmp/FABRI-CORE-0.9.25.apk`. Firma debug, minSdk 24, target 34.
-Instalar **encima** de la 0.9.24 (no borra datos).
+`dist/FABRI-CORE-0.9.26.apk` · **4.218.325 B** ·
+sha256 `66f955609f40d3a3f16f726ceeb4d595dbe7c098b9fef09dde8e5019c8f4aa78`
+versionCode **41** · copiada a `/sdcard/FABRI-CORE-0.9.26.apk` y a
+`/data/local/tmp/FABRI-CORE-0.9.26.apk`. Firma debug, minSdk 24, target 34.
+Instalar **encima** de la 0.9.25 (no borra datos).
 
 ---
 

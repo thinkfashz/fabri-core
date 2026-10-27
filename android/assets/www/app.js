@@ -634,6 +634,13 @@ function pintarInicio() {
   pintarVerificadorGlobal();
   pintarDispositivo();
   pintarModelos();
+
+  // Portada: estadísticas reales del negocio y gráficos. Vive en inicio.js y
+  // se pide en segundo plano: si el núcleo está ocupado, la vista ya está
+  // pintada y los números entran cuando llegan.
+  if (typeof inicioRefrescar === "function") {
+    try { inicioRefrescar(); } catch (e) { jsError(e, "inicioRefrescar"); }
+  }
 }
 
 /** Pinta el verificador global: una tarjeta por área del sistema. */
@@ -3499,6 +3506,15 @@ document.addEventListener("click", (ev) => {
     if (a === "ir-diag") { navegar("diag"); return; }
     if (a === "ir-chat") { navegar("chat"); return; }
     if (a === "ir-sql") { navegar("sql"); return; }
+    if (a === "ir-inventario") { navegar("inventario"); return; }
+    if (a === "escanear-codigo") {
+      // Abre el inventario y enciende la cámara para leer el código de barras.
+      navegar("inventario");
+      setTimeout(function () {
+        if (typeof invCamaraAbrir === "function") invCamaraAbrir();
+      }, 260);
+      return;
+    }
   }
 
   if (ev.target.id === "btnVerificarGlobal") { ejecutarVerificadorGlobal(); return; }

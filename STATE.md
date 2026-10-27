@@ -2,6 +2,55 @@
 
 Última actualización: 2026-10-27
 
+## Sesión 2026-10-27 (18) · APK 0.9.26 — la portada del producto
+
+APK: `dist/FABRI-CORE-0.9.26.apk` · **4.218.325 B** ·
+sha256 `66f955609f40d3a3f16f726ceeb4d595dbe7c098b9fef09dde8e5019c8f4aa78` ·
+versionCode **41** · copiada a `/sdcard/FABRI-CORE-0.9.26.apk` y a
+`/data/local/tmp/FABRI-CORE-0.9.26.apk`.
+Firma debug, minSdk 24, target 34. Instalar **encima** de la 0.9.25.
+
+### Qué se hizo (el inicio como portada de producto)
+| Qué | Dónde |
+|---|---|
+| **Héroe con canvas propio** (barras que respiran + línea de escaneo), apagado con el acceso abierto, fuera de la vista o con `prefers-reduced-motion` | `inicio.js` (`inicioLienzo`), `index.html` (`#inHeroCanvas`), `inicio.css` |
+| **KPIs del negocio reales** (productos, valor de venta, utilidad, stock bajo) desde `inventario.resumen` | `inicio.js` (`inPintarKpis`, `inicioRefrescar`) |
+| **Tres gráficos d3**: ventas de 7 días (barras), categorías (anillo + leyenda), más vendidos (ítems de boletas) | `inicio.js` (`inChartVentas`, `inChartCategorias`, `inChartTop`), `d3-mini.js` |
+| **d3 vendorizado**: bundle esbuild con `d3-array`, `d3-scale`, `d3-shape`, global `window.d3s`, 50.802 B | `android/assets/www/d3-mini.js` (generador: `/tmp/opencode/d3b`) |
+| **`marcas.js`**: 14 marcas SVG (lobe-icons MIT + simple-icons CC0) y 22 iconos animados de animateicons (solo datos + animador propio con Web Animations API) | `android/assets/www/marcas.js` (generador `/tmp/opencode/gen-marcas.mjs` + `marcas-cola.js`) |
+| **«Qué es FABRI-CORE»** y valor para almacén/minimarket (sin mensualidad, sin internet, rápido, datos propios) | `index.html` (`#v-inicio`, `.in-quees`) |
+| **Seis fichas con iconos animados**: lector de barras, wiki/bases libres, SQLite local, nube, boletas, asistente IA | `index.html` (`data-ani-icono`), `inicio.js` (`inicioPintarIconos`) |
+| **Bloque técnico plegado** en `<details>`: verificador, dispositivo, modelos y acciones rápidas, sin perder ningún id | `index.html` (`#inTecnico`) |
+| **Enganche**: `pintarInicio()` llama a `inicioRefrescar()` (caché de 20 s, reintento mientras el núcleo migra) | `app.js` |
+| **Acciones nuevas**: `ir-inventario` y `escanear-codigo` (abre inventario y enciende la cámara) | `app.js` |
+| **Prueba nueva** de la portada (ids, iconos, marcas, bloque técnico, KPIs/gráficos con datos y estado vacío) | `tests/arranque/inicio.js` (paso 8/8) |
+
+### Verificación
+- `bash tests/arranque/correr.sh` **8/8** ✔ (sintaxis, DOM hostil, carga sin
+  bloqueo del puente, loader, puente, identidad, candado y **portada**)
+- `bash tests/inventario/correr.sh` **4/4** ✔
+- `node --check` de `inicio.js`, `marcas.js`, `d3-mini.js` y `app.js` ✔
+- APK verificada: `versionCode=41`, `versionName=0.9.26`, y dentro de
+  `assets/www` viajan `inicio.js`, `inicio.css`, `marcas.js` y `d3-mini.js`
+  idénticos a los del árbol (sha256 comparados).
+
+### Decisiones
+- **lottie-web no se incluye** (~250 KB + reproductor): el movimiento que se
+  pedía se resuelve con canvas y Web Animations API, con 0 KB de dependencia.
+- **animateicons sin su runtime**: se vendorizan solo los datos de cada icono
+  (~1 KB) y se reproducen con un animador propio de ~120 líneas; el paquete
+  completo son 20 MB de `dist`.
+- Los assets son **planos** en `assets/www/` (el build los empaqueta con
+  `aapt2 -A`), así que no hace falta tocar el pipeline de compilación.
+
+### Pendiente
+- **lottie-web**: ofrecido al usuario para un punto concreto; sin respuesta.
+- **OCR offline real**: requiere migrar el build a Gradle (tarea aparte).
+- **S3 / factura servida**: empaquetar el JSON, enviarlo con token, guardarlo y
+  servirlo como factura HTML/canvas. No iniciado.
+- Endpoint de embeddings tipo Gemini (no cabe en la APK). No iniciado.
+- Puente de Termux: el usuario dijo «después lo vemos».
+
 ## Sesión 2026-10-27 (17) · APK 0.9.25 — el módulo de inventario completo
 
 APK: `dist/FABRI-CORE-0.9.25.apk` · **4.168.907 B** ·

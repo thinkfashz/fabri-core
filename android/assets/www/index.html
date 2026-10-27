@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="app.css" />
   <link rel="stylesheet" href="inventario.css" />
   <link rel="stylesheet" href="flujo.css" />
+  <link rel="stylesheet" href="inicio.css" />
 </head>
 <body>
   <!-- ===================== ACCESO · HUELLA + PIN ===================== -->
@@ -147,117 +148,266 @@
 
     <!-- ---------- INICIO ---------- -->
     <section class="vista activa" id="v-inicio">
-      <div class="hero">
-        <div class="logo-wrapper">
-          <img src="logo-f.svg" alt="FABRI-CORE monograma F" />
-        </div>
-        <p class="etiqueta">ESTADO DEL SISTEMA</p>
-        <h2 id="heroTitulo">Verificando…</h2>
-        <p id="heroTexto" class="hero-texto">Conectando con el núcleo Rust y SQLite.</p>
-        <div class="hero-datos" id="heroDatos"></div>
-      </div>
 
-      <!-- ---------- KPIs principales ---------- -->
-      <div class="grid-kpi">
-        <article class="kpi kpi-disco">
-          <span class="kpi-et">Disco</span>
-          <strong id="kpiDisco">—</strong>
-          <small id="kpiDiscoSub">—</small>
-        </article>
-        <article class="kpi kpi-ram">
-          <span class="kpi-et">RAM</span>
-          <strong id="kpiRam">—</strong>
-          <small id="kpiRamSub">—</small>
-        </article>
-        <article class="kpi kpi-tokens-local">
-          <span class="kpi-et">Tokens IA local</span>
-          <strong id="kpiTokensLocal">—</strong>
-          <small>esta sesión</small>
-        </article>
-        <article class="kpi kpi-tokens-api">
-          <span class="kpi-et">Tokens API remota</span>
-          <strong id="kpiTokensApi">—</strong>
-          <small>esta sesión</small>
-        </article>
-        <article class="kpi kpi-modelo">
-          <span class="kpi-et">Modelo IA</span>
-          <strong id="kpiModelo">—</strong>
-          <small id="kpiModeloSub">sin cargar</small>
-        </article>
-        <article class="kpi kpi-salud">
-          <span class="kpi-et">Salud global</span>
-          <strong id="kpiSalud">—</strong>
-          <small id="kpiSaludSub">verificando…</small>
-        </article>
-      </div>
-
-      <!-- ---------- Verificador global ---------- -->
-      <div class="bloque bloque-verificador">
-        <div class="bloque-cab">
-          <h3>Verificador global · todo en tiempo real</h3>
-          <button class="btn btn-mini" id="btnVerificarGlobal">Reverificar todo</button>
-        </div>
-        <div class="verificador-grid" id="verificadorGrid">
-          <!-- se pinta por JS -->
-        </div>
-        <div class="barra-progreso-cont" id="barraProgresoCont" hidden>
-          <div class="barra-progreso-label">Verificando <span id="barraProgresoTexto">componentes…</span></div>
-          <div class="barra-progreso">
-            <div class="barra-progreso-fill" id="barraProgresoFill" style="width:0%"></div>
+      <!-- ===================== HÉROE ===================== -->
+      <header class="in-hero">
+        <canvas class="in-hero-canvas" id="inHeroCanvas" aria-hidden="true"></canvas>
+        <div class="in-hero-contenido">
+          <div class="in-hero-marca">
+            <img src="logo-f.svg" alt="" />
+            <span class="in-hero-nombre">FABRI<span>-CORE</span></span>
           </div>
-          <span class="barra-progreso-pct" id="barraProgresoPct">0%</span>
-        </div>
-      </div>
-
-      <!-- ---------- Detalles del dispositivo ---------- -->
-      <div class="bloque bloque-dispositivo">
-        <div class="bloque-cab">
-          <h3>Detalles del dispositivo</h3>
-        </div>
-        <div class="tabla-dispositivo" id="tablaDispositivo">
-          <!-- se pinta por JS -->
-        </div>
-      </div>
-
-      <!-- ---------- Modelos: comparación y selector ---------- -->
-      <div class="bloque bloque-modelos">
-        <div class="bloque-cab">
-          <h3>Modelos locales · descargar y ejecutar</h3>
-        </div>
-        <div class="modelos-controles">
-          <button class="btn btn-primario" id="btnModelosRecomendados">Ver recomendados para este dispositivo</button>
-          <button class="btn" id="btnEscanearModelosInicio">Escanear modelos instalados</button>
-        </div>
-        <div class="modelos-lista" id="modelosLista">
-          <!-- se pinta por JS -->
-        </div>
-        <div class="modelos-benchmark" id="modelosBenchmark" hidden>
-          <h4>Benchmark de servicio y funcionamiento</h4>
-          <div class="tabla-scroll" id="tablaBenchmark">
-            <!-- se pinta por JS -->
+          <p class="etiqueta">GESTIÓN DE LOCAL · DATOS TUYOS, EN TU TELÉFONO</p>
+          <h2 id="heroTitulo">Verificando...</h2>
+          <p id="heroTexto" class="hero-texto">Conectando con el núcleo Rust y SQLite.</p>
+          <div class="hero-datos" id="heroDatos"></div>
+          <div class="in-acciones">
+            <button class="btn btn-primario" data-accion="ir-inventario">Abrir inventario</button>
+            <button class="btn" data-accion="escanear-codigo">Escanear código</button>
+            <button class="btn" data-accion="ir-chat">Hablar con el asistente</button>
           </div>
         </div>
-      </div>
+      </header>
 
-      <!-- ---------- Acciones rápidas ---------- -->
-      <div class="bloque">
-        <h3>Acciones rápidas</h3>
-        <div class="fila-botones">
-          <button class="btn btn-primario" data-accion="probar">Probar núcleo</button>
-          <button class="btn" data-accion="ir-chat">Abrir chat</button>
-          <button class="btn" data-accion="escanear">Escanear modelos</button>
-          <button class="btn" data-accion="ir-diag">Ver diagnóstico</button>
-          <button class="btn" data-accion="ir-sql">Abrir base de datos</button>
+      <!-- ===================== ESTADÍSTICAS DEL NEGOCIO ===================== -->
+      <section class="in-seccion in-rev">
+        <div class="in-cab">
+          <h3>Tu negocio hoy</h3>
+          <button class="btn btn-mini" id="btnInicioRefrescar">Actualizar</button>
         </div>
-      </div>
+        <p class="in-nota" id="inDatosNota">Leyendo los datos locales…</p>
+        <div class="in-kpis" id="inKpis">
+          <article class="in-kpi"><strong>—</strong><small>cargando…</small></article>
+        </div>
+        <div class="in-graficos">
+          <article class="in-tarjeta in-grafico-ancho">
+            <h4>Ventas de los últimos 7 días</h4>
+            <div class="in-chart" id="inChartVentas"></div>
+            <p class="in-pie" id="inChartVentasPie"></p>
+          </article>
+          <article class="in-tarjeta">
+            <h4>Productos por categoría</h4>
+            <div class="in-chart" id="inChartCategorias"></div>
+            <div class="in-pie" id="inChartCategoriasPie"></div>
+          </article>
+          <article class="in-tarjeta">
+            <h4>Más vendidos</h4>
+            <div class="in-chart" id="inChartTop"></div>
+            <p class="in-pie" id="inChartTopPie"></p>
+          </article>
+        </div>
+      </section>
 
-      <div class="aviso">
-        <strong>FABRI-CORE 0.9.1 · runtime, chat y base de datos local</strong>
-        <p>A1 carga las bibliotecas de llama.cpp; A2/A3 cargan el GGUF y generan texto.
-        La base de datos SQLite es editable desde «Base de datos». El chat remoto usa
-        proveedores OpenAI-compatible. Las descargas exigen HTTPS, SHA-256 y tamaño;
-        el código nativo viaja en la APK, no se descarga ni se ejecuta.</p>
-      </div>
+      <!-- ===================== QUÉ ES / QUÉ APORTA ===================== -->
+      <section class="in-seccion in-quees in-rev">
+        <p class="etiqueta">QUÉ ES FABRI-CORE</p>
+        <h3>Un sistema de gestión completo que funciona dentro de tu teléfono</h3>
+        <p>
+          FABRI-CORE junta lo que un almacén, un minimarket o un local de barrio
+          necesita para vender y controlar mercadería, sin contratar un sistema
+          mensual ni depender de internet. El corazón es un núcleo escrito en
+          Rust con una base de datos <strong>SQLite local</strong>: cada producto,
+          cada boleta y cada movimiento vive en el archivo del propio equipo.
+        </p>
+        <p>
+          Se maneja con el <strong>lector de código de barras</strong> del teléfono:
+          apuntas la cámara al envase y el producto queda buscado o dado de alta en
+          segundos. Además trae una <strong>wiki de productos y bases libres</strong>
+          que completan nombre, categoría y ficha técnica de lo que vas cargando.
+          Como los datos pueden viajar a SQLite y a la nube, el negocio sigue
+          funcionando aunque se corte el internet y se puede respaldar o revisar
+          desde otro dispositivo cuando vuelva la conexión.
+        </p>
+        <div class="in-valor">
+          <div class="in-valor-item">
+            <strong>Sin mensualidad</strong>
+            <span>El sistema vive en tu equipo. No pagas licencia por mes para vender.</span>
+          </div>
+          <div class="in-valor-item">
+            <strong>Sin internet</strong>
+            <span>Vende, cobra y consulta stock aunque la red esté caída.</span>
+          </div>
+          <div class="in-valor-item">
+            <strong>Rápido de operar</strong>
+            <span>Escaneas, vendes y la boleta sale sola, con IVA y correlativo.</span>
+          </div>
+          <div class="in-valor-item">
+            <strong>Tus datos son tuyos</strong>
+            <span>Puedes respaldarlos, exportarlos o llevarlos a otro dispositivo.</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================== FUNCIONES ===================== -->
+      <section class="in-seccion in-rev">
+        <div class="in-cab">
+          <h3>Lo que ya hace hoy</h3>
+        </div>
+        <div class="in-fichas">
+          <article class="in-ficha" data-ani-hover tabindex="0">
+            <span class="in-ico" data-ani-icono="barcode"></span>
+            <h4>Lector de código de barras</h4>
+            <p>Con la cámara del teléfono lees el código y el producto aparece al instante: buscarlo, venderlo o darlo de alta. Reconoce Code 39, Code 128, EAN-13 y QR.</p>
+            <span class="in-dato">CÁMARA · SIN LECTOR EXTERNO</span>
+          </article>
+          <article class="in-ficha" data-ani-hover tabindex="0">
+            <span class="in-ico" data-ani-icono="book-open"></span>
+            <h4>Wiki y bases libres</h4>
+            <p>Fichas de productos, categorías y correcciones traídas de bases abiertas. El catálogo se ordena solo y queda una wiki consultable dentro del sistema.</p>
+            <span class="in-dato">WIKIDATA · WIKIPEDIA</span>
+          </article>
+          <article class="in-ficha" data-ani-hover tabindex="0">
+            <span class="in-ico" data-ani-icono="database-zap"></span>
+            <h4>Base de datos SQLite local</h4>
+            <p>Todo el negocio en un archivo SQLite dentro del equipo: productos, precios, stock, boletas y movimientos. Editable y auditable desde la app.</p>
+            <span class="in-dato">SQLITE · 100% LOCAL</span>
+          </article>
+          <article class="in-ficha" data-ani-hover tabindex="0">
+            <span class="in-ico" data-ani-icono="cloud"></span>
+            <h4>Sincronización en la nube</h4>
+            <p>El respaldo y el uso desde otro dispositivo son opcionales y por HTTPS. Si no hay red, el trabajo sigue y se sincroniza cuando vuelva.</p>
+            <span class="in-dato">OPCIONAL · POR HTTPS</span>
+          </article>
+          <article class="in-ficha" data-ani-hover tabindex="0">
+            <span class="in-ico" data-ani-icono="receipt"></span>
+            <h4>Boletas y caja</h4>
+            <p>Boleta con neto, IVA y correlativo, impresión o reimpresión, y arqueo de caja del día. Todo queda guardado para consultarlo después.</p>
+            <span class="in-dato">IVA 19% · CORRELATIVO</span>
+          </article>
+          <article class="in-ficha" data-ani-hover tabindex="0">
+            <span class="in-ico" data-ani-icono="sparkles"></span>
+            <h4>Asistente con IA</h4>
+            <p>Un chat que ayuda a reponer, ordenar el catálogo o explicar los números. Corre con modelos locales en el teléfono o con un proveedor remoto, a elección.</p>
+            <span class="in-dato">MODELO LOCAL O REMOTO</span>
+          </article>
+        </div>
+      </section>
+
+      <!-- ===================== MARCAS ===================== -->
+      <section class="in-seccion in-marcas in-rev">
+        <p class="etiqueta">CONSTRUIDO SOBRE</p>
+        <div class="in-marca-tira" id="inMarcas"
+             data-marcas="si-rust,si-sqlite,si-javascript,si-android,si-tauri,lobe-ollama,lobe-openai,lobe-claude,lobe-gemini,lobe-google,lobe-huggingface,lobe-deepseek,lobe-qwen,lobe-meta"></div>
+        <p class="in-marcas-nota">
+          Núcleo en Rust, datos en SQLite, interfaz web y control nativo en Android.
+          Los modelos de IA corren en el equipo o se conectan a proveedores
+          compatibles. Marcas de sus respectivos dueños, usadas sólo para indicar
+          compatibilidad.
+        </p>
+      </section>
+
+      <!-- ===================== ESTADO TÉCNICO (plegado) ===================== -->
+      <details class="in-tecnico" id="inTecnico">
+        <summary>
+          Estado técnico y herramientas
+          <span class="in-tecnico-sub">dispositivo · verificador · modelos</span>
+        </summary>
+        <div class="in-tecnico-cuerpo">
+
+          <div class="grid-kpi">
+            <article class="kpi kpi-disco">
+              <span class="kpi-et">Disco</span>
+              <strong id="kpiDisco">—</strong>
+              <small id="kpiDiscoSub">—</small>
+            </article>
+            <article class="kpi kpi-ram">
+              <span class="kpi-et">RAM</span>
+              <strong id="kpiRam">—</strong>
+              <small id="kpiRamSub">—</small>
+            </article>
+            <article class="kpi kpi-tokens-local">
+              <span class="kpi-et">Tokens IA local</span>
+              <strong id="kpiTokensLocal">—</strong>
+              <small>esta sesión</small>
+            </article>
+            <article class="kpi kpi-tokens-api">
+              <span class="kpi-et">Tokens API remota</span>
+              <strong id="kpiTokensApi">—</strong>
+              <small>esta sesión</small>
+            </article>
+            <article class="kpi kpi-modelo">
+              <span class="kpi-et">Modelo IA</span>
+              <strong id="kpiModelo">—</strong>
+              <small id="kpiModeloSub">sin cargar</small>
+            </article>
+            <article class="kpi kpi-salud">
+              <span class="kpi-et">Salud global</span>
+              <strong id="kpiSalud">—</strong>
+              <small id="kpiSaludSub">verificando...</small>
+            </article>
+          </div>
+
+          <!-- ---------- Verificador global ---------- -->
+          <div class="bloque bloque-verificador">
+            <div class="bloque-cab">
+              <h3>Verificador global · todo en tiempo real</h3>
+              <button class="btn btn-mini" id="btnVerificarGlobal">Reverificar todo</button>
+            </div>
+            <div class="verificador-grid" id="verificadorGrid">
+              <!-- se pinta por JS -->
+            </div>
+            <div class="barra-progreso-cont" id="barraProgresoCont" hidden>
+              <div class="barra-progreso-label">Verificando <span id="barraProgresoTexto">componentes...</span></div>
+              <div class="barra-progreso">
+                <div class="barra-progreso-fill" id="barraProgresoFill" style="width:0%"></div>
+              </div>
+              <span class="barra-progreso-pct" id="barraProgresoPct">0%</span>
+            </div>
+          </div>
+
+          <!-- ---------- Detalles del dispositivo ---------- -->
+          <div class="bloque bloque-dispositivo">
+            <div class="bloque-cab">
+              <h3>Detalles del dispositivo</h3>
+            </div>
+            <div class="tabla-dispositivo" id="tablaDispositivo">
+              <!-- se pinta por JS -->
+            </div>
+          </div>
+
+          <!-- ---------- Modelos: comparación y selector ---------- -->
+          <div class="bloque bloque-modelos">
+            <div class="bloque-cab">
+              <h3>Modelos locales · descargar y ejecutar</h3>
+            </div>
+            <div class="modelos-controles">
+              <button class="btn btn-primario" id="btnModelosRecomendados">Ver recomendados para este dispositivo</button>
+              <button class="btn" id="btnEscanearModelosInicio">Escanear modelos instalados</button>
+            </div>
+            <div class="modelos-lista" id="modelosLista">
+              <!-- se pinta por JS -->
+            </div>
+            <div class="modelos-benchmark" id="modelosBenchmark" hidden>
+              <h4>Benchmark de servicio y funcionamiento</h4>
+              <div class="tabla-scroll" id="tablaBenchmark">
+                <!-- se pinta por JS -->
+              </div>
+            </div>
+          </div>
+
+          <!-- ---------- Acciones rápidas ---------- -->
+          <div class="bloque">
+            <h3>Acciones rápidas</h3>
+            <div class="fila-botones">
+              <button class="btn btn-primario" data-accion="probar">Probar núcleo</button>
+              <button class="btn" data-accion="ir-chat">Abrir chat</button>
+              <button class="btn" data-accion="escanear">Escanear modelos</button>
+              <button class="btn" data-accion="ir-diag">Ver diagnóstico</button>
+              <button class="btn" data-accion="ir-sql">Abrir base de datos</button>
+            </div>
+          </div>
+
+          <div class="aviso">
+            <strong>FABRI-CORE · runtime, chat y base de datos local</strong>
+            <p>A1 carga las bibliotecas de llama.cpp; A2/A3 cargan el GGUF y generan texto.
+            La base de datos SQLite es editable desde «Base de datos». El chat remoto usa
+            proveedores OpenAI-compatible. Las descargas exigen HTTPS, SHA-256 y tamaño;
+            el código nativo viaja en la APK, no se descarga ni se ejecuta.</p>
+          </div>
+
+        </div>
+      </details>
+
     </section>
 
     <!-- ---------- MI IDENTIDAD ---------- -->
@@ -1731,6 +1881,8 @@ npx -y omniroute@latest
     </div>
   </div>
 
+  <script src="d3-mini.js"></script>
+  <script src="marcas.js"></script>
   <script src="diagnostico.js"></script>
   <script src="app.js"></script>
   <script src="datos.js"></script>
@@ -1738,5 +1890,6 @@ npx -y omniroute@latest
   <script src="inventario.js"></script>
   <script src="identidad.js"></script>
   <script src="flujo.js"></script>
+  <script src="inicio.js"></script>
 </body>
 </html>

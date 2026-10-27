@@ -20,12 +20,12 @@ fallos=0
 ok()   { printf '  \033[1;32m✔\033[0m %s\n' "$*"; }
 mal()  { printf '  \033[1;31m✖\033[0m %s\n' "$*"; fallos=$((fallos + 1)); }
 
-echo "▸ 1/4 sintaxis de los scripts"
-for f in app.js datos.js conexiones.js inventario.js identidad.js flujo.js diagnostico.js; do
+echo "▸ 1/8 sintaxis de los scripts"
+for f in d3-mini.js marcas.js inicio.js app.js datos.js conexiones.js inventario.js identidad.js flujo.js diagnostico.js; do
   if node --check "$WWW/$f" 2>/dev/null; then ok "$f"; else mal "$f no compila"; fi
 done
 
-echo "▸ 2/4 DOM hostil (falta cada id, uno por uno)"
+echo "▸ 2/8 DOM hostil (falta cada id, uno por uno)"
 if node "$RAIZ/tests/arranque/dom-hostil.js" > /tmp/fabri-dom-hostil.log 2>&1; then
   ok "0 roturas"
 else
@@ -33,7 +33,7 @@ else
   tail -5 /tmp/fabri-dom-hostil.log
 fi
 
-echo "▸ 3/4 carga sin bloqueo del puente"
+echo "▸ 3/8 carga sin bloqueo del puente"
 if node "$RAIZ/tests/arranque/carga-sin-bloqueo.js" > /tmp/fabri-carga.log 2>&1; then
   ok "sin llamadas bloqueantes en la carga"
 else
@@ -41,7 +41,7 @@ else
   tail -8 /tmp/fabri-carga.log
 fi
 
-echo "▸ 4/6 loader sin JavaScript y logo sin relleno oscuro"
+echo "▸ 4/8 loader sin JavaScript y logo sin relleno oscuro"
 if grep -q "animation: loader-salida" "$WWW/app.css" \
    && grep -q "pointer-events: none" "$WWW/app.css"; then
   ok "el loader se desvanece por CSS y no captura toques"
@@ -54,7 +54,7 @@ else
   ok "el logo no tiene rellenos oscuros"
 fi
 
-echo "▸ 5/6 puente del núcleo (ping local, cola acotada, sin espera bloqueante)"
+echo "▸ 5/8 puente del núcleo (ping local, cola acotada, sin espera bloqueante)"
 if node "$RAIZ/tests/arranque/puente.js" > /tmp/fabri-puente.log 2>&1; then
   ok "el puente no bloquea el hilo de JavaScript"
 else
@@ -62,7 +62,7 @@ else
   tail -8 /tmp/fabri-puente.log
 fi
 
-echo "▸ 6/6 identidad del negocio (ID de cliente, RUT, caché)"
+echo "▸ 6/8 identidad del negocio (ID de cliente, RUT, caché)"
 if node "$RAIZ/tests/arranque/identidad.js" > /tmp/fabri-identidad.log 2>&1; then
   ok "la ficha de identidad calcula bien ID, RUT y caché"
 else
@@ -70,12 +70,20 @@ else
   tail -8 /tmp/fabri-identidad.log
 fi
 
-echo "▸ 7/7 candado del núcleo (sin auto-bloqueo de con_estado)"
+echo "▸ 7/8 candado del núcleo (sin auto-bloqueo de con_estado)"
 if node "$RAIZ/tests/arranque/candado.js" > /tmp/fabri-candado.log 2>&1; then
   ok "el carril del núcleo no puede bloquearse a sí mismo"
 else
   mal "el candado del núcleo volvió a ser peligroso (ver /tmp/fabri-candado.log)"
   tail -8 /tmp/fabri-candado.log
+fi
+
+echo "▸ 8/8 portada de inicio (estadísticas, gráficos d3, iconos animados)"
+if node "$RAIZ/tests/arranque/inicio.js" > /tmp/fabri-inicio.log 2>&1; then
+  ok "la portada pinta con datos reales y con estado vacío"
+else
+  mal "fallo en la portada de inicio (ver /tmp/fabri-inicio.log)"
+  tail -12 /tmp/fabri-inicio.log
 fi
 
 echo
