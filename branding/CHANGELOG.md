@@ -46,6 +46,17 @@ La nube deja de pedir el código a mano. La APK no cambia en esta entrega.
 - «hola mundo» pasaba como Code 128 al normalizarse; un código alfanumérico
   debe contener al menos un dígito.
 - La cantidad «400 g e» arrastraba la marca de estimación ℮.
+- **El respaldo ZXing no decodificaba nunca**: `RGBLuminanceSource` elige el
+  formato por `BYTES_PER_ELEMENT` y, con el `Uint8ClampedArray` RGBA, lo
+  interpretaba como gris de 1 byte por píxel (fotograma 4× desalineado). Ahora
+  se pasa una vista `Int32Array`, sin copia.
+- **El overlay del escáner pisaba la animación Lottie**: `.lot.scan` ya existía
+  y la regla `.scan{position:fixed}` la convertía en un panel a pantalla
+  completa que además la ocultaba. El overlay usa `.scanui`.
+- La entrada manual se abría sola y tapaba el vídeo; ahora vive detrás del
+  botón de teclado y se fuerza visible sólo si la cámara falla.
+- El recorte del fotograma estiraba la imagen a la proporción del vídeo en vez
+  de la del recorte, y no recalculaba el alto al cambiar de cámara.
 
 ## [2.12.0] — 2026-10-27 · Nube v2.0 «Aurora» (PWA)
 

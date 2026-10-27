@@ -22,7 +22,8 @@ ficha del producto. **La APK no cambia en esta sesión.**
 ### Verificación
 - `node tests/web/diseno.js` **en verde** (11 pantallas, 106 clases del HTML,
   71 de plantillas, 25 archivos del precache, 9 scripts).
-- `node tests/web/escaneo.js` **en verde** (34 comprobaciones).
+- `node tests/web/escaneo.js` **en verde** (41 comprobaciones), incluida una
+  decodificación real: se genera un EAN-13 y lo pasa por el ZXing vendorizado.
 - `node tests/web/boleta.js` **en verde**.
 - SQL real contra el `sql.js` del proyecto: insertar, leer, **upsert**,
   filtrar y `save()`; sin `Fabri` no revienta.

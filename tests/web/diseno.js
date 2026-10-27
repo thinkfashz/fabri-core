@@ -249,7 +249,17 @@ console.log('\n▸ nube · offline y arranque');
     !/zxing\.min\.js/.test(sw) && existe(path.join(APP, 'vendor', 'zxing.min.js')));
 }
 
-/* 12b · Los ids que usa la wiki existen: en el HTML estático o en una
+/* 12b · El overlay del escáner no puede compartir clase con el hueco Lottie:
+       `.lot.scan` mide 170×130 y una regla `.scan{position:fixed}` lo
+       convertía en un panel a pantalla completa que además lo ocultaba. */
+{
+  const css = leer(path.join(APP, 'styles.css'));
+  ok('el overlay del escáner tiene clase propia', /^\.scanui\{/m.test(css) && !/^\.scan\{/m.test(css));
+  ok('la clase del overlay no se usa en el HTML', !/class="[^"]*\bscanui\b/.test(appHtml));
+  ok('el hueco Lottie conserva su medida', /\.lot\.scan\{[^}]*height:130px/.test(css));
+}
+
+/* 12c · Los ids que usa la wiki existen: en el HTML estático o en una
        plantilla de la propia wiki (el formulario de «completar ficha» se
        inyecta sólo cuando la búsqueda no encuentra nada). */
 {

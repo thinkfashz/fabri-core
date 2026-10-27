@@ -673,8 +673,10 @@ tbody tr:hover td{background:rgba(255,255,255,.025);color:var(--tx)}
 }
 
 /* ── escáner de códigos ────────────────────────────────────────────────── */
-.scan{position:fixed;inset:0;z-index:220;display:none;flex-direction:column;background:#04060d}
-.scan.abierto{display:flex;animation:scan-entra var(--t2) var(--ease) both}
+/* `.scanui` y no `.scan`: esa clase ya la usa la animación Lottie (`.lot.scan`)
+   y este bloque la convertía en un panel fijo que tapaba la pantalla. */
+.scanui{position:fixed;inset:0;z-index:220;display:none;flex-direction:column;background:#04060d}
+.scanui.abierto{display:flex;animation:scan-entra var(--t2) var(--ease) both}
 .scan-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000}
 .scan-velo{position:absolute;inset:0;pointer-events:none;
   background:radial-gradient(120% 85% at 50% 46%,transparent 26%,rgba(4,6,13,.5) 72%,rgba(4,6,13,.92) 100%)}
@@ -835,7 +837,7 @@ body.con-scan{overflow:hidden}
 
 /* Impresión: solo el documento de la boleta viaja al iframe. */
 @media print{
-  .nav,.topbar,.toast,.boot,.cmdk,.sheet,.scan,.aurora,.grain{display:none!important}
+  .nav,.topbar,.toast,.boot,.cmdk,.sheet,.scanui,.aurora,.grain{display:none!important}
   body{background:#fff;color:#000}
 }
 /* ── piezas de la capa cloud.js ────────────────────────────────────────── */

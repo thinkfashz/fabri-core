@@ -82,7 +82,10 @@
   function montarUI() {
     if (ui) return ui;
     const caja = document.createElement('div');
-    caja.className = 'scan';
+    // `scanui`, no `scan`: `.lot.scan` ya es la animación Lottie de la
+    // pantalla de inventario. Compartir la clase convertía ese hueco de
+    // 170×130 en un panel fijo a pantalla completa y oculto.
+    caja.className = 'scanui';
     caja.id = 'scan';
     caja.setAttribute('role', 'dialog');
     caja.setAttribute('aria-modal', 'true');
@@ -178,6 +181,11 @@
 
   async function encender(dispositivo) {
     const video = ui.video;
+    // Cada cámara expone sus propias capacidades: no heredar la linterna ni el
+    // conmutador de la cámara anterior.
+    ui.torch.hidden = true;
+    ui.torch.classList.remove('on');
+    ui.cam.hidden = true;
     const base = { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } };
     const pedir = d => navigator.mediaDevices.getUserMedia({
       audio: false,
@@ -324,11 +332,20 @@
         const c = recortar();
         if (c) {
           const img = c.ctx.getImageData(0, 0, c.canvas.width, c.canvas.height);
-          const fuente = new sesion.zx.Z.RGBLuminanceSource(img.data, c.canvas.width, c.canvas.height);
+          // `RGBLuminanceSource` elige el formato por `BYTES_PER_ELEMENT`: con
+          // un Uint8ClampedArray (1 byte) da por hecho que ya es gris de un
+          // byte por píxel y el fotograma RGBA queda 4× desalineado —no
+          // decodifica nunca—. La vista Int32 le dice que son píxeles
+          // empaquetados y la luminancia la calcula ella, sin copia.
+          const pixeles = new Int32Array(img.data.buffer, img.data.byteOffset,
+            c.canvas.width * c.canvas.height);
+          const fuente = new sesion.zx.Z.RGBLuminanceSource(pixeles, c.canvas.width, c.canvas.height);
           const bitmap = new sesion.zx.Z.BinaryBitmap(new sesion.zx.Z.HybridBinarizer(fuente));
           try {
             const r = sesion.zx.lector.decode(bitmap);
-            if (r && pareceCodigo(r.getText())) { sesion.ocupado = false; return aceptar(r.getText(), r.getBarcodeFormat()); }
+            // ZXing devuelve el formato como número; su enum tiene mapa inverso.
+            const formato = sesion.zx.Z.BarcodeFormat[r.getBarcodeFormat()] || r.getBarcodeFormat();
+            if (r && pareceCodigo(r.getText())) { sesion.ocupado = false; return aceptar(r.getText(), formato); }
           } catch (_) { /* NotFoundException: el caso normal entre fotogramas */ }
         }
       }
@@ -345,13 +362,16 @@
     const v = ui.video;
     if (!v.videoWidth) return null;
     const ancho = 640;
-    const alto = Math.round(ancho * (v.videoHeight / v.videoWidth));
     const sx = Math.round(v.videoWidth * 0.08);
     const sy = Math.round(v.videoHeight * 0.2);
     const sw = Math.round(v.videoWidth * 0.84);
     const sh = Math.round(v.videoHeight * 0.6);
+    // Proporción del recorte, no la del vídeo: estirarlo no rompe un código
+    // de barras, pero gasta píxeles y desenfoca un QR.
+    const alto = Math.max(1, Math.round(ancho * (sh / sw)));
     const canvas = sesion.canvas || (sesion.canvas = document.createElement('canvas'));
-    if (canvas.width !== ancho) { canvas.width = ancho; canvas.height = alto; }
+    // Las dos medidas: al cambiar de cámara cambia el alto con el mismo ancho.
+    if (canvas.width !== ancho || canvas.height !== alto) { canvas.width = ancho; canvas.height = alto; }
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     ctx.drawImage(v, sx, sy, sw, sh, 0, 0, ancho, alto);
     return { canvas, ctx };
@@ -365,6 +385,8 @@
     pausar();
     pitar();
     if (navigator.vibrate) navigator.vibrate(28);
+    // El formulario manual y la confirmación ocupan el mismo sitio.
+    ui.manual.hidden = true;
     ui.codigo.textContent = c;
     ui.hitTxt.textContent = formato ? 'leído como ' + String(formato).replace(/_/g, '-') : 'código detectado';
     ui.hit.hidden = false;
@@ -433,7 +455,9 @@
     ui.estado.textContent = 'encendiendo la cámara…';
     ui.error.hidden = true;
     ui.hit.hidden = true;
-    ui.manual.hidden = false;
+    // La entrada manual vive detrás del botón de teclado: abrirla sola taparía
+    // el vídeo. Se fuerza visible cuando la cámara falla o no hay soporte.
+    ui.manual.hidden = true;
     ui.input.value = '';
     ui.caja.classList.add('abierto');
     document.body.classList.add('con-scan');
