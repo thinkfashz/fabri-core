@@ -36,7 +36,7 @@ La nube deja de pedir el código a mano. La APK no cambia en esta entrega.
 ### Cambiado
 - `Permissions-Policy` pasa de `camera=()` a **`camera=(self)`**: la cabecera
   anterior apagaba la cámara en producción aunque el código estuviera bien.
-- Service worker **`fcore-v5`**: precachea `core-scan.js` y `core-wiki.js`.
+- Service worker **`fcore-v6`**: precachea `core-scan.js` y `core-wiki.js`.
 - La landing menciona el escáner y la wiki en el bento y en la comparativa.
 - `docs/APK.md` §5 documenta el escáner web y la wiki.
 
