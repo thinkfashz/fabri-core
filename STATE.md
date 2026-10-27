@@ -2,6 +2,60 @@
 
 Última actualización: 2026-10-27
 
+## Sesión 2026-10-27 (19) · Nube v2.0 — «Aurora», Lottie y d3
+
+La PWA deja de ser «la APK sin base local»: tiene su propio contexto visual.
+Publicada en `https://fabri-core-web.vercel.app/` (landing) y `/app/` (consola).
+Deployment `dpl_7p9B4n1bZKboQc52qu9tNWVhM3vx`, estado `READY`, alias de producción
+`fabri-core-web.vercel.app`. **La APK no cambia en esta sesión.**
+
+### Qué se hizo
+| Qué | Dónde |
+|---|---|
+| **Sistema «Aurora»**: iris `#8C8CFF` sobre azul noche `#04060D`, vidrio, sombras en dos capas, motion `--ease`/`--spring` | `web/app/styles.css` (~1.000 líneas) |
+| **Rail lateral ≥960 px** y barra inferior de 5 destinos + hoja «Más» en móvil | `styles.css`, `index.html`, `cloud.js` |
+| **lottie-web 5.12.2 vendorizado** (305.543 B + licencia), sin CDN | `web/app/vendor/lottie.min.js` |
+| **5 animaciones Lottie generadas y validadas** (core, sync, scan, check, empty) | `scripts/animaciones.mjs` → `web/app/anim/` |
+| **Cargador compartido** con caché, fallback, `IntersectionObserver` y modo reducido | `web/app/lottie-mount.js` |
+| **Gráficos d3 reales**: anillo de memoria por tipo y barras de tablas con filas, con firma anti-repintado | `web/app/cloud.js` |
+| **Capa de UI**: ⌘K, hoja «Más», migas, contadores, reloj, espejo FTS e hito de instalación | `web/app/cloud.js` |
+| **Shell nuevo**: héroe con orbe, 4 KPIs, 2 gráficos, módulos, acento e instalación; cabeceras propias para Datos/IA/Hoja/Cuenta | `web/app/index.html` |
+| **Landing editorial**: héroe con orbe y chips, bento de 7 módulos, APK vs Nube, 3 pasos, malla real y stack | `web/index.html` |
+| **Iconos Aurora** (192, 512, maskable, favicon) | `scripts/iconos-nube.py` |
+| **Prueba de la nube** (contrato, sistema, Lottie, offline, manifest, cabeceras) | `tests/web/diseno.js` |
+| **Skill del sistema de diseño** | `~/.config/opencode/skills/fabricore-nube/` |
+
+### Verificación
+- `node tests/web/diseno.js` **en verde** (42 ids de `app.js`, 45 de inventario,
+  98 clases del HTML, clases de los módulos, tokens, 5 Lottie, 23 archivos del
+  precache, cero CDN, 7 scripts, iconos y cabeceras).
+- `node tests/web/boleta.js` **en verde**.
+- `node scripts/animaciones.mjs` **5/5**; `python3 scripts/iconos-nube.py` **4/4**.
+- Balance de etiquetas de `web/index.html` y `web/app/index.html`: sin errores.
+- Balance de llaves de `styles.css`: 401/401.
+- Producción comprobada con `curl -4`: `/`, `/app/`, `styles.css`, `cloud.js`,
+  `lottie-mount.js`, `anim/core.json`, `vendor/lottie.min.js`, `sw.js` y
+  `manifest.webmanifest` responden **200**; `/app/anim/` con
+  `cache-control: immutable`; `/api/estado` devuelve las cuatro capas.
+
+### Decisiones
+- **Contexto distinto, no skin**: la nube puede permitirse Lottie (305 KB), d3,
+  materiales y rail; la APK sigue sin runtime de animación.
+- **Lottie generado por script**, no escrito a mano: un `ty` mal puesto deja el
+  hueco en blanco sin error visible.
+- **Contrato intacto**: el rediseño es CSS + shell + `cloud.js`; no se tocó la
+  lógica de `app.js`, `core-pro.js` ni `core-sheet.js` (solo acentos).
+- **«Más» es un `<div>`**: `app.js` enlaza todos los `.nav button` y un botón sin
+  `data-go` apagaría todas las pantallas.
+- **Sin navegador headless** en este entorno: la verificación es por contrato en
+  Node, no por captura. Queda pendiente la revisión visual del usuario.
+
+### Pendiente
+- Revisión visual en dispositivo real (el modelo no procesa imágenes: el usuario
+  debe describir lo que ve).
+- Cámara en la web para el escáner EAN (hoy formulario).
+- La APK sigue sin lottie: es deliberado, no un olvido.
+
 ## Sesión 2026-10-27 (18) · APK 0.9.26 — la portada del producto
 
 APK: `dist/FABRI-CORE-0.9.26.apk` · **4.218.325 B** ·

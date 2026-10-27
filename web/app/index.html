@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>FABRI-CORE · consola autónoma</title>
-<meta name="description" content="FABRI-CORE en el navegador: panel, chat con agente, consola SQL real, memoria con FTS5 y flujos en vivo. Funciona offline.">
-<meta name="theme-color" content="#08090A">
+<title>FABRI-CORE · consola en la nube</title>
+<meta name="description" content="FABRI-CORE en el navegador: panel con gráficos reales, chat con agente, consola SQL, memoria con FTS5 e inventario en la nube. SQLite WASM, funciona offline.">
+<meta name="theme-color" content="#04060d">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="./icons/icon-192.png" sizes="192x192">
 <link rel="apple-touch-icon" href="./icons/icon-192.png">
@@ -14,260 +14,447 @@
 <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
-<!-- ══════════ CARGADOR DE ARRANQUE (mismo lenguaje que la APK) ══════════
-     Se retira solo por CSS aunque el JavaScript falle: la barra avanza con una
-     animación y la capa se desvanece a los 2,6 s. Nunca captura toques después
-     de irse (`animation:none` + `pointer-events:none`), que fue exactamente el
-     fallo del APK: el loader tapaba el login y ningún botón respondía. -->
+
+<!-- Capas de ambiente. Puramente decorativas y fuera del flujo de toques. -->
+<div class="aurora" aria-hidden="true"></div>
+<div class="grain" aria-hidden="true"></div>
+
+<!-- ══════════ CARGADOR DE ARRANQUE ══════════
+     La retirada es triple: animación CSS, clase `.gone` con visibility:hidden y
+     eliminación del nodo. Así la capa no puede quedarse encima comiéndose los
+     toques del login (el fallo que costó una APK entera). -->
 <div id="boot" class="boot">
   <div class="boot-in">
-    <div class="boot-mark" aria-hidden="true"><i></i></div>
+    <div class="boot-orb" aria-hidden="true">
+      <div class="lot" id="bootOrb" data-lottie="./anim/core.json" data-loop="1"></div>
+    </div>
     <p class="boot-brand">FABRI-CORE</p>
-    <p class="boot-txt" id="bootTxt">LOADING CORE SYSTEM · 0 %</p>
+    <p class="boot-txt" id="bootTxt">Cargando núcleo · 0 %</p>
     <div class="boot-bar"><i></i></div>
-    <p class="boot-sub">base local · sqlite wasm · nube opcional</p>
+    <p class="boot-sub">sqlite wasm · indexeddb · nube opcional</p>
   </div>
 </div>
 
-<div class="wrap">
+<div class="app">
 
-  <header class="topbar">
-    <div class="mark" aria-hidden="true"></div>
-    <div class="brand">
-      <b>FABRI-CORE</b>
-      <span id="ver">web · v1.1</span>
-    </div>
-    <button class="live" id="live" type="button" title="Verificación de conexión">
-      <i class="dot" id="liveDot"></i><span id="liveTxt">comprobando…</span>
-    </button>
-  </header>
-
-  <main>
-    <div class="offline-bar" id="offBar">Sin conexión — la app sigue funcionando con los datos locales.</div>
-
-    <!-- ══════════════ PANEL ══════════════ -->
-    <section class="screen on" id="s-panel">
-      <p class="eyebrow">Panel principal</p>
-      <h1>Estado del núcleo</h1>
-      <p class="sub">Cada cifra sale de tu navegador: base SQLite local, mensajes guardados y memoria indexada.</p>
-
-      <div class="kpi-grid">
-        <div class="stat accent"><div class="k">Memorias</div><div class="v" id="kMem">0</div><div class="d" id="kMemD">sin registros</div></div>
-        <div class="stat"><div class="k">Mensajes</div><div class="v" id="kMsg">0</div><div class="d">guardados en SQLite</div></div>
-        <div class="stat"><div class="k">Base local</div><div class="v" id="kDb">0 KB</div><div class="d" id="kDbD">persistida en IndexedDB</div></div>
-        <div class="stat"><div class="k">Búsqueda</div><div class="v" id="kFts" style="font-size:19px">…</div><div class="d" id="kFtsD">comprobando FTS5</div></div>
-      </div>
-
-      <div class="card">
-        <div class="eyebrow">Módulos</div>
-        <div class="row"><div class="grow"><div class="t">SQLite en el navegador</div><div class="s">sql.js (WASM) · 13 tablas del contrato</div></div><span class="badge ok" id="bDb">activo</span></div>
-        <div class="row"><div class="grow"><div class="t">Índice de texto completo</div><div class="s" id="ftsSub">FTS5 comprobado en runtime</div></div><span class="badge" id="bFts">…</span></div>
-        <div class="row"><div class="grow"><div class="t">Agente</div><div class="s">función Go en Vercel · /api/agent</div></div><span class="badge" id="bAg">…</span></div>
-        <div class="row"><div class="grow"><div class="t">Modo offline</div><div class="s">service worker con caché del shell</div></div><span class="badge ok" id="bSw">listo</span></div>
-      </div>
-
-      <div class="card">
-        <div class="eyebrow">Acento</div>
-        <div class="chips" id="themes" style="padding-bottom:0"></div>
-      </div>
-
-      <div class="card">
-        <div class="eyebrow">Instalación</div>
-        <p class="hint" style="margin:2px 0 12px">Instálala como app: queda en la pantalla de inicio y arranca sin red.</p>
-        <button class="btn primary block" id="btnInstall">Instalar FABRI-CORE</button>
-        <div class="sep"></div>
-        <button class="btn ghost block sm" id="btnReset">Borrar datos locales</button>
-      </div>
-    </section>
-
-    <!-- ══════════════ CHAT ══════════════ -->
-    <section class="screen" id="s-chat">
-      <p class="eyebrow">Agente</p>
-      <h1>Chat IA</h1>
-      <p class="sub">El agente corre en la función Go de Vercel. Si no hay clave configurada, te lo dice en vez de inventar.</p>
-      <div class="log" id="log"></div>
-      <textarea class="field" id="chatIn" rows="2" placeholder="Pregúntale algo al núcleo…"></textarea>
-      <button class="btn primary block" id="btnSend" style="margin-top:10px">Enviar</button>
-      <p class="hint" style="margin-top:10px">Cada mensaje se guarda en tu SQLite local: nada se envía a otro servidor que el del agente.</p>
-    </section>
-
-    <!-- ══════════════ CONSOLA ══════════════ -->
-    <section class="screen" id="s-sql">
-      <p class="eyebrow">Consola</p>
-      <h1>SQL real</h1>
-      <p class="sub">La misma base que usa la app. Aquí sí se ejecuta de verdad.</p>
-      <div class="chips" id="sqlQuick"></div>
-      <textarea class="field mono" id="sqlIn" rows="3">SELECT kind, content, provenance FROM memory_items ORDER BY id DESC LIMIT 10;</textarea>
-      <div style="display:flex;gap:8px;margin-top:10px">
-        <button class="btn primary" id="btnRun" style="flex:1">Ejecutar</button>
-        <button class="btn ghost sm" id="btnSchema">Ver tablas</button>
-      </div>
-      <div class="console-out" id="sqlOut" style="margin-top:12px"></div>
-      <div id="sqlTbl" style="margin-top:10px"></div>
-    </section>
-
-    <!-- ══════════════ MEMORIA ══════════════ -->
-    <section class="screen" id="s-mem">
-      <p class="eyebrow">Memoria</p>
-      <h1>Lo que recuerda</h1>
-      <p class="sub">Hechos durables con procedencia. La búsqueda usa FTS5 cuando el motor lo trae.</p>
-      <div class="chips" id="memKinds"></div>
-      <textarea class="field" id="memIn" rows="2" placeholder="Hecho durable que quieras recordar…"></textarea>
-      <input class="field" id="memProv" placeholder="Procedencia (ej. conversación, doc, web)" style="margin-top:8px">
-      <button class="btn primary block" id="btnMem" style="margin-top:10px">Guardar en memoria</button>
-      <div class="sep"></div>
-      <input class="field" id="memQ" placeholder="Buscar en la memoria…">
-      <div id="memList" style="margin-top:12px"></div>
-    </section>
-
-    <!-- ══════════════ FLUJOS ══════════════ -->
-    <section class="screen" id="s-flow">
-      <p class="eyebrow">Cerebro</p>
-      <h1>Flujos en vivo</h1>
-      <p class="sub">El grafo se anima con eventos reales: cada escritura en la base, cada consulta y cada llamada al agente lo mueven.</p>
-      <div class="graph-box"><canvas id="graph"></canvas></div>
-      <div class="event-log" id="evLog"></div>
-      <div class="card" style="margin-top:14px">
-        <div class="eyebrow">Ruta de un dato</div>
-        <p class="hint">UI → API Go → SQLite → FTS5 → memoria → agente. Si un salto no ocurre, el evento no aparece: nada de animaciones de relleno.</p>
-      </div>
-    </section>
-
-    <!-- ══════════════ INVENTARIO (nube · InsForge) ══════════════ -->
-    <section class="screen" id="s-inv">
-      <p class="eyebrow">Inventario</p>
-      <h1>Stock en la nube</h1>
-      <p class="sub">Lo que subas aquí queda en InsForge y la APK lo sincroniza. La ficha del producto
-        (Nutri-Score, NOVA, «sin gluten»…) viaja con él, igual que en la app.</p>
-
-      <!-- La misma guía de 5 pasos que la APK, con el equivalente web de cada uno. -->
-      <ol class="inv-pasos" id="invPasos">
-        <li><a href="#" data-guia="inv-guia-1"><b>1</b><span>Escanear</span></a></li>
-        <li><a href="#" data-guia="inv-guia-2"><b>2</b><span>Productos</span></a></li>
-        <li><a href="#" data-guia="inv-guia-3"><b>3</b><span>Precios</span></a></li>
-        <li><a href="#" data-guia="inv-guia-4"><b>4</b><span>Márgenes</span></a></li>
-        <li><a href="#" data-guia="inv-guia-5"><b>5</b><span>Boleta</span></a></li>
-      </ol>
-
-      <div class="card" id="inv-guia-1">
-        <div class="eyebrow">1 · Escanear · verificación de conexión</div>
-        <div class="row"><div class="grow"><div class="t">Clave de la nube</div>
-          <div class="s" id="invKeySub">sin clave: sólo lectura local</div></div>
-          <span class="badge" id="invKeyBadge">…</span></div>
-        <input class="field" id="invKey" type="password" placeholder="FABRI_API_TOKEN" style="margin-top:8px">
-        <div class="row" style="padding-top:8px"><div class="grow"><div class="t">Base de datos</div>
-          <div class="s" id="invDbSub">sin comprobar</div></div>
-          <span class="badge" id="invDbBadge">…</span></div>
-        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-          <button class="btn primary sm" id="btnInvKey">Guardar y verificar</button>
-          <button class="btn ghost sm" id="btnInvAsegurar">Crear tabla</button>
-          <button class="btn ghost sm" id="btnInvBajar">Refrescar</button>
-        </div>
-        <p class="hint" style="margin-top:8px">La clave vive en la sesión del navegador: al cerrar la
-          pestaña se olvida. Nunca se guarda en el repositorio.</p>
-      </div>
-
-      <div class="kpi-grid" id="invKpis">
-        <div class="stat"><div class="k">Productos</div><div class="v" id="invKTotal">—</div><div class="d">en InsForge</div></div>
-        <div class="stat"><div class="k">Valor venta</div><div class="v" id="invKValor">—</div><div class="d">stock × precio</div></div>
-        <div class="stat"><div class="k">Utilidad</div><div class="v" id="invKUtil">—</div><div class="d">potencial</div></div>
-        <div class="stat"><div class="k">Stock bajo</div><div class="v" id="invKBajo">—</div><div class="d">bajo el mínimo</div></div>
-      </div>
-
-      <div class="card" id="inv-guia-2">
-        <div class="eyebrow">2 · Productos · alta con código de barras</div>
-        <div class="inv-form">
-          <input class="field" id="invFcodigo" inputmode="numeric" placeholder="Código de barras (EAN/UPC)">
-          <input class="field" id="invFnombre" placeholder="Nombre *">
-          <input class="field" id="invFmarca" placeholder="Marca">
-          <select class="field" id="invFcategoria">
-            <option value="abarrotes">Alimentos</option>
-            <option value="bebidas">Bebidas</option>
-            <option value="alcohol">Alcohol</option>
-            <option value="dulces">Dulces</option>
-            <option value="lacteos">Lácteos</option>
-            <option value="cosmetica">Cosmética</option>
-            <option value="limpieza">Limpieza</option>
-            <option value="congelados">Congelados</option>
-            <option value="mascotas">Mascotas</option>
-            <option value="otros">Otros</option>
-          </select>
-          <input class="field" id="invFcosto" inputmode="decimal" placeholder="Costo neto">
-          <input class="field" id="invFprecio" inputmode="decimal" placeholder="Precio venta">
-          <input class="field" id="invFstock" inputmode="numeric" placeholder="Stock">
-          <input class="field" id="invFminimo" inputmode="numeric" placeholder="Stock mínimo">
-        </div>
-        <div class="chips" id="invFreeChips"></div>
-        <button class="btn primary block" id="btnInvSubir" style="margin-top:4px">Subir a InsForge</button>
-        <p class="hint" id="invSubirEstado" style="margin-top:8px"></p>
-      </div>
-
-      <div class="card" id="inv-guia-3">
-        <div class="eyebrow">3 · Precios y márgenes · productos en la nube</div>
-        <input class="field" id="invFiltro" placeholder="Filtrar por nombre, marca o código">
-        <div id="invLista" style="margin-top:10px"></div>
-        <p class="hint" id="inv-guia-4" style="margin-top:10px">Cada fila muestra el margen calculado
-          como en la app: (precio − costo) ÷ precio. Toca «+» para llevarlo a la boleta.</p>
-      </div>
-
-      <div class="card" id="inv-guia-5">
-        <div class="eyebrow">5 · Boleta · imprimir factura</div>
-        <div class="inv-form">
-          <select class="field ancho" id="invBolProducto"></select>
-          <input class="field" id="invBolCantidad" inputmode="numeric" value="1" placeholder="Cantidad">
-          <button class="btn ghost" id="btnInvBolAgregar" type="button">Agregar</button>
-        </div>
-        <div id="invCarrito" class="hint">El carrito está vacío.</div>
-        <div class="row" style="margin-top:6px"><div class="grow"><div class="t">Total</div>
-          <div class="s" id="invBolDetalle">neto + IVA</div></div>
-          <div class="inv-item"><div class="v" id="invBolTotal">$0</div></div></div>
-        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-          <label class="campo" style="flex:1;min-width:130px">
-            <span>Papel</span>
-            <select id="invBolFormato" class="field">
-              <option value="80mm">Rollo 80 mm</option>
-              <option value="58mm">Rollo 58 mm</option>
-              <option value="a4">Hoja A4</option>
-            </select>
-          </label>
-          <button class="btn primary" id="btnInvImprimir" type="button" style="flex:1;min-width:150px">Imprimir / PDF</button>
-        </div>
-        <p class="hint" style="margin-top:8px">Se imprime con el diálogo del sistema: sirve para una
-          térmica de 80 mm y también para «Guardar como PDF». No es boleta tributaria electrónica.</p>
-      </div>
-    </section>
-
-    <section class="screen" id="s-datos"><div id="pro-datos"></div></section>
-    <section class="screen" id="s-ia"><div id="pro-ia"></div></section>
-    <section class="screen" id="s-hoja"><div id="pro-hoja"></div></section>
-    <section class="screen" id="s-cuenta"><div id="pro-cuenta"></div></section>
-  </main>
-
-  <nav class="nav">
+  <!-- ══════════ NAVEGACIÓN ══════════
+       Un solo <nav>: barra inferior en móvil, rail en escritorio. app.js enlaza
+       `$$('.nav button')`; por eso el disparador «Más» es un div, no un button
+       (un button sin data-go apagaría todas las pantallas al pulsarlo). -->
+  <nav class="nav" aria-label="Secciones">
     <div class="nav-in">
-      <button class="on" data-go="panel"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="2"/><rect x="14" y="3" width="7" height="5" rx="2"/><rect x="14" y="12" width="7" height="9" rx="2"/><rect x="3" y="16" width="7" height="5" rx="2"/></svg><span>Panel</span></button>
-      <button data-go="chat"><svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-8 8H8l-4 2 1.5-4.5A8 8 0 1 1 21 12Z"/></svg><span>Chat</span></button>
-      <button data-go="sql"><svg viewBox="0 0 24 24"><path d="m4 6 8 4 8-4-8-4-8 4Z"/><path d="m4 12 8 4 8-4"/><path d="m4 18 8 4 8-4"/></svg><span>SQL</span></button>
-      <button data-go="mem"><svg viewBox="0 0 24 24"><path d="M12 3a4 4 0 0 0-4 4v1a4 4 0 0 0 0 8v1a4 4 0 0 0 8 0v-1a4 4 0 0 0 0-8V7a4 4 0 0 0-4-4Z"/></svg><span>Memoria</span></button>
-      <button data-go="inv"><svg viewBox="0 0 24 24"><path d="M3 7.5 12 3l9 4.5v9L12 21l-9-4.5v-9Z"/><path d="M3 7.5 12 12l9-4.5M12 12v9"/></svg><span>Stock</span></button>
-      <button data-go="flow"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="2.5"/><circle cx="19" cy="6" r="2.5"/><circle cx="19" cy="18" r="2.5"/><path d="M7.5 12h4a3 3 0 0 0 3-3V8.5"/><path d="M7.5 12h4a3 3 0 0 1 3 3v.5"/></svg><span>Flujos</span></button>
-      <button data-go="datos"><svg viewBox="0 0 24 24"><path d="M4 19V9m5 10V5m5 14v-7m5 7V8"/></svg><span>Datos</span></button>
-      <button data-go="ia"><svg viewBox="0 0 24 24"><path d="M12 3v3m0 12v3M3 12h3m12 0h3"/><circle cx="12" cy="12" r="3.6"/></svg><span>IA</span></button>
-      <button data-go="hoja"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg><span>Hoja</span></button>
-      <button data-go="cuenta"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/></svg><span>Cuenta</span></button>
+      <div class="nav-brand">
+        <span class="mark" aria-hidden="true"></span>
+        <div><b>FABRI-CORE</b><i>nube</i></div>
+      </div>
+
+      <div class="nav-group">
+        <span class="nav-lbl">Núcleo</span>
+        <button class="on" data-go="panel" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="2"/><rect x="14" y="3" width="7" height="5" rx="2"/><rect x="14" y="12" width="7" height="9" rx="2"/><rect x="3" y="16" width="7" height="5" rx="2"/></svg><span>Panel</span></button>
+        <button data-go="chat" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a8 8 0 0 1-8 8H8l-4 2 1.5-4.5A8 8 0 1 1 21 12Z"/></svg><span>Chat</span></button>
+        <button data-go="sql" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 6 8 4 8-4-8-4-8 4Z"/><path d="m4 12 8 4 8-4"/><path d="m4 18 8 4 8-4"/></svg><span>SQL</span></button>
+        <button data-go="mem" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a4 4 0 0 0-4 4v1a4 4 0 0 0 0 8v1a4 4 0 0 0 8 0v-1a4 4 0 0 0 0-8V7a4 4 0 0 0-4-4Z"/></svg><span>Memoria</span></button>
+      </div>
+
+      <div class="nav-group">
+        <span class="nav-lbl">Operación</span>
+        <button data-go="inv" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7.5 12 3l9 4.5v9L12 21l-9-4.5v-9Z"/><path d="M3 7.5 12 12l9-4.5M12 12v9"/></svg><span>Stock</span></button>
+        <button data-go="flow" data-mas type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="2.5"/><circle cx="19" cy="6" r="2.5"/><circle cx="19" cy="18" r="2.5"/><path d="M7.5 12h4a3 3 0 0 0 3-3V8.5"/><path d="M7.5 12h4a3 3 0 0 1 3 3v.5"/></svg><span>Flujos</span></button>
+        <button data-go="datos" data-mas type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V9m5 10V5m5 14v-7m5 7V8"/></svg><span>Datos</span></button>
+        <button data-go="ia" data-mas type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v3m0 12v3M3 12h3m12 0h3"/><circle cx="12" cy="12" r="3.6"/></svg><span>IA</span></button>
+      </div>
+
+      <div class="nav-group">
+        <span class="nav-lbl">Sistema</span>
+        <button data-go="hoja" data-mas type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg><span>Hoja</span></button>
+        <button data-go="cuenta" data-mas type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/></svg><span>Cuenta</span></button>
+      </div>
+
+      <div class="nav-foot">
+        <div class="lot sync" data-lottie="./anim/sync.json" data-loop="1" aria-hidden="true"></div>
+        <div><b>Nube opcional</b>La base vive en este navegador</div>
+      </div>
+
+      <div class="nav-more" id="navMore" role="button" tabindex="0" aria-label="Más secciones">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
+        <span>Más</span>
+      </div>
     </div>
   </nav>
+
+  <div class="shell">
+
+    <header class="topbar">
+      <div class="top-brand">
+        <span class="mark" aria-hidden="true"></span>
+        <b>FABRI-CORE</b>
+      </div>
+
+      <div class="crumb">
+        <span>FABRI-CORE</span><i>/</i><b id="crumbNow">Panel</b>
+        <span class="ver" id="ver">nube</span>
+      </div>
+
+      <div class="top-actions">
+        <button class="icon-btn buscar" id="cmdkOpen" type="button" aria-label="Buscar sección">
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        </button>
+        <button class="cmdk-btn" id="cmdkOpen2" type="button">
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <span>Buscar</span><kbd>⌘K</kbd>
+        </button>
+        <button class="live" id="live" type="button" title="Verificación de conexión">
+          <i class="dot" id="liveDot"></i><span id="liveTxt">comprobando</span>
+        </button>
+      </div>
+    </header>
+
+    <main>
+      <div class="offline-bar" id="offBar">Sin conexión — la app sigue funcionando con los datos locales.</div>
+
+      <!-- ══════════════ PANEL ══════════════ -->
+      <section class="screen on" id="s-panel">
+
+        <div class="hero-card">
+          <div class="hero-copy">
+            <p class="eyebrow">Panel principal</p>
+            <h1>El núcleo, <em>a la vista</em></h1>
+            <p class="sub">Cada cifra sale de tu navegador: SQLite compilado a WASM, persistido en
+              IndexedDB. Si una pieza no está disponible, la interfaz lo dice en vez de simularla.</p>
+            <div class="hero-meta">
+              <span class="pill"><b>SQLite</b> WASM</span>
+              <span class="pill"><b>IndexedDB</b></span>
+              <span class="pill" id="heroFts">FTS…</span>
+              <span class="pill" id="heroHora">--:--</span>
+            </div>
+          </div>
+          <div class="hero-art" aria-hidden="true">
+            <div class="lot" id="lotCore" data-lottie="./anim/core.json" data-loop="1"></div>
+          </div>
+        </div>
+
+        <div class="kpi-grid">
+          <div class="stat accent"><div class="k">Memorias</div><div class="v" id="kMem">0</div><div class="d" id="kMemD">sin registros</div></div>
+          <div class="stat"><div class="k">Mensajes</div><div class="v" id="kMsg">0</div><div class="d">guardados en SQLite</div></div>
+          <div class="stat"><div class="k">Base local</div><div class="v" id="kDb">0 KB</div><div class="d" id="kDbD">persistida en IndexedDB</div></div>
+          <div class="stat"><div class="k">Búsqueda</div><div class="v" id="kFts">…</div><div class="d" id="kFtsD">comprobando motor</div></div>
+        </div>
+
+        <div class="charts">
+          <div class="card chart-card">
+            <header>
+              <div><div class="k">Memoria por tipo</div><div class="v" id="chartMemV">sin datos</div></div>
+              <span class="badge acc" id="chartMemB">—</span>
+            </header>
+            <div class="chart" id="chartMemoria"></div>
+            <div class="legend" id="chartMemLeyenda"></div>
+          </div>
+
+          <div class="card chart-card">
+            <header>
+              <div><div class="k">Tablas con filas</div><div class="v" id="chartTabV">sin datos</div></div>
+              <span class="badge" id="chartTabB">13 tablas</span>
+            </header>
+            <div class="chart" id="chartTablas"></div>
+          </div>
+        </div>
+
+        <div class="split">
+          <div class="card">
+            <div class="eyebrow">Módulos</div>
+            <div class="row"><div class="grow"><div class="t">SQLite en el navegador</div><div class="s">sql.js (WASM) · 13 tablas del contrato</div></div><span class="badge ok" id="bDb">activo</span></div>
+            <div class="row"><div class="grow"><div class="t">Índice de texto completo</div><div class="s" id="ftsSub">FTS comprobado en runtime</div></div><span class="badge" id="bFts">…</span></div>
+            <div class="row"><div class="grow"><div class="t">Agente</div><div class="s">función Go en Vercel · /api/agent</div></div><span class="badge" id="bAg">…</span></div>
+            <div class="row"><div class="grow"><div class="t">Modo offline</div><div class="s">service worker con caché del shell</div></div><span class="badge ok" id="bSw">listo</span></div>
+          </div>
+
+          <div>
+            <div class="card">
+              <div class="eyebrow">Acento</div>
+              <div class="chips" id="themes" style="padding-bottom:0"></div>
+            </div>
+            <div class="card">
+              <div class="eyebrow">Instalación</div>
+              <p class="hint" style="margin:2px 0 12px">Instálala como app: queda en la pantalla de inicio y arranca sin red.</p>
+              <button class="btn primary block" id="btnInstall" type="button">Instalar FABRI-CORE</button>
+              <div class="sep"></div>
+              <button class="btn ghost block sm" id="btnReset" type="button">Borrar datos locales</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══════════════ CHAT ══════════════ -->
+      <section class="screen" id="s-chat">
+        <div class="screen-head">
+          <p class="eyebrow">Agente</p>
+          <h1>Chat con el núcleo</h1>
+          <p class="sub">El agente corre en la función Go de Vercel. Si no hay clave configurada,
+            te lo dice en vez de inventar una respuesta. Cada mensaje se guarda en tu SQLite local.</p>
+        </div>
+        <div class="log" id="log"></div>
+        <div class="card tight">
+          <textarea class="field" id="chatIn" rows="2" placeholder="Pregúntale algo al núcleo…"></textarea>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:10px">
+            <span class="hint" style="flex:1">⌘/Ctrl + Enter para enviar</span>
+            <button class="btn primary" id="btnSend" type="button">Enviar</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══════════════ CONSOLA ══════════════ -->
+      <section class="screen" id="s-sql">
+        <div class="screen-head">
+          <p class="eyebrow">Consola</p>
+          <h1>SQL real</h1>
+          <p class="sub">La misma base que usa la app. Aquí sí se ejecuta de verdad: sin capas,
+            sin respuestas inventadas.</p>
+        </div>
+        <div class="chips" id="sqlQuick"></div>
+        <div class="card tight">
+          <textarea class="field mono" id="sqlIn" rows="3" spellcheck="false">SELECT kind, content, provenance FROM memory_items ORDER BY id DESC LIMIT 10;</textarea>
+          <div style="display:flex;gap:8px;margin-top:10px">
+            <button class="btn primary" id="btnRun" type="button" style="flex:1">Ejecutar</button>
+            <button class="btn ghost sm" id="btnSchema" type="button">Ver tablas</button>
+          </div>
+          <div class="console-out" id="sqlOut" style="margin-top:12px">Listo. ⌘/Ctrl + Enter ejecuta.</div>
+        </div>
+        <div id="sqlTbl" style="margin-top:10px"></div>
+      </section>
+
+      <!-- ══════════════ MEMORIA ══════════════ -->
+      <section class="screen" id="s-mem">
+        <div class="screen-head">
+          <p class="eyebrow">Memoria</p>
+          <h1>Lo que recuerda</h1>
+          <p class="sub">Hechos durables con procedencia. La búsqueda usa el índice de texto
+            completo cuando el motor lo trae, y lo avisa cuando no.</p>
+        </div>
+        <div class="chips" id="memKinds"></div>
+        <div class="card tight">
+          <textarea class="field" id="memIn" rows="2" placeholder="Hecho durable que quieras recordar…"></textarea>
+          <input class="field" id="memProv" placeholder="Procedencia (ej. conversación, doc, web)" style="margin-top:8px">
+          <button class="btn primary block" id="btnMem" type="button" style="margin-top:10px">Guardar en memoria</button>
+        </div>
+        <div class="card tight">
+          <input class="field" id="memQ" placeholder="Buscar en la memoria…">
+        </div>
+        <div id="memList" style="margin-top:12px"></div>
+      </section>
+
+      <!-- ══════════════ FLUJOS ══════════════ -->
+      <section class="screen" id="s-flow">
+        <div class="screen-head">
+          <p class="eyebrow">Cerebro</p>
+          <h1>Flujos en vivo</h1>
+          <p class="sub">El grafo se mueve con eventos reales: cada escritura en la base, cada
+            consulta y cada llamada al agente lo empujan.</p>
+        </div>
+        <div class="graph-box"><canvas id="graph"></canvas></div>
+        <div class="event-log" id="evLog"></div>
+        <div class="card" style="margin-top:14px">
+          <div class="eyebrow">Ruta de un dato</div>
+          <p class="hint">UI → API Go → SQLite → FTS → memoria → agente. Si un salto no ocurre,
+            el evento no aparece: nada de animaciones de relleno.</p>
+        </div>
+      </section>
+
+      <!-- ══════════════ INVENTARIO (nube · InsForge) ══════════════ -->
+      <section class="screen" id="s-inv">
+        <div class="screen-head" style="display:flex;align-items:center;gap:16px">
+          <div style="flex:1;min-width:0">
+            <p class="eyebrow">Inventario</p>
+            <h1>Stock en la nube</h1>
+            <p class="sub">Lo que subas aquí queda en InsForge y la APK lo sincroniza. La ficha
+              del producto (Nutri-Score, NOVA, «sin gluten»…) viaja con él, igual que en la app.</p>
+          </div>
+          <div class="lot scan oculto-movil" id="lotScan" data-lottie="./anim/scan.json" data-loop="1" aria-hidden="true"></div>
+        </div>
+
+        <!-- La misma guía de 5 pasos que la APK, con el equivalente web de cada uno. -->
+        <ol class="inv-pasos" id="invPasos">
+          <li><a href="#" data-guia="inv-guia-1"><b>1</b><span>Escanear</span></a></li>
+          <li><a href="#" data-guia="inv-guia-2"><b>2</b><span>Productos</span></a></li>
+          <li><a href="#" data-guia="inv-guia-3"><b>3</b><span>Precios</span></a></li>
+          <li><a href="#" data-guia="inv-guia-4"><b>4</b><span>Márgenes</span></a></li>
+          <li><a href="#" data-guia="inv-guia-5"><b>5</b><span>Boleta</span></a></li>
+        </ol>
+
+        <div class="card" id="inv-guia-1">
+          <div class="eyebrow">1 · Escanear · verificación de conexión</div>
+          <div class="row"><div class="grow"><div class="t">Clave de la nube</div>
+            <div class="s" id="invKeySub">sin clave: sólo lectura local</div></div>
+            <span class="badge" id="invKeyBadge">…</span></div>
+          <input class="field" id="invKey" type="password" placeholder="FABRI_API_TOKEN" style="margin-top:8px">
+          <div class="row" style="padding-top:8px"><div class="grow"><div class="t">Base de datos</div>
+            <div class="s" id="invDbSub">sin comprobar</div></div>
+            <span class="badge" id="invDbBadge">…</span></div>
+          <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+            <button class="btn primary sm" id="btnInvKey" type="button">Guardar y verificar</button>
+            <button class="btn ghost sm" id="btnInvAsegurar" type="button">Crear tabla</button>
+            <button class="btn ghost sm" id="btnInvBajar" type="button">Refrescar</button>
+          </div>
+          <p class="hint" style="margin-top:8px">La clave vive en la sesión del navegador: al cerrar
+            la pestaña se olvida. Nunca se guarda en el repositorio.</p>
+        </div>
+
+        <div class="kpi-grid" id="invKpis">
+          <div class="stat"><div class="k">Productos</div><div class="v" id="invKTotal">—</div><div class="d">en InsForge</div></div>
+          <div class="stat"><div class="k">Valor venta</div><div class="v" id="invKValor">—</div><div class="d">stock × precio</div></div>
+          <div class="stat"><div class="k">Utilidad</div><div class="v" id="invKUtil">—</div><div class="d">potencial</div></div>
+          <div class="stat"><div class="k">Stock bajo</div><div class="v" id="invKBajo">—</div><div class="d">bajo el mínimo</div></div>
+        </div>
+
+        <div class="card" id="inv-guia-2">
+          <div class="eyebrow">2 · Productos · alta con código de barras</div>
+          <div class="inv-form">
+            <input class="field" id="invFcodigo" inputmode="numeric" placeholder="Código de barras (EAN/UPC)">
+            <input class="field" id="invFnombre" placeholder="Nombre *">
+            <input class="field" id="invFmarca" placeholder="Marca">
+            <select class="field" id="invFcategoria">
+              <option value="abarrotes">Alimentos</option>
+              <option value="bebidas">Bebidas</option>
+              <option value="alcohol">Alcohol</option>
+              <option value="dulces">Dulces</option>
+              <option value="lacteos">Lácteos</option>
+              <option value="cosmetica">Cosmética</option>
+              <option value="limpieza">Limpieza</option>
+              <option value="congelados">Congelados</option>
+              <option value="mascotas">Mascotas</option>
+              <option value="otros">Otros</option>
+            </select>
+            <input class="field" id="invFcosto" inputmode="decimal" placeholder="Costo neto">
+            <input class="field" id="invFprecio" inputmode="decimal" placeholder="Precio venta">
+            <input class="field" id="invFstock" inputmode="numeric" placeholder="Stock">
+            <input class="field" id="invFminimo" inputmode="numeric" placeholder="Stock mínimo">
+          </div>
+          <div class="chips" id="invFreeChips"></div>
+          <button class="btn primary block" id="btnInvSubir" type="button" style="margin-top:4px">Subir a InsForge</button>
+          <p class="hint" id="invSubirEstado" style="margin-top:8px"></p>
+        </div>
+
+        <div class="card" id="inv-guia-3">
+          <div class="eyebrow">3 · Precios y márgenes · productos en la nube</div>
+          <input class="field" id="invFiltro" placeholder="Filtrar por nombre, marca o código">
+          <div id="invLista" style="margin-top:10px"></div>
+          <p class="hint" id="inv-guia-4" style="margin-top:10px">Cada fila muestra el margen calculado
+            como en la app: (precio − costo) ÷ precio. Toca «+» para llevarlo a la boleta.</p>
+        </div>
+
+        <div class="card" id="inv-guia-5">
+          <div class="eyebrow">5 · Boleta · imprimir factura</div>
+          <div class="inv-form">
+            <select class="field ancho" id="invBolProducto"></select>
+            <input class="field" id="invBolCantidad" inputmode="numeric" value="1" placeholder="Cantidad">
+            <button class="btn ghost" id="btnInvBolAgregar" type="button">Agregar</button>
+          </div>
+          <div id="invCarrito" class="hint">El carrito está vacío.</div>
+          <div class="row" style="margin-top:6px"><div class="grow"><div class="t">Total</div>
+            <div class="s" id="invBolDetalle">neto + IVA</div></div>
+            <div class="inv-item"><div class="v" id="invBolTotal">$0</div></div></div>
+          <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+            <label class="campo" style="flex:1;min-width:130px">
+              <span>Papel</span>
+              <select id="invBolFormato" class="field">
+                <option value="80mm">Rollo 80 mm</option>
+                <option value="58mm">Rollo 58 mm</option>
+                <option value="a4">Hoja A4</option>
+              </select>
+            </label>
+            <button class="btn primary" id="btnInvImprimir" type="button" style="flex:1;min-width:150px">Imprimir / PDF</button>
+          </div>
+          <p class="hint" style="margin-top:8px">Se imprime con el diálogo del sistema: sirve para una
+            térmica de 80 mm y también para «Guardar como PDF». No es boleta tributaria electrónica.</p>
+        </div>
+      </section>
+
+      <!-- ══════════════ PANTALLAS GENERADAS POR LOS MÓDULOS ══════════════ -->
+      <section class="screen" id="s-datos">
+        <div class="screen-head">
+          <p class="eyebrow">Datos</p>
+          <h1>Explorar y exportar</h1>
+          <p class="sub">El estado real de la base: filas por tabla, eventos por día y exportación
+            a XLSX o CSV generada en el navegador.</p>
+        </div>
+        <div id="pro-datos"></div>
+      </section>
+
+      <section class="screen" id="s-ia">
+        <div class="screen-head">
+          <p class="eyebrow">Inteligencia</p>
+          <h1>Proveedores de IA</h1>
+          <p class="sub">Tus claves se cifran con AES-256-GCM y una clave del dispositivo. La clave
+            en claro nunca se guarda ni se muestra.</p>
+        </div>
+        <div id="pro-ia"></div>
+      </section>
+
+      <section class="screen" id="s-hoja">
+        <div class="screen-head">
+          <p class="eyebrow">Hoja de cálculo</p>
+          <h1>Planilla viva</h1>
+          <p class="sub">Fórmulas, varias hojas e importación/exportación real de CSV y XLSX.
+            Los datos quedan en la misma SQLite del navegador.</p>
+        </div>
+        <div id="pro-hoja"></div>
+      </section>
+
+      <section class="screen" id="s-cuenta">
+        <div class="screen-head">
+          <p class="eyebrow">Cuenta</p>
+          <h1>Dispositivo y plan</h1>
+          <p class="sub">Todo ocurre en este navegador: la cuenta, las sesiones, las claves
+            cifradas y la planilla. Nada viaja a un servidor propio.</p>
+        </div>
+        <div id="pro-cuenta"></div>
+      </section>
+    </main>
+  </div>
 </div>
+
+<!-- ══════════ PALETA DE COMANDOS ══════════ -->
+<div class="cmdk" id="cmdk" aria-hidden="true">
+  <div class="cmdk-velo" data-cerrar></div>
+  <div class="cmdk-box" role="dialog" aria-modal="true" aria-label="Buscar y navegar">
+    <div class="cmdk-in">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="cmdkIn" placeholder="Ir a… panel, chat, sql, stock" autocomplete="off" spellcheck="false">
+      <kbd>esc</kbd>
+    </div>
+    <div class="cmdk-list" id="cmdkList"></div>
+    <div class="cmdk-pie"><span><b>↑↓</b> mover</span><span><b>↵</b> abrir</span><span><b>esc</b> cerrar</span></div>
+  </div>
+</div>
+
+<!-- ══════════ HOJA «MÁS» (móvil) ══════════ -->
+<div class="sheet" id="sheet" aria-hidden="true">
+  <div class="sheet-velo" data-cerrar></div>
+  <div class="sheet-box" role="dialog" aria-modal="true" aria-label="Más secciones">
+    <div class="sheet-grip"></div>
+    <div class="sheet-tit">Más secciones</div>
+    <div class="sheet-grid" id="sheetGrid"></div>
+  </div>
+</div>
+
 <div id="login" class="login-gate">
   <div class="login-box"><div class="hint">Cargando…</div></div>
 </div>
 <div class="toast" id="toast"></div>
 
+<noscript>
+  <div style="padding:24px;text-align:center">FABRI-CORE necesita JavaScript: la base SQLite corre
+    dentro de tu navegador.</div>
+</noscript>
+
 <script src="./vendor/sql-wasm.js"></script>
+<script src="./vendor/lottie.min.js"></script>
+<script src="./lottie-mount.js"></script>
+<script src="./vendor/d3-mini.js"></script>
 <script src="./core-xlsx.js"></script>
 <script src="./core-sec.js"></script>
 <script src="./core-pro.js"></script>
 <script src="./core-sheet.js"></script>
 <script src="./app.js"></script>
+<script src="./cloud.js"></script>
 </body>
 </html>

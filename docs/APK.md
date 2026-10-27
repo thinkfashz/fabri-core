@@ -158,21 +158,41 @@ Se dispara con cambios en `android/`, `src-tauri/`, `runtime/`, `scripts/`,
 
 ---
 
-## 5 · La web es la misma app, sin la base local
+## 5 · La nube: mismo contrato, otro contexto
 
-`https://fabri-core-web.vercel.app/app/` es la PWA: mismo cargador, mismo
-login, mismos tokens de diseño y la misma pantalla de inventario. Cambia la
-persistencia —SQLite WASM en IndexedDB— y la nube: la web sube productos
-directo a InsForge.
+`https://fabri-core-web.vercel.app/app/` es la PWA. Comparte el contrato de datos
+con la APK —las trece tablas, el inventario, la boleta— pero **no el lenguaje
+visual**: la APK es un instrumento de bolsillo; la nube es una sala de control.
 
-| | APK | Web |
+| | APK | Nube |
 |---|---|---|
+| Diseño | «Neon Lime»: lima sobre negro, densidad de instrumento | «Aurora»: iris `#8C8CFF` sobre azul noche `#04060D`, vidrio y profundidad |
+| Navegación | barra inferior | barra inferior en móvil, **rail lateral** desde 960 px |
 | Base | SQLite nativo (Rust) | SQLite WASM + IndexedDB |
 | Acceso | PIN / contraseña local | PBKDF2-SHA256 120k, sesión con token |
 | Escáner | cámara + decodificador EAN propio | formulario (cámara pendiente) |
 | Impresión | `PrintManager` (80/58 mm, A4) | documento propio en iframe oculto (80/58 mm, A4) |
 | Nube | sync manual a `/api/inventario` | subida directa a `/api/inventario` |
 | IA | llama.cpp local, apagada por defecto | función en Vercel, opcional |
+| Animación | canvas y Web Animations, sin runtime | Lottie vendorizado (305 KB) + d3 |
+| Gráficos | canvas propio + `d3-mini` | `d3-mini` sobre SVG, con datos reales |
+
+### Lo que la nube se permite y la APK no
+
+- **lottie-web vendorizado** (`web/app/vendor/lottie.min.js`, 5.12.2) y cinco
+  animaciones generadas por `scripts/animaciones.mjs` —núcleo, sincronía,
+  escaneo, confirmación y vacío—. Sin CDN: la PWA arranca sin red.
+- **d3** para el anillo de memoria por tipo y las barras de tablas con filas.
+  Se repinta solo si cambia la firma de los datos, no en cada temporizador.
+- **Paleta de comandos ⌘K**, hoja «Más», migas, contadores animados y un hito
+  de instalación con Lottie.
+- **Materiales**: fondo aurora con rejilla y grano, superficies de vidrio con
+  borde capilar, héroe con dos halos. El acento ocupa menos del 5 % de los píxeles.
+
+El sistema completo vive en la skill `fabricore-nube`
+(`~/.config/opencode/skills/fabricore-nube/SKILL.md`) y en `web/app/styles.css`.
+Las animaciones y los iconos se regeneran con `scripts/animaciones.mjs` y
+`scripts/iconos-nube.py`; no se editan a mano.
 
 La web repite la guía de cinco pasos de la app, con margen por fila
 ((precio − costo) ÷ precio), carrito con cantidades y boleta imprimible: el

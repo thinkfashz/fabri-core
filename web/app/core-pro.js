@@ -320,7 +320,7 @@
       <div class="card" style="margin-bottom:10px">
         <div class="eyebrow" style="margin-bottom:8px">Plan y cuota</div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px">
-          ${PLANS.map(p => `<div class="card" style="padding:10px;${p.id === plan.id ? 'border-color:rgba(200,245,66,.45)' : ''}">
+          ${PLANS.map(p => `<div class="card" style="padding:10px;${p.id === plan.id ? 'border-color:var(--accent)' : ''}">
             <div style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:${p.id === plan.id ? 'var(--accent)' : 'var(--tx2)'}">${esc(p.name)}</div>
             <div class="mono" style="font-size:10.5px;margin:4px 0">${esc(p.price)}</div>
             <div class="hint" style="font-size:10px">${p.mb} MB · ${p.ai} IA</div>

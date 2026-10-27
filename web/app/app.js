@@ -18,14 +18,16 @@
   const fmtSize = b => b < 1024 ? b + ' B' : b < 1048576 ? (b / 1024).toFixed(1) + ' KB' : (b / 1048576).toFixed(1) + ' MB';
 
   /* ── estado ───────────────────────────────────────────────────────────── */
-  const S = { db: null, ftsModo: 'like', theme: localStorage.getItem('fcore.theme') || 'lime', events: [],
+  const S = { db: null, ftsModo: 'like', theme: localStorage.getItem('fcore.theme') || 'aurora', events: [],
               installEvt: null, saveTimer: null, kind: 'hecho', busy: false };
 
+  /* Acentos de la nube. `c` es el acento principal y `d` el secundario: los dos
+     alimentan el degradado de la marca y los gráficos d3. */
   const THEMES = {
-    lima:   { c: '#C8F542', soft: 'rgba(200,245,66,.13)',  name: 'Lima' },
-    cian:   { c: '#5AD9E8', soft: 'rgba(90,217,232,.13)',  name: 'Cian' },
-    violeta:{ c: '#B48CFF', soft: 'rgba(180,140,255,.13)', name: 'Violeta' },
-    oro:    { c: '#FFB020', soft: 'rgba(255,176,32,.13)',  name: 'Oro' }
+    aurora: { c: '#8C8CFF', soft: 'rgba(140,140,255,.14)', d: '#3FE0C9', name: 'Aurora' },
+    aqua:   { c: '#3FE0C9', soft: 'rgba(63,224,201,.14)',  d: '#8C8CFF', name: 'Aqua' },
+    lima:   { c: '#C8F542', soft: 'rgba(200,245,66,.13)',  d: '#3FE0C9', name: 'Lima' },
+    ambar:  { c: '#FFC24B', soft: 'rgba(255,194,75,.14)',  d: '#8C8CFF', name: 'Ámbar' }
   };
 
   function toast(msg) {
@@ -33,10 +35,14 @@
     clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('on'), 2400);
   }
   function applyTheme(key) {
-    const t = THEMES[key] || THEMES.lima;
+    // Un tema viejo en localStorage ('cian', 'oro'…) no debe dejar la UI sin
+    // chip activo: se normaliza a Aurora antes de tocar nada.
+    if (!THEMES[key]) key = 'aurora';
+    const t = THEMES[key];
     S.theme = key; document.documentElement.style.setProperty('--accent', t.c);
     document.documentElement.style.setProperty('--accent-soft', t.soft);
-    document.querySelector('meta[name=theme-color]').setAttribute('content', '#08090A');
+    document.documentElement.style.setProperty('--accent-2', t.d || t.c);
+    document.querySelector('meta[name=theme-color]').setAttribute('content', '#04060D');
     localStorage.setItem('fcore.theme', key);
     $$('#themes .chip').forEach(c => c.classList.toggle('on', c.dataset.k === key));
   }
@@ -152,11 +158,11 @@
   async function seed() {
     const t = now();
     run(`INSERT OR IGNORE INTO projects(name, description, created_at) VALUES(?,?,?)`, ['fabri-core', 'Espacio principal', t]);
-    run(`INSERT OR IGNORE INTO brand_settings(id, business_name, accent, updated_at) VALUES(1,?,?,?)`, ['Soluciones Fabrick', '#C8F542', t]);
+    run(`INSERT OR IGNORE INTO brand_settings(id, business_name, accent, updated_at) VALUES(1,?,?,?)`, ['Soluciones Fabrick', '#8C8CFF', t]);
     run(`INSERT OR IGNORE INTO products(sku, name, price, unit) VALUES('SF-001','Kit audio Fabrick',12990,'CLP')`);
     const seeds = [
       ['hecho', 'FABRI-CORE corre entero en el navegador: SQLite con FTS5 por WASM, sin backend obligatorio.', 'ejemplo · editable', 1],
-      ['preferencia', 'La paleta de la marca es lima #C8F542 sobre negro #08090A; el acento es configurable en el panel.', 'ejemplo · editable', 1],
+      ['preferencia', 'La marca usa lima #C8F542 como señal; la nube la lleva a iris #8C8CFF sobre azul noche #04060D. El acento es configurable.', 'ejemplo · editable', 1],
       ['decision', 'Si el motor no trae FTS5, la búsqueda pasa a LIKE y la interfaz lo indica en vez de fingir.', 'ejemplo · editable', 1]
     ];
     for (const [k, c, p, v] of seeds) run(`INSERT INTO memory_items(kind, content, provenance, verified, created_at) VALUES(?,?,?,?,?)`, [k, c, p, v, t]);
@@ -319,7 +325,7 @@
       w = r.width; h = 230; cv.width = w * dpr; cv.height = h * dpr;
       ctx = cv.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
-    function accent() { return getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#C8F542'; }
+    function accent() { return getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#8C8CFF'; }
 
     function draw() {
       if (!ctx) return;
@@ -329,7 +335,7 @@
       // conexiones
       ctx.lineWidth = 1.4;
       for (let i = 0; i < NODES.length - 1; i++) {
-        ctx.strokeStyle = '#22262C';
+        ctx.strokeStyle = 'rgba(255,255,255,.09)';
         ctx.beginPath(); ctx.moveTo(pad + step * i, y); ctx.lineTo(pad + step * (i + 1), y); ctx.stroke();
       }
       // pulso viajero
@@ -344,9 +350,9 @@
         const on = d < 0.55;
         const hotN = hot === n && performance.now() - hotT < 900;
         ctx.beginPath(); ctx.arc(x, y, on || hotN ? 6.5 : 4, 0, Math.PI * 2);
-        ctx.fillStyle = on || hotN ? accent() : '#313740'; ctx.fill();
+        ctx.fillStyle = on || hotN ? accent() : 'rgba(255,255,255,.18)'; ctx.fill();
         if (on || hotN) { ctx.beginPath(); ctx.arc(x, y, 11, 0, Math.PI * 2); ctx.strokeStyle = accent() + '55'; ctx.lineWidth = 1; ctx.stroke(); }
-        ctx.fillStyle = hotN ? accent() : '#828C84';
+        ctx.fillStyle = hotN ? accent() : '#7A8499';
         ctx.font = '600 9.5px ui-monospace,Menlo,monospace';
         ctx.textAlign = 'center';
         ctx.fillText(n, x, y + 22);
@@ -494,12 +500,12 @@
       CoreAuth.init();
       const user = await Pro.gate();
       window.Fabri.user = user;
-      $('#ver').textContent = 'web · v1.2 · ' + (S.ftsModo === 'like' ? 'LIKE' : S.ftsModo.toUpperCase());
+      $('#ver').textContent = 'nube · v2.0 · ' + (S.ftsModo === 'like' ? 'LIKE' : S.ftsModo.toUpperCase());
       // un fallo de una vista no debe tumbar el arranque
       const safe = fn => { try { fn(); } catch (e) { console.error(e); ev('error', String(e.message).slice(0, 40)); } };
       safe(renderPanel); safe(renderMem);
       go(hash && document.getElementById('s-' + hash) ? hash : 'panel');
-      pushMsg('assistant', 'Listo. Esta consola corre entera en tu navegador: la base es SQLite real y sobrevive a las recargas. Pregúntame algo o abre la consola SQL.');
+      pushMsg('assistant', 'Listo. Esta consola corre entera en tu navegador: la base es SQLite real y sobrevive a las recargas. Pregúntame algo, abre la consola SQL o revisa los gráficos del panel.');
       ev('api', 'núcleo iniciado');
     } catch (e) {
       quitarBoot();

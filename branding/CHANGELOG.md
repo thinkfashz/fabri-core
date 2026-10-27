@@ -2,6 +2,62 @@
 
 Registro de cambios del sistema de diseño y branding.
 
+## [2.12.0] — 2026-10-27 · Nube v2.0 «Aurora» (PWA)
+
+La versión web deja de ser «la APK sin base local» y estrena contexto propio:
+azul noche, vidrio, Lottie y gráficos d3. La APK no cambia en esta entrega.
+
+### Añadido
+- **Sistema de diseño «Aurora»** (`web/app/styles.css`, ~1.000 líneas): iris
+  `#8C8CFF` sobre azul noche `#04060D`, aqua `#3FE0C9` como secundario, lima
+  `#C8F542` solo como señal de marca. Superficies de vidrio con borde capilar,
+  sombras en dos capas, radios de 8 a 28 px y movimiento con `--ease`/`--spring`.
+- **Rail lateral desde 960 px**: el mismo `<nav>` que en móvil es barra inferior
+  se convierte en rail con marca, tres grupos (Núcleo / Operación / Sistema) y
+  pie de estado. En móvil quedan 5 destinos + hoja «Más».
+- **lottie-web vendorizado** (`web/app/vendor/lottie.min.js`, 5.12.2, 305.543 B,
+  licencia incluida) y **cinco animaciones generadas** por
+  `scripts/animaciones.mjs`: `core` (boot y héroe), `sync` (rail), `scan`
+  (inventario), `check` (hito de instalación) y `empty` (estados vacíos).
+- **Cargador Lottie compartido** (`web/app/lottie-mount.js`): caché de JSON,
+  fallback estático, pausa fuera de pantalla y con `prefers-reduced-motion`.
+- **Capa de interfaz de la nube** (`web/app/cloud.js`): anillo de memoria por
+  tipo y barras de tablas con filas sobre d3 real, con firma anti-repintado;
+  contadores animados; migas; paleta de comandos ⌘K; hoja «Más»; reloj; espejo
+  del modo FTS; hito de instalación con Lottie.
+- **Héroe del panel** con orbe Lottie, cuatro KPIs y dos gráficos; **panel de
+  módulos**, selector de acento y bloque de instalación.
+- **Cabeceras propias** para Datos, IA, Hoja y Cuenta, que antes dependían del
+  encabezado genérico.
+- **Landing editorial nueva** (`web/index.html`): héroe con orbe y chips
+  flotantes, bento de siete módulos, comparativa APK/Nube, tres pasos, malla
+  real de `/api/estado`, stack y cierre. Reveal con `IntersectionObserver`.
+- **Iconos Aurora** generados por `scripts/iconos-nube.py` (192, 512, maskable
+  y favicon), con degradado iris→aqua y zona segura para Android.
+- **Prueba de la nube** (`tests/web/diseno.js`): contrato de 42 ids de `app.js`,
+  45 de inventario, clases del HTML y de los módulos, tokens, Lottie, precache,
+  ausencia de CDN, sintaxis, manifest, iconos y cabeceras de Vercel.
+
+### Cambiado
+- `THEMES` de `app.js` pasa a **aurora / aqua / lima / ámbar**, con acento
+  principal y secundario (`--accent-2`); un tema viejo en `localStorage` se
+  normaliza a Aurora.
+- El service worker sube a **`fcore-v4`** y precachea `cloud.js`,
+  `lottie-mount.js`, `vendor/lottie.min.js`, `vendor/d3-mini.js` y los cinco JSON.
+- `vercel.json` cachea `/app/anim/(.*)` como inmutable, igual que `/app/vendor/`.
+- `manifest.webmanifest`: tema y fondo `#04060D`, nombre y descripción de la nube.
+- `core-pro.js` y `core-sheet.js`: bordes y lavados de acento pasan a
+  `var(--accent)` / `var(--accent-soft)`; cabecera de planilla a `#161b2b`.
+
+### Corregido
+- El disparador «Más» nunca se mostraba en móvil (regla base en `display:none`).
+- `lottie-mount.js` no estaba incluido en el HTML de la app: ninguna animación
+  se montaba aunque el runtime y los JSON estuvieran precacheados.
+- El contador animado se realimentaba con sus propias escrituras y peleaba
+  consigo mismo; ahora ignora su última escritura y normaliza el formato.
+- `color-mix` con fallback plano: sin soporte, el botón primario quedaba
+  transparente.
+
 ## [2.11.0] — 2026-10-27 · Portada del producto (0.9.26)
 
 El inicio deja de ser un tablero técnico y pasa a ser la portada del producto:

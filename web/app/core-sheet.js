@@ -680,7 +680,7 @@
   .sh-tools{display:flex;gap:6px;flex-wrap:wrap}
   .sh-grid{overflow:auto;max-height:58vh;border:1px solid var(--bd);border-radius:11px;background:rgba(0,0,0,.12)}
   .sh-grid table{border-collapse:separate;border-spacing:0;font-size:12px;font-family:var(--sans)}
-  .sh-grid th{position:sticky;background:#1b1f24;color:rgba(255,255,255,.55);font-size:10px;
+  .sh-grid th{position:sticky;background:#161b2b;color:rgba(255,255,255,.55);font-size:10px;
     font-weight:700;text-align:center;padding:4px 0;border-right:1px solid var(--bd);border-bottom:1px solid var(--bd);z-index:2}
   .sh-grid th.corner{left:0;z-index:4;min-width:34px}
   .sh-grid th.colh{top:0}
@@ -690,8 +690,8 @@
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;outline:none;color:inherit}
   .sh-grid td.num{text-align:right;font-variant-numeric:tabular-nums}
   .sh-grid td.err{color:#FF6B6B;font-weight:700}
-  .sh-grid td.on{box-shadow:inset 0 0 0 2px var(--accent);border-radius:3px;background:rgba(200,245,66,.06)}
-  .sh-grid td:focus{box-shadow:inset 0 0 0 2px var(--accent);background:rgba(200,245,66,.08)}
+  .sh-grid td.on{box-shadow:inset 0 0 0 2px var(--accent);border-radius:3px;background:var(--accent-soft)}
+  .sh-grid td:focus{box-shadow:inset 0 0 0 2px var(--accent);background:var(--accent-soft)}
   .sh-stat{font-size:11px;opacity:.72;line-height:1.5}
   .sh-stat b{font-family:var(--mono);font-weight:700;opacity:1}
   `;

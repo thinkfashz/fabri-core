@@ -3,186 +3,251 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>FABRI-CORE · tu consola autónoma en el bolsillo</title>
-<meta name="description" content="FABRI-CORE es una consola autónoma: app Android en Kotlin y PWA en el navegador. SQLite con FTS5 real, chat con agente, consola SQL y memoria con procedencia. Funciona sin conexión.">
-<meta name="theme-color" content="#08090A">
-<meta property="og:title" content="FABRI-CORE · tu consola autónoma en el bolsillo">
-<meta property="og:description" content="App Android en Kotlin y PWA en el navegador. SQLite real, agente, consola SQL y memoria con procedencia. Sin cuentas, sin nube obligatoria.">
+<title>FABRI-CORE · la consola que vive en tu navegador</title>
+<meta name="description" content="FABRI-CORE: consola autónoma en el navegador. SQLite WASM con FTS5, panel con gráficos reales, chat con agente, consola SQL, inventario en la nube y planilla. Funciona sin conexión.">
+<meta name="theme-color" content="#04060d">
+<meta property="og:title" content="FABRI-CORE · la consola que vive en tu navegador">
+<meta property="og:description" content="SQLite real, agente, consola SQL e inventario. Sin cuentas y sin nube obligatoria: tus datos quedan en tu navegador.">
 <meta property="og:type" content="website">
 <meta property="og:image" content="./favicon.png">
 <link rel="icon" href="./favicon.png">
+<link rel="preload" href="./app/anim/core.json" as="fetch" crossorigin>
 <style>
+/* ============================================================================
+   Landing · mismo sistema que la consola, en clave editorial.
+   El acento se usa poco: una palabra, un borde, un botón. El resto es tinta.
+   ========================================================================== */
 :root{
-  --bg:#050505;--bg2:#0A0A0A;--card:#0C0C0C;--elev:#121212;--bd:#1D1D1D;--bd2:#2A2A2A;
-  --tx:#F2F5F0;--tx2:#A9B2AA;--tx3:#828C84;--accent:#C8FF00;--on:#050505;
-  --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue','Noto Sans',Arial,sans-serif;
-  --cond:'Arial Narrow','Roboto Condensed','DejaVu Sans Condensed',system-ui,sans-serif;
-  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --void:#04060d;--bg:#070a14;--surf:rgba(255,255,255,.035);--surf2:rgba(255,255,255,.06);
+  --line:rgba(255,255,255,.08);--line2:rgba(255,255,255,.15);
+  --tx:#f2f5fd;--tx2:#aab4c9;--tx3:#7a8499;--tx4:#59617a;
+  --accent:#8c8cff;--accent2:#3fe0c9;--lime:#c8f542;--on:#06070f;
+  --sans:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,"JetBrains Mono",Menlo,Consolas,monospace;
+  --ease:cubic-bezier(.16,1,.3,1);
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-html{scroll-behavior:smooth}
-body{background:var(--bg);color:var(--tx);font-family:var(--sans);font-size:16px;line-height:1.6;font-weight:500;overflow-x:hidden}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{background:var(--void);color:var(--tx);font-family:var(--sans);font-size:16px;line-height:1.6;
+  font-weight:450;overflow-x:hidden;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
 a{color:inherit;text-decoration:none}
 ::selection{background:var(--accent);color:var(--on)}
-.wrap{max-width:1120px;margin:0 auto;padding:0 20px}
-.eyebrow{font-family:var(--cond);font-size:11.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--tx3)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:6px}
 .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
 
-/* fondo con rejilla sutil */
-body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+/* ambiente */
+.ambiente{position:fixed;inset:0;z-index:-2;pointer-events:none;overflow:hidden;
   background:
-    radial-gradient(700px 420px at 78% -8%,rgba(200,255,0,.10),transparent 70%),
-    radial-gradient(600px 400px at 8% 8%,rgba(90,217,232,.06),transparent 70%),
-    linear-gradient(var(--bd) 1px,transparent 1px) 0 0/64px 64px,
-    linear-gradient(90deg,var(--bd) 1px,transparent 1px) 0 0/64px 64px;
-  opacity:.35;
-  mask-image:linear-gradient(#000 0%,transparent 85%);
-}
+    radial-gradient(1100px 700px at 78% -14%,rgba(140,140,255,.22),transparent 62%),
+    radial-gradient(860px 560px at 2% 6%,rgba(63,224,201,.11),transparent 60%),
+    radial-gradient(900px 800px at 50% 116%,rgba(200,245,66,.06),transparent 62%),
+    linear-gradient(180deg,var(--bg),var(--void) 72%)}
+.ambiente::before{content:"";position:absolute;inset:0;
+  background-image:linear-gradient(rgba(255,255,255,.03) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.03) 1px,transparent 1px);
+  background-size:64px 64px;
+  -webkit-mask-image:radial-gradient(circle at 50% 10%,#000,transparent 76%);
+  mask-image:radial-gradient(circle at 50% 10%,#000,transparent 76%)}
+.ambiente::after{content:"";position:absolute;inset:-20%;
+  background:radial-gradient(closest-side,rgba(140,140,255,.12),transparent);
+  animation:flota 26s ease-in-out infinite alternate}
+@keyframes flota{from{transform:translate3d(-6%,-3%,0) scale(1)}to{transform:translate3d(9%,7%,0) scale(1.2)}}
+.grano{position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.15;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E")}
+
+.wrap{max-width:1140px;margin:0 auto;padding:0 20px}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:10.5px;font-weight:750;
+  letter-spacing:.18em;text-transform:uppercase;color:var(--tx3)}
+.eyebrow::before{content:"";width:16px;height:1px;background:currentColor;opacity:.5}
+.lead{color:var(--tx2);font-size:clamp(15px,2vw,17.5px);line-height:1.68;max-width:36em}
 
 /* nav */
-nav{position:sticky;top:0;z-index:40;backdrop-filter:blur(14px);background:rgba(8,9,10,.82);border-bottom:1px solid var(--bd)}
-nav .in{max-width:1120px;margin:0 auto;padding:13px 20px;display:flex;align-items:center;gap:12px}
-.logo{display:flex;align-items:center;gap:10px;font-family:var(--cond);font-weight:700;letter-spacing:.1em;text-transform:uppercase;font-size:15px}
-.logo i{width:26px;height:26px;border-radius:8px;background:var(--accent);position:relative;display:block}
-.logo i::after{content:"";position:absolute;inset:7px;border-radius:3px;background:var(--bg)}
-.logo i::before{content:"";position:absolute;inset:11px;border-radius:2px;background:var(--accent)}
-nav .links{display:none;gap:22px;margin-left:26px;font-size:13.5px;color:var(--tx2);font-weight:600}
-nav .links a:hover{color:var(--accent)}
+nav{position:sticky;top:0;z-index:60;border-bottom:1px solid var(--line);
+  background:rgba(7,10,20,.78);backdrop-filter:blur(22px) saturate(1.2);-webkit-backdrop-filter:blur(22px)}
+nav .in{display:flex;align-items:center;gap:14px;height:66px;max-width:1140px;margin:0 auto;padding:0 20px}
+.logo{display:flex;align-items:center;gap:10px;font-size:11.5px;font-weight:750;letter-spacing:.18em;
+  text-transform:uppercase;white-space:nowrap}
+.logo i{position:relative;display:block;width:28px;height:28px;border-radius:8px;
+  background:linear-gradient(150deg,var(--accent),var(--accent2));
+  box-shadow:0 0 0 1px rgba(255,255,255,.14),0 10px 26px -12px var(--accent)}
+.logo i::after{content:"";position:absolute;inset:8px;border-radius:3px;background:var(--void)}
+.logo i::before{content:"";position:absolute;inset:12px;border-radius:1.5px;background:var(--accent2)}
+.links{display:none;gap:24px;margin-left:26px;font-size:13.2px;font-weight:550;color:var(--tx2)}
+.links a{transition:color var(--ease) .15s}
+.links a:hover{color:var(--tx)}
 nav .cta{margin-left:auto}
-@media(min-width:820px){nav .links{display:flex}}
 
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:9px;border-radius:12px;padding:13px 22px;
-  font-size:14.5px;font-weight:700;border:1px solid var(--bd2);background:var(--elev);cursor:pointer;
-  transition:transform .14s ease,box-shadow .2s ease,background .2s ease}
-.btn:active{transform:scale(.975)}
-.btn.primary{background:var(--accent);color:var(--on);border-color:var(--accent);box-shadow:0 14px 44px -20px rgba(200,255,0,.95)}
-.btn.primary:hover{box-shadow:0 18px 54px -18px rgba(200,255,0,.95)}
-.btn.ghost{background:rgba(255,255,255,.02)}
-.btn.ghost:hover{border-color:var(--bd2);background:rgba(255,255,255,.05)}
-.btn.sm{padding:9px 15px;font-size:13px;border-radius:10px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:44px;
+  padding:11px 20px;border-radius:12px;border:1px solid var(--line2);
+  background:rgba(255,255,255,.045);color:var(--tx);font-size:14px;font-weight:650;
+  transition:transform .14s ease,background .2s,border-color .2s,box-shadow .25s}
+.btn:hover{background:rgba(255,255,255,.075);border-color:rgba(255,255,255,.22)}
+.btn:active{transform:scale(.977)}
+.btn.primary{background:var(--accent);background:linear-gradient(180deg,var(--accent),color-mix(in srgb,var(--accent) 84%,#000));
+  color:var(--on);border-color:transparent;font-weight:750;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.3),0 18px 44px -22px var(--accent)}
+.btn.primary:hover{box-shadow:inset 0 1px 0 rgba(255,255,255,.32),0 22px 54px -20px var(--accent)}
+.btn.sm{min-height:36px;padding:8px 14px;font-size:12.6px;border-radius:10px}
+.btn.ghost{background:transparent}
+@media(min-width:860px){.links{display:flex}}
 
 /* hero */
-header.hero{padding:56px 0 24px}
-.grid2{display:grid;grid-template-columns:1fr;gap:44px;align-items:center}
-@media(min-width:940px){.grid2{grid-template-columns:1.06fr .94fr;gap:52px}}
-h1{font-size:clamp(34px,7.6vw,58px);line-height:1.03;letter-spacing:-.035em;font-weight:800;margin:16px 0 18px}
-h1 em{font-style:normal;color:var(--accent)}
-.lead{font-size:clamp(15px,2.4vw,18px);color:var(--tx2);max-width:29em;line-height:1.65}
-.hero-cta{display:flex;flex-wrap:wrap;gap:12px;margin:26px 0 22px}
-.trust{display:flex;flex-wrap:wrap;gap:8px}
-.pill{font-size:11.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--tx2);
-  border:1px solid var(--bd);border-radius:999px;padding:6px 12px;background:rgba(255,255,255,.02)}
-.pill b{color:var(--accent);font-weight:800}
+header.hero{position:relative;padding:clamp(44px,7vw,84px) 0 clamp(30px,4vw,48px)}
+.hero-grid{display:grid;grid-template-columns:1fr;gap:40px;align-items:center}
+@media(min-width:980px){.hero-grid{grid-template-columns:minmax(0,1.02fr) minmax(0,.98fr);gap:48px}}
+h1{font-size:clamp(38px,7.2vw,68px);line-height:.98;letter-spacing:-.045em;font-weight:740;
+  margin:16px 0 20px}
+h1 em{font-style:normal;position:relative;color:var(--accent)}
+h1 em::after{content:"";position:absolute;left:0;right:0;bottom:.06em;height:.36em;
+  background:linear-gradient(90deg,var(--accent-soft,rgba(140,140,255,.22)),transparent 92%);
+  z-index:-1;border-radius:2px}
+.hero-cta{display:flex;flex-wrap:wrap;gap:10px;margin:26px 0 20px}
+.trust{display:flex;flex-wrap:wrap;gap:7px}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:99px;
+  border:1px solid var(--line);background:rgba(255,255,255,.03);
+  font-family:var(--mono);font-size:10.5px;color:var(--tx3)}
+.pill b{color:var(--tx2);font-weight:700}
 
-/* teléfono */
-.phone{position:relative;margin:0 auto;width:min(320px,86vw);border-radius:38px;padding:10px;
-  background:linear-gradient(160deg,#1c2026,#0a0c0e 60%);border:1px solid #2b3138;
-  box-shadow:0 40px 90px -40px rgba(0,0,0,.95),0 0 0 1px rgba(200,255,0,.06),inset 0 1px 0 rgba(255,255,255,.06)}
-.phone::after{content:"";position:absolute;top:18px;left:50%;transform:translateX(-50%);width:88px;height:20px;
-  border-radius:12px;background:#050607;border:1px solid #1a1e22}
-.screen{border-radius:30px;overflow:hidden;background:var(--bg);border:1px solid #14181c}
-.sbar{display:flex;justify-content:space-between;align-items:center;padding:9px 16px 4px;font-size:10px;color:var(--tx3);font-weight:700}
-.sbar .dots{display:flex;gap:3px}
-.sbar .dots i{width:4px;height:4px;border-radius:50%;background:var(--tx3);display:block}
-.sapp{padding:10px 14px 16px}
-.shead{display:flex;align-items:center;gap:8px;margin-bottom:14px}
-.shead .mk{width:22px;height:22px;border-radius:7px;background:var(--accent);position:relative}
-.shead .mk::after{content:"";position:absolute;inset:6px;border-radius:2px;background:var(--bg)}
-.shead b{font-family:var(--cond);font-size:12px;letter-spacing:.1em;text-transform:uppercase}
-.shead span{margin-left:auto;font-size:8.5px;color:var(--tx3);letter-spacing:.08em;text-transform:uppercase;display:flex;align-items:center;gap:4px}
-.shead span i{width:5px;height:5px;border-radius:50%;background:#3DDC84;display:block}
-.skpis{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:9px}
-.sk{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:9px 10px}
-.sk .l{font-size:7.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--tx3);font-weight:800}
-.sk .v{font-size:19px;font-weight:800;letter-spacing:-.03em;font-variant-numeric:tabular-nums;line-height:1.2}
-.sk.a .v{color:var(--accent)}
-.scard{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:9px 11px;margin-bottom:7px}
-.srow{display:flex;align-items:center;gap:7px;padding:5px 0;border-bottom:1px solid rgba(34,38,44,.7);font-size:9.5px;color:var(--tx2)}
-.srow:last-child{border:0}
-.srow .g{flex:1}
-.srow b{display:block;color:var(--tx);font-size:10px;font-weight:600}
-.srow .bg{font-size:7px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:2px 6px;border-radius:99px;background:rgba(61,220,132,.12);color:#3DDC84;border:1px solid rgba(61,220,132,.25)}
-.chartline{height:44px;display:flex;align-items:flex-end;gap:3px;margin-top:6px}
-.chartline i{flex:1;background:linear-gradient(180deg,var(--accent),rgba(200,255,0,.28));border-radius:2px 2px 0 0;transform-origin:bottom;animation:grow 1.1s cubic-bezier(.2,.8,.2,1) both}
-@keyframes grow{from{transform:scaleY(.05);opacity:.2}to{transform:scaleY(1);opacity:1}}
-.snav{display:flex;border-top:1px solid var(--bd);padding:7px 4px calc(7px + env(safe-area-inset-bottom))}
-.snav div{flex:1;text-align:center;font-size:7px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--tx3)}
-.snav div.on{color:var(--accent)}
-.snav div i{display:block;width:15px;height:15px;margin:0 auto 3px;border-radius:4px;border:1.6px solid currentColor}
+/* orbe del héroe */
+.orbe{position:relative;display:grid;place-items:center;min-height:340px}
+.orbe::before{content:"";position:absolute;width:74%;aspect-ratio:1;border-radius:50%;
+  background:radial-gradient(closest-side,rgba(140,140,255,.22),transparent 72%);filter:blur(18px)}
+.orbe::after{content:"";position:absolute;width:86%;aspect-ratio:1;border-radius:50%;
+  border:1px solid rgba(255,255,255,.06)}
+.orbe-lot{width:min(300px,74vw);height:min(300px,74vw);position:relative;z-index:1}
+.orbe-lot svg{display:block;width:100%;height:100%}
+.orbe .lot-fallback{display:none}
+.orbe-chip{position:absolute;z-index:2;display:flex;flex-direction:column;gap:1px;
+  padding:9px 13px;border-radius:12px;border:1px solid var(--line2);
+  background:rgba(14,19,34,.82);backdrop-filter:blur(14px);
+  box-shadow:0 20px 50px -28px #000;animation:levita 7s ease-in-out infinite}
+.orbe-chip b{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.orbe-chip span{font-size:10.5px;color:var(--tx3)}
+.orbe-chip.a{left:0;top:16%;animation-delay:-1s}
+.orbe-chip.b{right:0;top:38%;animation-delay:-3s}
+.orbe-chip.c{left:8%;bottom:12%;animation-delay:-5s}
+.orbe-chip.b b{color:var(--accent2)}
+.orbe-chip.c b{color:var(--lime)}
+@keyframes levita{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
 
 /* secciones */
-section{padding:64px 0}
-.sec-head{max-width:620px;margin-bottom:34px}
-h2{font-size:clamp(24px,4.2vw,36px);line-height:1.12;letter-spacing:-.028em;font-weight:800;margin:10px 0 12px}
-.sec-head p{color:var(--tx2);font-size:15.5px}
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}
-.card{background:linear-gradient(180deg,rgba(23,26,30,.75),rgba(16,18,21,.95));border:1px solid var(--bd);border-radius:12px;padding:22px;transition:border-color .2s,transform .2s}
-.card:hover{border-color:var(--bd2);transform:translateY(-2px)}
-.card .ico{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;background:rgba(200,255,0,.10);border:1px solid rgba(200,255,0,.22);margin-bottom:14px;color:var(--accent)}
-.card .ico svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-.card h3{font-size:16.5px;letter-spacing:-.01em;margin-bottom:7px;font-weight:700}
-.card p{font-size:13.8px;color:var(--tx2);line-height:1.6}
-.card .tag{display:inline-block;margin-top:12px;font-family:var(--mono);font-size:10.5px;color:var(--tx3);border:1px solid var(--bd);border-radius:6px;padding:3px 7px}
+section{padding:clamp(46px,6vw,78px) 0}
+.sec-head{max-width:640px;margin-bottom:clamp(24px,3vw,38px)}
+h2{font-size:clamp(26px,4.4vw,42px);line-height:1.06;letter-spacing:-.04em;font-weight:730;margin:12px 0 14px}
+.sec-head .lead{font-size:15.5px}
+
+/* bento */
+.bento{display:grid;grid-template-columns:1fr;gap:12px}
+@media(min-width:760px){.bento{grid-template-columns:repeat(6,1fr)}.b1{grid-column:span 4}.b2{grid-column:span 2}
+  .b3{grid-column:span 2}.b4{grid-column:span 2}.b5{grid-column:span 2}.b6{grid-column:span 3}.b7{grid-column:span 3}}
+.bcard{position:relative;overflow:hidden;padding:22px 22px 20px;border-radius:18px;
+  border:1px solid var(--line);background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.015));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 26px 60px -46px #000;
+  transition:border-color .25s,transform .35s var(--ease)}
+.bcard:hover{border-color:var(--line2);transform:translateY(-3px)}
+.bcard::after{content:"";position:absolute;right:-40px;top:-40px;width:150px;height:150px;border-radius:50%;
+  background:radial-gradient(closest-side,rgba(140,140,255,.13),transparent);pointer-events:none}
+.ico{display:grid;place-items:center;width:38px;height:38px;border-radius:11px;margin-bottom:14px;
+  border:1px solid rgba(140,140,255,.26);background:rgba(140,140,255,.10);color:var(--accent);
+  transition:transform .45s var(--ease),background .25s}
+.bcard:hover .ico{transform:rotate(-7deg) scale(1.07);background:rgba(140,140,255,.17)}
+.ico svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
+.bcard h3{font-size:16.5px;letter-spacing:-.02em;margin-bottom:7px;font-weight:660}
+.bcard p{font-size:13.6px;line-height:1.62;color:var(--tx2)}
+.tag{display:inline-block;margin-top:14px;padding:3px 8px;border-radius:6px;
+  border:1px solid var(--line);font-family:var(--mono);font-size:10.5px;color:var(--tx3)}
+.bcard.destacada{background:
+  radial-gradient(120% 130% at 88% 6%,rgba(140,140,255,.20),transparent 60%),
+  linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.015));
+  border-color:rgba(140,140,255,.3)}
 
 /* dos versiones */
-.two{display:grid;grid-template-columns:1fr;gap:14px}
-@media(min-width:800px){.two{grid-template-columns:1fr 1fr}}
-.vcard{position:relative;background:var(--bg2);border:1px solid var(--bd);border-radius:12px;padding:26px;overflow:hidden}
-.vcard.hi{border-color:rgba(200,255,0,.38);background:linear-gradient(180deg,rgba(200,255,0,.06),rgba(16,18,21,.9))}
-.vcard .lbl{display:flex;align-items:center;gap:8px;font-family:var(--cond);font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--tx3)}
-.vcard .lbl b{background:var(--accent);color:var(--on);padding:2px 7px;border-radius:5px;font-size:9.5px}
-.vcard h3{font-size:23px;letter-spacing:-.02em;margin:10px 0 10px;font-weight:800}
-.vcard ul{list-style:none;margin:14px 0 18px;display:flex;flex-direction:column;gap:9px}
-.vcard li{font-size:13.5px;color:var(--tx2);display:flex;gap:9px;align-items:flex-start}
-.vcard li::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--accent);margin-top:7px;flex:0 0 auto}
+.two{display:grid;grid-template-columns:1fr;gap:12px}
+@media(min-width:820px){.two{grid-template-columns:1fr 1fr}}
+.vcard{position:relative;overflow:hidden;padding:26px;border-radius:20px;
+  border:1px solid var(--line);background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.012))}
+.vcard.hi{border-color:rgba(140,140,255,.36);
+  background:radial-gradient(110% 120% at 90% 4%,rgba(140,140,255,.18),transparent 58%),
+    linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.015))}
+.lbl{display:flex;align-items:center;gap:9px;font-size:10px;font-weight:750;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--tx3)}
+.lbl b{padding:2px 7px;border-radius:5px;background:var(--accent);color:var(--on);font-size:9.5px;letter-spacing:.06em}
+.lbl b.alt{background:var(--accent2)}
+.vcard h3{font-size:clamp(20px,2.4vw,25px);letter-spacing:-.03em;margin:12px 0 12px;font-weight:720}
+.lista{list-style:none;display:flex;flex-direction:column;gap:9px;margin:14px 0 20px}
+.lista li{display:flex;gap:10px;align-items:flex-start;font-size:13.6px;color:var(--tx2)}
+.lista li::before{content:"";flex:0 0 auto;width:6px;height:6px;border-radius:50%;background:var(--accent);
+  margin-top:7px;box-shadow:0 0 10px rgba(140,140,255,.55)}
+.vcard.hi .lista li::before{background:var(--accent2)}
+.nota{margin-top:14px;font-size:11.5px;line-height:1.6;color:var(--tx3)}
 
 /* pasos */
-.steps{display:grid;grid-template-columns:1fr;gap:12px;counter-reset:s}
-@media(min-width:760px){.steps{grid-template-columns:repeat(3,1fr)}}
-.step{background:var(--card);border:1px solid var(--bd);border-radius:18px;padding:20px;counter-increment:s}
-.step::before{content:"0" counter(s);font-family:var(--mono);font-size:11px;color:var(--accent);font-weight:700;letter-spacing:.1em}
-.step h4{font-size:15px;margin:8px 0 6px}
-.step p{font-size:13px;color:var(--tx2)}
+.pasos{display:grid;grid-template-columns:1fr;gap:12px;counter-reset:p}
+@media(min-width:760px){.pasos{grid-template-columns:repeat(3,1fr)}}
+.paso{position:relative;padding:22px;border-radius:18px;border:1px solid var(--line);
+  background:rgba(255,255,255,.025);counter-increment:p}
+.paso::before{content:"0" counter(p);display:block;margin-bottom:9px;font-family:var(--mono);
+  font-size:11px;font-weight:700;letter-spacing:.14em;color:var(--accent)}
+.paso h4{font-size:15.5px;margin-bottom:6px;font-weight:650}
+.paso p{font-size:13.2px;color:var(--tx2)}
 
-/* malla del ecosistema */
-.mesh{display:grid;grid-template-columns:1fr;gap:12px}
-@media(min-width:720px){.mesh{grid-template-columns:repeat(2,1fr)}}
-@media(min-width:1000px){.mesh{grid-template-columns:repeat(4,1fr)}}
-.mcard{position:relative;background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:16px 16px 14px;overflow:hidden;transition:border-color .2s,transform .2s}
-.mcard:hover{border-color:var(--bd2);transform:translateY(-2px)}
-.mcard::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--bd2)}
-.mcard.ok::before{background:var(--accent)}
-.mcard.warn::before{background:#FFB020}
-.mcard.bad::before{background:#FF5252}
-.mcard .mh{display:flex;align-items:center;gap:8px;margin-bottom:5px}
-.mcard .md{width:8px;height:8px;border-radius:50%;background:var(--bd2);flex:0 0 auto}
-.mcard.ok .md{background:var(--accent);box-shadow:0 0 9px rgba(200,255,0,.6)}
-.mcard.warn .md{background:#FFB020}
-.mcard.bad .md{background:#FF5252}
-.mcard b{font-size:14px;letter-spacing:-.01em}
-.mcard .rol{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--tx3)}
-.mcard .mm{display:flex;align-items:baseline;gap:8px;margin-top:10px;font-family:var(--mono);font-size:11.5px;color:var(--tx2)}
+/* malla en vivo */
+.malla{display:grid;grid-template-columns:1fr;gap:10px}
+@media(min-width:720px){.malla{grid-template-columns:repeat(2,1fr)}}
+@media(min-width:1000px){.malla{grid-template-columns:repeat(4,1fr)}}
+.mcard{position:relative;display:block;padding:16px 16px 14px;border-radius:14px;
+  border:1px solid var(--line);background:rgba(255,255,255,.03);overflow:hidden;
+  transition:border-color .2s,transform .25s var(--ease)}
+.mcard:hover{border-color:var(--line2);transform:translateY(-2px)}
+.mcard::before{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--line2)}
+.mcard.ok::before{background:var(--accent2);box-shadow:0 0 16px rgba(63,224,201,.6)}
+.mcard.warn::before{background:#ffc24b}
+.mcard.bad::before{background:#ff7a8a}
+.mcard .mh{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.mcard .md{width:7px;height:7px;border-radius:50%;background:var(--line2);flex:0 0 auto}
+.mcard.ok .md{background:var(--accent2);box-shadow:0 0 10px rgba(63,224,201,.7)}
+.mcard.warn .md{background:#ffc24b}
+.mcard.bad .md{background:#ff7a8a}
+.mcard b{font-size:13.5px;letter-spacing:-.01em}
+.mcard .rol{font-size:9.8px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--tx4)}
+.mcard .mm{display:flex;align-items:baseline;gap:8px;margin-top:10px;font-family:var(--mono);
+  font-size:11px;color:var(--tx2)}
 .mcard .mm .ms{margin-left:auto;color:var(--tx3)}
-.mcard .md2{font-size:11.5px;color:var(--tx3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.mesh-nota{font-size:12px;color:var(--tx3);margin-top:12px;font-family:var(--mono)}
-.mesh-nota b{color:var(--accent)}
+.mcard .md2{margin-top:3px;font-size:11px;color:var(--tx3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.malla-nota{margin-top:14px;font-family:var(--mono);font-size:11px;color:var(--tx3)}
+.malla-nota b{color:var(--accent2)}
 
 /* stack */
-.stack{display:flex;flex-wrap:wrap;gap:9px}
-.stack span{font-family:var(--mono);font-size:12px;border:1px solid var(--bd);border-radius:9px;padding:8px 13px;color:var(--tx2);background:rgba(255,255,255,.02)}
+.stack{display:flex;flex-wrap:wrap;gap:8px}
+.stack span{padding:8px 13px;border-radius:9px;border:1px solid var(--line);
+  background:rgba(255,255,255,.025);font-family:var(--mono);font-size:11.5px;color:var(--tx2)}
 
-/* cta final */
-.final{text-align:center;background:radial-gradient(600px 300px at 50% 0%,rgba(200,255,0,.10),transparent 70%);
-  border-top:1px solid var(--bd);border-bottom:1px solid var(--bd);padding:70px 0}
-.final h2{margin:12px auto 14px;max-width:16em}
-.final p{color:var(--tx2);max-width:34em;margin:0 auto 26px}
-footer{padding:34px 0;color:var(--tx3);font-size:12.5px}
+/* cierre */
+.final{position:relative;text-align:center;padding:clamp(60px,8vw,100px) 0;
+  border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+  background:radial-gradient(640px 320px at 50% 0%,rgba(140,140,255,.14),transparent 72%)}
+.final h2{max-width:15em;margin:14px auto 16px}
+.final .lead{margin:0 auto 26px;max-width:34em}
+.final .hero-cta{justify-content:center;margin-bottom:0}
+
+footer{padding:30px 0;font-size:12px;color:var(--tx3)}
 footer .in{display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between}
-footer a:hover{color:var(--accent)}
-.note{font-size:11.5px;color:var(--tx3);margin-top:14px;line-height:1.6}
+footer a:hover{color:var(--tx)}
+footer .fl{display:flex;gap:16px}
+
+/* aparición al hacer scroll */
+[data-reveal]{opacity:0;transform:translateY(14px);transition:opacity .7s var(--ease),transform .7s var(--ease)}
+[data-reveal].in{opacity:1;transform:none}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms!important;transition-duration:.001ms!important}
+  [data-reveal]{opacity:1;transform:none}
+}
 </style>
 </head>
 <body>
+
+<div class="ambiente" aria-hidden="true"></div>
+<div class="grano" aria-hidden="true"></div>
 
 <nav>
   <div class="in">
@@ -190,182 +255,183 @@ footer a:hover{color:var(--accent)}
     <div class="links">
       <a href="#producto">Producto</a>
       <a href="#versiones">Dos versiones</a>
+      <a href="#malla">Malla en vivo</a>
       <a href="#stack">Stack</a>
-      <a href="#malla">Malla</a>
-      <a href="./app/">App web</a>
     </div>
-    <a class="btn primary sm cta" href="./app/">Abrir la app</a>
+    <a class="btn primary sm cta" href="./app/">Abrir consola</a>
   </div>
 </nav>
 
 <header class="hero wrap">
-  <div class="grid2">
+  <div class="hero-grid">
     <div>
-      <p class="eyebrow">Consola autónoma · Android + navegador</p>
-      <h1>Tu núcleo de datos,<br><em>en el bolsillo</em>.</h1>
-      <p class="lead">FABRI-CORE es una consola que corre en tu dispositivo: base SQLite real con búsqueda de texto completo, chat con agente, consola SQL y memoria con procedencia. Dos versiones, el mismo núcleo: <strong>app Android en Kotlin</strong> y <strong>PWA en el navegador</strong>.</p>
+      <p class="eyebrow">Consola autónoma · navegador + Android</p>
+      <h1>Tu núcleo de datos,<br><em>sin instalar nada</em>.</h1>
+      <p class="lead">FABRI-CORE es una consola que corre dentro de tu navegador: SQLite real,
+        búsqueda de texto completo, agente, consola SQL, inventario en la nube y planilla.
+        <strong style="color:var(--tx)">Tus datos no salen de tu dispositivo</strong> salvo que tú lo pidas.</p>
       <div class="hero-cta">
-        <a class="btn primary" href="./app/">Abrir la app web</a>
+        <a class="btn primary" href="./app/">Abrir la consola</a>
         <a class="btn ghost" href="https://github.com/thinkfashz/fabri-core/releases/latest" target="_blank" rel="noopener">Descargar APK</a>
       </div>
       <div class="trust">
-        <span class="pill"><b>SQLite</b> + FTS5</span>
+        <span class="pill"><b>SQLite</b> WASM</span>
+        <span class="pill"><b>FTS5</b> real</span>
         <span class="pill">Funciona <b>offline</b></span>
         <span class="pill">Sin <b>cuentas</b></span>
-        <span class="pill">Código <b>auditable</b></span>
       </div>
     </div>
 
-    <div class="phone" aria-hidden="true">
-      <div class="screen">
-        <div class="sbar"><span>12:04</span><span class="dots"><i></i><i></i><i></i></span></div>
-        <div class="sapp">
-          <div class="shead">
-            <span class="mk"></span><b>FABRI-CORE</b><span><i></i>en vivo</span>
-          </div>
-          <div class="skpis">
-            <div class="sk a"><div class="l">Memorias</div><div class="v">128</div></div>
-            <div class="sk"><div class="l">Mensajes</div><div class="v">46</div></div>
-            <div class="sk"><div class="l">Base local</div><div class="v">1.2M</div></div>
-            <div class="sk"><div class="l">Búsqueda</div><div class="v">FTS5</div></div>
-          </div>
-          <div class="scard">
-            <div class="srow"><div class="g"><b>SQLite en el dispositivo</b>13 tablas del contrato</div><span class="bg">activo</span></div>
-            <div class="srow"><div class="g"><b>Índice de texto completo</b>comprobado en runtime</div><span class="bg">FTS5</span></div>
-            <div class="srow"><div class="g"><b>Agente</b>función Go · /api/agent</div><span class="bg">listo</span></div>
-          </div>
-          <div class="scard">
-            <div class="srow" style="border:0;padding-bottom:0"><div class="g"><b>Actividad del núcleo</b>eventos reales</div></div>
-            <div class="chartline">
-              <i style="height:34%"></i><i style="height:58%;animation-delay:.06s"></i><i style="height:41%;animation-delay:.12s"></i>
-              <i style="height:72%;animation-delay:.18s"></i><i style="height:55%;animation-delay:.24s"></i><i style="height:88%;animation-delay:.3s"></i>
-              <i style="height:64%;animation-delay:.36s"></i><i style="height:96%;animation-delay:.42s"></i><i style="height:73%;animation-delay:.48s"></i>
-              <i style="height:100%;animation-delay:.54s"></i><i style="height:81%;animation-delay:.6s"></i><i style="height:92%;animation-delay:.66s"></i>
-            </div>
-          </div>
-        </div>
-        <div class="snav"><div class="on"><i></i>Panel</div><div><i></i>Chat</div><div><i></i>SQL</div><div><i></i>Memoria</div><div><i></i>Flujos</div></div>
-      </div>
+    <div class="orbe" aria-hidden="true">
+      <div class="orbe-lot" data-lottie="./app/anim/core.json" data-loop="1"></div>
+      <div class="orbe-chip a"><b>SQLite</b><span>compilado a WASM</span></div>
+      <div class="orbe-chip b"><b>FTS5</b><span>búsqueda comprobada</span></div>
+      <div class="orbe-chip c"><b>offline</b><span>service worker</span></div>
     </div>
   </div>
 </header>
 
 <section id="producto" class="wrap">
-  <div class="sec-head">
+  <div class="sec-head" data-reveal>
     <p class="eyebrow">Qué hace</p>
-    <h2>Cinco módulos, ni uno de relleno.</h2>
-    <p>La misma consola en las dos versiones. Todo lo que ves funciona: si un motor no está disponible, la interfaz lo dice en vez de simularlo.</p>
+    <h2>Siete piezas. Ninguna de relleno.</h2>
+    <p class="lead">Todo lo que ves funciona: si un motor no está disponible, la interfaz lo dice
+      en vez de simularlo. Esa es la única promesa que no se negocia.</p>
   </div>
-  <div class="cards">
-    <div class="card">
+
+  <div class="bento">
+    <article class="bcard b1 destacada" data-reveal>
       <div class="ico"><svg viewBox="0 0 24 24"><path d="m4 6 8 4 8-4-8-4-8 4Z"/><path d="m4 12 8 4 8-4"/><path d="m4 18 8 4 8-4"/></svg></div>
-      <h3>Núcleo local</h3>
-      <p>SQLite con las 13 tablas del contrato. En Android es la base del sistema; en la web es SQLite compilado a WASM, persistido en IndexedDB.</p>
-      <span class="tag">SQLite · FTS5</span>
-    </div>
-    <div class="card">
+      <h3>Núcleo local de verdad</h3>
+      <p>SQLite compilado a WebAssembly, con las trece tablas del contrato y persistencia en
+        IndexedDB. La base sobrevive recargas, cierres y modo avión. No es un mock con localStorage.</p>
+      <span class="tag">sql.js · IndexedDB</span>
+    </article>
+
+    <article class="bcard b2" data-reveal>
       <div class="ico"><svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-8 8H8l-4 2 1.5-4.5A8 8 0 1 1 21 12Z"/></svg></div>
-      <h3>Chat con agente</h3>
-      <p>Las preguntas van a una función Go en Vercel. Cada respuesta se guarda en tu base con su procedencia: el historial es tuyo.</p>
+      <h3>Agente</h3>
+      <p>Las preguntas van a una función Go en Vercel. Sin clave configurada, lo dice: no inventa.</p>
       <span class="tag">/api/agent</span>
-    </div>
-    <div class="card">
+    </article>
+
+    <article class="bcard b3" data-reveal>
       <div class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="m7 9 3 3-3 3"/><path d="M12 15h5"/></svg></div>
       <h3>Consola SQL</h3>
-      <p>Consulta y modifica la base de verdad, con atajos para ver tablas, conteos y el estado de FTS5. Nada de un terminal de mentira.</p>
+      <p>Consultas y cambios reales sobre la misma base, con atajos y tablas en vivo.</p>
       <span class="tag">SQL real</span>
-    </div>
-    <div class="card">
+    </article>
+
+    <article class="bcard b4" data-reveal>
       <div class="ico"><svg viewBox="0 0 24 24"><path d="M12 3a4 4 0 0 0-4 4v1a4 4 0 0 0 0 8v1a4 4 0 0 0 8 0v-1a4 4 0 0 0 0-8V7a4 4 0 0 0-4-4Z"/></svg></div>
       <h3>Memoria con procedencia</h3>
-      <p>Cada hecho guarda de dónde vino y si está verificado. La búsqueda usa FTS5 cuando existe y cae a LIKE cuando no, avisándolo.</p>
+      <p>Cada hecho guarda de dónde vino y si está verificado. FTS cuando existe, LIKE cuando no.</p>
       <span class="tag">RAG honesto</span>
-    </div>
-    <div class="card">
-      <div class="ico"><svg viewBox="0 0 24 24"><path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.6 5.6l2.1 2.1m8.6 8.6 2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="3.4"/></svg></div>
-      <h3>Flujos en vivo</h3>
-      <p>Un grafo que se mueve con eventos reales: cada escritura, consulta o llamada al agente deja su rastro. Sin animaciones decorativas.</p>
-      <span class="tag">eventos reales</span>
-    </div>
-    <div class="card">
+    </article>
+
+    <article class="bcard b5" data-reveal>
+      <div class="ico"><svg viewBox="0 0 24 24"><path d="M3 7.5 12 3l9 4.5v9L12 21l-9-4.5v-9Z"/><path d="M3 7.5 12 12l9-4.5M12 12v9"/></svg></div>
+      <h3>Inventario en la nube</h3>
+      <p>Productos, márgenes, stock bajo y boleta imprimible. La APK sincroniza lo mismo.</p>
+      <span class="tag">InsForge</span>
+    </article>
+
+    <article class="bcard b6" data-reveal>
+      <div class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg></div>
+      <h3>Planilla viva</h3>
+      <p>Fórmulas, varias hojas e importación y exportación real de CSV y XLSX. Sin servidores
+        intermedios: el archivo se arma en tu navegador.</p>
+      <span class="tag">XLSX · CSV</span>
+    </article>
+
+    <article class="bcard b7" data-reveal>
       <div class="ico"><svg viewBox="0 0 24 24"><rect x="6" y="2.5" width="12" height="19" rx="3"/><path d="M11 18.5h2"/></svg></div>
       <h3>Instalable y offline</h3>
-      <p>La web se instala como app (PWA) y arranca sin red. La APK hace lo mismo en Android, con terminal nativo incluido.</p>
+      <p>La web se instala como app y arranca sin red. La APK hace lo mismo en Android, con
+        terminal nativo incluido.</p>
       <span class="tag">PWA · APK</span>
-    </div>
+    </article>
   </div>
 </section>
 
 <section id="versiones" class="wrap">
-  <div class="sec-head">
+  <div class="sec-head" data-reveal>
     <p class="eyebrow">Dos versiones</p>
-    <h2>Elige cómo lo llevas.</h2>
-    <p>Mismo producto, mismo contrato de datos. Cambia el envase, no la promesa.</p>
+    <h2>Mismo contrato de datos.<br>Distinto envase.</h2>
+    <p class="lead">La lógica es la misma. Cambia dónde vive la base y cuánto peso puede permitirse
+      la interfaz.</p>
   </div>
   <div class="two">
-    <div class="vcard">
-      <p class="lbl">Android <b>APK</b></p>
-      <h3>FABRI-CORE para tu teléfono</h3>
-      <ul>
-        <li>Kotlin nativo, sin dependencias pesadas: APK de ~35 KB</li>
+    <div class="vcard" data-reveal>
+      <p class="lbl">Android <b class="alt">APK</b></p>
+      <h3>FABRI-CORE en tu teléfono</h3>
+      <ul class="lista">
+        <li>Kotlin nativo, sin dependencias pesadas</li>
         <li>Terminal con ejecución real de procesos</li>
         <li>SQLite del sistema, con FTS5 si el motor lo trae</li>
-        <li>Chat contra el agente local o el de Vercel</li>
-        <li>Se compila en GitHub Actions y sale como release</li>
+        <li>Escáner de códigos con la cámara</li>
+        <li>Se instala encima sin borrar tus datos</li>
       </ul>
       <a class="btn primary" href="https://github.com/thinkfashz/fabri-core/releases/latest" target="_blank" rel="noopener">Descargar la APK</a>
-      <p class="note">Android 8 o superior. Al instalar, permite «instalar apps desconocidas» para el navegador o el gestor de archivos.</p>
+      <p class="nota">Android 8 o superior. Al instalar, permite «instalar apps desconocidas» para
+        el navegador o el gestor de archivos.</p>
     </div>
-    <div class="vcard hi">
-      <p class="lbl">Navegador <b>PWA</b></p>
+
+    <div class="vcard hi" data-reveal>
+      <p class="lbl">Navegador <b>NUBE</b></p>
       <h3>FABRI-CORE en línea</h3>
-      <ul>
-        <li>Funciona en cualquier navegador moderno, sin instalar nada</li>
-        <li>SQLite real en WASM, con FTS5 y datos que sobreviven</li>
-        <li>Se instala como app y arranca sin conexión</li>
-        <li>Sin tiendas, sin cuentas, sin permisos raros</li>
-        <li>Consola SQL y grafo de flujos incluidos</li>
+      <ul class="lista">
+        <li>Sin instalar nada: abre y ya tienes base</li>
+        <li>SQLite WASM persistido en IndexedDB</li>
+        <li>Panel con gráficos d3 sobre datos reales</li>
+        <li>Paleta de comandos, animaciones Lottie y materiales</li>
+        <li>Se instala como PWA y arranca sin conexión</li>
       </ul>
-      <a class="btn primary" href="./app/">Abrir la app web</a>
-      <p class="note">Los datos viven en tu navegador (IndexedDB). Si borras los datos del sitio, se borra la base: es tuya, no nuestra.</p>
+      <a class="btn primary" href="./app/">Abrir la consola web</a>
+      <p class="nota">Los datos viven en tu navegador. Si borras los datos del sitio, se borra la
+        base: es tuya, no nuestra.</p>
     </div>
   </div>
 </section>
 
 <section class="wrap">
-  <div class="sec-head">
+  <div class="sec-head" data-reveal>
     <p class="eyebrow">Cómo funciona</p>
     <h2>Tres pasos y estás dentro.</h2>
   </div>
-  <div class="steps">
-    <div class="step"><h4>Abre o instala</h4><p>Entra a la app web o baja la APK. La primera vez se crea tu base local vacía, con las tablas listas.</p></div>
-    <div class="step"><h4>Guarda y pregunta</h4><p>Escribe hechos en Memoria y pregúntale al agente. Todo queda indexado y con su procedencia.</p></div>
-    <div class="step"><h4>Consulta lo tuyo</h4><p>Usa la consola SQL para ver, cruzar o exportar. Lo que hay es lo que ves: sin capas ocultas.</p></div>
+  <div class="pasos">
+    <div class="paso" data-reveal><h4>Abre o instala</h4><p>Entra a la consola web o baja la APK.
+      La primera vez se crea tu base local con las tablas listas.</p></div>
+    <div class="paso" data-reveal><h4>Guarda y pregunta</h4><p>Escribe hechos en Memoria y pregúntale
+      al agente. Todo queda indexado y con su procedencia.</p></div>
+    <div class="paso" data-reveal><h4>Consulta lo tuyo</h4><p>Usa la consola SQL para cruzar o
+      exportar. Lo que hay es lo que ves: sin capas ocultas.</p></div>
   </div>
 </section>
 
 <section id="malla" class="wrap">
-  <div class="sec-head">
+  <div class="sec-head" data-reveal>
     <p class="eyebrow">Malla en vivo</p>
     <h2>Cuatro capas, un solo estado.</h2>
-    <p>El teléfono entra por la API, el cerebro decide, la nube pone la voz y esta web es la cara. Cada capa se consulta en vivo con tope de 5 s: si una está caída, se dice; nunca se muestra un «ok» inventado.</p>
+    <p class="lead">El teléfono entra por la API, el cerebro decide, la nube pone la voz y esta web
+      es la cara. Cada capa se consulta en vivo con tope de 5 s: si una está caída, se dice.</p>
   </div>
-  <div class="mesh" id="mesh">
+  <div class="malla" id="mesh">
     <div class="mcard"><div class="mh"><span class="md"></span><b>Sondeando…</b></div><div class="rol">esperando respuesta</div></div>
   </div>
-  <p class="mesh-nota" id="meshNota">consultando las cuatro capas…</p>
+  <p class="malla-nota" id="meshNota">consultando las cuatro capas…</p>
 </section>
 
 <section id="stack" class="wrap">
-  <div class="sec-head">
+  <div class="sec-head" data-reveal>
     <p class="eyebrow">Stack</p>
     <h2>Simple por fuera, explícito por dentro.</h2>
-    <p>Sin frameworks innecesarios. Cada pieza existe porque resuelve algo concreto.</p>
+    <p class="lead">Sin frameworks innecesarios. Cada pieza existe porque resuelve algo concreto.</p>
   </div>
-  <div class="stack">
+  <div class="stack" data-reveal>
     <span>Kotlin · Android Views</span><span>SQLite + FTS5</span><span>Go 1.22 · serverless</span>
-    <span>sql.js · WASM</span><span>TypeScript-free JS</span><span>Service Worker</span>
-    <span>IndexedDB</span><span>GitHub Actions</span><span>Vercel</span><span>Vercel Go</span>
+    <span>sql.js · WASM</span><span>lottie-web</span><span>d3-shape</span>
+    <span>Service Worker</span><span>IndexedDB</span><span>Vercel</span><span>GitHub Actions</span>
   </div>
 </section>
 
@@ -373,9 +439,10 @@ footer a:hover{color:var(--accent)}
   <div class="wrap">
     <p class="eyebrow">Empieza ahora</p>
     <h2>Tu consola. Tus datos. Tu dispositivo.</h2>
-    <p>Abre la versión web en diez segundos o instala la APK. Sin registro, sin tarjeta, sin letra chica.</p>
-    <div class="hero-cta" style="justify-content:center">
-      <a class="btn primary" href="./app/">Abrir la app web</a>
+    <p class="lead">Abre la versión web en diez segundos o instala la APK. Sin registro, sin tarjeta,
+      sin letra chica.</p>
+    <div class="hero-cta">
+      <a class="btn primary" href="./app/">Abrir la consola</a>
       <a class="btn ghost" href="https://github.com/thinkfashz/fabri-core" target="_blank" rel="noopener">Ver el código</a>
     </div>
   </div>
@@ -383,19 +450,43 @@ footer a:hover{color:var(--accent)}
 
 <footer>
   <div class="wrap in">
-    <div class="logo" style="font-size:13px"><i style="width:20px;height:20px"></i>FABRI-CORE</div>
+    <div class="logo" style="font-size:11px"><i style="width:22px;height:22px"></i>FABRI-CORE</div>
     <div>Un producto de <strong style="color:var(--tx2)">Soluciones Fabrick</strong></div>
-    <div style="display:flex;gap:16px">
-      <a href="./app/">App</a>
+    <div class="fl">
+      <a href="./app/">Consola</a>
       <a href="https://github.com/thinkfashz/fabri-core" target="_blank" rel="noopener">GitHub</a>
       <a href="https://github.com/thinkfashz/fabri-core/releases" target="_blank" rel="noopener">Releases</a>
     </div>
   </div>
 </footer>
 
+<script src="./app/vendor/lottie.min.js"></script>
+<script src="./app/lottie-mount.js"></script>
 <script>
-/* Malla en vivo — sin dependencias. Si /api/estado no responde, la landing
-   sigue intacta y solo la malla informa que no pudo consultar. */
+/* Aparición al hacer scroll. Sin dependencias: si no hay IntersectionObserver,
+   todo queda visible de entrada (nunca contenido invisible por un fallo). */
+(function () {
+  var nodos = document.querySelectorAll("[data-reveal]");
+  if (!("IntersectionObserver" in window)) {
+    nodos.forEach(function (n) { n.classList.add("in"); });
+    return;
+  }
+  var vistos = 0;
+  var obs = new IntersectionObserver(function (entradas) {
+    entradas.forEach(function (e) {
+      if (!e.isIntersecting) return;
+      var n = e.target;
+      n.style.transitionDelay = (Math.min(vistos, 6) * 55) + "ms";
+      n.classList.add("in");
+      vistos++;
+      obs.unobserve(n);
+    });
+  }, { rootMargin: "0px 0px -8% 0px", threshold: 0.08 });
+  nodos.forEach(function (n) { obs.observe(n); });
+})();
+
+/* Malla en vivo — datos reales de /api/estado. Si no responde, la landing sigue
+   intacta y solo la malla informa que no pudo consultar. */
 (function () {
   var caja = document.getElementById("mesh");
   var nota = document.getElementById("meshNota");
@@ -430,7 +521,7 @@ footer a:hover{color:var(--accent)}
   function fallo(e) {
     caja.innerHTML = '<div class="mcard bad"><div class="mh"><span class="md"></span><b>Malla no disponible</b></div>'
       + '<div class="rol">' + esc(e && e.message ? e.message : e) + "</div>"
-      + '<div class="md2">La landing y la PWA siguen funcionando.</div></div>';
+      + '<div class="md2">La landing y la consola siguen funcionando.</div></div>';
     nota.textContent = "no se pudo consultar /api/estado · se reintenta en 60 s";
   }
 

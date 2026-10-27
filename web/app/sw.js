@@ -1,11 +1,18 @@
 /* FABRI-CORE · service worker
    Shell cache-first (arranca sin red), navegación network-first con respaldo,
-   y /api siempre a la red (un agente cacheado sería una mentira). */
-const V = 'fcore-v3';
+   y /api siempre a la red (un agente cacheado sería una mentira).
+
+   La lista de precache es deliberadamente explícita: si un archivo falta, el
+   install falla y la app deja de ser offline — mejor detectarlo en la prueba
+   `tests/web/diseno.js` que en el teléfono del usuario. */
+const V = 'fcore-v4';
 const SHELL = [
-  './', './index.html', './styles.css', './app.js',
+  './', './index.html', './styles.css', './app.js', './cloud.js', './lottie-mount.js',
   './core-xlsx.js', './core-sec.js', './core-pro.js', './core-sheet.js',
-  './manifest.webmanifest', './vendor/sql-wasm.js', './vendor/sql-wasm.wasm',
+  './manifest.webmanifest',
+  './vendor/sql-wasm.js', './vendor/sql-wasm.wasm',
+  './vendor/lottie.min.js', './vendor/d3-mini.js',
+  './anim/core.json', './anim/sync.json', './anim/scan.json', './anim/check.json', './anim/empty.json',
   './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png'
 ];
 

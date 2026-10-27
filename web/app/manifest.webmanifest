@@ -1,25 +1,57 @@
 {
-  "name": "FABRI-CORE · consola autónoma",
+  "name": "FABRI-CORE · consola en la nube",
   "short_name": "FABRI-CORE",
-  "description": "Consola autónoma en el navegador: SQLite con FTS5, chat con agente, consola SQL y flujos en vivo. Funciona offline.",
+  "description": "Consola autónoma en el navegador: SQLite WASM con FTS5, panel con gráficos, chat con agente, consola SQL, inventario en la nube y planilla. Funciona offline.",
   "lang": "es",
   "dir": "ltr",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "display_override": [
+    "window-controls-overlay",
+    "standalone",
+    "minimal-ui"
+  ],
   "orientation": "portrait",
-  "background_color": "#08090A",
-  "theme_color": "#08090A",
-  "categories": ["productivity", "developer", "utilities"],
+  "background_color": "#04060D",
+  "theme_color": "#04060D",
+  "categories": [
+    "productivity",
+    "developer",
+    "utilities"
+  ],
   "icons": [
-    { "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "./icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "./icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "./icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ],
   "shortcuts": [
-    { "name": "Chat", "url": "./#chat" },
-    { "name": "Consola SQL", "url": "./#sql" },
-    { "name": "Memoria", "url": "./#mem" }
+    {
+      "name": "Chat",
+      "url": "./#chat"
+    },
+    {
+      "name": "Consola SQL",
+      "url": "./#sql"
+    },
+    {
+      "name": "Memoria",
+      "url": "./#mem"
+    }
   ]
 }
