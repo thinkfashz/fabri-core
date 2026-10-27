@@ -2,6 +2,40 @@
 
 Última actualización: 2026-10-27
 
+## Sesión 2026-10-27 (14) · APK 0.9.22 — el auto-bloqueo del carril (núcleo ocupado siempre)
+
+APK: `dist/FABRI-CORE-0.9.22.apk` · **4.132.043 B** ·
+sha256 `03b688541ad8093b2283572136bb6a5ab52893d1ba6fb8d3e8ff03860a4e34fb` ·
+versionCode **37** · copiada a `/sdcard/FABRI-CORE-0.9.22.apk`.
+Firma debug, minSdk 24, target 34. Instalar **encima** de la 0.9.21.
+
+### El fallo real (del informe del diagnóstico en el teléfono)
+Con el token ya arreglado (0.9.21), el diagnóstico mostró otra cosa: las
+operaciones, cuando corrían, tardaban **0–74 ms**, pero casi todas fallaban con
+`núcleo ocupado: no se pudo tomar el carril en 800 ms`, y `manifiestos` con
+`superó 20000 ms`. Un candado tomado y nunca soltado.
+
+Causa: **auto-bloqueo de `con_estado`.** `dir_datos()` tomaba `ESTADO.lock()`
+(bloqueante) y se llamaba desde dentro de un `con_estado(...)` por la ruta
+`datos_manifiesto()` → `manifiestos_dinamicos()` → `dir_datos()`. Un
+`std::sync::Mutex` no es reentrante: el hilo se esperaba a sí mismo para
+siempre. El disparador: la acción `componentes accion:"estado"` (descargar o
+verificar un módulo), llamada en `app.js:1159` y `app.js:1351`. Desde ese
+instante el carril quedaba muerto para toda la sesión.
+
+### Corregido
+| Qué | Dónde |
+|---|---|
+| `dir_datos()` usa su propio candado `DIR_DATOS`; ya no toca `ESTADO` | `src-tauri/src/lib.rs` |
+| `con_estado()` con guardia de reentrancia (`EN_ESTADO`): error en vez de cuelgue | `src-tauri/src/lib.rs` |
+| `con_estado()` suelta el carril antes de `ULTIMAS_OPS` (sin inversión) | `src-tauri/src/lib.rs` |
+| `componentes accion:"estado"` resuelve `datos_manifiesto()` fuera del carril | `src-tauri/src/lib.rs` |
+| Prueba estática del candado | `tests/arranque/candado.js` (suite 7/7) |
+
+### Verificación
+- `cargo check --target aarch64-linux-android --release` ✔ (sin romper nada)
+- `tests/arranque/correr.sh` **7/7** ✔ · `tests/inventario/lector.js` ✔ · `tests/inventario/ean.js` ✔
+
 ## Sesión 2026-10-27 (13) · APK 0.9.21 — el token asíncrono (SQL, Inventario y Flujo)
 
 APK: `dist/FABRI-CORE-0.9.21.apk` · **4.132.043 B** ·

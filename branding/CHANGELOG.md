@@ -2,6 +2,34 @@
 
 Registro de cambios del sistema de diseño y branding.
 
+## [2.11.0] — 2026-10-27 · APK 0.9.22
+
+### Corregido
+- **«Todo dice núcleo ocupado»: auto-bloqueo del carril (`con_estado`).**
+  `dir_datos()` tomaba `ESTADO.lock()` (bloqueante) y se llamaba desde DENTRO
+  de un `con_estado(...)` —por la ruta `datos_manifiesto()` →
+  `manifiestos_dinamicos()`—. Un `std::sync::Mutex` no es reentrante: el mismo
+  hilo se esperaba a sí mismo **para siempre** y dejaba el carril tomado. El
+  disparador era la acción `componentes accion:"estado"` (cuando se descarga o
+  verifica un módulo/modelo); a partir de ahí SQL, Inventario, Revisión y Flujo
+  respondían «núcleo ocupado: no se pudo tomar el carril en 800 ms» y el
+  diagnóstico fallaba en cascada (`sys`, `perfil`, `usuarios`, `inventario`,
+  `revision.resumen`, `manifiestos 20002 ms`). Ahora el directorio de datos vive
+  en su propio candado (`DIR_DATOS`), `dir_datos()` no toca `ESTADO`, y
+  `con_estado()` tiene una **guardia de reentrancia** (`EN_ESTADO`): si una
+  operación pide el carril desde dentro del carril, responde error en vez de
+  colgarse.
+- `con_estado()` **suelta el carril antes** de tocar el anillo de rendimiento
+  (`ULTIMAS_OPS`): sin inversión de candados.
+- `componentes accion:"estado"` resuelve `datos_manifiesto()` **antes** de tomar
+  el carril (no hace E/S con el candado tomado).
+
+### Añadido
+- Prueba de regresión `tests/arranque/candado.js` (§ 7/7): verifica que
+  `dir_datos()` no toca `ESTADO`, que `con_estado()` detecta reentrancia, que
+  acota la espera y que no queda ningún `ESTADO.lock()` bloqueante salvo el de
+  `init`.
+
 ## [2.10.0] — 2026-10-27 · APK 0.9.21
 
 ### Corregido

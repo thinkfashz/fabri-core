@@ -70,6 +70,14 @@ else
   tail -8 /tmp/fabri-identidad.log
 fi
 
+echo "▸ 7/7 candado del núcleo (sin auto-bloqueo de con_estado)"
+if node "$RAIZ/tests/arranque/candado.js" > /tmp/fabri-candado.log 2>&1; then
+  ok "el carril del núcleo no puede bloquearse a sí mismo"
+else
+  mal "el candado del núcleo volvió a ser peligroso (ver /tmp/fabri-candado.log)"
+  tail -8 /tmp/fabri-candado.log
+fi
+
 echo
 if [ "$fallos" -eq 0 ]; then
   printf '\033[1;32m✔ arranque y acceso: todo en orden\033[0m\n'

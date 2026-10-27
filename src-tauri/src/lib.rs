@@ -36,6 +36,23 @@ struct Estado {
 
 static ESTADO: Mutex<Option<Estado>> = Mutex::new(None);
 
+/// Directorio de datos, en su PROPIO candado y separado de `ESTADO`.
+///
+/// Antes `dir_datos()` tomaba `ESTADO.lock()` (bloqueante). Como varias
+/// operaciones llaman a `dir_datos()` —vía `manifiestos_dinamicos()`— desde
+/// DENTRO de un `con_estado(...)`, el mismo hilo se quedaba esperando su propio
+/// candado: un auto-bloqueo que dejaba el carril tomado para siempre y todas
+/// las demás operaciones respondían «núcleo ocupado». Con un candado aparte,
+/// leer el directorio nunca depende de tener el estado.
+static DIR_DATOS: Mutex<Option<PathBuf>> = Mutex::new(None);
+
+// Guardia de reentrancia por hilo para `con_estado`. Si una operación intenta
+// tomar el carril desde dentro del carril, se responde un error en vez de
+// bloquearse esperándose a sí misma.
+thread_local! {
+    static EN_ESTADO: std::cell::Cell<bool> = std::cell::Cell::new(false);
+}
+
 /// ¿El esquema de inventario ya está verificado? Se marca tras la primera
 /// llamada para no repetir `inv_esquema` (PRAGMA + ALTER) en cada consulta.
 static ESQUEMA_LISTO: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
@@ -95,9 +112,11 @@ const MANIFIESTOS: &[(&str, &str)] = &[
 ];
 
 /// Directorio de datos del núcleo (None si todavía no se inicializó).
+///
+/// Usa `DIR_DATOS`, no `ESTADO`: así es seguro llamarlo desde dentro de un
+/// `con_estado(...)` (lo hacen `manifiestos_dinamicos()` y `datos_manifiesto()`).
 fn dir_datos() -> Option<PathBuf> {
-    let g = ESTADO.lock().ok()?;
-    g.as_ref().map(|e| e.data_dir.clone())
+    DIR_DATOS.lock().ok().and_then(|g| g.clone())
 }
 
 /// Manifiestos añadidos por el usuario en `filesDir/manifiestos/**`. Permiten
@@ -616,6 +635,11 @@ fn op_init(payload: &Value) -> Result<Value, String> {
 
     escribir_log_archivo(&data_dir, "INFO", "core", "núcleo inicializado");
 
+    // Se publica el directorio ANTES del estado: cualquier lectura de
+    // manifiestos dinámicos ya puede resolverlo sin tocar el carril.
+    if let Ok(mut d) = DIR_DATOS.lock() {
+        *d = Some(data_dir.clone());
+    }
     let mut g = ESTADO.lock().map_err(|_| "estado bloqueado".to_string())?;
     *g = Some(Estado { db, data_dir: data_dir.clone() });
 
@@ -652,6 +676,20 @@ fn con_estado<F>(f: F) -> Result<Value, String>
 where
     F: FnOnce(&mut Estado) -> Result<Value, String>,
 {
+    // Guardia de reentrancia: si YA estamos dentro del carril en este hilo, no
+    // se espera el candado (sería esperarse a uno mismo para siempre). Se
+    // responde un error explícito y la interfaz reintenta.
+    if EN_ESTADO.with(|c| c.replace(true)) {
+        return Err("carril del núcleo reentrante: una operación pidió el estado desde dentro del estado".into());
+    }
+    struct Reset;
+    impl Drop for Reset {
+        fn drop(&mut self) {
+            EN_ESTADO.with(|c| c.set(false));
+        }
+    }
+    let _reset = Reset;
+
     // Bloqueo ACOTADO: si el carril del núcleo está ocupado, no esperamos para
     // siempre. Intentamos tomar el mutex durante ~800 ms y, si no se puede,
     // respondemos «núcleo ocupado» para que la interfaz reintente. Antes usaba
@@ -674,11 +712,15 @@ where
         Some(e) => f(e),
         None => Err("el núcleo no está inicializado (falta llamar a init)".into()),
     };
-    // Registrar duración para el monitoreo (no interfiere en el resultado).
+    // Se SUELTA el carril antes de tocar el anillo de rendimiento: así no puede
+    // haber inversión de candados (ESTADO → ULTIMAS_OPS) si algo lo toma al
+    // revés.
+    drop(g);
+    let ms = t0.elapsed().as_millis() as u64;
     if let Ok(mut ops) = ULTIMAS_OPS.lock() {
         ops.push(json!({
             "op": "con_estado",
-            "ms": t0.elapsed().as_millis() as u64,
+            "ms": ms,
             "ts": ahora()
         }));
         let exceso = ops.len().saturating_sub(30);
@@ -882,6 +924,10 @@ fn op_componentes(payload: &Value) -> Result<Value, String> {
             let id = campo(payload, "id")?;
             let estado = campo(payload, "estado")?;
             let ts = ahora();
+            // Los datos del manifiesto se resuelven ANTES de tomar el carril:
+            // `datos_manifiesto` lee el sistema de archivos y, aunque ya no toca
+            // el estado, no conviene hacer E/S con el candado tomado.
+            let (nombre, tipo, version, licencia) = datos_manifiesto(&id);
             con_estado(move |e| {
                 let n = e
                     .db
@@ -895,7 +941,6 @@ fn op_componentes(payload: &Value) -> Result<Value, String> {
                     // tabla. Sin insertarla, el estado se perdía al reiniciar y
                     // la app volvía a pedir la misma descarga (bug "me pide
                     // descargar dos veces").
-                    let (nombre, tipo, version, licencia) = datos_manifiesto(&id);
                     e.db
                         .execute(
                             "INSERT INTO componentes
