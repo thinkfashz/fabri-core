@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>06 · Análisis IA · FABRI-CORE</title>
+<link rel="stylesheet" href="shared.css">
+</head>
+<body>
+<canvas id="bg-canvas"></canvas>
+<div class="scanline"></div>
+
+<nav class="nav-strip">
+  <a class="nav-home" href="index.html">← Inicio</a>
+  <span class="nav-section-tag">06 / IA</span>
+  <div class="nav-links">
+    <a class="nav-link" href="01-marca.html">01 Marca</a>
+    <a class="nav-link" href="02-funciones.html">02 Funciones</a>
+    <a class="nav-link" href="03-beneficios.html">03 Beneficios</a>
+    <a class="nav-link" href="04-mercado.html">04 Mercado</a>
+    <a class="nav-link" href="05-redes.html">05 Redes</a>
+    <a class="nav-link active" href="06-ia.html">06 IA</a>
+  </div>
+</nav>
+
+<div class="timer-bar"><div class="timer-fill" id="timer-fill"></div></div>
+
+<div class="chapters" id="chapters">
+  <div class="chapter-dot active"></div>
+  <div class="chapter-dot"></div>
+  <div class="chapter-dot"></div>
+  <div class="chapter-dot"></div>
+  <div class="chapter-dot"></div>
+  <div class="chapter-dot"></div>
+  <div class="chapter-dot"></div>
+  <div class="chapter-dot"></div>
+  <div class="chapter-dot"></div>
+</div>
+
+<div class="slide-deck">
+
+  <!-- SLIDE 1: IA OVERVIEW -->
+  <section class="slide active" data-dur="6000">
+    <div class="stack" style="gap:28px;">
+      <div class="label">Inteligencia Artificial · Documentación Técnica</div>
+      <h1 class="h1">IA local. <span class="accent">Sin nube. Sin costo.</span></h1>
+      <div class="grid-4" style="max-width:900px;margin-top:16px;">
+        <div class="stat"><div class="stat-num" style="font-size:20px;">llama.cpp</div><div class="stat-label">Motor de inferencia</div></div>
+        <div class="stat"><div class="stat-num" style="font-size:20px;">GGUF</div><div class="stat-label">Formato de modelo</div></div>
+        <div class="stat"><div class="stat-num">15</div><div class="stat-label">Capas LLM cloud</div></div>
+        <div class="stat"><div class="stat-num">0</div><div class="stat-label">Consultas que salen</div></div>
+      </div>
+      <p class="sub">Código abierto. Sin costo. Sin datos enviados.</p>
+    </div>
+  </section>
+
+  <!-- SLIDE 2: STACK TÉCNICO IA -->
+  <section class="slide" data-dur="8000">
+    <div class="stack" style="gap:24px;width:100%;max-width:1000px;">
+      <div class="label">Stack IA · Documentación Técnica</div>
+      <h2 class="h2">Rust + JNI + Android = IA en el bolsillo.</h2>
+      <div class="flow">
+        <div class="flow-node">App Kotlin</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-node">JNI Bridge</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-node">Rust runtime</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-node">llama.cpp</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-node lime">Modelo GGUF</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-node lime">Respuesta</div>
+      </div>
+      <div class="grid-2 mt-20" style="max-width:800px;">
+        <div class="card">
+          <div class="card-icon" style="width:40px;height:40px;font-size:18px;margin-bottom:10px;">🦀</div>
+          <div class="card-title" style="font-size:14px;">Rust 1.99.1</div>
+          <div class="card-desc">Compilado para ARM64. Sin JVM overhead. Open source.</div>
+        </div>
+        <div class="card">
+          <div class="card-icon" style="width:40px;height:40px;font-size:18px;margin-bottom:10px;">🔗</div>
+          <div class="card-title" style="font-size:14px;">JNI Bridge seguro</div>
+          <div class="card-desc">Interfaz nativa segura entre Kotlin y Rust.</div>
+        </div>
+        <div class="card">
+          <div class="card-icon" style="width:40px;height:40px;font-size:18px;margin-bottom:10px;">⚙️</div>
+          <div class="card-title" style="font-size:14px;">llama.cpp b11835</div>
+          <div class="card-desc">Backend CPU/Vulkan. Optimizado para móvil. Gratis.</div>
+        </div>
+        <div class="card">
+          <div class="card-icon" style="width:40px;height:40px;font-size:18px;margin-bottom:10px;">📦</div>
+          <div class="card-title" style="font-size:14px;">Quantización Q4_K_M</div>
+          <div class="card-desc">1-2 GB RAM. 10-25 tok/s en gama media. Modelos gratuitos.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 3: MODELOS RECOMENDADOS -->
+  <section class="slide" data-dur="8000">
+    <div class="stack" style="gap:24px;width:100%;max-width:900px;">
+      <div class="label">Modelos GGUF · Documentación Técnica</div>
+      <h2 class="h2">Elige según tu RAM.</h2>
+      <div class="grid-3">
+        <div class="card">
+          <div class="card-icon" style="width:40px;height:40px;font-size:18px;margin-bottom:10px;">🦙</div>
+          <div class="card-title" style="font-size:14px;">Llama 3.2 1B</div>
+          <div style="margin:12px 0;">
+            <div class="stat" style="min-width:auto;padding:10px 12px;"><div class="stat-num" style="font-size:18px;">~800 MB</div><div class="stat-label">RAM</div></div>
+          </div>
+          <div class="card-desc">15-25 tok/s. Chat rápido, comandos simples. Gratis.</div>
+          <div class="mt-12"><span class="pill">Q4_K_M</span></div>
+        </div>
+        <div class="card card-lime">
+          <div class="card-icon" style="width:40px;height:40px;font-size:18px;margin-bottom:10px;">💎</div>
+          <div class="card-title" style="font-size:14px;">Gemma 2B</div>
+          <div style="margin:12px 0;">
+            <div class="stat" style="min-width:auto;padding:10px 12px;"><div class="stat-num" style="font-size:18px;">~1.5 GB</div><div class="stat-label">RAM</div></div>
+          </div>
+          <div class="card-desc">10-18 tok/s. RAG e inventario. Recomendado. Gratis.</div>
+          <div class="mt-12"><span class="pill">Q4_K_M</span></div>
+        </div>
+        <div class="card">
+          <div class="card-icon" style="width:40px;height:40px;font-size:18px;margin-bottom:10px;">🌐</div>
+          <div class="card-title" style="font-size:14px;">Qwen 2.5 1.5B</div>
+          <div style="margin:12px 0;">
+            <div class="stat" style="min-width:auto;padding:10px 12px;"><div class="stat-num" style="font-size:18px;">~1 GB</div><div class="stat-label">RAM</div></div>
+          </div>
+          <div class="card-desc">12-20 tok/s. Multilingüe, documentos. Gratis.</div>
+          <div class="mt-12"><span class="pill">Q4_K_M</span></div>
+        </div>
+      </div>
+      <p class="sub">Todos los modelos son de código abierto y gratuitos. Descárgalos desde Hugging Face.</p>
+    </div>
+  </section>
+
+  <!-- SLIDE 4: RAG SISTEMA -->
+  <section class="slide" data-dur="9000">
+    <div class="stack" style="gap:24px;width:100%;max-width:1000px;">
+      <div class="label">Retrieval Augmented Generation · Documentación</div>
+      <h2 class="h2">El agente sabe lo que tú sabes.</h2>
+      <div class="flow" style="max-width:1000px;">
+        <div class="flow-node">Tu inventario</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-node">Chunking</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-node">FTS5 Index</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-node">Embeddings</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-node">Vector Search</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-node lime">Fusión BM25+coseno</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-node lime">Contexto al LLM</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-node lime">Respuesta</div>
+      </div>
+      <div class="grid-3 mt-20">
+        <div class="card">
+          <div class="card-icon" style="width:40px;height:40px;font-size:18px;margin-bottom:10px;">🔍</div>
+          <div class="card-title" style="font-size:14px;">≠ Coincidencia textual</div>
+          <div class="card-desc">FTS5/BM25. Busca por palabra exacta. Rápido. Incluido.</div>
+        </div>
+        <div class="card">
+          <div class="card-icon" style="width:40px;height:40px;font-size:18px;margin-bottom:10px;">🧬</div>
+          <div class="card-title" style="font-size:14px;">≠ Similitud semántica</div>
+          <div class="card-desc">Embeddings + coseno. Encuentra por significado. Gratis.</div>
+        </div>
+        <div class="card card-lime">
+          <div class="card-icon" style="width:40px;height:40px;font-size:18px;margin-bottom:10px;">🧠</div>
+          <div class="card-title" style="font-size:14px;">≠ Razonamiento del modelo</div>
+          <div class="card-desc">LLM propiamente. Genera la respuesta fundamentada. Sin costo.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 5: CEREBRO CLOUD -->
+  <section class="slide" data-dur="8000">
+    <div class="stack" style="gap:24px;width:100%;max-width:900px;">
+      <div class="label">Rotador de Modelos Cloud · Documentación</div>
+      <h2 class="h2">15 capas. 12 activas. Sin cortes.</h2>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;max-width:800px;">
+        <span class="badge">OpenAI</span>
+        <span class="badge">Anthropic</span>
+        <span class="badge">Google</span>
+        <span class="badge">Mistral</span>
+        <span class="badge">DeepSeek</span>
+        <span class="badge">Cohere</span>
+        <span class="badge badge-muted">Kilo</span>
+        <span class="badge badge-muted">Token Harbor</span>
+        <span class="badge badge-muted">Pollinations</span>
+        <span class="badge badge-muted">StableHorde</span>
+        <span class="badge badge-muted">OmniRoute</span>
+        <span class="badge badge-muted">Groq</span>
+      </div>
+      <div class="card card-lime" style="padding:24px;max-width:720px;">
+        <div class="card-icon" style="width:40px;height:40px;font-size:18px;margin-bottom:10px;">🔄</div>
+        <div class="card-title" style="font-size:14px;">Failover automático</div>
+        <div class="card-desc">Si un modelo falla, el siguiente entra en 200ms. Usado por fabrick-tg-bot para bot Telegram con voz. Todo gratuito y de código abierto.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 6: PRIVACIDAD IA -->
+  <section class="slide" data-dur="7000">
+    <div class="stack" style="gap:24px;width:100%;max-width:900px;">
+      <div class="label">IA Privada · Documentación</div>
+      <h2 class="h2">Lo que entra, se queda.</h2>
+      <div class="grid-3">
+        <div class="card" style="border-color:var(--err);">
+          <div class="card-icon" style="background:rgba(255,107,107,0.1);border-color:var(--err);color:var(--err);">❌</div>
+          <div class="card-title" style="font-size:14px;">Cloud AI</div>
+          <div class="card-desc">Tu historial de ventas viaja a servidores de OpenAI/Google. Privacidad comprometida.</div>
+        </div>
+        <div class="card" style="border-color:var(--err);">
+          <div class="card-icon" style="background:rgba(255,107,107,0.1);border-color:var(--err);color:var(--err);">❌</div>
+          <div class="card-title" style="font-size:14px;">Cloud AI</div>
+          <div class="card-desc">Pagas por cada token generado. Costo por consulta. Suscripción mensual.</div>
+        </div>
+        <div class="card card-lime">
+          <div class="card-icon">✅</div>
+          <div class="card-title" style="font-size:14px;">FABRI-CORE LOCAL</div>
+          <div class="card-desc">El modelo lee tu SQLite local. Nadie más. Cero costo. Para siempre.</div>
+        </div>
+      </div>
+      <p class="lead" style="font-size:14px;">Cumple con principios de privacidad sin certificaciones complejas. <span class="accent">Gratis y privado.</span></p>
+    </div>
+  </section>
+
+  <!-- SLIDE 7: COMPARATIVA IA -->
+  <section class="slide" data-dur="8000">
+    <div class="stack" style="gap:24px;width:100%;max-width:900px;">
+      <div class="label">Comparativa · Documentación</div>
+      <h2 class="h2">On-device vs Cloud AI.</h2>
+      <table class="cmp-table">
+        <thead>
+          <tr>
+            <th>Criterio</th>
+            <th>Cloud AI</th>
+            <th>FABRI-CORE local</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="muted">
+            <td>Privacidad</td>
+            <td>❌ Datos en terceros</td>
+            <td>✅ 100% local</td>
+          </tr>
+          <tr class="muted">
+            <td>Costo/consulta</td>
+            <td>❌ $0.002–$0.06/1K tok</td>
+            <td>✅ $0</td>
+          </tr>
+          <tr class="muted">
+            <td>Offline</td>
+            <td>❌ Requiere internet</td>
+            <td>✅ Total</td>
+          </tr>
+          <tr class="muted">
+            <td>Velocidad</td>
+            <td>⚡ Rápido (100+ tok/s)</td>
+            <td>🔶 10-25 tok/s</td>
+          </tr>
+          <tr class="muted">
+            <td>Contexto</td>
+            <td>✅ 200K tokens</td>
+            <td>🔶 4-8K tokens</td>
+          </tr>
+          <tr class="highlight">
+            <td>Customización</td>
+            <td>❌ Sin control</td>
+            <td>✅ Modelo propio</td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="sub mt-16">FABRI-CORE gana en privacidad, costo y offline. Cloud AI gana en velocidad y contexto.</p>
+    </div>
+  </section>
+
+  <!-- SLIDE 8: VISIÓN IA -->
+  <section class="slide" data-dur="9000">
+    <div class="stack" style="gap:24px;width:100%;max-width:720px;">
+      <div class="label">Visión · Documentación</div>
+      <h2 class="h2">El nivel 5: Sistema operativo de negocio con IA.</h2>
+      <div class="ladder">
+        <div class="ladder-step">
+          <span class="num">Nivel 1</span>
+          <span>Excel glorificado</span>
+        </div>
+        <div class="ladder-step">
+          <span class="num">Nivel 2</span>
+          <span>POS con boletas ← Bsale básico</span>
+        </div>
+        <div class="ladder-step">
+          <span class="num">Nivel 3</span>
+          <span>POS + nube + reportes ← Shopify POS</span>
+        </div>
+        <div class="ladder-step">
+          <span class="num">Nivel 4</span>
+          <span>POS + IA asistida cloud ← Enterprise LATAM</span>
+        </div>
+        <div class="ladder-step active">
+          <span class="num">NIVEL 5 ★</span>
+          <span>Sistema operativo negocio IA local-first ← FABRI-CORE</span>
+        </div>
+      </div>
+      <p class="lead" style="font-size:14px;font-weight:600;color:var(--lime);">Ninguna app en LATAM está en el Nivel 5. Todavía. <span class="accent">Y es gratis.</span></p>
+    </div>
+  </section>
+
+  <!-- SLIDE 9: GRATIS / LIKE CTA -->
+  <section class="slide" data-dur="0">
+    <div class="stack" style="gap:28px;max-width:720px;">
+      <div class="label">Software Libre · Sin Humo</div>
+      <h2 class="h2">100% Gratis. Sin letra chica.</h2>
+      <div class="cta-social">
+        <div class="cta-title">Si te sirve, dale un like</div>
+        <div class="cta-desc">El único "pago" que pedimos es un like en redes sociales.</div>
+        <div class="cta-buttons">
+          <a class="cta-btn cta-btn-primary" href="https://www.tiktok.com/@fabricore.cl" target="_blank">❤️ Like en TikTok</a>
+          <a class="cta-btn cta-btn-secondary" href="https://www.facebook.com/fabricore" target="_blank">👍 Like en Facebook</a>
+        </div>
+        <span class="free-badge">Software 100% Gratuito · Open Source</span>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<div class="controls">
+  <button class="btn-ctrl" id="btn-prev">←</button>
+  <button class="btn-ctrl btn-ctrl-primary" id="btn-play"><span id="play-icon">⏸</span></button>
+  <button class="btn-ctrl" id="btn-next">→</button>
+  <div class="progress-wrap" id="progress-wrap">
+    <div class="progress-fill" id="progress-fill"></div>
+  </div>
+  <div class="slide-count"><span id="cur-slide">1</span> / 9</div>
+  <button class="btn-ctrl" id="btn-fs">⛶</button>
+</div>
+
+<script>
+const SLIDES = document.querySelectorAll('.slide');
+const DURATIONS = [...SLIDES].map(s => parseInt(s.dataset.dur || '6000'));
+let cur = 0, playing = true, timer = null;
+const $fill = document.getElementById('progress-fill');
+const $cur = document.getElementById('cur-slide');
+const $timer = document.getElementById('timer-fill');
+const $playIcon = document.getElementById('play-icon');
+const dots = document.querySelectorAll('.chapter-dot');
+
+function showSlide(n) {
+  SLIDES[cur]?.classList.remove('active');
+  SLIDES[cur]?.classList.add('exit');
+  setTimeout(() => SLIDES[cur]?.classList.remove('exit'), 800);
+  cur = (n + SLIDES.length) % SLIDES.length;
+  SLIDES[cur].classList.add('active');
+  dots.forEach((d,i) => d.classList.toggle('active', i===cur));
+  if($cur) $cur.textContent = cur+1;
+  if($fill) $fill.style.width = ((cur/(SLIDES.length-1||1))*100)+'%';
+  if($timer){$timer.style.transition='none';$timer.style.width='0%';}
+  resetTimer();
+}
+
+function resetTimer() {
+  clearTimeout(timer);
+  if(!playing) return;
+  const dur = DURATIONS[cur];
+  if(dur === 0) return;
+  if($timer){ setTimeout(()=>{$timer.style.transition=`width ${dur}ms linear`;$timer.style.width='100%';},50); }
+  timer = setTimeout(()=>showSlide(cur+1), dur);
+}
+
+function togglePlay() {
+  playing = !playing;
+  if($playIcon) $playIcon.textContent = playing ? '⏸' : '▶';
+  if(playing) resetTimer(); else { clearTimeout(timer); if($timer){$timer.style.transition='none';} }
+}
+
+document.getElementById('btn-play')?.addEventListener('click', togglePlay);
+document.getElementById('btn-prev')?.addEventListener('click', ()=>{clearTimeout(timer);showSlide(cur-1);});
+document.getElementById('btn-next')?.addEventListener('click', ()=>{clearTimeout(timer);showSlide(cur+1);});
+document.getElementById('progress-wrap')?.addEventListener('click', e=>{
+  const r=e.currentTarget.getBoundingClientRect();
+  clearTimeout(timer);showSlide(Math.round((e.clientX-r.left)/r.width*(SLIDES.length-1)));
+});
+document.querySelectorAll('.chapter-dot').forEach((d,i)=>d.addEventListener('click',()=>{clearTimeout(timer);showSlide(i);}));
+document.getElementById('btn-fs')?.addEventListener('click',()=>{document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen();});
+document.addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight'||e.key==='PageDown'){clearTimeout(timer);showSlide(cur+1);}
+  if(e.key==='ArrowLeft'||e.key==='PageUp'){clearTimeout(timer);showSlide(cur-1);}
+  if(e.key===' '){e.preventDefault();togglePlay();}
+  if(e.key==='f'||e.key==='F')document.getElementById('btn-fs')?.click();
+});
+
+(function(){
+  const canvas=document.getElementById('bg-canvas');if(!canvas)return;
+  const ctx=canvas.getContext('2d');let W,H,pts=[];
+  function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight;}
+  resize();window.addEventListener('resize',resize);
+  for(let i=0;i<55;i++)pts.push({x:Math.random()*1920,y:Math.random()*1080,vx:(Math.random()-.5)*.25,vy:(Math.random()-.5)*.25,r:Math.random()*1.2+.4,a:Math.random()*.3+.05});
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    ctx.strokeStyle='rgba(200,255,0,0.02)';ctx.lineWidth=1;
+    for(let x=0;x<W;x+=60){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+    for(let y=0;y<H;y+=60){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+    pts.forEach(p=>{p.x+=p.vx;p.y+=p.vy;if(p.x<0)p.x=W;if(p.x>W)p.x=0;if(p.y<0)p.y=H;if(p.y>H)p.y=0;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fillStyle=`rgba(200,255,0,${p.a})`;ctx.fill();});
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+SLIDES[0]?.classList.add('active');
+if(dots[0])dots[0].classList.add('active');
+if($cur)$cur.textContent='1';
+if($fill)$fill.style.width='0%';
+setTimeout(()=>{if(playing)resetTimer();},500);
+</script>
+</body>
+</html>

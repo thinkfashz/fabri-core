@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>01 · Marca &amp; Branding · FABRI-CORE</title>
+<link rel="stylesheet" href="shared.css">
+</head>
+<body>
+<canvas id="bg-canvas"></canvas>
+<div class="scanline"></div>
+
+<nav class="nav-strip">
+  <a class="nav-home" href="index.html">← Inicio</a>
+  <span class="nav-section-tag">01 / MARCA</span>
+  <div class="nav-links">
+    <a class="nav-link active" href="01-marca.html">01 Marca</a>
+    <a class="nav-link" href="02-funciones.html">02 Funciones</a>
+    <a class="nav-link" href="03-beneficios.html">03 Beneficios</a>
+    <a class="nav-link" href="04-mercado.html">04 Mercado</a>
+    <a class="nav-link" href="05-redes.html">05 Redes</a>
+    <a class="nav-link" href="06-ia.html">06 IA</a>
+  </div>
+</nav>
+
+<div class="timer-bar"><div class="timer-fill" id="timer-fill"></div></div>
+
+<div class="chapters" id="chapters">
+  <div class="chapter-dot active"></div>
+  <div class="chapter-dot"></div>
+  <div class="chapter-dot"></div>
+  <div class="chapter-dot"></div>
+  <div class="chapter-dot"></div>
+  <div class="chapter-dot"></div>
+  <div class="chapter-dot"></div>
+</div>
+
+<div class="slide-deck">
+
+  <!-- SLIDE 1: IDENTIDAD -->
+  <section class="slide active" data-dur="6000">
+    <div class="stack">
+      <div class="logo-svg xl glow float">
+        <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="80" height="80" rx="16" fill="#030303"/>
+          <rect x="16" y="16" width="8" height="48" fill="#C8FF00"/>
+          <rect x="16" y="16" width="36" height="8" fill="#C8FF00"/>
+          <rect x="16" y="36" width="28" height="8" fill="#C8FF00"/>
+        </svg>
+      </div>
+      <div class="label">Identidad Visual · Documentación de Marca</div>
+      <h1 class="h1">FABRI-CORE <span class="accent">PRO</span></h1>
+      <p class="lead">Sistema de diseño canónico. <strong>Fuente única de verdad</strong> para WEB y APP ANDROID. Industrial · Técnico · Premium · Local-first. <span class="accent">Software 100% gratuito.</span></p>
+      <div class="row mt-20" style="gap:12px;">
+        <span class="badge">Soluciones Fabrick</span>
+        <span class="badge badge-muted">v0.9.26</span>
+        <span class="badge badge-muted">Android-first</span>
+        <span class="free-badge">Gratis</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 2: PALETA -->
+  <section class="slide" data-dur="8000">
+    <div class="stack" style="gap:32px;">
+      <div class="label">Paleta Oficial · Documentación</div>
+      <h2 class="h2">Los colores del sistema</h2>
+      <p class="lead" style="font-size:16px;">Negro como la eficiencia. Lima como la energía. Sin adornos — solo lo que funciona.</p>
+      <div class="row mt-20" style="gap:28px;">
+        <div class="stack" style="gap:10px;">
+          <div style="width:100px;height:100px;border-radius:24px;background:#030303;border:2px solid #2E2E2E;box-shadow:0 8px 24px rgba(0,0,0,0.6);transition:all 0.3s;" onmouseover="this.style.transform='scale(1.1)';this.style.borderColor='#C8FF00'" onmouseout="this.style.transform='scale(1)';this.style.borderColor='#2E2E2E'"></div>
+          <span class="stat-label">Negro Profundo</span>
+          <span style="font-size:12px;color:#7A7A7A;font-family:var(--mono);">#030303</span>
+        </div>
+        <div class="stack" style="gap:10px;">
+          <div style="width:100px;height:100px;border-radius:24px;background:#0A0A0A;border:2px solid #2E2E2E;box-shadow:0 8px 24px rgba(0,0,0,0.6);transition:all 0.3s;" onmouseover="this.style.transform='scale(1.1)';this.style.borderColor='#C8FF00'" onmouseout="this.style.transform='scale(1)';this.style.borderColor='#2E2E2E'"></div>
+          <span class="stat-label">Negro Mate</span>
+          <span style="font-size:12px;color:#7A7A7A;font-family:var(--mono);">#0A0A0A</span>
+        </div>
+        <div class="stack" style="gap:10px;">
+          <div style="width:120px;height:120px;border-radius:28px;background:#C8FF00;box-shadow:0 0 50px rgba(200,255,0,0.5),0 8px 24px rgba(0,0,0,0.6);transform:scale(1.1);transition:all 0.3s;" onmouseover="this.style.transform='scale(1.2)';this.style.boxShadow='0 0 70px rgba(200,255,0,0.7)'" onmouseout="this.style.transform='scale(1.1)';this.style.boxShadow='0 0 50px rgba(200,255,0,0.5)'"></div>
+          <span class="stat-label" style="color:#C8FF00;">Lima Principal</span>
+          <span style="font-size:12px;color:#C8FF00;font-family:var(--mono);">#C8FF00</span>
+        </div>
+        <div class="stack" style="gap:10px;">
+          <div style="width:100px;height:100px;border-radius:24px;background:#B7FF32;border:2px solid #2E2E2E;box-shadow:0 8px 24px rgba(0,0,0,0.6);transition:all 0.3s;" onmouseover="this.style.transform='scale(1.1)';this.style.borderColor='#C8FF00'" onmouseout="this.style.transform='scale(1)';this.style.borderColor='#2E2E2E'"></div>
+          <span class="stat-label">Lima Alt</span>
+          <span style="font-size:12px;color:#7A7A7A;font-family:var(--mono);">#B7FF32</span>
+        </div>
+        <div class="stack" style="gap:10px;">
+          <div style="width:100px;height:100px;border-radius:24px;background:#FFFFFF;border:2px solid #2E2E2E;box-shadow:0 8px 24px rgba(0,0,0,0.6);transition:all 0.3s;" onmouseover="this.style.transform='scale(1.1)';this.style.borderColor='#C8FF00'" onmouseout="this.style.transform='scale(1)';this.style.borderColor='#2E2E2E'"></div>
+          <span class="stat-label">Blanco</span>
+          <span style="font-size:12px;color:#7A7A7A;font-family:var(--mono);">#FFFFFF</span>
+        </div>
+      </div>
+      <div class="row mt-16">
+        <span class="pill">Semánticos: ok #3DDC84 · warn #FFB020 · err #FF6B6B · info #5AA9FF · violet #B48CFF · cyan #5AD9E8</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 3: TIPOGRAFÍA -->
+  <section class="slide" data-dur="7000">
+    <div class="stack" style="gap:28px;width:100%;max-width:960px;">
+      <div class="label">Tipografía · Documentación</div>
+      <h2 class="h2">Inter — La voz del sistema</h2>
+      <div style="width:100%;background:linear-gradient(135deg,var(--card) 0%,var(--card-2) 100%);border:1px solid var(--border);border-radius:var(--radius-lg);padding:36px;box-shadow:var(--shadow-card);">
+        <div style="font-size:52px;font-weight:900;letter-spacing:-0.04em;line-height:1;margin-bottom:14px;background:linear-gradient(135deg,var(--text) 0%,var(--text-2) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Soluciones Fabrick</div>
+        <div style="font-size:36px;font-weight:800;letter-spacing:-0.03em;margin-bottom:14px;color:var(--text);">Inventario Inteligente</div>
+        <div style="font-size:17px;font-weight:400;color:var(--muted);margin-bottom:14px;line-height:1.6;">La app que trabaja sin internet, sin suscripción y con IA en tu teléfono.</div>
+        <div style="font-size:12px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--lime);">VERSION 0.9.26 · BUILD 26 · FREE</div>
+      </div>
+      <div class="row" style="gap:10px;flex-wrap:wrap;justify-content:center;">
+        <span class="pill" style="font-weight:300;">300 Light</span>
+        <span class="pill" style="font-weight:400;">400 Regular</span>
+        <span class="pill" style="font-weight:500;">500 Medium</span>
+        <span class="pill" style="font-weight:600;">600 Semibold</span>
+        <span class="pill" style="font-weight:700;">700 Bold</span>
+        <span class="pill" style="font-weight:800;">800 Extrabold</span>
+        <span class="pill" style="font-weight:900;">900 Black</span>
+      </div>
+      <p class="sub">Fuente: Inter (Google Fonts). Tracking: -0.02em en títulos, 0.08em en etiquetas uppercase. Números en tabular-nums.</p>
+    </div>
+  </section>
+
+  <!-- SLIDE 4: LOGO Y VARIANTES -->
+  <section class="slide" data-dur="8000">
+    <div class="stack" style="gap:28px;">
+      <div class="label">Logotipo · Documentación</div>
+      <h2 class="h2">El monograma F</h2>
+      <div class="grid-4" style="max-width:960px;">
+        <div class="card" style="text-align:center;padding:28px 16px;">
+          <div style="background:#030303;border:1px solid #2E2E2E;border-radius:16px;padding:24px;margin-bottom:14px;display:flex;justify-content:center;transition:all 0.3s;" onmouseover="this.style.borderColor='#C8FF00';this.style.boxShadow='0 0 20px rgba(200,255,0,0.2)'" onmouseout="this.style.borderColor='#2E2E2E';this.style.boxShadow='none'">
+            <svg viewBox="0 0 80 80" width="64" height="64" fill="none"><rect width="80" height="80" rx="16" fill="#030303"/><rect x="16" y="16" width="8" height="48" fill="#C8FF00"/><rect x="16" y="16" width="36" height="8" fill="#C8FF00"/><rect x="16" y="36" width="28" height="8" fill="#C8FF00"/></svg>
+          </div>
+          <div class="card-title" style="font-size:13px;">Estándar</div>
+          <div class="card-desc">Sobre negro #030303</div>
+        </div>
+        <div class="card" style="text-align:center;padding:28px 16px;">
+          <div style="background:#C8FF00;border:1px solid #C8FF00;border-radius:16px;padding:24px;margin-bottom:14px;display:flex;justify-content:center;transition:all 0.3s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+            <svg viewBox="0 0 80 80" width="64" height="64" fill="none"><rect width="80" height="80" rx="16" fill="#C8FF00"/><rect x="16" y="16" width="8" height="48" fill="#030303"/><rect x="16" y="16" width="36" height="8" fill="#030303"/><rect x="16" y="36" width="28" height="8" fill="#030303"/></svg>
+          </div>
+          <div class="card-title" style="font-size:13px;">Invertido</div>
+          <div class="card-desc">Sobre lima #C8FF00</div>
+        </div>
+        <div class="card" style="text-align:center;padding:28px 16px;">
+          <div style="background:#141414;border:1px solid #2E2E2E;border-radius:16px;padding:24px;margin-bottom:14px;display:flex;justify-content:center;transition:all 0.3s;" onmouseover="this.style.borderColor='#F8F8F8'" onmouseout="this.style.borderColor='#2E2E2E'">
+            <svg viewBox="0 0 80 80" width="64" height="64" fill="none"><rect x="16" y="16" width="8" height="48" fill="#F8F8F8"/><rect x="16" y="16" width="36" height="8" fill="#F8F8F8"/><rect x="16" y="36" width="28" height="8" fill="#F8F8F8"/></svg>
+          </div>
+          <div class="card-title" style="font-size:13px;">Monocromo</div>
+          <div class="card-desc">Blanco sobre oscuro</div>
+        </div>
+        <div class="card" style="text-align:center;padding:28px 16px;">
+          <div style="background:#030303;border:1px solid #2E2E2E;border-radius:16px;padding:24px;margin-bottom:14px;display:flex;justify-content:center;align-items:center;gap:12px;transition:all 0.3s;" onmouseover="this.style.borderColor='#C8FF00'" onmouseout="this.style.borderColor='#2E2E2E'">
+            <svg viewBox="0 0 80 80" width="44" height="44" fill="none"><rect width="80" height="80" rx="16" fill="#030303"/><rect x="16" y="16" width="8" height="48" fill="#C8FF00"/><rect x="16" y="16" width="36" height="8" fill="#C8FF00"/><rect x="16" y="36" width="28" height="8" fill="#C8FF00"/></svg>
+            <span style="font-size:18px;font-weight:800;letter-spacing:-0.02em;">FABRI-CORE</span>
+          </div>
+          <div class="card-title" style="font-size:13px;">+ Wordmark</div>
+          <div class="card-desc">Logo + nombre</div>
+        </div>
+      </div>
+      <div class="row mt-16">
+        <span class="pill">Reglas: No deformar · No gradientes · Espacio de seguridad 12% · Proporción bloqueada · Libre para uso</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 5: COMPONENTES -->
+  <section class="slide" data-dur="8000">
+    <div class="stack" style="gap:28px;width:100%;max-width:960px;">
+      <div class="label">Componentes · Documentación</div>
+      <h2 class="h2">Del token al componente</h2>
+      <div class="grid-2" style="max-width:960px;">
+        <div class="card">
+          <div class="card-icon">🔘</div>
+          <div class="card-title">Botón Primario</div>
+          <div style="margin:14px 0;">
+            <button style="padding:12px 24px;background:linear-gradient(135deg,#C8FF00,#B7FF32);color:#000;border:none;border-radius:12px;font-weight:700;font-size:14px;cursor:pointer;box-shadow:0 0 24px rgba(200,255,0,0.4);transition:all 0.3s;" onmouseover="this.style.transform='scale(1.05)';this.style.boxShadow='0 0 40px rgba(200,255,0,0.6)'" onmouseout="this.style.transform='scale(1)';this.style.boxShadow='0 0 24px rgba(200,255,0,0.4)'">Acción principal</button>
+          </div>
+          <div class="card-desc">Lima sólido, texto negro, glow sutil. Hover: scale + glow.</div>
+        </div>
+        <div class="card">
+          <div class="card-icon">🏷️</div>
+          <div class="card-title">Badges &amp; Pills</div>
+          <div style="margin:14px 0;" class="row">
+            <span class="badge">Activo</span>
+            <span class="badge badge-muted">Inactivo</span>
+            <span class="pill">Tag</span>
+          </div>
+          <div class="card-desc">Borde lima para activo, borde gris para inactivo. Hover glow.</div>
+        </div>
+        <div class="card">
+          <div class="card-icon">🃏</div>
+          <div class="card-title">Card con Hover</div>
+          <div style="margin:14px 0;padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:12px;font-size:13px;color:var(--muted);transition:all 0.3s;" onmouseover="this.style.borderColor='#C8FF00';this.style.transform='translateY(-4px)'" onmouseout="this.style.borderColor='#1F1F1F';this.style.transform='translateY(0)'">Pasa el mouse → borde lima + glow + lift.</div>
+          <div class="card-desc">Transición 300ms ease, línea superior lima, radial glow.</div>
+        </div>
+        <div class="card">
+          <div class="card-icon">📊</div>
+          <div class="card-title">Progress &amp; Stats</div>
+          <div style="margin:14px 0;">
+            <div style="height:6px;background:#1F1F1F;border-radius:3px;overflow:hidden;"><div style="width:68%;height:100%;background:linear-gradient(90deg,#C8FF00,#B7FF32);box-shadow:0 0 8px rgba(200,255,0,0.4);border-radius:3px;"></div></div>
+          </div>
+          <div class="row" style="gap:8px;margin-top:10px;">
+            <div class="stat" style="min-width:80px;padding:12px 8px;"><div class="stat-num" style="font-size:20px;">68%</div><div class="stat-label">Progreso</div></div>
+          </div>
+          <div class="card-desc">Números en tabular-nums, color lima, glow text.</div>
+        </div>
+      </div>
+      <div class="row mt-16">
+        <span class="pill">Tokens: --bg #030303 · --lime #C8FF00 · --border #1F1F1F · --radius 16px · --shadow-glow</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 6: ESTILO Y TONO -->
+  <section class="slide" data-dur="7000">
+    <div class="stack" style="gap:28px;">
+      <div class="label">Personalidad de Marca · Documentación</div>
+      <h2 class="h2">Industrial · Técnico · Premium · Local</h2>
+      <div class="grid-4" style="max-width:960px;">
+        <div class="card card-lime" style="text-align:center;">
+          <div style="font-size:36px;margin-bottom:10px;">⚙️</div>
+          <div class="card-title">Industrial</div>
+          <div class="card-desc">Funcional, sin adornos. Lo que funciona, sin más.</div>
+        </div>
+        <div class="card" style="text-align:center;">
+          <div style="font-size:36px;margin-bottom:10px;">🔧</div>
+          <div class="card-title">Técnico</div>
+          <div class="card-desc">Precisión, datos, métricas. Habla el idioma del operador.</div>
+        </div>
+        <div class="card" style="text-align:center;">
+          <div style="font-size:36px;margin-bottom:10px;">💎</div>
+          <div class="card-title">Premium</div>
+          <div class="card-desc">Oscuro, elegante, cuidado en cada detalle.</div>
+        </div>
+        <div class="card" style="text-align:center;">
+          <div style="font-size:36px;margin-bottom:10px;">📍</div>
+          <div class="card-title">Local-first</div>
+          <div class="card-desc">Chile y LATAM. Sin dependencia de nube ni de terceros.</div>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <p class="lead" style="font-size:18px;">"Negro como la eficiencia. Lima como la energía. Sin adornos — solo lo que funciona."</p>
+      <div class="row mt-16">
+        <a class="cta-btn cta-btn-secondary" href="05-redes.html">Apóyanos con un like ❤️</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 7: GRATIS / LIKE CTA -->
+  <section class="slide" data-dur="0">
+    <div class="stack" style="gap:28px;max-width:720px;">
+      <div class="label">Software Libre · Sin Humo</div>
+      <h2 class="h2">100% Gratis. Sin letra chica.</h2>
+      <p class="lead">FABRI-CORE es software libre. No vendemos humo. No hay suscripción oculta. No hay "versión pro" que desbloquee funciones.</p>
+      <div class="cta-social">
+        <div class="cta-title">Si te sirve, dale un like</div>
+        <div class="cta-desc">El único "pago" que pedimos es un like en redes sociales si el software te fue útil.</div>
+        <div class="cta-buttons">
+          <a class="cta-btn cta-btn-primary" href="https://www.tiktok.com/@fabricore.cl" target="_blank">❤️ Like en TikTok</a>
+          <a class="cta-btn cta-btn-secondary" href="https://www.facebook.com/fabricore" target="_blank">👍 Like en Facebook</a>
+        </div>
+        <span class="free-badge">Software 100% Gratuito</span>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<div class="controls">
+  <button class="btn-ctrl" id="btn-prev">←</button>
+  <button class="btn-ctrl btn-ctrl-primary" id="btn-play"><span id="play-icon">⏸</span></button>
+  <button class="btn-ctrl" id="btn-next">→</button>
+  <div class="progress-wrap" id="progress-wrap">
+    <div class="progress-fill" id="progress-fill"></div>
+  </div>
+  <div class="slide-count"><span id="cur-slide">1</span> / 7</div>
+  <button class="btn-ctrl" id="btn-fs">⛶</button>
+</div>
+
+<script>
+const SLIDES = document.querySelectorAll('.slide');
+const DURATIONS = [...SLIDES].map(s => parseInt(s.dataset.dur || '6000'));
+let cur = 0, playing = true, timer = null;
+const $fill = document.getElementById('progress-fill');
+const $cur = document.getElementById('cur-slide');
+const $timer = document.getElementById('timer-fill');
+const $playIcon = document.getElementById('play-icon');
+const dots = document.querySelectorAll('.chapter-dot');
+
+function showSlide(n) {
+  SLIDES[cur]?.classList.remove('active');
+  SLIDES[cur]?.classList.add('exit');
+  setTimeout(() => SLIDES[cur]?.classList.remove('exit'), 800);
+  cur = (n + SLIDES.length) % SLIDES.length;
+  SLIDES[cur].classList.add('active');
+  dots.forEach((d,i) => d.classList.toggle('active', i===cur));
+  if($cur) $cur.textContent = cur+1;
+  if($fill) $fill.style.width = ((cur/(SLIDES.length-1||1))*100)+'%';
+  if($timer){$timer.style.transition='none';$timer.style.width='0%';}
+  resetTimer();
+}
+
+function resetTimer() {
+  clearTimeout(timer);
+  if(!playing) return;
+  const dur = DURATIONS[cur];
+  if(dur === 0) return;
+  if($timer){ setTimeout(()=>{$timer.style.transition=`width ${dur}ms linear`;$timer.style.width='100%';},50); }
+  timer = setTimeout(()=>showSlide(cur+1), dur);
+}
+
+function togglePlay() {
+  playing = !playing;
+  if($playIcon) $playIcon.textContent = playing ? '⏸' : '▶';
+  if(playing) resetTimer(); else { clearTimeout(timer); if($timer){$timer.style.transition='none';} }
+}
+
+document.getElementById('btn-play')?.addEventListener('click', togglePlay);
+document.getElementById('btn-prev')?.addEventListener('click', ()=>{clearTimeout(timer);showSlide(cur-1);});
+document.getElementById('btn-next')?.addEventListener('click', ()=>{clearTimeout(timer);showSlide(cur+1);});
+document.getElementById('progress-wrap')?.addEventListener('click', e=>{
+  const r=e.currentTarget.getBoundingClientRect();
+  clearTimeout(timer);showSlide(Math.round((e.clientX-r.left)/r.width*(SLIDES.length-1)));
+});
+document.querySelectorAll('.chapter-dot').forEach((d,i)=>d.addEventListener('click',()=>{clearTimeout(timer);showSlide(i);}));
+document.getElementById('btn-fs')?.addEventListener('click',()=>{document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen();});
+document.addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight'||e.key==='PageDown'){clearTimeout(timer);showSlide(cur+1);}
+  if(e.key==='ArrowLeft'||e.key==='PageUp'){clearTimeout(timer);showSlide(cur-1);}
+  if(e.key===' '){e.preventDefault();togglePlay();}
+  if(e.key==='f'||e.key==='F')document.getElementById('btn-fs')?.click();
+});
+
+(function(){
+  const canvas=document.getElementById('bg-canvas');if(!canvas)return;
+  const ctx=canvas.getContext('2d');let W,H,pts=[];
+  function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight;}
+  resize();window.addEventListener('resize',resize);
+  for(let i=0;i<60;i++)pts.push({x:Math.random()*1920,y:Math.random()*1080,vx:(Math.random()-.5)*.3,vy:(Math.random()-.5)*.3,r:Math.random()*1.5+.5,a:Math.random()*.4+.05});
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    ctx.strokeStyle='rgba(200,255,0,0.02)';ctx.lineWidth=1;
+    for(let x=0;x<W;x+=60){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+    for(let y=0;y<H;y+=60){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+    pts.forEach(p=>{p.x+=p.vx;p.y+=p.vy;if(p.x<0)p.x=W;if(p.x>W)p.x=0;if(p.y<0)p.y=H;if(p.y>H)p.y=0;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fillStyle=`rgba(200,255,0,${p.a})`;ctx.fill();});
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+SLIDES[0]?.classList.add('active');
+if(dots[0])dots[0].classList.add('active');
+if($cur)$cur.textContent='1';
+if($fill)$fill.style.width='0%';
+setTimeout(()=>{if(playing)resetTimer();},500);
+</script>
+</body>
+</html>
