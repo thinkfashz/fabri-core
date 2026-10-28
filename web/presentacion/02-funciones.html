@@ -5,10 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>02 · Funciones · FABRI-CORE</title>
 <link rel="stylesheet" href="shared.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
 </head>
 <body>
 <canvas id="bg-canvas"></canvas>
-<div class="scanline"></div>
 
 <nav class="nav-strip">
   <a class="nav-home" href="index.html">← Inicio</a>
@@ -23,72 +24,58 @@
   </div>
 </nav>
 
-<div class="timer-bar"><div class="timer-fill" id="timer-fill"></div></div>
-
-<div class="chapters" id="chapters">
-  <div class="chapter-dot active"></div>
-  <div class="chapter-dot"></div>
-  <div class="chapter-dot"></div>
-  <div class="chapter-dot"></div>
-  <div class="chapter-dot"></div>
-  <div class="chapter-dot"></div>
-  <div class="chapter-dot"></div>
-  <div class="chapter-dot"></div>
-  <div class="chapter-dot"></div>
-</div>
-
-<div class="slide-deck">
-
-  <!-- SLIDE 1: OVERVIEW -->
-  <section class="slide active" data-dur="6000">
+<section class="section" id="hero">
+  <div class="section-content">
     <div class="stack" style="gap:32px;">
-      <div class="label">Funciones · Documentación Completa</div>
-      <h1 class="h1">17 Módulos. <span class="accent">Un solo teléfono.</span></h1>
-      <p class="lead">Inventario, IA local, terminal Linux, facturación, RAG y más — <strong>todo sin internet. Todo gratis.</strong></p>
-      <div class="row mt-20" style="gap:14px;">
-        <div class="stat"><div class="stat-num">17</div><div class="stat-label">Módulos</div></div>
-        <div class="stat"><div class="stat-num">10</div><div class="stat-label">Instalables</div></div>
-        <div class="stat"><div class="stat-num">4.2MB</div><div class="stat-label">APK</div></div>
-        <div class="stat"><div class="stat-num">13/13</div><div class="stat-label">Tests OK</div></div>
-        <div class="stat"><div class="stat-num">v0.9.26</div><div class="stat-label">Versión</div></div>
-        <div class="stat"><div class="stat-num gradient">$0</div><div class="stat-label">Costo</div></div>
+      <div class="label motion-reveal" style="opacity:0;">Funciones · Documentación Completa</div>
+      <h1 class="h1 motion-reveal" style="opacity:0;">17 Módulos. <span class="accent">Un solo teléfono.</span></h1>
+      <p class="lead motion-reveal" style="opacity:0;">Inventario, IA local, terminal Linux, facturación, RAG y más — <strong>todo sin internet. Todo gratis.</strong></p>
+      <div class="row mt-20 motion-reveal" style="opacity:0;gap:14px;">
+        <div class="stat motion-scale stagger-1" style="opacity:0;"><div class="stat-num">17</div><div class="stat-label">Módulos</div></div>
+        <div class="stat motion-scale stagger-2" style="opacity:0;"><div class="stat-num">10</div><div class="stat-label">Instalables</div></div>
+        <div class="stat motion-scale stagger-3" style="opacity:0;"><div class="stat-num">4.2MB</div><div class="stat-label">APK</div></div>
+        <div class="stat motion-scale stagger-4" style="opacity:0;"><div class="stat-num">13/13</div><div class="stat-label">Tests OK</div></div>
+        <div class="stat motion-scale stagger-5" style="opacity:0;"><div class="stat-num">v0.9.26</div><div class="stat-label">Versión</div></div>
+        <div class="stat motion-scale stagger-6" style="opacity:0;"><div class="stat-num gradient">$0</div><div class="stat-label">Costo</div></div>
       </div>
     </div>
-  </section>
+  </div>
+</section>
 
-  <!-- SLIDE 2: INVENTARIO -->
-  <section class="slide" data-dur="8000">
-    <div class="stack" style="gap:28px;width:100%;max-width:1000px;">
-      <div class="label">Módulo Inventario · Documentación</div>
-      <h2 class="h2">Escanea. Vende. Cobra.</h2>
+<section class="section section-alt" id="inventario">
+  <div class="section-content">
+    <div class="stack" style="gap:32px;max-width:1000px;">
+      <div class="label motion-reveal" style="opacity:0;">Módulo Inventario · Documentación</div>
+      <h2 class="h2 motion-reveal" style="opacity:0;">Escanea. Vende. Cobra.</h2>
       <div class="grid-3">
-        <div class="card">
+        <div class="card motion-slide-left stagger-1" style="opacity:0;">
           <div class="card-icon">📷</div>
           <div class="card-title">Escaneo EAN propio</div>
           <div class="card-desc">Decodificador desde cero. Sin ML, sin Google Vision. 13/13 tests pasando. Código abierto.</div>
         </div>
-        <div class="card">
+        <div class="card motion-reveal stagger-2" style="opacity:0;">
           <div class="card-icon">📦</div>
           <div class="card-title">Apilador continuo</div>
           <div class="card-desc">Escaneo sin cerrar cámara. Un registro SQLite por lote. Ideal para inventario masivo.</div>
         </div>
-        <div class="card">
+        <div class="card motion-slide-right stagger-3" style="opacity:0;">
           <div class="card-icon">📥</div>
           <div class="card-title">Importación masiva</div>
           <div class="card-desc">CSV / Excel / Eleventa con alias chilenos. Deduplicación por EAN. Sin límite.</div>
         </div>
       </div>
-      <p class="lead" style="font-size:15px;">El decodificador EAN funciona desde cero, sin librerías externas. Compatible con todos los códigos de barras estándar. <span class="accent">100% gratis.</span></p>
+      <p class="lead motion-reveal" style="opacity:0;font-size:15px;">El decodificador EAN funciona desde cero, sin librerías externas. Compatible con todos los códigos de barras estándar. <span class="accent">100% gratis.</span></p>
     </div>
-  </section>
+  </div>
+</section>
 
-  <!-- SLIDE 3: IA LOCAL -->
-  <section class="slide" data-dur="8000">
-    <div class="stack" style="gap:28px;width:100%;max-width:1000px;">
-      <div class="label">Inteligencia Artificial Local · Documentación</div>
-      <h2 class="h2">El modelo corre en tu teléfono.</h2>
+<section class="section" id="ia-local">
+  <div class="section-content">
+    <div class="stack" style="gap:32px;max-width:1000px;">
+      <div class="label motion-reveal" style="opacity:0;">Inteligencia Artificial Local · Documentación</div>
+      <h2 class="h2 motion-reveal" style="opacity:0;">El modelo corre en tu teléfono.</h2>
       <div class="row" style="gap:40px;align-items:center;flex-wrap:wrap;justify-content:center;">
-        <div class="phone float">
+        <div class="phone float motion-scale" style="opacity:0;">
           <div class="phone-screen">
             <div style="font-size:11px;color:#7A7A7A;text-transform:uppercase;letter-spacing:0.08em;font-weight:600;margin-bottom:8px;">FABRI-CORE IA · Local · Gratis</div>
             <div class="chat-bubble chat-user">¿Cuánto vendí esta semana?</div>
@@ -105,17 +92,17 @@
         </div>
         <div style="flex:1;max-width:480px;">
           <div class="stack" style="gap:14px;align-items:flex-start;">
-            <div class="card" style="width:100%;">
+            <div class="card motion-slide-right stagger-1" style="width:100%;opacity:0;">
               <div class="card-icon" style="width:40px;height:40px;font-size:18px;">🦀</div>
               <div class="card-title" style="font-size:14px;">llama.cpp runtime</div>
               <div class="card-desc">Motor de inferencia en Rust/JNI. Sin JVM overhead. Código abierto.</div>
             </div>
-            <div class="card" style="width:100%;">
+            <div class="card motion-slide-right stagger-2" style="width:100%;opacity:0;">
               <div class="card-icon" style="width:40px;height:40px;font-size:18px;">📦</div>
               <div class="card-title" style="font-size:14px;">Modelos GGUF</div>
               <div class="card-desc">Quantización Q4_K_M. 1-2 GB RAM. 10-25 tok/s. Descarga gratuita.</div>
             </div>
-            <div class="card card-lime" style="width:100%;">
+            <div class="card card-lime motion-slide-right stagger-3" style="width:100%;opacity:0;">
               <div class="card-icon" style="width:40px;height:40px;font-size:18px;">🔒</div>
               <div class="card-title" style="font-size:14px;">Sin internet · Sin costo</div>
               <div class="card-desc">Cero datos enviados. Cero costo por consulta. Cero suscripción. Para siempre.</div>
@@ -124,14 +111,15 @@
         </div>
       </div>
     </div>
-  </section>
+  </div>
+</section>
 
-  <!-- SLIDE 4: TERMINAL -->
-  <section class="slide" data-dur="7000">
-    <div class="stack" style="gap:28px;width:100%;max-width:800px;">
-      <div class="label">Terminal Integrada · Documentación</div>
-      <h2 class="h2">Una terminal real. En el bolsillo.</h2>
-      <div class="terminal">
+<section class="section section-alt" id="terminal">
+  <div class="section-content">
+    <div class="stack" style="gap:32px;max-width:800px;">
+      <div class="label motion-reveal" style="opacity:0;">Terminal Integrada · Documentación</div>
+      <h2 class="h2 motion-reveal" style="opacity:0;">Una terminal real. En el bolsillo.</h2>
+      <div class="terminal motion-reveal" style="opacity:0;">
 <span class="prompt">$</span> ls inventario/
 <span class="out">productos.db  boletas.json  config.yaml</span>
 <span class="prompt">$</span> cat stats.json | jq '.ventas_semana'
@@ -142,7 +130,7 @@
 <span class="out">Analizando 342 productos...</span>
 <span class="ok">✓ Nescafé 100g — 41% de margen · $0</span>
       </div>
-      <div class="row mt-16" style="gap:10px;flex-wrap:wrap;justify-content:center;">
+      <div class="row mt-16 motion-reveal" style="opacity:0;gap:10px;flex-wrap:wrap;justify-content:center;">
         <span class="pill">PTY real</span>
         <span class="pill">SSH out</span>
         <span class="pill">Scripts automáticos</span>
@@ -151,14 +139,15 @@
         <span class="pill">100% gratis</span>
       </div>
     </div>
-  </section>
+  </div>
+</section>
 
-  <!-- SLIDE 5: RAG -->
-  <section class="slide" data-dur="8000">
-    <div class="stack" style="gap:28px;width:100%;max-width:1000px;">
-      <div class="label">RAG · Memoria Híbrida · Documentación</div>
-      <h2 class="h2">Tu IA sabe lo que vendiste.</h2>
-      <div class="flow">
+<section class="section" id="rag">
+  <div class="section-content">
+    <div class="stack" style="gap:32px;max-width:1000px;">
+      <div class="label motion-reveal" style="opacity:0;">RAG · Memoria Híbrida · Documentación</div>
+      <h2 class="h2 motion-reveal" style="opacity:0;">Tu IA sabe lo que vendiste.</h2>
+      <div class="flow motion-reveal" style="opacity:0;">
         <div class="flow-node">Documentos</div>
         <span class="flow-arrow">→</span>
         <div class="flow-node">FTS5</div>
@@ -174,62 +163,64 @@
         <div class="flow-node lime">Respuesta</div>
       </div>
       <div class="grid-3 mt-20">
-        <div class="card">
+        <div class="card motion-scale stagger-1" style="opacity:0;">
           <div class="card-icon">🔍</div>
           <div class="card-title">FTS5 Léxico</div>
           <div class="card-desc">Búsqueda textual BM25 nativa en SQLite. Sin dependencias externas. Incluido.</div>
         </div>
-        <div class="card">
+        <div class="card motion-scale stagger-2" style="opacity:0;">
           <div class="card-icon">🧬</div>
           <div class="card-title">Embeddings</div>
           <div class="card-desc">Similitud semántica vectorial. Encuentra por significado, no por palabra.</div>
         </div>
-        <div class="card">
+        <div class="card motion-scale stagger-3" style="opacity:0;">
           <div class="card-icon">🔗</div>
           <div class="card-title">Procedencia</div>
           <div class="card-desc">Cada resultado sabe de dónde vino. Trazabilidad total. Sin costo.</div>
         </div>
       </div>
     </div>
-  </section>
+  </div>
+</section>
 
-  <!-- SLIDE 6: FACTURACIÓN -->
-  <section class="slide" data-dur="7000">
-    <div class="stack" style="gap:28px;width:100%;max-width:900px;">
-      <div class="label">Facturación y Documentos · Documentación</div>
-      <h2 class="h2">Boletas, PDFs y tu logo.</h2>
+<section class="section section-alt" id="facturacion">
+  <div class="section-content">
+    <div class="stack" style="gap:32px;max-width:900px;">
+      <div class="label motion-reveal" style="opacity:0;">Facturación y Documentos · Documentación</div>
+      <h2 class="h2 motion-reveal" style="opacity:0;">Boletas, PDFs y tu logo.</h2>
       <div class="grid-2">
-        <div class="card">
+        <div class="card motion-slide-left stagger-1" style="opacity:0;">
           <div class="card-icon">🧾</div>
           <div class="card-title">Boleta electrónica</div>
           <div class="card-desc">Generación de boletas con datos del negocio. Formato estándar. Sin costo por boleta.</div>
         </div>
-        <div class="card">
+        <div class="card motion-slide-right stagger-2" style="opacity:0;">
           <div class="card-icon">📄</div>
           <div class="card-title">Exportar PDF</div>
           <div class="card-desc">PDF con logo, encabezado y pie personalizados. Vista previa de impresión. Gratis.</div>
         </div>
-        <div class="card">
+        <div class="card motion-slide-left stagger-3" style="opacity:0;">
           <div class="card-icon">📊</div>
           <div class="card-title">Excel / CSV</div>
           <div class="card-desc">Exportación masiva de inventario, ventas y reportes. Sin límite de filas.</div>
         </div>
-        <div class="card">
+        <div class="card motion-slide-right stagger-4" style="opacity:0;">
           <div class="card-icon">🔖</div>
           <div class="card-title">OCR de facturas</div>
           <div class="card-desc">Arquitectura lista para reconocimiento de texto en facturas. Código abierto.</div>
         </div>
       </div>
     </div>
-  </section>
+  </div>
+</section>
 
-  <!-- SLIDE 7: MÓDULOS INSTALABLES -->
-  <section class="slide" data-dur="7000">
-    <div class="stack" style="gap:28px;width:100%;max-width:1000px;">
-      <div class="label">Sistema de Módulos · Documentación</div>
-      <h2 class="h2">Expande sin actualizar.</h2>
-      <p class="lead" style="font-size:15px;">15 módulos instalables en caliente. El sistema crece contigo. Sin costo adicional.</p>
-      <div class="row" style="gap:10px;flex-wrap:wrap;justify-content:center;max-width:900px;">
+<section class="section" id="modulos">
+  <div class="section-content">
+    <div class="stack" style="gap:32px;max-width:1000px;">
+      <div class="label motion-reveal" style="opacity:0;">Sistema de Módulos · Documentación</div>
+      <h2 class="h2 motion-reveal" style="opacity:0;">Expande sin actualizar.</h2>
+      <p class="lead motion-reveal" style="opacity:0;font-size:15px;">15 módulos instalables en caliente. El sistema crece contigo. Sin costo adicional.</p>
+      <div class="row motion-reveal" style="opacity:0;gap:10px;flex-wrap:wrap;justify-content:center;max-width:900px;">
         <span class="pill">Analíticas</span>
         <span class="pill">Catálogos</span>
         <span class="pill">Conexiones</span>
@@ -246,49 +237,50 @@
         <span class="pill">Facturas</span>
         <span class="pill">Flujos en vivo</span>
       </div>
-      <div class="row mt-20" style="gap:16px;">
+      <div class="row mt-20 motion-reveal" style="opacity:0;gap:16px;">
         <div class="stat"><div class="stat-num">15</div><div class="stat-label">Módulos</div></div>
         <div class="stat"><div class="stat-num">Hot</div><div class="stat-label">Install</div></div>
         <div class="stat"><div class="stat-num">0</div><div class="stat-label">Costo extra</div></div>
       </div>
     </div>
-  </section>
+  </div>
+</section>
 
-  <!-- SLIDE 8: ECOSISTEMA CLOUD -->
-  <section class="slide" data-dur="7000">
-    <div class="stack" style="gap:28px;width:100%;max-width:1000px;">
-      <div class="label">Ecosistema Cloud (Opcional) · Documentación</div>
-      <h2 class="h2">La nube hace lo que el teléfono no debe.</h2>
+<section class="section section-alt" id="cloud">
+  <div class="section-content">
+    <div class="stack" style="gap:32px;max-width:1000px;">
+      <div class="label motion-reveal" style="opacity:0;">Ecosistema Cloud (Opcional) · Documentación</div>
+      <h2 class="h2 motion-reveal" style="opacity:0;">La nube hace lo que el teléfono no debe.</h2>
       <div class="grid-3">
-        <div class="card card-lime">
+        <div class="card card-lime motion-scale stagger-1" style="opacity:0;">
           <div class="card-icon">☁️</div>
           <div class="card-title">fabri-api</div>
           <div class="card-desc">Vercel · Go. Sync, stats, health. Opcional: el teléfono opera sin ella. Gratis.</div>
         </div>
-        <div class="card">
+        <div class="card motion-scale stagger-2" style="opacity:0;">
           <div class="card-icon">🤖</div>
           <div class="card-title">fabrick-tg-bot</div>
           <div class="card-desc">Bot Telegram con voz. 15 capas LLM. Rotador de modelos. Código abierto.</div>
         </div>
-        <div class="card">
+        <div class="card motion-scale stagger-3" style="opacity:0;">
           <div class="card-icon">🌐</div>
           <div class="card-title">fabrick-cloud</div>
           <div class="card-desc">Cloudflare Worker. TTS MeloTTS, KV cache, R2 storage. Opcional.</div>
         </div>
       </div>
-      <p class="lead" style="font-size:14px;">El teléfono es el centro. La nube es un satélite opcional para sync y voz. <span class="accent">Todo gratuito.</span></p>
+      <p class="lead motion-reveal" style="opacity:0;font-size:14px;">El teléfono es el centro. La nube es un satélite opcional para sync y voz. <span class="accent">Todo gratuito.</span></p>
     </div>
-  </section>
+  </div>
+</section>
 
-  <!-- SLIDE 9: GRATIS / LIKE CTA -->
-  <section class="slide" data-dur="0">
-    <div class="stack" style="gap:28px;max-width:720px;">
-      <div class="label">Software Libre · Sin Humo</div>
-      <h2 class="h2">100% Gratis. Sin letra chica.</h2>
-      <p class="lead">FABRI-CORE es software libre. No vendemos humo. No hay suscripción oculta.</p>
-      <div class="cta-social">
+<section class="section" id="cta">
+  <div class="section-content">
+    <div class="stack" style="gap:32px;max-width:720px;">
+      <div class="label motion-reveal" style="opacity:0;">Software Libre · Sin Humo</div>
+      <h2 class="h2 motion-reveal" style="opacity:0;">100% Gratis. Sin letra chica.</h2>
+      <div class="cta-social motion-scale" style="opacity:0;">
         <div class="cta-title">Si te sirve, dale un like</div>
-        <div class="cta-desc">El único "pago" que pedimos es un like en redes sociales si el software te fue útil.</div>
+        <div class="cta-desc">El único "pago" que pedimos es un like en redes sociales.</div>
         <div class="cta-buttons">
           <a class="cta-btn cta-btn-primary" href="https://www.tiktok.com/@fabricore.cl" target="_blank">❤️ Like en TikTok</a>
           <a class="cta-btn cta-btn-secondary" href="https://www.facebook.com/fabricore" target="_blank">👍 Like en Facebook</a>
@@ -296,73 +288,65 @@
         <span class="free-badge">Software 100% Gratuito</span>
       </div>
     </div>
-  </section>
-
-</div>
-
-<div class="controls">
-  <button class="btn-ctrl" id="btn-prev">←</button>
-  <button class="btn-ctrl btn-ctrl-primary" id="btn-play"><span id="play-icon">⏸</span></button>
-  <button class="btn-ctrl" id="btn-next">→</button>
-  <div class="progress-wrap" id="progress-wrap">
-    <div class="progress-fill" id="progress-fill"></div>
   </div>
-  <div class="slide-count"><span id="cur-slide">1</span> / 9</div>
-  <button class="btn-ctrl" id="btn-fs">⛶</button>
-</div>
+</section>
+
+<footer class="footer">
+  <div class="footer-logo">
+    <svg viewBox="0 0 80 80" width="48" height="48" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="80" height="80" rx="16" fill="#030303"/>
+      <rect x="16" y="16" width="8" height="48" fill="#C8FF00"/>
+      <rect x="16" y="16" width="36" height="8" fill="#C8FF00"/>
+      <rect x="16" y="36" width="28" height="8" fill="#C8FF00"/>
+    </svg>
+  </div>
+  <p class="footer-text">
+    FABRI-CORE · Soluciones Fabrick · Software Libre · 2026<br>
+    <a href="https://github.com/thinkfashz/fabri-core">GitHub</a> · 
+    <a href="https://www.tiktok.com/@fabricore.cl">TikTok</a> · 
+    <a href="https://www.facebook.com/fabricore">Facebook</a>
+  </p>
+  <p class="footer-text" style="margin-top:12px;font-size:11px;">
+    Sin humo. Sin suscripción. Sin datos en la nube de otro. 100% gratuito.
+  </p>
+</footer>
 
 <script>
-const SLIDES = document.querySelectorAll('.slide');
-const DURATIONS = [...SLIDES].map(s => parseInt(s.dataset.dur || '6000'));
-let cur = 0, playing = true, timer = null;
-const $fill = document.getElementById('progress-fill');
-const $cur = document.getElementById('cur-slide');
-const $timer = document.getElementById('timer-fill');
-const $playIcon = document.getElementById('play-icon');
-const dots = document.querySelectorAll('.chapter-dot');
+gsap.registerPlugin(ScrollTrigger);
 
-function showSlide(n) {
-  SLIDES[cur]?.classList.remove('active');
-  SLIDES[cur]?.classList.add('exit');
-  setTimeout(() => SLIDES[cur]?.classList.remove('exit'), 800);
-  cur = (n + SLIDES.length) % SLIDES.length;
-  SLIDES[cur].classList.add('active');
-  dots.forEach((d,i) => d.classList.toggle('active', i===cur));
-  if($cur) $cur.textContent = cur+1;
-  if($fill) $fill.style.width = ((cur/(SLIDES.length-1||1))*100)+'%';
-  if($timer){$timer.style.transition='none';$timer.style.width='0%';}
-  resetTimer();
-}
-
-function resetTimer() {
-  clearTimeout(timer);
-  if(!playing) return;
-  const dur = DURATIONS[cur];
-  if(dur === 0) return;
-  if($timer){ setTimeout(()=>{$timer.style.transition=`width ${dur}ms linear`;$timer.style.width='100%';},50); }
-  timer = setTimeout(()=>showSlide(cur+1), dur);
-}
-
-function togglePlay() {
-  playing = !playing;
-  if($playIcon) $playIcon.textContent = playing ? '⏸' : '▶';
-  if(playing) resetTimer(); else { clearTimeout(timer); if($timer){$timer.style.transition='none';} }
-}
-
-document.getElementById('btn-play')?.addEventListener('click', togglePlay);
-document.getElementById('btn-prev')?.addEventListener('click', ()=>{clearTimeout(timer);showSlide(cur-1);});
-document.getElementById('btn-next')?.addEventListener('click', ()=>{clearTimeout(timer);showSlide(cur+1);});
-document.getElementById('progress-wrap')?.addEventListener('click', e=>{
-  const r=e.currentTarget.getBoundingClientRect();
-  clearTimeout(timer);showSlide(Math.round((e.clientX-r.left)/r.width*(SLIDES.length-1)));
+gsap.utils.toArray('.motion-reveal').forEach((el) => {
+  gsap.fromTo(el, { opacity: 0, y: 40 }, {
+    opacity: 1, y: 0, duration: 0.8, ease: 'power3.out',
+    scrollTrigger: { trigger: el, start: 'top 85%', toggleActions: 'play none none reverse' }
+  });
 });
-document.querySelectorAll('.chapter-dot').forEach((d,i)=>d.addEventListener('click',()=>{clearTimeout(timer);showSlide(i);}));
-document.getElementById('btn-fs')?.addEventListener('click',()=>{document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen();});
-document.addEventListener('keydown',e=>{
-  if(e.key==='ArrowRight'||e.key==='PageDown'){clearTimeout(timer);showSlide(cur+1);}
-  if(e.key==='ArrowLeft'||e.key==='PageUp'){clearTimeout(timer);showSlide(cur-1);}
-  if(e.key===' '){e.preventDefault();togglePlay();}
-  if(e.key==='f'||e.key==='F')document.getElementById('btn-fs')?.click();
+
+gsap.utils.toArray('.motion-scale').forEach((el, i) => {
+  gsap.fromTo(el, { opacity: 0, scale: 0.85 }, {
+    opacity: 1, scale: 1, duration: 0.7, delay: i * 0.08, ease: 'back.out(1.4)',
+    scrollTrigger: { trigger: el, start: 'top 90%', toggleActions: 'play none none reverse' }
+  });
+});
+
+gsap.utils.toArray('.motion-slide-left').forEach((el) => {
+  gsap.fromTo(el, { opacity: 0, x: -60 }, {
+    opacity: 1, x: 0, duration: 0.8, ease: 'power3.out',
+    scrollTrigger: { trigger: el, start: 'top 85%', toggleActions: 'play none none reverse' }
+  });
+});
+
+gsap.utils.toArray('.motion-slide-right').forEach((el) => {
+  gsap.fromTo(el, { opacity: 0, x: 60 }, {
+    opacity: 1, x: 0, duration: 0.8, ease: 'power3.out',
+    scrollTrigger: { trigger: el, start: 'top 85%', toggleActions: 'play none none reverse' }
+  });
+});
+
+gsap.utils.toArray('.stagger-1, .stagger-2, .stagger-3, .stagger-4, .stagger-5, .stagger-6').forEach((el, i) => {
+  gsap.fromTo(el, { opacity: 0, y: 30 }, {
+    opacity: 1, y: 0, duration: 0.6, delay: (i % 6) * 0.1, ease: 'power2.out',
+    scrollTrigger: { trigger: el, start: 'top 90%', toggleActions: 'play none none reverse' }
+  });
 });
 
 (function(){
@@ -373,20 +357,14 @@ document.addEventListener('keydown',e=>{
   for(let i=0;i<55;i++)pts.push({x:Math.random()*1920,y:Math.random()*1080,vx:(Math.random()-.5)*.25,vy:(Math.random()-.5)*.25,r:Math.random()*1.2+.4,a:Math.random()*.3+.05});
   function draw(){
     ctx.clearRect(0,0,W,H);
-    ctx.strokeStyle='rgba(200,255,0,0.02)';ctx.lineWidth=1;
-    for(let x=0;x<W;x+=60){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
-    for(let y=0;y<H;y+=60){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+    ctx.strokeStyle='rgba(200,255,0,0.015)';ctx.lineWidth=1;
+    for(let x=0;x<W;x+=80){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+    for(let y=0;y<H;y+=80){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
     pts.forEach(p=>{p.x+=p.vx;p.y+=p.vy;if(p.x<0)p.x=W;if(p.x>W)p.x=0;if(p.y<0)p.y=H;if(p.y>H)p.y=0;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fillStyle=`rgba(200,255,0,${p.a})`;ctx.fill();});
     requestAnimationFrame(draw);
   }
   draw();
 })();
-
-SLIDES[0]?.classList.add('active');
-if(dots[0])dots[0].classList.add('active');
-if($cur)$cur.textContent='1';
-if($fill)$fill.style.width='0%';
-setTimeout(()=>{if(playing)resetTimer();},500);
 </script>
 </body>
 </html>

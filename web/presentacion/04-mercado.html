@@ -5,10 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>04 · Mercado · FABRI-CORE</title>
 <link rel="stylesheet" href="shared.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
 </head>
 <body>
 <canvas id="bg-canvas"></canvas>
-<div class="scanline"></div>
 
 <nav class="nav-strip">
   <a class="nav-home" href="index.html">← Inicio</a>
@@ -23,78 +24,64 @@
   </div>
 </nav>
 
-<div class="timer-bar"><div class="timer-fill" id="timer-fill"></div></div>
-
-<div class="chapters" id="chapters">
-  <div class="chapter-dot active"></div>
-  <div class="chapter-dot"></div>
-  <div class="chapter-dot"></div>
-  <div class="chapter-dot"></div>
-  <div class="chapter-dot"></div>
-  <div class="chapter-dot"></div>
-  <div class="chapter-dot"></div>
-  <div class="chapter-dot"></div>
-  <div class="chapter-dot"></div>
-</div>
-
-<div class="slide-deck">
-
-  <!-- SLIDE 1: TAMAÑO DEL MERCADO -->
-  <section class="slide active" data-dur="7000">
-    <div class="stack" style="gap:28px;">
-      <div class="label">Mercado · Análisis Real</div>
-      <h1 class="h1">Un mercado de <span class="accent">$14.2B</span> en LATAM.</h1>
+<section class="section" id="hero">
+  <div class="section-content">
+    <div class="stack" style="gap:32px;">
+      <div class="label motion-reveal" style="opacity:0;">Mercado · Análisis Real</div>
+      <h1 class="h1 motion-reveal" style="opacity:0;">Un mercado de <span class="accent">$14.2B</span> en LATAM.</h1>
       <div class="grid-4" style="max-width:1000px;margin-top:16px;">
-        <div class="stat"><div class="stat-num">$14.2B</div><div class="stat-label">Mercado POS LATAM 2024</div></div>
-        <div class="stat"><div class="stat-num">150K</div><div class="stat-label">Almacenes Chile sin sistema</div></div>
-        <div class="stat"><div class="stat-num">70%</div><div class="stat-label">Negocios sin digitalizar</div></div>
-        <div class="stat"><div class="stat-num">10.7%</div><div class="stat-label">CAGR anual</div></div>
+        <div class="stat motion-scale stagger-1" style="opacity:0;"><div class="stat-num">$14.2B</div><div class="stat-label">Mercado POS LATAM 2024</div></div>
+        <div class="stat motion-scale stagger-2" style="opacity:0;"><div class="stat-num">150K</div><div class="stat-label">Almacenes Chile sin sistema</div></div>
+        <div class="stat motion-scale stagger-3" style="opacity:0;"><div class="stat-num">70%</div><div class="stat-label">Negocios sin digitalizar</div></div>
+        <div class="stat motion-scale stagger-4" style="opacity:0;"><div class="stat-num">10.7%</div><div class="stat-label">CAGR anual</div></div>
       </div>
-      <p class="sub">Fuentes: Statista, Sercotec, INE Chile. Datos públicos 2024-2025.</p>
+      <p class="sub motion-reveal" style="opacity:0;">Fuentes: Statista, Sercotec, INE Chile. Datos públicos 2024-2025.</p>
     </div>
-  </section>
+  </div>
+</section>
 
-  <!-- SLIDE 2: SEGMENTOS -->
-  <section class="slide" data-dur="9000">
-    <div class="stack" style="gap:24px;width:100%;max-width:900px;">
-      <div class="label">Segmentos Objetivo · Documentación</div>
-      <h2 class="h2">Cinco públicos. Una solución.</h2>
+<section class="section section-alt" id="segmentos">
+  <div class="section-content">
+    <div class="stack" style="gap:24px;max-width:900px;">
+      <div class="label motion-reveal" style="opacity:0;">Segmentos Objetivo · Documentación</div>
+      <h2 class="h2 motion-reveal" style="opacity:0;">Cinco públicos. Una solución.</h2>
       <div style="width:100%;display:flex;flex-direction:column;gap:10px;">
-        <div class="card" style="padding:16px 22px;display:flex;align-items:center;gap:16px;">
+        <div class="card motion-slide-left stagger-1" style="padding:16px 22px;display:flex;align-items:center;gap:16px;opacity:0;">
           <span style="font-size:20px;">⭐⭐⭐⭐⭐</span>
           <div style="flex:1;"><div class="card-title" style="font-size:14px;margin-bottom:2px;">Almacenes y minimarkets</div><div class="card-desc">120.000 locales en Chile. Sin sistema o con Excel. Gratis para ellos.</div></div>
           <span class="badge" style="font-size:10px;">Prioridad A</span>
         </div>
-        <div class="card" style="padding:16px 22px;display:flex;align-items:center;gap:16px;">
+        <div class="card motion-reveal stagger-2" style="padding:16px 22px;display:flex;align-items:center;gap:16px;opacity:0;">
           <span style="font-size:20px;">⭐⭐⭐⭐⭐</span>
           <div style="flex:1;"><div class="card-title" style="font-size:14px;margin-bottom:2px;">Ferias libres y móviles</div><div class="card-desc">200.000 puestos en Chile. Sin electricidad fija. Funciona offline.</div></div>
           <span class="badge" style="font-size:10px;">Prioridad A</span>
         </div>
-        <div class="card" style="padding:16px 22px;display:flex;align-items:center;gap:16px;">
+        <div class="card motion-reveal stagger-3" style="padding:16px 22px;display:flex;align-items:center;gap:16px;opacity:0;">
           <span style="font-size:20px;">⭐⭐⭐⭐</span>
           <div style="flex:1;"><div class="card-title" style="font-size:14px;margin-bottom:2px;">PYMEs 1-49 trabajadores</div><div class="card-desc">800.000 empresas. Buscan digitalización accesible. Sin costo.</div></div>
           <span class="badge badge-muted" style="font-size:10px;">Prioridad B</span>
         </div>
-        <div class="card" style="padding:16px 22px;display:flex;align-items:center;gap:16px;">
+        <div class="card motion-reveal stagger-4" style="padding:16px 22px;display:flex;align-items:center;gap:16px;opacity:0;">
           <span style="font-size:20px;">⭐⭐⭐⭐⭐</span>
           <div style="flex:1;"><div class="card-title" style="font-size:14px;margin-bottom:2px;">Desarrolladores Android+LLM</div><div class="card-desc">Nicho premium técnico. Comunidad r/LocalLLaMA. Código abierto.</div></div>
           <span class="badge badge-muted" style="font-size:10px;">Prioridad C</span>
         </div>
-        <div class="card" style="padding:16px 22px;display:flex;align-items:center;gap:16px;">
+        <div class="card motion-slide-right stagger-5" style="padding:16px 22px;display:flex;align-items:center;gap:16px;opacity:0;">
           <span style="font-size:20px;">⭐⭐⭐⭐</span>
           <div style="flex:1;"><div class="card-title" style="font-size:14px;margin-bottom:2px;">Organizaciones con datos sensibles</div><div class="card-desc">Clínicas, estudios, legales. Privacidad como ventaja. Gratis.</div></div>
           <span class="badge badge-muted" style="font-size:10px;">Prioridad C</span>
         </div>
       </div>
     </div>
-  </section>
+  </div>
+</section>
 
-  <!-- SLIDE 3: COMPETIDORES -->
-  <section class="slide" data-dur="10000">
-    <div class="stack" style="gap:24px;width:100%;max-width:960px;">
-      <div class="label">Análisis Competitivo · Documentación</div>
-      <h2 class="h2">Nadie lo hace como FABRI-CORE.</h2>
-      <table class="cmp-table">
+<section class="section" id="competidores">
+  <div class="section-content">
+    <div class="stack" style="gap:24px;max-width:960px;">
+      <div class="label motion-reveal" style="opacity:0;">Análisis Competitivo · Documentación</div>
+      <h2 class="h2 motion-reveal" style="opacity:0;">Nadie lo hace como FABRI-CORE.</h2>
+      <table class="cmp-table motion-reveal" style="opacity:0;">
         <thead>
           <tr>
             <th>App</th>
@@ -106,204 +93,146 @@
           </tr>
         </thead>
         <tbody>
-          <tr class="muted">
-            <td>Bsale</td>
-            <td>$55-110 USD</td>
-            <td>❌</td>
-            <td>Parcial</td>
-            <td>❌</td>
-            <td>❌</td>
-          </tr>
-          <tr class="muted">
-            <td>Toteat</td>
-            <td>$78 USD</td>
-            <td>❌</td>
-            <td>Parcial</td>
-            <td>❌</td>
-            <td>❌</td>
-          </tr>
-          <tr class="muted">
-            <td>Shopify POS</td>
-            <td>$89 USD</td>
-            <td>❌</td>
-            <td>Parcial</td>
-            <td>❌</td>
-            <td>❌</td>
-          </tr>
-          <tr class="muted">
-            <td>Loyverse</td>
-            <td>$30-50 USD</td>
-            <td>❌</td>
-            <td>❌</td>
-            <td>❌</td>
-            <td>❌</td>
-          </tr>
-          <tr class="muted">
-            <td>Treinta</td>
-            <td>$8 USD</td>
-            <td>❌</td>
-            <td>Parcial</td>
-            <td>❌</td>
-            <td>❌</td>
-          </tr>
-          <tr class="highlight">
-            <td>FABRI-CORE</td>
-            <td>$0/mes</td>
-            <td>✅</td>
-            <td>✅</td>
-            <td>✅</td>
-            <td>✅</td>
-          </tr>
+          <tr class="muted"><td>Bsale</td><td>$55-110 USD</td><td>❌</td><td>Parcial</td><td>❌</td><td>❌</td></tr>
+          <tr class="muted"><td>Toteat</td><td>$78 USD</td><td>❌</td><td>Parcial</td><td>❌</td><td>❌</td></tr>
+          <tr class="muted"><td>Shopify POS</td><td>$89 USD</td><td>❌</td><td>Parcial</td><td>❌</td><td>❌</td></tr>
+          <tr class="muted"><td>Loyverse</td><td>$30-50 USD</td><td>❌</td><td>❌</td><td>❌</td><td>❌</td></tr>
+          <tr class="muted"><td>Treinta</td><td>$8 USD</td><td>❌</td><td>Parcial</td><td>❌</td><td>❌</td></tr>
+          <tr class="highlight"><td>FABRI-CORE</td><td>$0/mes</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td></tr>
         </tbody>
       </table>
-      <p class="sub mt-16">FABRI-CORE es el único con IA local, offline completo, terminal integrada y 100% gratuito.</p>
+      <p class="sub motion-reveal" style="opacity:0;margin-top:16px;">FABRI-CORE es el único con IA local, offline completo, terminal integrada y 100% gratuito.</p>
     </div>
-  </section>
+  </div>
+</section>
 
-  <!-- SLIDE 4: TAM SAM SOM -->
-  <section class="slide" data-dur="8000">
+<section class="section section-alt" id="tam">
+  <div class="section-content">
     <div class="stack" style="gap:24px;">
-      <div class="label">Oportunidad de Mercado · Documentación</div>
-      <h2 class="h2">De nicho a escala.</h2>
-      <div class="circles">
-        <div class="circle circle-outer">
-          <div style="position:absolute;bottom:24px;font-size:10px;">TAM<br>$12-15M USD Chile</div>
-        </div>
-        <div class="circle circle-mid">
-          <div style="position:absolute;bottom:14px;font-size:9px;">SAM<br>$5-8M USD</div>
-        </div>
-        <div class="circle circle-inner">
-          <div style="font-size:10px;">SOM<br>$24K-100K<br>año 1-2</div>
-        </div>
+      <div class="label motion-reveal" style="opacity:0;">Oportunidad de Mercado · Documentación</div>
+      <h2 class="h2 motion-reveal" style="opacity:0;">De nicho a escala.</h2>
+      <div class="circles motion-scale" style="opacity:0;">
+        <div class="circle circle-outer"><div style="position:absolute;bottom:24px;font-size:10px;">TAM<br>$12-15M USD Chile</div></div>
+        <div class="circle circle-mid"><div style="position:absolute;bottom:14px;font-size:9px;">SAM<br>$5-8M USD</div></div>
+        <div class="circle circle-inner"><div style="font-size:10px;">SOM<br>$24K-100K<br>año 1-2</div></div>
       </div>
-      <div class="row mt-16" style="gap:12px;">
+      <div class="row mt-16 motion-reveal" style="opacity:0;gap:12px;">
         <span class="pill">TAM: Mercado total Chile POS</span>
         <span class="pill">SAM: Almacenes + ferias + micro</span>
         <span class="pill">SOM: 1-2% penetración</span>
       </div>
-      <p class="sub">El SOM es conservador. Con software gratuito, la adopción puede ser más rápida.</p>
+      <p class="sub motion-reveal" style="opacity:0;">El SOM es conservador. Con software gratuito, la adopción puede ser más rápida.</p>
     </div>
-  </section>
+  </div>
+</section>
 
-  <!-- SLIDE 5: PRECIO SUGERIDO -->
-  <section class="slide" data-dur="7000">
-    <div class="stack" style="gap:24px;width:100%;max-width:900px;">
-      <div class="label">Modelo de Negocio · Documentación</div>
-      <h2 class="h2">Freemium + módulos premium.</h2>
+<section class="section" id="pricing">
+  <div class="section-content">
+    <div class="stack" style="gap:24px;max-width:900px;">
+      <div class="label motion-reveal" style="opacity:0;">Modelo de Negocio · Documentación</div>
+      <h2 class="h2 motion-reveal" style="opacity:0;">Freemium + módulos premium.</h2>
       <div class="grid-4">
-        <div class="card" style="text-align:center;">
+        <div class="card motion-scale stagger-1" style="text-align:center;opacity:0;">
           <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;">FREE</div>
           <div class="stat-num" style="font-size:30px;color:var(--text);">$0</div>
           <div class="card-desc mt-12">APK base, 100 productos, 1 usuario. Todo gratis.</div>
           <div class="mt-12"><span class="free-badge" style="font-size:10px;">Gratis</span></div>
         </div>
-        <div class="card card-lime" style="text-align:center;">
+        <div class="card card-lime motion-scale stagger-2" style="text-align:center;opacity:0;">
           <div style="font-size:12px;font-weight:700;color:var(--lime);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;">PRO ⭐</div>
           <div class="stat-num" style="font-size:30px;">$29.990</div>
           <div class="card-desc mt-12">Licencia única, todo incluido. CLP. Pago único.</div>
         </div>
-        <div class="card" style="text-align:center;">
+        <div class="card motion-scale stagger-3" style="text-align:center;opacity:0;">
           <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;">EMPRESA</div>
           <div class="stat-num" style="font-size:26px;color:var(--text);">$59.990</div>
           <div class="card-desc mt-12">5 dispositivos. CLP. Para cadenas.</div>
         </div>
-        <div class="card" style="text-align:center;">
+        <div class="card motion-scale stagger-4" style="text-align:center;opacity:0;">
           <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;">B2B</div>
           <div class="stat-num" style="font-size:22px;color:var(--text);">Negociar</div>
           <div class="card-desc mt-12">Cadenas minimarket. Volumen.</div>
         </div>
       </div>
-      <p class="lead" style="font-size:14px;">Vs. Bsale: $660/año. FABRI-CORE PRO: $32 USD una sola vez. <span class="accent">La versión FREE es 100% funcional.</span></p>
+      <p class="lead motion-reveal" style="opacity:0;font-size:14px;">Vs. Bsale: $660/año. FABRI-CORE PRO: $32 USD una sola vez. <span class="accent">La versión FREE es 100% funcional.</span></p>
     </div>
-  </section>
+  </div>
+</section>
 
-  <!-- SLIDE 6: CANAL SERCOTEC -->
-  <section class="slide" data-dur="8000">
-    <div class="stack" style="gap:24px;width:100%;max-width:900px;">
-      <div class="label">Oportunidad Institucional · Documentación</div>
-      <h2 class="h2">Subsidio Sercotec: $3.000.000 CLP disponible.</h2>
-      <div class="card card-lime" style="padding:32px;">
+<section class="section section-alt" id="sercotec">
+  <div class="section-content">
+    <div class="stack" style="gap:24px;max-width:900px;">
+      <div class="label motion-reveal" style="opacity:0;">Oportunidad Institucional · Documentación</div>
+      <h2 class="h2 motion-reveal" style="opacity:0;">Subsidio Sercotec: $3.000.000 CLP disponible.</h2>
+      <div class="card card-lime motion-reveal" style="padding:32px;opacity:0;">
         <div class="card-title" style="font-size:18px;">El programa "Digitaliza tu Almacén" de Sercotec financia hasta $3M CLP por local.</div>
         <div class="card-desc mt-12" style="font-size:14px;">FABRI-CORE puede posicionarse como solución elegible. Pipeline B2G sin fuerza de ventas. Software gratuito = más fácil de subsidiar.</div>
       </div>
       <div class="grid-3">
-        <div class="card" style="text-align:center;">
+        <div class="card motion-scale stagger-1" style="text-align:center;opacity:0;">
           <div class="card-icon" style="margin:0 auto 12px;">📞</div>
           <div class="card-title" style="font-size:14px;">1. Contactar</div>
           <div class="card-desc">AGEN Sercotec regional. Presentar FABRI-CORE como solución.</div>
         </div>
-        <div class="card" style="text-align:center;">
+        <div class="card motion-scale stagger-2" style="text-align:center;opacity:0;">
           <div class="card-icon" style="margin:0 auto 12px;">✅</div>
           <div class="card-title" style="font-size:14px;">2. Certificar</div>
           <div class="card-desc">Obtener certificación como solución elegible del programa.</div>
         </div>
-        <div class="card" style="text-align:center;">
+        <div class="card motion-scale stagger-3" style="text-align:center;opacity:0;">
           <div class="card-icon" style="margin:0 auto 12px;">📈</div>
           <div class="card-title" style="font-size:14px;">3. Escalar</div>
           <div class="card-desc">Pipeline B2G: almaceneros subsidiados = clientes garantizados.</div>
         </div>
       </div>
     </div>
-  </section>
+  </div>
+</section>
 
-  <!-- SLIDE 7: GTM -->
-  <section class="slide" data-dur="8000">
-    <div class="stack" style="gap:24px;width:100%;max-width:1000px;">
-      <div class="label">Go To Market · Documentación</div>
-      <h2 class="h2">4 fases de lanzamiento.</h2>
-      <div class="timeline">
-        <div class="timeline-step">
-          <div class="num">Fase 0</div>
-          <div class="title">Firma release</div>
-          <div class="desc">+ video demo 60s</div>
-        </div>
-        <div class="timeline-step">
-          <div class="num">Fase 1</div>
-          <div class="title">Almaceneros</div>
-          <div class="desc">TikTok + WhatsApp grupos</div>
-        </div>
-        <div class="timeline-step">
-          <div class="num">Fase 2</div>
-          <div class="title">Comunidad técnica</div>
-          <div class="desc">r/LocalLLaMA, GitHub</div>
-        </div>
-        <div class="timeline-step">
-          <div class="num">Fase 3</div>
-          <div class="title">Sercotec + dist.</div>
-          <div class="desc">Samsung/Xiaomi partners</div>
-        </div>
+<section class="section" id="gtm">
+  <div class="section-content">
+    <div class="stack" style="gap:24px;max-width:1000px;">
+      <div class="label motion-reveal" style="opacity:0;">Go To Market · Documentación</div>
+      <h2 class="h2 motion-reveal" style="opacity:0;">4 fases de lanzamiento.</h2>
+      <div class="timeline motion-reveal" style="opacity:0;">
+        <div class="timeline-step"><div class="num">Fase 0</div><div class="title">Firma release</div><div class="desc">+ video demo 60s</div></div>
+        <div class="timeline-step"><div class="num">Fase 1</div><div class="title">Almaceneros</div><div class="desc">TikTok + WhatsApp grupos</div></div>
+        <div class="timeline-step"><div class="num">Fase 2</div><div class="title">Comunidad técnica</div><div class="desc">r/LocalLLaMA, GitHub</div></div>
+        <div class="timeline-step"><div class="num">Fase 3</div><div class="title">Sercotec + dist.</div><div class="desc">Samsung/Xiaomi partners</div></div>
       </div>
-      <div class="row mt-20" style="gap:12px;">
+      <div class="row mt-20 motion-reveal" style="opacity:0;gap:12px;">
         <span class="pill">Fase 0: Release firmado + demo</span>
         <span class="pill">Fase 1: Contenido viral</span>
         <span class="pill">Fase 2: Comunidad dev</span>
         <span class="pill">Fase 3: Institucional</span>
       </div>
     </div>
-  </section>
+  </div>
+</section>
 
-  <!-- SLIDE 8: PROYECCIÓN -->
-  <section class="slide" data-dur="7000">
-    <div class="stack" style="gap:24px;width:100%;max-width:900px;">
-      <div class="label">Proyección · Documentación</div>
-      <h2 class="h2">Metas primeros 6 meses.</h2>
+<section class="section section-alt" id="proyeccion">
+  <div class="section-content">
+    <div class="stack" style="gap:24px;max-width:900px;">
+      <div class="label motion-reveal" style="opacity:0;">Proyección · Documentación</div>
+      <h2 class="h2 motion-reveal" style="opacity:0;">Metas primeros 6 meses.</h2>
       <div class="grid-5">
-        <div class="stat"><div class="stat-num">200→1K</div><div class="stat-label">Instalaciones activas</div></div>
-        <div class="stat"><div class="stat-num">50→300</div><div class="stat-label">Negocios con inventario</div></div>
-        <div class="stat"><div class="stat-num">4.0+</div><div class="stat-label">Reviews positivas</div></div>
-        <div class="stat"><div class="stat-num">$150K</div><div class="stat-label">CLP/mes premium</div></div>
-        <div class="stat"><div class="stat-num">1→5</div><div class="stat-label">Posts virales >10K</div></div>
+        <div class="stat motion-scale stagger-1" style="opacity:0;"><div class="stat-num">200→1K</div><div class="stat-label">Instalaciones activas</div></div>
+        <div class="stat motion-scale stagger-2" style="opacity:0;"><div class="stat-num">50→300</div><div class="stat-label">Negocios con inventario</div></div>
+        <div class="stat motion-scale stagger-3" style="opacity:0;"><div class="stat-num">4.0+</div><div class="stat-label">Reviews positivas</div></div>
+        <div class="stat motion-scale stagger-4" style="opacity:0;"><div class="stat-num">$150K</div><div class="stat-label">CLP/mes premium</div></div>
+        <div class="stat motion-scale stagger-5" style="opacity:0;"><div class="stat-num">1→5</div><div class="stat-label">Posts virales >10K</div></div>
       </div>
-      <p class="sub">Metas conservadoras. Con software gratuito, la adopción puede superarlas.</p>
+      <p class="sub motion-reveal" style="opacity:0;">Metas conservadoras. Con software gratuito, la adopción puede superarlas.</p>
     </div>
-  </section>
+  </div>
+</section>
 
-  <!-- SLIDE 9: GRATIS / LIKE CTA -->
-  <section class="slide" data-dur="0">
-    <div class="stack" style="gap:28px;max-width:720px;">
-      <div class="label">Software Libre · Sin Humo</div>
-      <h2 class="h2">100% Gratis. Sin letra chica.</h2>
-      <div class="cta-social">
+<section class="section" id="cta">
+  <div class="section-content">
+    <div class="stack" style="gap:32px;max-width:720px;">
+      <div class="label motion-reveal" style="opacity:0;">Software Libre · Sin Humo</div>
+      <h2 class="h2 motion-reveal" style="opacity:0;">100% Gratis. Sin letra chica.</h2>
+      <div class="cta-social motion-scale" style="opacity:0;">
         <div class="cta-title">Si te sirve, dale un like</div>
         <div class="cta-desc">El único "pago" que pedimos es un like en redes sociales.</div>
         <div class="cta-buttons">
@@ -313,73 +242,65 @@
         <span class="free-badge">Software 100% Gratuito</span>
       </div>
     </div>
-  </section>
-
-</div>
-
-<div class="controls">
-  <button class="btn-ctrl" id="btn-prev">←</button>
-  <button class="btn-ctrl btn-ctrl-primary" id="btn-play"><span id="play-icon">⏸</span></button>
-  <button class="btn-ctrl" id="btn-next">→</button>
-  <div class="progress-wrap" id="progress-wrap">
-    <div class="progress-fill" id="progress-fill"></div>
   </div>
-  <div class="slide-count"><span id="cur-slide">1</span> / 9</div>
-  <button class="btn-ctrl" id="btn-fs">⛶</button>
-</div>
+</section>
+
+<footer class="footer">
+  <div class="footer-logo">
+    <svg viewBox="0 0 80 80" width="48" height="48" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="80" height="80" rx="16" fill="#030303"/>
+      <rect x="16" y="16" width="8" height="48" fill="#C8FF00"/>
+      <rect x="16" y="16" width="36" height="8" fill="#C8FF00"/>
+      <rect x="16" y="36" width="28" height="8" fill="#C8FF00"/>
+    </svg>
+  </div>
+  <p class="footer-text">
+    FABRI-CORE · Soluciones Fabrick · Software Libre · 2026<br>
+    <a href="https://github.com/thinkfashz/fabri-core">GitHub</a> · 
+    <a href="https://www.tiktok.com/@fabricore.cl">TikTok</a> · 
+    <a href="https://www.facebook.com/fabricore">Facebook</a>
+  </p>
+  <p class="footer-text" style="margin-top:12px;font-size:11px;">
+    Sin humo. Sin suscripción. Sin datos en la nube de otro. 100% gratuito.
+  </p>
+</footer>
 
 <script>
-const SLIDES = document.querySelectorAll('.slide');
-const DURATIONS = [...SLIDES].map(s => parseInt(s.dataset.dur || '6000'));
-let cur = 0, playing = true, timer = null;
-const $fill = document.getElementById('progress-fill');
-const $cur = document.getElementById('cur-slide');
-const $timer = document.getElementById('timer-fill');
-const $playIcon = document.getElementById('play-icon');
-const dots = document.querySelectorAll('.chapter-dot');
+gsap.registerPlugin(ScrollTrigger);
 
-function showSlide(n) {
-  SLIDES[cur]?.classList.remove('active');
-  SLIDES[cur]?.classList.add('exit');
-  setTimeout(() => SLIDES[cur]?.classList.remove('exit'), 800);
-  cur = (n + SLIDES.length) % SLIDES.length;
-  SLIDES[cur].classList.add('active');
-  dots.forEach((d,i) => d.classList.toggle('active', i===cur));
-  if($cur) $cur.textContent = cur+1;
-  if($fill) $fill.style.width = ((cur/(SLIDES.length-1||1))*100)+'%';
-  if($timer){$timer.style.transition='none';$timer.style.width='0%';}
-  resetTimer();
-}
-
-function resetTimer() {
-  clearTimeout(timer);
-  if(!playing) return;
-  const dur = DURATIONS[cur];
-  if(dur === 0) return;
-  if($timer){ setTimeout(()=>{$timer.style.transition=`width ${dur}ms linear`;$timer.style.width='100%';},50); }
-  timer = setTimeout(()=>showSlide(cur+1), dur);
-}
-
-function togglePlay() {
-  playing = !playing;
-  if($playIcon) $playIcon.textContent = playing ? '⏸' : '▶';
-  if(playing) resetTimer(); else { clearTimeout(timer); if($timer){$timer.style.transition='none';} }
-}
-
-document.getElementById('btn-play')?.addEventListener('click', togglePlay);
-document.getElementById('btn-prev')?.addEventListener('click', ()=>{clearTimeout(timer);showSlide(cur-1);});
-document.getElementById('btn-next')?.addEventListener('click', ()=>{clearTimeout(timer);showSlide(cur+1);});
-document.getElementById('progress-wrap')?.addEventListener('click', e=>{
-  const r=e.currentTarget.getBoundingClientRect();
-  clearTimeout(timer);showSlide(Math.round((e.clientX-r.left)/r.width*(SLIDES.length-1)));
+gsap.utils.toArray('.motion-reveal').forEach((el) => {
+  gsap.fromTo(el, { opacity: 0, y: 40 }, {
+    opacity: 1, y: 0, duration: 0.8, ease: 'power3.out',
+    scrollTrigger: { trigger: el, start: 'top 85%', toggleActions: 'play none none reverse' }
+  });
 });
-document.querySelectorAll('.chapter-dot').forEach((d,i)=>d.addEventListener('click',()=>{clearTimeout(timer);showSlide(i);}));
-document.getElementById('btn-fs')?.addEventListener('click',()=>{document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen();});
-document.addEventListener('keydown',e=>{
-  if(e.key==='ArrowRight'||e.key==='PageDown'){clearTimeout(timer);showSlide(cur+1);}
-  if(e.key==='ArrowLeft'||e.key==='PageUp'){clearTimeout(timer);showSlide(cur-1);}
-  if(e.key===' '){e.preventDefault();togglePlay();}
-  if(e.key==='f'||e.key==='F')document.getElementById('btn-fs')?.click();
+
+gsap.utils.toArray('.motion-scale').forEach((el, i) => {
+  gsap.fromTo(el, { opacity: 0, scale: 0.85 }, {
+    opacity: 1, scale: 1, duration: 0.7, delay: i * 0.08, ease: 'back.out(1.4)',
+    scrollTrigger: { trigger: el, start: 'top 90%', toggleActions: 'play none none reverse' }
+  });
+});
+
+gsap.utils.toArray('.motion-slide-left').forEach((el) => {
+  gsap.fromTo(el, { opacity: 0, x: -60 }, {
+    opacity: 1, x: 0, duration: 0.8, ease: 'power3.out',
+    scrollTrigger: { trigger: el, start: 'top 85%', toggleActions: 'play none none reverse' }
+  });
+});
+
+gsap.utils.toArray('.motion-slide-right').forEach((el) => {
+  gsap.fromTo(el, { opacity: 0, x: 60 }, {
+    opacity: 1, x: 0, duration: 0.8, ease: 'power3.out',
+    scrollTrigger: { trigger: el, start: 'top 85%', toggleActions: 'play none none reverse' }
+  });
+});
+
+gsap.utils.toArray('.stagger-1, .stagger-2, .stagger-3, .stagger-4, .stagger-5, .stagger-6').forEach((el, i) => {
+  gsap.fromTo(el, { opacity: 0, y: 30 }, {
+    opacity: 1, y: 0, duration: 0.6, delay: (i % 6) * 0.1, ease: 'power2.out',
+    scrollTrigger: { trigger: el, start: 'top 90%', toggleActions: 'play none none reverse' }
+  });
 });
 
 (function(){
@@ -390,20 +311,14 @@ document.addEventListener('keydown',e=>{
   for(let i=0;i<55;i++)pts.push({x:Math.random()*1920,y:Math.random()*1080,vx:(Math.random()-.5)*.25,vy:(Math.random()-.5)*.25,r:Math.random()*1.2+.4,a:Math.random()*.3+.05});
   function draw(){
     ctx.clearRect(0,0,W,H);
-    ctx.strokeStyle='rgba(200,255,0,0.02)';ctx.lineWidth=1;
-    for(let x=0;x<W;x+=60){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
-    for(let y=0;y<H;y+=60){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+    ctx.strokeStyle='rgba(200,255,0,0.015)';ctx.lineWidth=1;
+    for(let x=0;x<W;x+=80){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+    for(let y=0;y<H;y+=80){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
     pts.forEach(p=>{p.x+=p.vx;p.y+=p.vy;if(p.x<0)p.x=W;if(p.x>W)p.x=0;if(p.y<0)p.y=H;if(p.y>H)p.y=0;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fillStyle=`rgba(200,255,0,${p.a})`;ctx.fill();});
     requestAnimationFrame(draw);
   }
   draw();
 })();
-
-SLIDES[0]?.classList.add('active');
-if(dots[0])dots[0].classList.add('active');
-if($cur)$cur.textContent='1';
-if($fill)$fill.style.width='0%';
-setTimeout(()=>{if(playing)resetTimer();},500);
 </script>
 </body>
 </html>
