@@ -1554,3 +1554,150 @@ img.inv-mini { object-fit: cover; }
 @media (prefers-reduced-motion: reduce) {
   .ticket-termico.imprimiendo { animation: none; }
 }
+
+
+/* ═══ escáner robusto + carrito de escaneo (A5) ════════════════════════════ */
+
+/* El escáner principal queda centrado, como un visor. */
+.inv-camara { max-width: 420px; margin: 0 auto; width: 100%; }
+
+/* ── ficha inferior del producto enfocado ──────────────────────────────── */
+.inv-scan-info {
+  position: sticky;
+  bottom: calc(var(--nav-alto, 56px) + env(safe-area-inset-bottom, 0px) + 10px);
+  z-index: 6;
+  margin: 14px 0 8px;
+  padding: 14px;
+  border: 1px solid var(--borde, #2A2A2A);
+  border-radius: 16px;
+  background: rgba(17, 17, 17, 0.92);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  animation: apilador-in 240ms cubic-bezier(0.2, 0.9, 0.3, 1) both;
+}
+.inv-scan-info[hidden] { display: none; }
+.inv-scan-info-vacio { font-size: 12.5px; color: var(--texto-3, #8A8A8A); line-height: 1.5; }
+.inv-scan-info-cab { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.inv-scan-info-titulo { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.inv-scan-info-titulo strong { font-size: 15px; color: var(--texto, #fff); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.inv-scan-info-titulo span { font-size: 11px; color: var(--texto-3, #8A8A8A); font-family: var(--mono); }
+.inv-scan-info-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.inv-scan-info-celda {
+  display: flex; flex-direction: column; gap: 3px;
+  padding: 8px 9px;
+  border: 1px solid var(--borde, #2A2A2A);
+  border-radius: 10px;
+  background: var(--elevado, #121212);
+  min-width: 0;
+}
+.inv-scan-info-celda span {
+  font-size: 9.5px; letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--texto-3, #8A8A8A);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.inv-scan-info-celda b {
+  font-size: 13px; color: var(--texto, #fff); font-variant-numeric: tabular-nums;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.inv-scan-info-celda b.venta { color: var(--acento, #C8FF00); }
+.inv-scan-info-celda.ganancia b { color: #4ade80; }
+.inv-scan-info-acciones { display: flex; justify-content: flex-end; }
+@media (max-width: 460px) {
+  .inv-scan-info-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .inv-scan-info { background: #111; backdrop-filter: none; -webkit-backdrop-filter: none; }
+}
+
+/* ── barra de escáner fija en Productos ────────────────────────────────── */
+.inv-scan-bar {
+  position: sticky;
+  top: calc(var(--nav-alto, 56px) + 8px);
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px;
+  margin: 0 0 14px;
+  border: 1px solid var(--borde, #2A2A2A);
+  border-radius: 16px;
+  background: rgba(17, 17, 17, 0.92);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5);
+}
+.inv-scan-bar-rect {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  position: relative;
+  width: 46px; height: 46px;
+  border: 2px solid rgba(200, 255, 0, 0.55);
+  border-radius: 10px;
+  background: rgba(200, 255, 0, 0.06);
+  color: var(--acento, #C8FF00);
+  cursor: pointer;
+  overflow: hidden;
+  transition: transform 120ms ease;
+}
+.inv-scan-bar-rect:active { transform: scale(0.94); }
+.inv-scan-bar-line {
+  position: absolute; left: 6px; right: 6px; top: 50%;
+  height: 2px; margin-top: -1px;
+  background: linear-gradient(90deg, rgba(200, 255, 0, 0), rgba(200, 255, 0, 0.9), rgba(200, 255, 0, 0));
+  animation: scanbar-line 1.8s ease-in-out infinite;
+}
+@keyframes scanbar-line {
+  0%, 100% { transform: translateY(-14px); }
+  50% { transform: translateY(14px); }
+}
+.inv-scan-bar input {
+  flex: 1 1 auto; min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--borde, #2A2A2A);
+  border-radius: 10px;
+  background: var(--elevado, #121212);
+  color: var(--texto, #fff);
+  font: inherit; font-size: 13px;
+}
+.inv-scan-bar input:focus { outline: 0; border-color: rgba(200, 255, 0, 0.45); }
+@media (prefers-reduced-motion: reduce) { .inv-scan-bar-line { animation: none; opacity: 0.7; } }
+
+/* ── tarjetas del carrito de escaneo ───────────────────────────────────── */
+.inv-apilador-card { cursor: pointer; }
+.inv-apilador-card.foco { border-color: rgba(200, 255, 0, 0.45); box-shadow: 0 0 0 3px rgba(200, 255, 0, 0.08); }
+.inv-apilador-card-der { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex: 0 0 auto; }
+.inv-apilador-card-acciones { display: flex; gap: 4px; }
+.inv-apilador-stepper { display: inline-flex; align-items: center; gap: 7px; margin-top: 4px; }
+.inv-apilador-stepper button {
+  display: grid; place-items: center;
+  width: 22px; height: 22px; padding: 0;
+  border: 1px solid var(--borde, #2A2A2A);
+  border-radius: 7px;
+  background: var(--elevado, #121212);
+  color: var(--texto-2, #C0C0C0);
+  cursor: pointer;
+  font-size: 12px;
+}
+.inv-apilador-stepper button:hover { color: var(--acento, #C8FF00); border-color: rgba(200, 255, 0, 0.4); }
+.inv-apilador-stepper b { font-size: 13px; color: var(--texto, #fff); font-variant-numeric: tabular-nums; min-width: 14px; text-align: center; }
+.inv-apilador-card-acciones button {
+  display: grid; place-items: center;
+  width: 28px; height: 28px; padding: 0;
+  border: 1px solid var(--borde, #2A2A2A);
+  border-radius: 8px;
+  background: var(--elevado, #121212);
+  color: var(--texto-3, #8A8A8A);
+  cursor: pointer;
+  font-size: 13px;
+}
+.inv-apilador-card-acciones button:hover { color: var(--texto, #fff); border-color: var(--borde-fuerte, #3a3a3a); }
+.inv-apilador-card-acciones button[data-inv-apilador-quitar]:hover { color: var(--error, #f87171); border-color: rgba(248, 113, 113, 0.4); }
+.inv-apilador-card-acciones button[data-inv-apilador-editar]:hover { color: var(--acento, #C8FF00); border-color: rgba(200, 255, 0, 0.4); }

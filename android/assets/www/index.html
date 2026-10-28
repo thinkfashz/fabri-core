@@ -1392,10 +1392,20 @@ npx -y omniroute@latest
           <p class="inv-ayuda">Apunta la cámara a los productos sin parar: se registran con sonido y vibración.</p>
           <div class="inv-apilador-lista" id="invApiladorLista"></div>
         </div>
+        <div class="inv-scan-info" id="invScanInfo" hidden></div>
       </div>
 
       <!-- ── PASO 2 · PRODUCTOS ────────────────────────────────────────── -->
       <div class="inv-panel" id="invPaso2">
+        <div class="inv-scan-bar" id="invScanBar">
+          <button class="inv-scan-bar-rect" id="btnInvScanBar" type="button" aria-label="Escanear" title="Escanear">
+            <span data-ico="scan"></span>
+            <i class="inv-scan-bar-line" aria-hidden="true"></i>
+          </button>
+          <input id="invScanBarCodigo" inputmode="numeric" list="invCodigos"
+                 placeholder="Escanea o escribe un código…" autocomplete="off" spellcheck="false" />
+          <button class="btn" id="btnInvScanBarBuscar" type="button" aria-label="Buscar"><span data-ico="buscar"></span></button>
+        </div>
         <div class="inv-toolbar">
           <label class="campo campo-buscar">
             <span>Buscar</span>
@@ -1729,6 +1739,7 @@ CREATE INDEX IF NOT EXISTS idx_inv_productos_actualizado
           </div>
         </div>
         <div id="invLista" class="inv-lista"></div>
+        <div class="inv-scan-info" id="invScanInfo2" hidden></div>
       </div>
 
       <!-- ── PASO 3 · PRECIOS ──────────────────────────────────────────── -->

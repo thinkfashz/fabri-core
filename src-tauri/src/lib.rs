@@ -3070,7 +3070,8 @@ fn op_perfil(payload: &Value, db: &Connection) -> Result<Value, String> {
                 "INSERT INTO perfil (id, nombre, indicativo, foto, actualizado, datos)
                  VALUES (1, ?1, ?2, ?3, ?4, COALESCE(?5, '{}'))
                  ON CONFLICT(id) DO UPDATE SET
-                     nombre = ?1, indicativo = ?2,
+                     nombre = CASE WHEN ?1 = '' THEN nombre ELSE ?1 END,
+                     indicativo = CASE WHEN ?2 = '' THEN indicativo ELSE ?2 END,
                      foto = CASE WHEN ?3 = '' THEN foto ELSE ?3 END,
                      datos = COALESCE(?5, datos),
                      actualizado = ?4",
@@ -3080,7 +3081,9 @@ fn op_perfil(payload: &Value, db: &Connection) -> Result<Value, String> {
             // La tarjeta del login y la tabla de usuarios muestran lo mismo: el
             // perfil se refleja en el usuario operador sin duplicar la captura.
             db.execute(
-                "UPDATE usuarios SET nombre = ?1, indicativo = ?2,
+                "UPDATE usuarios SET
+                        nombre = CASE WHEN ?1 = '' THEN nombre ELSE ?1 END,
+                        indicativo = CASE WHEN ?2 = '' THEN indicativo ELSE ?2 END,
                         foto = CASE WHEN ?3 = '' THEN foto ELSE ?3 END
                   WHERE usuario = 'operador'",
                 params![nombre, indicativo, foto],

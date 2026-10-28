@@ -70,6 +70,7 @@ const INV = {
   iniciado: false,
   modoApilador: false,
   apilador: [],
+  apiladorFoco: null,
   ultimoEscaneo: 0,
   ultimoCodigo: "",
   importar: null,
@@ -291,6 +292,11 @@ function invConectarEventos() {
   if ($("btnInvModoApilador")) $("btnInvModoApilador").addEventListener("click", function () { invModoApilador(true); });
   if ($("btnInvApiladorGuardarLote")) $("btnInvApiladorGuardarLote").addEventListener("click", invApiladorGuardarLote);
   if ($("btnInvApiladorLimpiar")) $("btnInvApiladorLimpiar").addEventListener("click", invApiladorLimpiar);
+  if ($("btnInvScanBar")) $("btnInvScanBar").addEventListener("click", invScanBarEscanear);
+  if ($("btnInvScanBarBuscar")) $("btnInvScanBarBuscar").addEventListener("click", invScanBarBuscar);
+  if ($("invScanBarCodigo")) $("invScanBarCodigo").addEventListener("keydown", function (ev) {
+    if (ev.key === "Enter") { ev.preventDefault(); invScanBarBuscar(); }
+  });
   if ($("btnInvBuscarCodigo")) $("btnInvBuscarCodigo").addEventListener("click", function () {
     invBuscarCodigo($("invCodigo").value);
   });
@@ -298,10 +304,10 @@ function invConectarEventos() {
     if (e.key === "Enter") invBuscarCodigo($("invCodigo").value);
   });
 
-  if ($("btnInvNuevo")) $("btnInvNuevo").addEventListener("click", function () { invFormulario(null); });
+  if ($("btnInvNuevo")) $("btnInvNuevo").addEventListener("click", function () { INV.editarVolverScanner = false; invFormulario(null); });
   if ($("btnInvRefrescar")) $("btnInvRefrescar").addEventListener("click", invRefrescar);
   if ($("btnInvGuardar")) $("btnInvGuardar").addEventListener("click", invGuardar);
-  if ($("btnInvCancelar")) $("btnInvCancelar").addEventListener("click", invFormularioCerrar);
+  if ($("btnInvCancelar")) $("btnInvCancelar").addEventListener("click", function () { INV.editarVolverScanner = false; invFormularioCerrar(); });
   if ($("btnInvSincronizar")) $("btnInvSincronizar").addEventListener("click", invSincronizar);
   if ($("btnInvNubeResumen")) $("btnInvNubeResumen").addEventListener("click", invNubeResumenPintar);
 
@@ -402,6 +408,7 @@ function invEquiposIniciar() {
 function invPaso(n) {
   INV.paso = n;
   if (n !== 1) invCamaraParar();
+  else if (!INV.modoApilador) invModoApilador(true);
   document.querySelectorAll(".inv-panel").forEach(function (p) {
     p.classList.toggle("activo", p.id === "invPaso" + n);
   });
@@ -743,6 +750,8 @@ function invApiladorAgregar(codigoCrudo) {
     nombre: local ? local.nombre : "",
     marca: local ? local.marca : "",
     precio: local ? Number(local.precio || 0) : 0,
+    costo: local ? Number(local.costo || 0) : 0,
+    proveedor: local ? (local.proveedor || "") : "",
     categoria: local ? local.categoria : "",
     ficha: local ? invFichaDe(local) : {},
     cantidad: 1,
@@ -750,6 +759,7 @@ function invApiladorAgregar(codigoCrudo) {
     resuelto: !!local
   };
   INV.apilador.unshift(item);
+  INV.apiladorFoco = 0;
   invApiladorPintar(true);
   invApiladorAviso();
   if (!local) invApiladorResolver(item);
@@ -785,6 +795,8 @@ function invApiladorCompletar(item, p, origen) {
   item.nombre = p.nombre || item.nombre;
   item.marca = p.marca || item.marca || "";
   item.precio = Number(p.precio || item.precio || 0);
+  item.costo = Number(p.costo || item.costo || 0);
+  item.proveedor = p.proveedor || item.proveedor || "";
   item.categoria = p.categoria || item.categoria || "";
   if (p.ficha) item.ficha = p.ficha;
   item.origen = origen;
@@ -811,36 +823,199 @@ function invApiladorPintar(pop) {
   if (!caja) return;
   if (!INV.apilador.length) {
     caja.innerHTML = `<div class="inv-vacio">Apunta la cámara a un código: se apila aquí solo.</div>`;
+    invApiladorInfoPintar();
     return;
   }
+  const foco = INV.apiladorFoco == null ? 0 : INV.apiladorFoco;
   caja.innerHTML = INV.apilador.map(function (x, i) {
     const nombre = x.nombre || "Producto nuevo";
     const sinNombre = x.nombre ? "" : " inv-apilador-sinnombre";
-    return `<div class="inv-apilador-card${pop && i === 0 ? " entra" : ""}">
-      ${invMiniaturaHtml(x, 38)}
+    return `<div class="inv-apilador-card${pop && i === 0 ? " entra" : ""}${i === foco ? " foco" : ""}" data-inv-apilador-fijar="${i}">
+      ${invMiniaturaHtml(x, 46)}
       <div class="inv-apilador-card-info">
-        <strong class="${sinNombre.trim()}">${esc(nombre)}${x.cantidad > 1 ? " × " + x.cantidad : ""}</strong>
+        <strong class="${sinNombre.trim()}">${esc(nombre)}</strong>
         <span>${esc(x.codigo)}${x.origen ? " · " + esc(x.origen) : ""}</span>
+        <div class="inv-apilador-stepper">
+          <button type="button" data-inv-apilador-menos="${i}" aria-label="Restar">${ico("menos", 11)}</button>
+          <b>${x.cantidad || 1}</b>
+          <button type="button" data-inv-apilador-mas="${i}" aria-label="Sumar">${ico("mas", 11)}</button>
+        </div>
       </div>
-      <div class="inv-apilador-card-precio">${x.precio > 0 ? invClp(x.precio) : "—"}</div>
-      <button class="btn btn-mini" data-inv-apilador-quitar="${i}" title="Quitar" aria-label="Quitar">${ico("cerrar", 14)}</button>
+      <div class="inv-apilador-card-der">
+        <div class="inv-apilador-card-precio">${x.precio > 0 ? invClp(x.precio) : "—"}</div>
+        <div class="inv-apilador-card-acciones">
+          <button class="btn btn-mini" data-inv-apilador-editar="${i}" title="Editar" aria-label="Editar">${ico("editar", 13)}</button>
+          <button class="btn btn-mini" data-inv-apilador-quitar="${i}" title="Quitar" aria-label="Quitar">${ico("cerrar", 13)}</button>
+        </div>
+      </div>
     </div>`;
   }).join("");
   caja.querySelectorAll("[data-inv-apilador-quitar]").forEach(function (b) {
-    b.addEventListener("click", function () { invApiladorQuitar(Number(b.dataset.invApiladorQuitar)); });
+    b.addEventListener("click", function (ev) { ev.stopPropagation(); invApiladorQuitar(Number(b.dataset.invApiladorQuitar)); });
   });
+  caja.querySelectorAll("[data-inv-apilador-mas]").forEach(function (b) {
+    b.addEventListener("click", function (ev) { ev.stopPropagation(); invApiladorStepper(Number(b.dataset.invApiladorMas), 1); });
+  });
+  caja.querySelectorAll("[data-inv-apilador-menos]").forEach(function (b) {
+    b.addEventListener("click", function (ev) { ev.stopPropagation(); invApiladorStepper(Number(b.dataset.invApiladorMenos), -1); });
+  });
+  caja.querySelectorAll("[data-inv-apilador-editar]").forEach(function (b) {
+    b.addEventListener("click", function (ev) { ev.stopPropagation(); invApiladorEditar(Number(b.dataset.invApiladorEditar)); });
+  });
+  caja.querySelectorAll("[data-inv-apilador-fijar]").forEach(function (el) {
+    el.addEventListener("click", function () { invApiladorFijar(Number(el.dataset.invApiladorFijar)); });
+  });
+  invApiladorInfoPintar();
 }
 
 function invApiladorQuitar(i) {
   INV.apilador.splice(i, 1);
+  if (INV.apiladorFoco != null) {
+    if (INV.apiladorFoco >= INV.apilador.length) INV.apiladorFoco = INV.apilador.length - 1;
+    if (INV.apiladorFoco < 0) INV.apiladorFoco = null;
+  }
   invApiladorPintar();
 }
 
 function invApiladorLimpiar() {
   INV.apilador = [];
   INV.ultimoCodigo = "";
+  INV.apiladorFoco = null;
   invApiladorPintar();
   invAviso("Apilador vaciado");
+}
+
+/* ── carrito de escaneo: foco, stepper, edición y ficha de precios ───────── */
+
+function invMargenDe(p) {
+  const costo = Number(p.costo || 0);
+  const precio = Number(p.precio || 0);
+  const ganancia = precio - costo;
+  const margen = costo > 0 ? Math.round((ganancia / costo) * 100) : (precio > 0 ? 100 : 0);
+  return { costo: costo, precio: precio, ganancia: ganancia, margen: margen };
+}
+
+/** Ficha compacta del producto: proveedor, compra, venta, margen y ganancia. */
+function invScanInfoHtml(p) {
+  if (!p) {
+    return `<div class="inv-scan-info-vacio">Escanea o elige un producto para ver su precio.</div>`;
+  }
+  const m = invMargenDe(p);
+  const proveedor = p.proveedor || "Sin proveedor";
+  const titulo = p.nombre || ("Producto " + (p.codigo || ""));
+  return `<div class="inv-scan-info-cab">
+      ${invMiniaturaHtml(p, 42)}
+      <div class="inv-scan-info-titulo">
+        <strong>${esc(titulo)}</strong>
+        <span>${esc(p.codigo || "")}${p.cantidad > 1 ? " · × " + p.cantidad : ""}</span>
+      </div>
+    </div>
+    <div class="inv-scan-info-grid">
+      <div class="inv-scan-info-celda"><span>Proveedor</span><b>${esc(proveedor)}</b></div>
+      <div class="inv-scan-info-celda"><span>Precio compra</span><b>${invClp(m.costo)}</b></div>
+      <div class="inv-scan-info-celda"><span>Precio venta</span><b class="venta">${invClp(m.precio)}</b></div>
+      <div class="inv-scan-info-celda"><span>Margen</span><b>${m.margen}%</b></div>
+      <div class="inv-scan-info-celda ganancia"><span>Ganancia</span><b>${invClp(m.ganancia)}</b></div>
+    </div>
+    <div class="inv-scan-info-acciones">
+      <button class="btn btn-primario" data-inv-info-editar="${esc(p.codigo || "")}">${ico("editar", 14)} Editar producto</button>
+    </div>`;
+}
+
+/** Pinta la ficha inferior del producto enfocado en el carrito de escaneo. */
+function invApiladorInfoPintar() {
+  const caja = document.getElementById("invScanInfo");
+  if (!caja) return;
+  const i = INV.apiladorFoco == null ? 0 : INV.apiladorFoco;
+  const item = INV.apilador[i] || null;
+  if (!item) { caja.hidden = true; return; }
+  caja.hidden = false;
+  caja.innerHTML = invScanInfoHtml(item);
+  const ed = caja.querySelector("[data-inv-info-editar]");
+  if (ed) ed.addEventListener("click", function () { invApiladorEditar(i); });
+}
+
+function invApiladorFijar(i) {
+  INV.apiladorFoco = i;
+  invApiladorPintar();
+}
+
+function invApiladorStepper(i, delta) {
+  const item = INV.apilador[i];
+  if (!item) return;
+  item.cantidad = Math.max(1, (item.cantidad || 1) + delta);
+  invApiladorPintar();
+}
+
+/** Edita un producto del carrito y vuelve al escáner al guardar. */
+function invApiladorEditar(i) {
+  const item = INV.apilador[i];
+  if (!item) return;
+  let p = invPorCodigo(item.codigo);
+  if (!p) {
+    p = {
+      codigo: item.codigo, nombre: item.nombre, marca: item.marca || "",
+      categoria: item.categoria || "abarrotes", unidad: "unidad",
+      costo: item.costo || 0, precio: item.precio || 0,
+      stock: 0, stock_minimo: 0, iva: 19,
+      proveedor: item.proveedor || "", notas: "",
+      ficha: item.ficha || {}
+    };
+  }
+  INV.editarVolverScanner = true;
+  invPaso(2);
+  invFormulario(p);
+}
+
+/* ── escáner fijo de la vista Productos ──────────────────────────────────── */
+
+/** El rectángulo de escáner de la barra superior lleva al escáner centrado. */
+function invScanBarEscanear() {
+  invPaso(1);
+  invCamaraAbrir();
+}
+
+/** Busca un código escrito en la barra y pinta su ficha inferior. */
+async function invScanBarBuscar() {
+  const campo = document.getElementById("invScanBarCodigo");
+  const codigo = (campo ? campo.value : "").trim();
+  if (!codigo) { toast("Escribe o escanea un código", "error"); return; }
+  await invSeleccionarProducto(codigo);
+}
+
+/** Selecciona un producto (local → nube → libres) y muestra su ficha inferior. */
+async function invSeleccionarProducto(codigo) {
+  if (!codigo) return;
+  let p = invPorCodigo(codigo);
+  if (!p) {
+    try {
+      const r = await invApiTarde("buscar_codigo", { codigo: codigo }, { maxMs: 6000 });
+      if (r.ok && r.data && r.data.encontrado) p = r.data.producto;
+    } catch (e) {}
+  }
+  if (!p) {
+    try {
+      const nube = await invNubeBuscarCodigo(codigo);
+      if (nube && nube.ok && nube.producto) p = nube.producto;
+    } catch (e) {}
+  }
+  INV.sel = codigo;
+  invPintarScanInfo2(p, codigo);
+}
+
+function invPintarScanInfo2(p, codigo) {
+  const caja = document.getElementById("invScanInfo2");
+  if (!caja) return;
+  if (!p) {
+    caja.hidden = false;
+    caja.innerHTML = `<div class="inv-scan-info-vacio">No encontré <b>${esc(codigo)}</b>.<br>Puedes crearlo con «Nuevo producto».</div>`;
+    return;
+  }
+  caja.hidden = false;
+  caja.innerHTML = invScanInfoHtml(p);
+  const ed = caja.querySelector("[data-inv-info-editar]");
+  if (ed) ed.addEventListener("click", function () { invFormulario(invPorCodigo(p.codigo) || p); });
+  caja.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
 /** Guarda el lote completo en la base con UNA sola escritura. */
@@ -2031,6 +2206,9 @@ function invPintarCatalogo() {
     invPintarCatalogo();
   });
 
+  caja.querySelectorAll("[data-inv-seleccionar]").forEach(function (el) {
+    el.addEventListener("click", function () { invSeleccionarProducto(el.dataset.invSeleccionar); });
+  });
   caja.querySelectorAll("[data-inv-editar]").forEach(function (b) {
     b.addEventListener("click", function () { invFormulario(invPorCodigo(b.dataset.invEditar)); });
   });
@@ -2071,7 +2249,7 @@ function invCardHtml(p) {
   if (p.pendiente_sync) chips.push(`<span class="inv-chip">sin sync</span>`);
 
   return `<article class="inv-card${bajoStock ? " bajo" : ""}">
-    <div class="inv-card-cab">
+    <div class="inv-card-cab" data-inv-seleccionar="${esc(p.codigo)}">
       <div class="inv-card-mini">${mini}</div>
       <div class="inv-card-id">
         <h4>${esc(p.nombre)}</h4>
@@ -2125,8 +2303,13 @@ function invFormulario(p) {
   invFichaPintar(p && p.ficha ? p.ficha : {});
   caja.dataset.origen = (p && p.origen) || "manual";
   caja.scrollIntoView({ behavior: "smooth", block: "start" });
-  const nombre = document.getElementById("invFnombre");
-  if (nombre) setTimeout(function () { nombre.focus(); }, 120);
+  const costo = document.getElementById("invFcosto");
+  if (INV.editarVolverScanner && costo) {
+    setTimeout(function () { costo.focus(); costo.select(); }, 120);
+  } else {
+    const nombre = document.getElementById("invFnombre");
+    if (nombre) setTimeout(function () { nombre.focus(); }, 120);
+  }
 }
 
 function invFormularioCerrar() {
@@ -2194,6 +2377,19 @@ function invGuardar() {
     invFormularioCerrar();
     invRefrescar();
     invSello("Guardado en la base");
+    if (INV.editarVolverScanner) {
+      INV.editarVolverScanner = false;
+      const codigo = p.codigo || producto.codigo;
+      const item = INV.apilador.find(function (x) { return x.codigo === codigo; });
+      if (item) {
+        item.nombre = producto.nombre || item.nombre;
+        item.costo = producto.costo;
+        item.precio = producto.precio;
+        item.proveedor = producto.proveedor;
+      }
+      invApiladorPintar();
+      invPaso(1);
+    }
   });
 }
 
