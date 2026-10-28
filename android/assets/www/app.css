@@ -2801,3 +2801,26 @@ body {
   transition: background 0.15s ease, color 0.15s ease;
 }
 .chat-sugerencias button:active { background: #262626; color: var(--texto); }
+
+/* ── acabado ChatGPT: avatar redondo del asistente y acciones discretas ──── */
+.mensaje-ia .avatar,
+.mensaje-error .avatar {
+  border-radius: 50%;
+  background: #10a37f;
+  border: 0;
+  color: #04120d;
+  font-size: 10px;
+}
+.mensaje-error .avatar { background: var(--error); color: #1a0505; }
+.mensaje-usuario .avatar { border-radius: 50%; background: #5b5b5b; color: #ececec; border: 0; }
+
+.msg-acciones { gap: 0; margin-top: 2px; }
+.msg-acciones button {
+  padding: 4px 7px;
+  border-radius: 8px;
+  font-size: 11px;
+  color: #8f8f8f;
+  transition: color 120ms ease, background 120ms ease;
+}
+.msg-acciones button:hover { color: #ececec; background: rgba(255,255,255,0.07); }
+.msg-acciones button:active { transform: scale(0.94); }
