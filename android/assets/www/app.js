@@ -147,7 +147,13 @@ const estadoApp = {
     enviando: false,
     cargando: false,
     tts: false,
-    ultimaRespuesta: ""
+    ultimaRespuesta: "",
+    /* A4: streaming y métricas del turno en curso */
+    indiceIA: -1,
+    deteniendo: false,
+    primerTokenMs: 0,
+    nCtx: 2048,
+    autoscroll: true
   }
 };
 
@@ -1479,6 +1485,17 @@ function chatIniciar() {
   }
   chatPintarModelosLocal();
   chatActualizarCabecera();
+
+  // El hilo recuerda si el usuario está abajo: si subió a leer, no se le
+  // arrastra al final con cada token.
+  const hilo = document.getElementById("chatHilo");
+  if (hilo && !hilo.dataset.scrollListo) {
+    hilo.dataset.scrollListo = "1";
+    hilo.addEventListener("scroll", function () {
+      estadoApp.chat.autoscroll =
+        hilo.scrollTop + hilo.clientHeight >= hilo.scrollHeight - 48;
+    }, { passive: true });
+  }
 }
 
 /** Refresca el pill de estado y el avatar según el modo y el modelo. */
@@ -1517,6 +1534,19 @@ function chatActualizarCabecera() {
   pill.dataset.estado = estado;
   texto.textContent = etiqueta;
   if (!c.enviando && c.estadoAvatar !== "talking") chatAvatarEstado("idle");
+  chatActualizarBotonEnviar();
+}
+
+/** El botón de enviar se convierte en «detener» mientras el modelo responde. */
+function chatActualizarBotonEnviar() {
+  const b = document.getElementById("btnChatEnviar");
+  if (!b) return;
+  const activo = estadoApp.chat.enviando && estadoApp.chat.modo === "local";
+  b.dataset.estado = activo ? "detener" : "enviar";
+  b.classList.toggle("btn-detener", activo);
+  b.setAttribute("aria-label", activo ? "Detener la respuesta" : "Enviar");
+  b.title = activo ? "Detener" : "Enviar";
+  b.textContent = activo ? "■" : "➤";
 }
 
 /** Cambia el estado visual del avatar: idle · thinking · talking. */
@@ -1585,7 +1615,8 @@ function chatPintarEstadoLocal(r) {
   if (r && r.cargado) {
     punto.className = "punto ok";
     const inf = r.info || {};
-    estado.textContent = "Modelo cargado · ctx " + (r.n_ctx || "?");
+    estadoApp.chat.nCtx = Number(r.n_ctx || inf.n_ctx || 2048) || 2048;
+    estado.textContent = "Modelo cargado · ctx " + estadoApp.chat.nCtx;
     info.textContent = [
       inf.desc || "GGUF listo",
       inf.n_params ? (Number(inf.n_params) / 1e6).toFixed(0) + " M parámetros" : "",
@@ -1594,6 +1625,7 @@ function chatPintarEstadoLocal(r) {
     ].filter(Boolean).join(" · ");
     estadoApp.chat.cargando = false;
     chatActualizarCabecera();
+    chatActualizarContexto();
     return;
   }
   if (r && r.error) {
@@ -1665,6 +1697,17 @@ function chatCargarModeloLocal() {
       ruta, 0, "llama");
     return;
   }
+  // Antes de cargar: si el teléfono está justo de RAM, se avisa en vez de
+  // dejar que el kernel mate la app a mitad de la carga.
+  try {
+    const mem = JSON.parse(window.FabrickNative.memoria());
+    if (mem && mem.ok && Number(mem.libre_mb) < 600) {
+      const seguir = confirm("Quedan " + mem.libre_mb + " MB libres de RAM. "
+        + "Cargar un modelo puede dejar la app sin memoria. ¿Seguir igual?");
+      if (!seguir) return;
+    }
+  } catch (e) { /* sin dato de memoria: se intenta igual */ }
+
   estadoApp.chat.modeloRuta = ruta;
   const punto = document.getElementById("chatLocalPunto");
   const estado = document.getElementById("chatLocalEstado");
@@ -1676,7 +1719,9 @@ function chatCargarModeloLocal() {
   try {
     // 1024 de contexto: suficiente para 2-3 turnos cortos y entra en un
     // teléfono de 4 GB sin que el kernel mate el proceso.
-    r = JSON.parse(window.FabrickNative.localCargar(ruta, 1024, 4));
+    // 2048 de contexto: alcanza para varios turnos con el prompt estable.
+    // La KV de un 0.5B ocupa ~12 MB a esta profundidad; entra sin riesgo.
+    r = JSON.parse(window.FabrickNative.localCargar(ruta, 2048, 4));
   } catch (e) {
     r = { ok: false, error: String(e) };
   }
@@ -1791,6 +1836,7 @@ function chatLiberarModeloLocal() {
   estadoApp.chat.localCargado = false;
   estadoApp.chat.cargando = false;
   chatCargarEstadoLocal();
+  chatActualizarContexto();
   const aviso = r && r.aviso ? " (" + r.aviso + ")" : "";
   toast((r.ok ? "Modelo liberado" : "No se pudo liberar: " + r.error) + aviso, r.ok ? "" : "error");
 }
@@ -1888,17 +1934,42 @@ const PERSONALIDAD = [
   "Si no sabes algo, lo dices sin inventar. Si el tema es técnico, explicas simple."
 ].join(" ");
 
+/** Estimación conservadora para español: ~3,2 caracteres por token. */
+function chatEstimarTokens(texto) {
+  return Math.ceil(String(texto || "").length / 3.2);
+}
+
+/*
+ * El prompt se arma para que el prefijo sea estable entre turnos: el bloque de
+ * sistema no cambia y el contexto dinámico (SQL, RAG) viaja dentro del último
+ * mensaje del usuario. Así la memoria KV del turno anterior se reutiliza casi
+ * entera y el segundo turno arranca mucho más rápido.
+ */
 function chatPromptLocal(contexto) {
-  const historial = estadoApp.chat.mensajes
-    .filter((m) => m.rol === "user" || m.rol === "ia")
-    .slice(-8)
-    .map((m) =>
-      (m.rol === "user" ? "<|im_start|>user\n" : "<|im_start|>assistant\n") +
-      m.texto + "<|im_end|>\n"
-    )
-    .join("")
-    .slice(-3000);
-  return `<|im_start|>system\n${PERSONALIDAD}\n${contexto || ""}<|im_end|>\n${historial}<|im_start|>assistant\n`;
+  const c = estadoApp.chat;
+  const maxSalida = 256;
+  const presupuesto = Math.max(320, (c.nCtx || 2048) - maxSalida - 32);
+  const sistema = `<|im_start|>system\n${PERSONALIDAD}<|im_end|>\n`;
+  const pregunta = `<|im_start|>assistant\n`;
+  const ctx = String(contexto || "").trim().slice(0, 1400);
+  let usado = chatEstimarTokens(sistema + pregunta);
+
+  const msgs = c.mensajes.filter((m) => (m.rol === "user" || m.rol === "ia") && m.texto);
+  const historial = [];
+  for (let i = msgs.length - 1; i >= 0; i--) {
+    const m = msgs[i];
+    let cuerpo = m.texto;
+    if (m.rol === "user" && i === msgs.length - 1 && ctx) {
+      cuerpo = "Contexto real disponible:\n" + ctx + "\n\n" + cuerpo;
+    }
+    const bloque = (m.rol === "user" ? "<|im_start|>user\n" : "<|im_start|>assistant\n")
+      + cuerpo + "<|im_end|>\n";
+    const costo = chatEstimarTokens(bloque);
+    if (usado + costo > presupuesto) break;
+    historial.unshift(bloque);
+    usado += costo;
+  }
+  return sistema + historial.join("") + pregunta;
 }
 
 /* ------------------------------------------------------------------
@@ -1992,15 +2063,10 @@ function chatPromptRemoto(contexto) {
 
 async function chatEnviar() {
   if (estadoApp.chat.enviando) {
-    // En local la inferencia corre en un hilo nativo que no se puede abortar a
-    // mitad: se marca como cancelada y se descarta el texto cuando llegue.
+    // En local la inferencia se corta de verdad: el shim revisa el flag en
+    // cada token. En remoto todavía no hay aborto del fetch.
     if (estadoApp.chat.modo === "local") {
-      estadoApp.chat.cancelado = true;
-      estadoApp.chat.enviando = false;
-      chatAvatarEstado("idle");
-      chatPintarMensajes();
-      toast("Se descartará la respuesta en curso");
-      revision("chat", "aviso", "cancelación pedida por el usuario");
+      chatDetener();
     } else {
       toast("Espera la respuesta anterior");
     }
@@ -2023,9 +2089,23 @@ async function chatEnviar() {
   chatAutoAlto(entrada);
   estadoApp.chat.enviando = true;
   estadoApp.chat.cancelado = false;
+  estadoApp.chat.deteniendo = false;
+  estadoApp.chat.primerTokenMs = 0;
   estadoApp.chat.t0 = Date.now();
   chatAvatarEstado("thinking");
+
+  // Burbuja vacía donde va cayendo el texto. Sólo en local: el remoto llega
+  // completo y se pinta al final.
+  if (estadoApp.chat.modo === "local") {
+    estadoApp.chat.indiceIA = estadoApp.chat.mensajes.length;
+    estadoApp.chat.mensajes.push({
+      rol: "ia", texto: "", origen: "local", ts: Date.now(), parcial: true
+    });
+  } else {
+    estadoApp.chat.indiceIA = -1;
+  }
   chatPintarMensajes();
+  chatActualizarBotonEnviar();
 
   // 1) Si es una consulta SQL directa (/sql), ejecutarla y usar el resultado como contexto
   let contextoSql = "";
@@ -2069,11 +2149,37 @@ async function chatEnviar() {
   const contextoCombinado = (contextoSql || "") + (contextoBd || "")
     + (contextoGraphRAG || "") + (await chatContextoRag(texto));
 
+  // Si pidieron detener mientras se armaba el contexto (SQL/RAG), no se
+  // arranca la inferencia: la burbuja queda marcada como detenida.
+  if (estadoApp.chat.deteniendo) {
+    estadoApp.chat.enviando = false;
+    estadoApp.chat.deteniendo = false;
+    const m = estadoApp.chat.mensajes[estadoApp.chat.indiceIA];
+    if (m) {
+      m.parcial = false;
+      m.detenida = true;
+      m.texto = m.texto || "(detenida antes de responder)";
+    }
+    estadoApp.chat.indiceIA = -1;
+    chatAvatarEstado("idle");
+    chatPintarMensajes();
+    chatActualizarBotonEnviar();
+    return;
+  }
+
   let r;
   try {
-    r = estadoApp.chat.modo === "local"
-      ? JSON.parse(window.FabrickNative.localChat(chatPromptLocal(contextoCombinado), 192))
-      : JSON.parse(window.FabrickNative.chatRemoto(chatPromptRemoto(contextoCombinado), 512));
+    if (estadoApp.chat.modo === "local") {
+      // Muestreo por turno: natural pero sin dispararse. Semilla nueva para
+      // que «regenerar» no devuelva exactamente lo mismo.
+      try {
+        window.FabrickNative.localConfigurar(0.7, 0.95, 40, 1.1,
+          (Math.random() * 2147483647) | 0);
+      } catch (e) { /* el shim usa sus valores por defecto */ }
+      r = JSON.parse(window.FabrickNative.localChat(chatPromptLocal(contextoCombinado), 256));
+    } else {
+      r = JSON.parse(window.FabrickNative.chatRemoto(chatPromptRemoto(contextoCombinado), 512));
+    }
 
     // localChat es asíncrono: devuelve {"ok":true,"estado":"GENERANDO"} al instante
     // y la respuesta real llega por FabriChat.localFin. No hay que tratarlo como
@@ -2086,9 +2192,19 @@ async function chatEnviar() {
   }
   if (!r.ok) {
     estadoApp.chat.enviando = false;
+    estadoApp.chat.indiceIA = -1;
     chatAvatarEstado("idle");
-    estadoApp.chat.mensajes.push({ rol: "error", texto: r.error || "no se pudo enviar", ts: Date.now() });
+    // La burbuja vacía se convierte en el error, sin dejar un hueco.
+    const ultimo = estadoApp.chat.mensajes[estadoApp.chat.mensajes.length - 1];
+    if (ultimo && ultimo.parcial) {
+      ultimo.parcial = false;
+      ultimo.rol = "error";
+      ultimo.texto = r.error || "no se pudo enviar";
+    } else {
+      estadoApp.chat.mensajes.push({ rol: "error", texto: r.error || "no se pudo enviar", ts: Date.now() });
+    }
     chatPintarMensajes();
+    chatActualizarBotonEnviar();
     toast("Chat: " + (r.error || "no se pudo enviar"), "error");
   }
 }
@@ -2204,30 +2320,45 @@ function chatPintarMensajes() {
   if (!msgs.length) {
     cont.innerHTML = chatVacioHTML();
   } else {
+    let ultimoIA = -1;
+    let ultimoUser = -1;
+    for (let i = msgs.length - 1; i >= 0; i--) {
+      if (ultimoIA < 0 && msgs[i].rol === "ia") ultimoIA = i;
+      if (ultimoUser < 0 && msgs[i].rol === "user") ultimoUser = i;
+    }
     cont.innerHTML = msgs.map((m, i) => {
       const esUsuario = m.rol === "user";
       const esError = m.rol === "error";
       const etiqueta = esUsuario ? "TÚ" : esError ? "!" : "FC";
       const clase = esUsuario ? "mensaje-usuario" : esError ? "mensaje-error" : "mensaje-ia";
       const meta = m.meta || (m.ts ? new Date(m.ts).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }) : "");
-      return `<div class="mensaje ${clase}">
+      const cuerpo = m.parcial && !m.texto
+        ? `<span class="escribiendo"><i></i><i></i><i></i></span>`
+        : chatFormatear(m.texto) + (m.parcial ? `<span class="chat-cursor" aria-hidden="true"></span>` : "");
+      const acciones = esError ? "" : `<span class="msg-acciones">
+          <button type="button" data-copiar-mensaje="${i}" title="Copiar">Copiar</button>
+          ${esUsuario ? "" : `<button type="button" data-leer-mensaje="${i}" title="Leer">Leer</button>`}
+          ${(!esUsuario && i === ultimoIA && !m.parcial && !estadoApp.chat.enviando)
+            ? `<button type="button" data-regenerar="1" title="Volver a responder">Regenerar</button>` : ""}
+          ${(esUsuario && i === ultimoUser && !estadoApp.chat.enviando)
+            ? `<button type="button" data-editar-ultimo="1" title="Editar y reenviar">Editar</button>` : ""}
+        </span>`;
+      return `<div class="mensaje ${clase}${m.parcial ? " mensaje-parcial" : ""}" data-indice="${i}">
         <span class="avatar">${etiqueta}</span>
         <div class="burbuja">
           ${esUsuario || esError ? "" : chatCabeceraIA(m.origen)}
-          ${chatFormatear(m.texto)}
+          ${m.detenida ? `<span class="msg-detenida">detenida</span>` : ""}
+          <div class="msg-texto">${cuerpo}</div>
           <div class="msg-meta">
             <span>${esc(meta)}</span>
-            ${esError ? "" : `<span class="msg-acciones">
-              <button type="button" data-copiar-mensaje="${i}" title="Copiar">Copiar</button>
-              ${esUsuario ? "" : `<button type="button" data-leer-mensaje="${i}" title="Leer">Leer</button>`}
-            </span>`}
+            ${acciones}
           </div>
         </div>
       </div>`;
     }).join("");
   }
 
-  if (estadoApp.chat.enviando) {
+  if (estadoApp.chat.enviando && estadoApp.chat.indiceIA < 0) {
     cont.insertAdjacentHTML("beforeend", `<div class="mensaje mensaje-ia" id="chatPensando">
       <span class="avatar">FC</span>
       <div class="burbuja">
@@ -2241,9 +2372,103 @@ function chatPintarMensajes() {
   chatScroll();
 }
 
-function chatScroll() {
+/** Repinta sólo la burbuja en curso, sin reconstruir el hilo completo. */
+let chatPintadoPendiente = false;
+function chatPintarParcial() {
+  if (chatPintadoPendiente) return;
+  chatPintadoPendiente = true;
+  requestAnimationFrame(function () {
+    chatPintadoPendiente = false;
+    const c = estadoApp.chat;
+    const i = c.indiceIA;
+    if (i < 0) return;
+    const m = c.mensajes[i];
+    const cont = document.getElementById("chatHilo");
+    if (!m || !cont) return;
+    const fila = cont.querySelector('[data-indice="' + i + '"]');
+    const nodo = fila ? fila.querySelector(".msg-texto") : null;
+    if (!nodo) { chatPintarMensajes(); return; }
+    nodo.innerHTML = m.texto
+      ? chatFormatear(m.texto) + `<span class="chat-cursor" aria-hidden="true"></span>`
+      : `<span class="escribiendo"><i></i><i></i><i></i></span>`;
+    const meta = fila.querySelector(".msg-meta span");
+    if (meta) meta.textContent = (m.tokens || 0) + " tokens…";
+    chatScroll();
+  });
+}
+
+/** Corta la respuesta en curso. El motor sale en el siguiente token. */
+function chatDetener() {
+  if (!estadoApp.chat.enviando || estadoApp.chat.deteniendo) return;
+  estadoApp.chat.deteniendo = true;
+  let r = { ok: false };
+  try {
+    r = JSON.parse(window.FabrickNative.localDetener());
+  } catch (e) {
+    r = { ok: false, error: String(e) };
+  }
+  toast(r.ok ? "Deteniendo…" : "No se pudo detener: " + (r.error || "error"), r.ok ? "" : "error");
+  revision("chat", "aviso", "detención pedida por el usuario", "se corta en el siguiente token", 0, "llama");
+}
+
+/** Quita la última respuesta y vuelve a preguntar lo mismo. */
+function chatRegenerar() {
+  const c = estadoApp.chat;
+  if (c.enviando) return;
+  for (let i = c.mensajes.length - 1; i >= 0; i--) {
+    if (c.mensajes[i].rol === "ia" || c.mensajes[i].rol === "error") {
+      c.mensajes.splice(i, 1);
+      break;
+    }
+  }
+  const ultimo = c.mensajes[c.mensajes.length - 1];
+  if (!ultimo || ultimo.rol !== "user") { chatPintarMensajes(); return; }
+  const entrada = document.getElementById("chatEntrada");
+  entrada.value = ultimo.texto;
+  c.mensajes.pop();
+  chatAutoAlto(entrada);
+  chatEnviar();
+}
+
+/** Devuelve el último mensaje al compositor para corregirlo. */
+function chatEditarUltimo() {
+  const c = estadoApp.chat;
+  if (c.enviando) return;
+  if (c.mensajes.length && c.mensajes[c.mensajes.length - 1].rol !== "user") c.mensajes.pop();
+  const ultimo = c.mensajes.pop();
+  const entrada = document.getElementById("chatEntrada");
+  if (ultimo && entrada) {
+    entrada.value = ultimo.texto;
+    chatAutoAlto(entrada);
+    entrada.focus();
+  }
+  chatPintarMensajes();
+}
+
+/** Auto-scroll sólo si el usuario está cerca del final: no le robamos el scroll. */
+function chatScroll(forzar) {
   const cont = document.getElementById("chatHilo");
-  if (cont) cont.scrollTop = cont.scrollHeight;
+  if (!cont) return;
+  if (forzar || estadoApp.chat.autoscroll) {
+    cont.scrollTop = cont.scrollHeight;
+  }
+}
+
+/** Muestra cuánto del contexto está ocupado (tokens reales de la KV). */
+function chatActualizarContexto() {
+  const chip = document.getElementById("chatContexto");
+  if (!chip) return;
+  if (!estadoApp.chat.localCargado || estadoApp.chat.modo !== "local") {
+    chip.hidden = true;
+    return;
+  }
+  let r = null;
+  try { r = JSON.parse(window.FabrickNative.localContexto()); } catch (e) { r = null; }
+  if (!r || !r.ok || !r.n_ctx) { chip.hidden = true; return; }
+  const pct = Math.min(100, Math.round((r.kv || 0) * 100 / r.n_ctx));
+  chip.hidden = false;
+  chip.textContent = "contexto " + pct + "%";
+  chip.title = (r.kv || 0) + " de " + r.n_ctx + " tokens en memoria";
 }
 
 function chatAutoAlto(area) {
@@ -2290,11 +2515,19 @@ window.FabriTts = {
 
 function chatLimpiar() {
   if (!estadoApp.chat.mensajes.length) return;
+  if (estadoApp.chat.enviando) {
+    toast("Detén la respuesta antes de empezar otra", "error");
+    return;
+  }
   if (!confirm("¿Empezar una conversación nueva? El historial de esta pantalla se limpia; no se borra nada de SQLite.")) return;
   estadoApp.chat.mensajes = [];
   estadoApp.chat.ultimaRespuesta = "";
+  estadoApp.chat.indiceIA = -1;
+  estadoApp.chat.deteniendo = false;
+  estadoApp.chat.primerTokenMs = 0;
   chatAvatarEstado("idle");
   chatPintarMensajes();
+  chatActualizarBotonEnviar();
 }
 
 window.FabriChat = {
@@ -2317,49 +2550,92 @@ window.FabriChat = {
       api("log.append", { nivel: "ERROR", origen: "llama", mensaje: "carga fallida: " + ((r && r.error) || "error") });
     }
   },
-  localFin: function (r) {
-    const transcurrido = estadoApp.chat.t0 ? Date.now() - estadoApp.chat.t0 : 0;
-    if (estadoApp.chat.cancelado) {
-      estadoApp.chat.cancelado = false;
-      estadoApp.chat.enviando = false;
-      chatAvatarEstado("idle");
-      chatPintarMensajes();
-      revision("chat", "aviso", "respuesta local descartada por cancelación",
-        "La inferencia siguió en el hilo nativo; se descartó el texto.", transcurrido, "llama");
-      return;
+  /** Cada trozo que llega del motor: se pinta sin rehacer toda la lista. */
+  localPieza: function (r) {
+    const c = estadoApp.chat;
+    const i = c.indiceIA;
+    if (i < 0 || !c.mensajes[i]) return;
+    const m = c.mensajes[i];
+    if (!m.parcial) return;
+    if (r && typeof r.texto === "string") m.texto = r.texto;
+    m.tokens = (r && r.tokens) || 0;
+    if (!c.primerTokenMs && m.texto) {
+      c.primerTokenMs = Date.now() - (c.t0 || Date.now());
     }
-    if (r && r.ok) {
+    chatPintarParcial();
+  },
+
+  localFin: function (r) {
+    const c = estadoApp.chat;
+    const i = c.indiceIA;
+    const m = i >= 0 ? c.mensajes[i] : null;
+    const transcurrido = c.t0 ? Date.now() - c.t0 : 0;
+    const toks = (r && r.tokens) || 0;
+    const cancelada = !!(r && r.cancelado);
+
+    if (r && r.ok && toks > 0) {
       const ms = Math.round(r.ms || transcurrido || 0);
-      const toks = r.tokens || 0;
-      if (toks === 0) {
-        // 0 tokens no es "info": o el modelo no genera (embeddings), o el
-        // prompt se agotó en el contexto. Antes se registraba como éxito.
-        const causa = esModeloEmbeddings(estadoApp.chat.modeloRuta)
-          ? "el GGUF cargado es de embeddings, no de chat"
-          : "el modelo no generó texto (contexto lleno o plantilla incompatible)";
-        revision("llm", "error", "respuesta local vacía: 0 tokens en " + ms + " ms",
-          causa + " · modelo: " + (estadoApp.chat.modeloRuta || "?"), ms, "llama");
-        chatAgregarRespuesta(
-          "El modelo no generó texto: " + causa + ". Prueba con «Liberar» y carga un modelo de chat (SmolLM2 135M o Qwen 0.5B).",
-          "0 tokens", true);
-        api("log.append", { nivel: "ERROR", origen: "llama", mensaje: "respuesta vacía: " + causa });
-        return;
+      const vel = ms > 0 ? (toks * 1000 / ms) : 0;
+      const primer = Math.round(r.ms_primer || c.primerTokenMs || 0);
+      const meta = toks + " tokens · " + (vel > 0 ? vel.toFixed(1) + " tok/s" : "sin medida")
+        + (primer > 0 ? " · " + (primer / 1000).toFixed(1) + " s al primer token" : "");
+      if (m) {
+        m.texto = r.texto || m.texto;
+        m.parcial = false;
+        m.detenida = cancelada;
+        m.origen = "local";
+        m.meta = meta;
+        m.metricas = { tokens: toks, ms: ms, vel: vel, primer: primer, reutilizados: r.reutilizados || 0 };
+      } else {
+        chatAgregarRespuesta(r.texto, meta, false, "local");
       }
-      const vel = ms > 0 && toks > 0 ? (toks * 1000 / ms) : 0;
-      const meta = toks + " tokens · " + ms + " ms · "
-        + (vel > 0 ? vel.toFixed(2) + " tok/s" : "velocidad no medida");
-      revision("llm", "info", "respuesta local: " + toks + " tokens en " + ms + " ms",
-        "Velocidad: " + (vel > 0 ? vel.toFixed(2) + " tok/s" : "sin datos")
-          + " · modelo: " + (estadoApp.chat.modeloRuta || "?"), ms, "llama");
-      chatAgregarRespuesta(r.texto, meta, false, "local");
-      // chatAgregarRespuesta recalcula una velocidad aproximada; aquí se deja
-      // la real, medida por el runtime nativo.
+      c.ultimaRespuesta = r.texto || "";
       estadoApp.stats.ultimaVelocidad = vel;
-      api("log.append", { nivel: "OK", origen: "llama", mensaje: "respuesta local en " + Math.round(r.ms || 0) + " ms" });
+      revision("llm", cancelada ? "aviso" : "info",
+        "respuesta local: " + toks + " tokens en " + ms + " ms"
+          + (cancelada ? " (detenida por el usuario)" : ""),
+        "Velocidad: " + (vel > 0 ? vel.toFixed(2) + " tok/s" : "sin datos")
+          + " · primer token: " + primer + " ms"
+          + " · prefijo reutilizado: " + (r.reutilizados || 0) + " tokens"
+          + " · modelo: " + (c.modeloRuta || "?"), ms, "llama");
+      api("log.append", { nivel: "OK", origen: "llama",
+        mensaje: "respuesta local en " + ms + " ms (" + toks + " tokens)" });
+    } else if (cancelada && m) {
+      // Detenida antes del primer token: no se inventa texto, se avisa.
+      m.parcial = false;
+      m.detenida = true;
+      m.texto = m.texto || "(detenida antes de responder)";
+      m.meta = "detenida";
+    } else if (toks === 0) {
+      const causa = esModeloEmbeddings(c.modeloRuta)
+        ? "el GGUF cargado es de embeddings, no de chat"
+        : "el modelo no generó texto (contexto lleno o plantilla incompatible)";
+      revision("llm", "error", "respuesta local vacía: 0 tokens", causa, transcurrido, "llama");
+      if (m) {
+        m.parcial = false;
+        m.rol = "error";
+        m.texto = "El modelo no generó texto: " + causa
+          + ". Prueba con «Liberar» y carga un modelo de chat (SmolLM2 135M o Qwen 0.5B).";
+      } else {
+        chatAgregarRespuesta("El modelo no generó texto: " + causa + ".", "0 tokens", true);
+      }
+      api("log.append", { nivel: "ERROR", origen: "llama", mensaje: "respuesta vacía: " + causa });
+    } else if (m) {
+      m.parcial = false;
+      m.rol = "error";
+      m.texto = (r && r.error) || "falló la inferencia";
     } else {
       chatAgregarRespuesta((r && r.error) || "falló la inferencia", "error", true);
       api("log.append", { nivel: "ERROR", origen: "llama", mensaje: (r && r.error) || "inferencia fallida" });
     }
+
+    c.enviando = false;
+    c.indiceIA = -1;
+    c.deteniendo = false;
+    chatAvatarEstado("idle");
+    chatPintarMensajes();
+    chatActualizarBotonEnviar();
+    chatActualizarContexto();
   },
   remoto: function (r) {
     if (r && r.ok) {
@@ -3381,6 +3657,12 @@ document.addEventListener("click", (ev) => {
     copiar(codigo ? codigo.textContent : "", "Código copiado");
     return;
   }
+
+  const regenerar = ev.target.closest("[data-regenerar]");
+  if (regenerar) { chatRegenerar(); return; }
+
+  const editarUltimo = ev.target.closest("[data-editar-ultimo]");
+  if (editarUltimo) { chatEditarUltimo(); return; }
 
   const leerMsg = ev.target.closest("[data-leer-mensaje]");
   if (leerMsg) {

@@ -61,6 +61,10 @@ public final class NativeBridge {
     private final Map<String, Descargador.Control> controles = new ConcurrentHashMap<String, Descargador.Control>();
     private volatile Notificador notificador;
 
+    /** Una sola generación a la vez: el modelo tiene una KV y un sampler. */
+    private static final java.util.concurrent.atomic.AtomicBoolean GENERANDO =
+            new java.util.concurrent.atomic.AtomicBoolean(false);
+
     /** El núcleo arranca en segundo plano; esto avisa cuando terminó. */
     private final java.util.concurrent.CountDownLatch listo =
             new java.util.concurrent.CountDownLatch(1);
@@ -654,17 +658,39 @@ public final class NativeBridge {
         if (prompt == null || prompt.trim().isEmpty()) {
             return error("el mensaje está vacío");
         }
-        if (prompt.length() > 12000) {
-            return error("mensaje demasiado largo (máximo 12000 caracteres)");
+        if (prompt.length() > 16000) {
+            return error("mensaje demasiado largo (máximo 16000 caracteres)");
+        }
+        if (!GENERANDO.compareAndSet(false, true)) {
+            return error("ya hay una respuesta en curso; deténla antes de enviar otra");
         }
         Thread hilo = new Thread(new Runnable() {
             @Override
             public void run() {
                 String json;
+                final StringBuilder acumulado = new StringBuilder();
+                final long[] ultimo = {0L};
                 try {
-                    json = RuntimeNativo.generar(prompt, maxTokens);
+                    // El texto se entrega token a token; la interfaz lo pinta
+                    // mientras llega. Se avisa como máximo cada 55 ms para no
+                    // saturar el WebView con evaluateJavascript.
+                    json = RuntimeNativo.generarStream(prompt, maxTokens, new RuntimeNativo.Progreso() {
+                        @Override
+                        public void pieza(byte[] utf8, int tokens) {
+                            if (utf8 != null && utf8.length > 0) {
+                                acumulado.append(new String(utf8, java.nio.charset.StandardCharsets.UTF_8));
+                            }
+                            long ahora = System.nanoTime();
+                            if (tokens <= 1 || ahora - ultimo[0] >= 55000000L) {
+                                ultimo[0] = ahora;
+                                avisarPieza(acumulado.toString(), tokens);
+                            }
+                        }
+                    });
                 } catch (Throwable t) {
                     json = "{\"ok\":false,\"error\":\"" + escapar(t.toString()) + "\"}";
+                } finally {
+                    GENERANDO.set(false);
                 }
                 notificar("window.FabriChat && FabriChat.localFin(" + json + ");");
             }
@@ -672,6 +698,58 @@ public final class NativeBridge {
         hilo.setDaemon(true);
         hilo.start();
         return "{\"ok\":true,\"estado\":\"GENERANDO\"}";
+    }
+
+    /** Manda a la interfaz lo que va de la respuesta. */
+    private void avisarPieza(String texto, int tokens) {
+        try {
+            JSONObject o = new JSONObject();
+            o.put("texto", texto);
+            o.put("tokens", tokens);
+            notificar("window.FabriChat && FabriChat.localPieza(" + o.toString() + ");");
+        } catch (Throwable ignorado) {
+            // Un fallo al pintar el parcial no corta la generación.
+        }
+    }
+
+    /** Corta la respuesta en el siguiente token y deja el texto parcial. */
+    @JavascriptInterface
+    public String localDetener() {
+        return RuntimeNativo.detener();
+    }
+
+    /** Ajusta temperatura, top-p, top-k y penalización del próximo turno. */
+    @JavascriptInterface
+    public String localConfigurar(float temp, float topP, int topK, float repetir, long semilla) {
+        return RuntimeNativo.configurar(temp, topP, topK, repetir, semilla);
+    }
+
+    /** Tokens ocupados del contexto, para la barra de la cabecera. */
+    @JavascriptInterface
+    public String localContexto() {
+        return RuntimeNativo.contexto();
+    }
+
+    /**
+     * Memoria disponible del proceso. Sirve para no lanzar una carga que el
+     * kernel de Android va a terminar matando por falta de RAM.
+     */
+    @JavascriptInterface
+    public String memoria() {
+        try {
+            android.app.ActivityManager am = (android.app.ActivityManager)
+                    contexto.getSystemService(Context.ACTIVITY_SERVICE);
+            android.app.ActivityManager.MemoryInfo mi = new android.app.ActivityManager.MemoryInfo();
+            am.getMemoryInfo(mi);
+            JSONObject o = new JSONObject();
+            o.put("ok", true);
+            o.put("libre_mb", mi.availMem / (1024L * 1024L));
+            o.put("total_mb", mi.totalMem / (1024L * 1024L));
+            o.put("bajo", mi.lowMemory);
+            return o.toString();
+        } catch (Throwable t) {
+            return error(t.toString());
+        }
     }
 
     @JavascriptInterface

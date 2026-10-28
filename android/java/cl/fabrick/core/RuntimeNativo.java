@@ -71,7 +71,18 @@ public final class RuntimeNativo {
     private static native String cargarNativo(String ruta, int nCtx, int nThreads, String dir);
     private static native String infoNativo(long handle);
     private static native String generarNativo(long handle, String prompt, int maxTokens);
+    private static native String generarStreamNativo(long handle, String prompt, int maxTokens,
+                                                     Progreso progreso);
+    private static native String configurarNativo(long handle, float temp, float topP,
+                                                  int topK, float repetir, long semilla);
+    private static native String detenerNativo(long handle);
+    private static native String estadoCtxNativo(long handle);
     private static native void liberarNativo(long handle);
+
+    /** Recibe cada trozo de texto generado como UTF-8 crudo. */
+    public interface Progreso {
+        void pieza(byte[] utf8, int tokens);
+    }
 
     /** Devuelve el estado de A1 como JSON, sin lanzar excepciones. */
     public static String info() {
@@ -112,6 +123,26 @@ public final class RuntimeNativo {
         }
         if (ruta == null || ruta.trim().isEmpty()) {
             return "{\"ok\":false,\"error\":\"ruta de modelo vacía\"}";
+        }
+        // Falla rápido y con un motivo claro antes de tocar llama.cpp: un
+        // archivo que no es GGUF tarda 30 s en fallar dentro del runtime.
+        java.io.File archivo = new java.io.File(ruta);
+        if (!archivo.isFile()) {
+            return "{\"ok\":false,\"error\":\"no existe el archivo del modelo\"}";
+        }
+        if (archivo.length() < 1048576L) {
+            return "{\"ok\":false,\"error\":\"el archivo es demasiado pequeño para un GGUF ("
+                    + archivo.length() + " B)\"}";
+        }
+        try (java.io.FileInputStream entrada = new java.io.FileInputStream(archivo)) {
+            byte[] cabecera = new byte[4];
+            int leidos = entrada.read(cabecera);
+            if (leidos != 4 || cabecera[0] != 'G' || cabecera[1] != 'G'
+                    || cabecera[2] != 'U' || cabecera[3] != 'F') {
+                return "{\"ok\":false,\"error\":\"el archivo no empieza con GGUF: no es un modelo válido\"}";
+            }
+        } catch (Throwable t) {
+            return "{\"ok\":false,\"error\":\"no se pudo leer el modelo: " + escapar(t.toString()) + "\"}";
         }
         // Una carga anterior que quedó colgada no debe bloquear ésta: se marca
         // abandonada y se intenta tomar el candado con espera acotada.
@@ -204,8 +235,21 @@ public final class RuntimeNativo {
         return "{\"ok\":true,\"abandonada\":" + estaba + "}";
     }
 
-    /** A3: genera texto. Debe llamarse desde un hilo de fondo. */
+    /** A3: genera texto sin streaming. Debe llamarse desde un hilo de fondo. */
     public static String generar(String prompt, int maxTokens) {
+        return generarInterno(prompt, maxTokens, null);
+    }
+
+    /**
+     * A4: genera con streaming. `progreso.pieza` se llama en el mismo hilo de
+     * generación, así que puede tocar estado Java sin sincronización extra.
+     * Devuelve el JSON final con el texto completo y las métricas.
+     */
+    public static String generarStream(String prompt, int maxTokens, Progreso progreso) {
+        return generarInterno(prompt, maxTokens, progreso);
+    }
+
+    private static String generarInterno(String prompt, int maxTokens, final Progreso progreso) {
         if (!CARGADO) {
             return "{\"ok\":false,\"error\":\"A1 no está cargado\"}";
         }
@@ -220,14 +264,19 @@ public final class RuntimeNativo {
             if (handle == 0L) {
                 return "{\"ok\":false,\"error\":\"no hay modelo cargado; pulsa Cargar modelo\"}";
             }
-            int max = maxTokens < 1 ? 128 : Math.min(maxTokens, 512);
-            String crudo = generarNativo(handle, prompt, max);
+            int max = maxTokens < 1 ? 128 : Math.min(maxTokens, 1024);
+            String crudo = progreso == null
+                    ? generarNativo(handle, prompt, max)
+                    : generarStreamNativo(handle, prompt, max, progreso);
             JSONObject r = new JSONObject(crudo);
             if (r.optBoolean("ok", false)) {
                 String texto = r.optString("texto", "");
                 // El modelo puede emitir el token de fin de turno como texto.
+                // Sin trim: el texto tiene que coincidir token a token con lo
+                // que quedó en la KV, o el turno siguiente pierde el prefijo.
                 texto = texto.replace("<|im_end|>", "").replace("<|im_end|", "")
-                        .replace("<|endoftext|>", "").trim();
+                        .replace("<|endoftext|>", "").replace("<|eot_id|>", "")
+                        .replace("<|end|>", "");
                 r.put("texto", texto);
                 return r.toString();
             }
@@ -236,6 +285,49 @@ public final class RuntimeNativo {
             return "{\"ok\":false,\"error\":\"" + escapar(t.toString()) + "\"}";
         } finally {
             CANDADO.unlock();
+        }
+    }
+
+    /**
+     * Ajusta el muestreo del próximo turno. No toma el candado: el shim lee
+     * estos valores al empezar a generar. temp = 0 vuelve a greedy.
+     */
+    public static String configurar(float temp, float topP, int topK,
+                                    float repetir, long semilla) {
+        if (handle == 0L) {
+            return "{\"ok\":false,\"error\":\"no hay modelo cargado\"}";
+        }
+        try {
+            return configurarNativo(handle, temp, topP, topK, repetir, semilla);
+        } catch (Throwable t) {
+            return "{\"ok\":false,\"error\":\"" + escapar(t.toString()) + "\"}";
+        }
+    }
+
+    /**
+     * Corta la generación en el siguiente token. No espera al candado: si la
+     * inferencia está en curso, el flag la hace salir sola.
+     */
+    public static String detener() {
+        if (handle == 0L) {
+            return "{\"ok\":false,\"error\":\"no hay modelo cargado\"}";
+        }
+        try {
+            return detenerNativo(handle);
+        } catch (Throwable t) {
+            return "{\"ok\":false,\"error\":\"" + escapar(t.toString()) + "\"}";
+        }
+    }
+
+    /** Cuántos tokens del contexto están ocupados (para la barra de contexto). */
+    public static String contexto() {
+        if (handle == 0L) {
+            return "{\"ok\":false,\"error\":\"no hay modelo cargado\"}";
+        }
+        try {
+            return estadoCtxNativo(handle);
+        } catch (Throwable t) {
+            return "{\"ok\":false,\"error\":\"" + escapar(t.toString()) + "\"}";
         }
     }
 
