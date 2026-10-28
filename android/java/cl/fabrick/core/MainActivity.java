@@ -32,6 +32,7 @@ public class MainActivity extends Activity {
             new java.util.concurrent.atomic.AtomicBoolean(false);
     private static final int PEDIR_ARCHIVO = 4711;
     private static final int PEDIR_CAMARA = 4712;
+    private static final int PEDIR_BASE = 4713;
     private android.webkit.PermissionRequest permisoCamara;
     private android.webkit.ValueCallback<android.net.Uri[]> esperaArchivo;
 
@@ -459,6 +460,37 @@ public class MainActivity extends Activity {
         }
     }
 
+    /**
+     * Selector nativo para importar una base descargada en la SD. Se usa
+     * ACTION_OPEN_DOCUMENT (SAF), así no hacen falta permisos de almacenamiento
+     * y el usuario puede entrar a Descargas, SD o cualquier proveedor local.
+     * El resultado vuelve por onActivityResult → puente.importarDesdeUri().
+     */
+    public void pedirBaseDatos() {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    android.content.Intent intento =
+                            new android.content.Intent(android.content.Intent.ACTION_OPEN_DOCUMENT);
+                    intento.addCategory(android.content.Intent.CATEGORY_OPENABLE);
+                    intento.setType("*/*");
+                    // Sólo archivos que ya están en el teléfono/SD: no se
+                    // dispara una descarga de Drive sin querer.
+                    intento.putExtra(android.content.Intent.EXTRA_LOCAL_ONLY, true);
+                    startActivityForResult(intento, PEDIR_BASE);
+                } catch (Throwable t) {
+                    Toast.makeText(MainActivity.this,
+                            "No se pudo abrir el selector de archivos",
+                            Toast.LENGTH_LONG).show();
+                    if (puente != null) {
+                        puente.importarCancelado();
+                    }
+                }
+            }
+        });
+    }
+
     @Override
     public boolean onKeyDown(int codigo, KeyEvent evento) {
         if (codigo == KeyEvent.KEYCODE_BACK && web != null) {
@@ -511,6 +543,18 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onActivityResult(int codigo, int resultado, android.content.Intent datos) {
+        if (codigo == PEDIR_BASE) {
+            android.net.Uri uri = (resultado == RESULT_OK && datos != null)
+                    ? datos.getData() : null;
+            if (puente != null) {
+                if (uri != null) {
+                    puente.importarDesdeUri(uri);
+                } else {
+                    puente.importarCancelado();
+                }
+            }
+            return;
+        }
         if (codigo == PEDIR_ARCHIVO) {
             android.net.Uri[] elegidos = null;
             if (resultado == RESULT_OK && datos != null) {

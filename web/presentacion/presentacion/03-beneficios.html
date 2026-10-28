@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>03 · Beneficios · FABRI-CORE</title>
+<link rel="stylesheet" href="shared.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+</head>
+<body>
+<canvas id="bg-canvas"></canvas>
+
+<nav class="nav-strip">
+  <a class="nav-home" href="index.html">← Inicio</a>
+  <span class="nav-section-tag">03 / BENEFICIOS</span>
+  <div class="nav-links">
+    <a class="nav-link" href="01-marca.html">01 Marca</a>
+    <a class="nav-link" href="02-funciones.html">02 Funciones</a>
+    <a class="nav-link active" href="03-beneficios.html">03 Beneficios</a>
+    <a class="nav-link" href="04-mercado.html">04 Mercado</a>
+    <a class="nav-link" href="05-redes.html">05 Redes</a>
+    <a class="nav-link" href="06-ia.html">06 IA</a>
+  </div>
+</nav>
+
+<section class="section" id="hero">
+  <div class="section-content">
+    <div class="stack" style="gap:32px;">
+      <div class="label motion-reveal" style="opacity:0;">Beneficios · Documentación</div>
+      <h1 class="h1 motion-reveal" style="opacity:0;">Todo el poder de una empresa grande. <span class="accent">En tu teléfono.</span></h1>
+      <p class="lead motion-reveal" style="opacity:0;">Sin mensualidad. Sin internet. Sin datos en la nube de otro. <strong>Sin humo. Software 100% gratuito.</strong></p>
+      <div class="row mt-20 motion-reveal" style="opacity:0;gap:12px;">
+        <span class="badge">✓ Local-first</span>
+        <span class="badge">✓ Sin suscripción</span>
+        <span class="badge">✓ IA privada</span>
+        <span class="free-badge">100% Gratis</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section section-alt" id="sin-internet">
+  <div class="section-content">
+    <div class="stack" style="gap:32px;max-width:900px;">
+      <div class="label motion-reveal" style="opacity:0;">Beneficio #1 · Documentación</div>
+      <h2 class="h2 motion-reveal" style="opacity:0;">Funciona sin señal.</h2>
+      <div style="font-size:80px;text-align:center;filter:drop-shadow(0 0 40px rgba(200,255,0,0.4));" class="float motion-scale" style="opacity:0;">📵</div>
+      <div class="grid-3">
+        <div class="card motion-scale stagger-1" style="text-align:center;opacity:0;">
+          <div class="card-icon" style="margin:0 auto 12px;">🏪</div>
+          <div class="card-title">Almacén en cerro</div>
+          <div class="card-desc">Sin fibra, sin 4G. Todo vive en el teléfono. Sin costo.</div>
+        </div>
+        <div class="card motion-scale stagger-2" style="text-align:center;opacity:0;">
+          <div class="card-icon" style="margin:0 auto 12px;">🛒</div>
+          <div class="card-title">Feria libre</div>
+          <div class="card-desc">Señal cortada. La app sigue funcionando. Siempre.</div>
+        </div>
+        <div class="card motion-scale stagger-3" style="text-align:center;opacity:0;">
+          <div class="card-icon" style="margin:0 auto 12px;">🚐</div>
+          <div class="card-title">Food truck</div>
+          <div class="card-desc">Zona rural. SQLite local. Cero dependencia de nube.</div>
+        </div>
+      </div>
+      <p class="lead motion-reveal" style="opacity:0;font-size:14px;">SQLite local. Cero dependencia de nube para operar. Todo el inventario en el dispositivo. <span class="accent">Gratis para siempre.</span></p>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="sin-mensualidad">
+  <div class="section-content">
+    <div class="stack" style="gap:32px;max-width:900px;">
+      <div class="label motion-reveal" style="opacity:0;">Beneficio #2 · Documentación</div>
+      <h2 class="h2 motion-reveal" style="opacity:0;">Paga una vez. Usa siempre.</h2>
+      <div class="grid-2" style="max-width:800px;">
+        <div class="card motion-slide-left" style="text-align:center;border-color:var(--err);opacity:0;">
+          <div style="font-size:12px;font-weight:700;color:var(--err);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:14px;">Competidores</div>
+          <div style="font-size:14px;color:var(--muted);line-height:1.8;">
+            $55 USD/mes × 12 = $660/año<br>
+            × 5 años = <strong style="color:var(--err);font-size:18px;">$3.300 USD</strong>
+          </div>
+          <div class="mt-16"><span class="pill" style="border-color:var(--err);color:var(--err);">Suscripción mensual</span></div>
+        </div>
+        <div class="card card-lime motion-slide-right" style="text-align:center;opacity:0;">
+          <div style="font-size:12px;font-weight:700;color:var(--lime);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:14px;">FABRI-CORE PRO</div>
+          <div style="font-size:14px;color:var(--muted);line-height:1.8;">
+            $29.990 CLP<br>
+            una sola vez = <strong style="color:var(--lime);font-size:18px;">$32 USD TOTAL</strong>
+          </div>
+          <div class="mt-16"><span class="free-badge">Gratis para siempre</span></div>
+        </div>
+      </div>
+      <div class="stat motion-scale" style="min-width:220px;opacity:0;">
+        <div class="stat-num gradient">97%</div>
+        <div class="stat-label">de ahorro en 5 años</div>
+      </div>
+      <p class="sub motion-reveal" style="opacity:0;">* Precios de competidores basados en planes públicos 2024-2025. FABRI-CORE es gratuito.</p>
+    </div>
+  </div>
+</section>
+
+<section class="section section-alt" id="ia-privada">
+  <div class="section-content">
+    <div class="stack" style="gap:32px;max-width:900px;">
+      <div class="label motion-reveal" style="opacity:0;">Beneficio #3 · Documentación</div>
+      <h2 class="h2 motion-reveal" style="opacity:0;">Tu IA. Tus datos. Tu teléfono.</h2>
+      <div class="grid-3">
+        <div class="card motion-slide-left stagger-1" style="border-color:var(--err);opacity:0;">
+          <div class="card-icon" style="background:rgba(255,107,107,0.1);border-color:var(--err);color:var(--err);">❌</div>
+          <div class="card-title" style="font-size:14px;">Apps cloud</div>
+          <div class="card-desc">Tus consultas viajan a servidores de terceros. Privacidad comprometida.</div>
+        </div>
+        <div class="card motion-reveal stagger-2" style="border-color:var(--err);opacity:0;">
+          <div class="card-icon" style="background:rgba(255,107,107,0.1);border-color:var(--err);color:var(--err);">❌</div>
+          <div class="card-title" style="font-size:14px;">Apps cloud</div>
+          <div class="card-desc">Pagan por cada query al modelo. Costo por token. Suscripción mensual.</div>
+        </div>
+        <div class="card card-lime motion-slide-right stagger-3" style="opacity:0;">
+          <div class="card-icon">✅</div>
+          <div class="card-title" style="font-size:14px;">FABRI-CORE</div>
+          <div class="card-desc">El modelo corre en el dispositivo. Cero datos enviados. Cero costo. Para siempre.</div>
+        </div>
+      </div>
+      <p class="lead motion-reveal" style="opacity:0;font-size:14px;">Ideal para negocios con información sensible: clínicas, estudios, legales, contabilidad. <span class="accent">Gratis y privado.</span></p>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="almacenero">
+  <div class="section-content">
+    <div class="stack" style="gap:32px;max-width:720px;">
+      <div class="label motion-reveal" style="opacity:0;">Para el Almacenero · Documentación</div>
+      <h2 class="h2 motion-reveal" style="opacity:0;">El asistente que entiende tu negocio.</h2>
+      <div class="phone float motion-scale" style="width:280px;height:480px;opacity:0;">
+        <div class="phone-screen" style="padding:24px 16px;">
+          <div style="font-size:10px;color:#7A7A7A;text-transform:uppercase;letter-spacing:0.08em;font-weight:600;margin-bottom:10px;">FABRI-CORE IA · Local · Gratis</div>
+          <div class="chat-bubble chat-user">¿Qué producto me da más margen?</div>
+          <div class="chat-bubble chat-ai">
+            Coca-Cola 1.5L tiene 34% de margen. Nescafé 100g tiene 41%. Los calcetines marca X tienen el mayor: 58%.
+            <div class="meta">IA Local · Sin internet · 2.1s · $0</div>
+          </div>
+          <div class="chat-bubble chat-user">¿Cuánto vendí esta semana?</div>
+          <div class="chat-bubble chat-ai">
+            $47.823 CLP en 34 transacciones. Top: Coca-Cola 1.5L (12 uds).
+            <div class="meta">IA Local · Sin internet · 1.9s · $0</div>
+          </div>
+        </div>
+      </div>
+      <p class="sub motion-reveal" style="opacity:0;">La IA responde con tus datos reales. Sin enviar nada a la nube. Sin costo.</p>
+    </div>
+  </div>
+</section>
+
+<section class="section section-alt" id="seguridad">
+  <div class="section-content">
+    <div class="stack" style="gap:32px;max-width:900px;">
+      <div class="label motion-reveal" style="opacity:0;">Seguridad · Documentación</div>
+      <h2 class="h2 motion-reveal" style="opacity:0;">Militar en el bolsillo.</h2>
+      <div class="grid-2">
+        <div class="card motion-slide-left stagger-1" style="opacity:0;">
+          <div class="card-icon">🔐</div>
+          <div class="card-title">PBKDF2-SHA256</div>
+          <div class="card-desc">120.000 iteraciones. Hashing seguro de credenciales. Estándar militar.</div>
+        </div>
+        <div class="card motion-slide-right stagger-2" style="opacity:0;">
+          <div class="card-icon">👆</div>
+          <div class="card-title">Biometría</div>
+          <div class="card-desc">Android Keystore. Huella o reconocimiento facial. Sin costo.</div>
+        </div>
+        <div class="card motion-slide-left stagger-3" style="opacity:0;">
+          <div class="card-icon">🔒</div>
+          <div class="card-title">SQLite cifrado</div>
+          <div class="card-desc">Base de datos local cifrada. Sin acceso externo. Tus datos son tuyos.</div>
+        </div>
+        <div class="card motion-slide-right stagger-4" style="opacity:0;">
+          <div class="card-icon">🛡️</div>
+          <div class="card-title">Token seguro</div>
+          <div class="card-desc">Solo en Authorization header. Nunca en logs ni en browser. Gratis.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="sintesis">
+  <div class="section-content">
+    <div class="stack" style="gap:32px;max-width:960px;">
+      <div class="label motion-reveal" style="opacity:0;">En Resumen · Documentación</div>
+      <h1 class="h1 motion-reveal" style="opacity:0;font-size:clamp(32px,5vw,56px);">Sin internet. Sin mensualidad. <span class="accent">Con IA.</span></h1>
+      <p class="quote-attr motion-reveal" style="opacity:0;">FABRI-CORE · Soluciones Fabrick · Software Libre</p>
+      <div class="grid-3" style="max-width:960px;margin-top:16px;">
+        <div class="card motion-scale stagger-1" style="padding:16px 20px;display:flex;align-items:center;gap:12px;opacity:0;">
+          <span style="color:var(--lime);font-size:22px;font-weight:900;">✓</span>
+          <span style="font-size:14px;font-weight:600;">Inventario con IA local</span>
+        </div>
+        <div class="card motion-scale stagger-2" style="padding:16px 20px;display:flex;align-items:center;gap:12px;opacity:0;">
+          <span style="color:var(--lime);font-size:22px;font-weight:900;">✓</span>
+          <span style="font-size:14px;font-weight:600;">Funciona offline 100%</span>
+        </div>
+        <div class="card motion-scale stagger-3" style="padding:16px 20px;display:flex;align-items:center;gap:12px;opacity:0;">
+          <span style="color:var(--lime);font-size:22px;font-weight:900;">✓</span>
+          <span style="font-size:14px;font-weight:600;">Pago único (no suscripción)</span>
+        </div>
+        <div class="card motion-scale stagger-4" style="padding:16px 20px;display:flex;align-items:center;gap:12px;opacity:0;">
+          <span style="color:var(--lime);font-size:22px;font-weight:900;">✓</span>
+          <span style="font-size:14px;font-weight:600;">Datos en tu teléfono</span>
+        </div>
+        <div class="card motion-scale stagger-5" style="padding:16px 20px;display:flex;align-items:center;gap:12px;opacity:0;">
+          <span style="color:var(--lime);font-size:22px;font-weight:900;">✓</span>
+          <span style="font-size:14px;font-weight:600;">Terminal Linux integrada</span>
+        </div>
+        <div class="card motion-scale stagger-6" style="padding:16px 20px;display:flex;align-items:center;gap:12px;opacity:0;">
+          <span style="color:var(--lime);font-size:22px;font-weight:900;">✓</span>
+          <span style="font-size:14px;font-weight:600;">Bot Telegram con voz</span>
+        </div>
+      </div>
+      <div class="row mt-24 motion-reveal" style="opacity:0;gap:16px;">
+        <a class="cta-btn cta-btn-secondary" href="https://www.tiktok.com/@fabricore.cl" target="_blank">❤️ Like en TikTok</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section section-alt" id="cta">
+  <div class="section-content">
+    <div class="stack" style="gap:32px;max-width:720px;">
+      <div class="label motion-reveal" style="opacity:0;">Software Libre · Sin Humo</div>
+      <h2 class="h2 motion-reveal" style="opacity:0;">100% Gratis. Sin letra chica.</h2>
+      <div class="cta-social motion-scale" style="opacity:0;">
+        <div class="cta-title">Si te sirve, dale un like</div>
+        <div class="cta-desc">El único "pago" que pedimos es un like en redes sociales.</div>
+        <div class="cta-buttons">
+          <a class="cta-btn cta-btn-primary" href="https://www.tiktok.com/@fabricore.cl" target="_blank">❤️ Like en TikTok</a>
+          <a class="cta-btn cta-btn-secondary" href="https://www.facebook.com/fabricore" target="_blank">👍 Like en Facebook</a>
+        </div>
+        <span class="free-badge">Software 100% Gratuito</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="footer-logo">
+    <svg viewBox="0 0 80 80" width="48" height="48" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="80" height="80" rx="16" fill="#030303"/>
+      <rect x="16" y="16" width="8" height="48" fill="#C8FF00"/>
+      <rect x="16" y="16" width="36" height="8" fill="#C8FF00"/>
+      <rect x="16" y="36" width="28" height="8" fill="#C8FF00"/>
+    </svg>
+  </div>
+  <p class="footer-text">
+    FABRI-CORE · Soluciones Fabrick · Software Libre · 2026<br>
+    <a href="https://github.com/thinkfashz/fabri-core">GitHub</a> · 
+    <a href="https://www.tiktok.com/@fabricore.cl">TikTok</a> · 
+    <a href="https://www.facebook.com/fabricore">Facebook</a>
+  </p>
+  <p class="footer-text" style="margin-top:12px;font-size:11px;">
+    Sin humo. Sin suscripción. Sin datos en la nube de otro. 100% gratuito.
+  </p>
+</footer>
+
+<script>
+gsap.registerPlugin(ScrollTrigger);
+
+gsap.utils.toArray('.motion-reveal').forEach((el) => {
+  gsap.fromTo(el, { opacity: 0, y: 40 }, {
+    opacity: 1, y: 0, duration: 0.8, ease: 'power3.out',
+    scrollTrigger: { trigger: el, start: 'top 85%', toggleActions: 'play none none reverse' }
+  });
+});
+
+gsap.utils.toArray('.motion-scale').forEach((el, i) => {
+  gsap.fromTo(el, { opacity: 0, scale: 0.85 }, {
+    opacity: 1, scale: 1, duration: 0.7, delay: i * 0.08, ease: 'back.out(1.4)',
+    scrollTrigger: { trigger: el, start: 'top 90%', toggleActions: 'play none none reverse' }
+  });
+});
+
+gsap.utils.toArray('.motion-slide-left').forEach((el) => {
+  gsap.fromTo(el, { opacity: 0, x: -60 }, {
+    opacity: 1, x: 0, duration: 0.8, ease: 'power3.out',
+    scrollTrigger: { trigger: el, start: 'top 85%', toggleActions: 'play none none reverse' }
+  });
+});
+
+gsap.utils.toArray('.motion-slide-right').forEach((el) => {
+  gsap.fromTo(el, { opacity: 0, x: 60 }, {
+    opacity: 1, x: 0, duration: 0.8, ease: 'power3.out',
+    scrollTrigger: { trigger: el, start: 'top 85%', toggleActions: 'play none none reverse' }
+  });
+});
+
+gsap.utils.toArray('.stagger-1, .stagger-2, .stagger-3, .stagger-4, .stagger-5, .stagger-6').forEach((el, i) => {
+  gsap.fromTo(el, { opacity: 0, y: 30 }, {
+    opacity: 1, y: 0, duration: 0.6, delay: (i % 6) * 0.1, ease: 'power2.out',
+    scrollTrigger: { trigger: el, start: 'top 90%', toggleActions: 'play none none reverse' }
+  });
+});
+
+(function(){
+  const canvas=document.getElementById('bg-canvas');if(!canvas)return;
+  const ctx=canvas.getContext('2d');let W,H,pts=[];
+  function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight;}
+  resize();window.addEventListener('resize',resize);
+  for(let i=0;i<55;i++)pts.push({x:Math.random()*1920,y:Math.random()*1080,vx:(Math.random()-.5)*.25,vy:(Math.random()-.5)*.25,r:Math.random()*1.2+.4,a:Math.random()*.3+.05});
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    ctx.strokeStyle='rgba(200,255,0,0.015)';ctx.lineWidth=1;
+    for(let x=0;x<W;x+=80){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+    for(let y=0;y<H;y+=80){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+    pts.forEach(p=>{p.x+=p.vx;p.y+=p.vy;if(p.x<0)p.x=W;if(p.x>W)p.x=0;if(p.y<0)p.y=H;if(p.y>H)p.y=0;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fillStyle=`rgba(200,255,0,${p.a})`;ctx.fill();});
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+</script>
+</body>
+</html>

@@ -1442,29 +1442,248 @@ npx -y omniroute@latest
         </div>
         <div id="invNubeResumen" class="inv-nube-resumen"></div>
 
-        <!-- Importación masiva desde otra base (Eleventa, Excel, CSV/TSV/JSON) -->
+        <!-- Equipos del local: impresora WiFi, lector 2D y base de la SD -->
+        <section class="inv-equipos" id="invEquipos" aria-label="Equipos del local">
+          <div class="inv-equipos-cab">
+            <div>
+              <h3>Equipos del local</h3>
+              <p class="inv-ayuda">Impresora, lector y bases, sin cables. Se configura una vez.</p>
+            </div>
+            <span class="inv-chip" id="invEquiposIp" title="IP del teléfono en la WiFi">IP —</span>
+          </div>
+          <div class="inv-equipos-grid">
+            <button class="inv-equipo" type="button" data-equipo="impresora" aria-expanded="false" aria-controls="invEquipoPanelImpresora">
+              <span class="inv-equipo-ico" data-ico="imprimir" data-ico-tam="20"></span>
+              <span class="inv-equipo-txt"><strong>Impresora WiFi</strong><small id="invEquipoImpresora">sin configurar</small></span>
+              <span class="inv-chip" id="invEquipoImpresoraChip">—</span>
+            </button>
+            <button class="inv-equipo" type="button" data-equipo="lector" aria-expanded="false" aria-controls="invEquipoPanelLector">
+              <span class="inv-equipo-ico" data-ico="scan" data-ico-tam="20"></span>
+              <span class="inv-equipo-txt"><strong>Lector 2D</strong><small id="invEquipoLector">apagado</small></span>
+              <span class="inv-chip" id="invEquipoLectorChip">—</span>
+            </button>
+            <button class="inv-equipo" type="button" data-equipo="base" aria-expanded="false" aria-controls="invImportarPanel">
+              <span class="inv-equipo-ico" data-ico="caja" data-ico-tam="20"></span>
+              <span class="inv-equipo-txt"><strong>Base de la SD</strong><small id="invEquipoBase">SQLite, Excel o CSV</small></span>
+              <span class="inv-chip" id="invEquipoBaseChip">—</span>
+            </button>
+          </div>
+
+          <!-- Impresora térmica WiFi (ESC/POS crudo, puerto 9100) -->
+          <div class="inv-equipo-panel" id="invEquipoPanelImpresora" hidden>
+            <div class="inv-equipo-panel-cab">
+              <h4><span data-ico="imprimir"></span> Impresora térmica WiFi</h4>
+              <button class="btn btn-mini" type="button" data-equipo-cerrar><span data-ico="cerrar"></span></button>
+            </div>
+            <p class="inv-ayuda">ESC/POS directo al puerto 9100, sin el diálogo de Android.
+              Funciona con la Xprinter XP-58LLH y casi cualquier térmica con WiFi.</p>
+            <div class="inv-form-grid">
+              <label class="campo"><span>IP de la impresora</span><input id="invImpHost" inputmode="decimal" autocomplete="off" placeholder="192.168.1.50" /></label>
+              <label class="campo"><span>Puerto</span><input id="invImpPuerto" inputmode="numeric" value="9100" /></label>
+              <label class="campo"><span>Papel</span>
+                <select id="invImpAncho">
+                  <option value="58mm">58 mm · 32 caracteres</option>
+                  <option value="80mm">80 mm · 48 caracteres</option>
+                </select>
+              </label>
+              <label class="campo"><span>Corte automático</span>
+                <select id="invImpCorte"><option value="1">Sí</option><option value="0">No</option></select>
+              </label>
+              <label class="campo"><span>Acentos</span>
+                <select id="invImpCodepage">
+                  <option value="16">Windows-1252 (recomendado)</option>
+                  <option value="0">Solo ASCII</option>
+                </select>
+              </label>
+              <label class="campo"><span>Al imprimir</span>
+                <select id="invImpDestino">
+                  <option value="wifi">WiFi directo</option>
+                  <option value="sistema">Diálogo de Android</option>
+                </select>
+              </label>
+            </div>
+            <div class="inv-toolbar-acciones">
+              <button class="btn btn-primario" id="btnInvImpGuardar" type="button"><span data-ico="ok"></span> Guardar</button>
+              <button class="btn" id="btnInvImpProbar" type="button"><span data-ico="verificar"></span> Probar</button>
+              <button class="btn" id="btnInvImpBuscar" type="button"><span data-ico="buscar"></span> Buscar en la red</button>
+              <button class="btn" id="btnInvImpTest" type="button"><span data-ico="imprimir"></span> Ticket de prueba</button>
+            </div>
+            <p class="inv-ayuda" id="invImpSalida">Sin probar todavía.</p>
+          </div>
+
+          <!-- Lector de códigos por red o USB/Bluetooth -->
+          <div class="inv-equipo-panel" id="invEquipoPanelLector" hidden>
+            <div class="inv-equipo-panel-cab">
+              <h4><span data-ico="scan"></span> Lector 2D de escritorio</h4>
+              <button class="btn btn-mini" type="button" data-equipo-cerrar><span data-ico="cerrar"></span></button>
+            </div>
+            <p class="inv-ayuda">El HBAPO y los lectores de red no tienen un protocolo único.
+              Elegí cómo se conecta: la app muestra la IP exacta que hay que configurar.</p>
+            <div class="inv-form-grid">
+              <label class="campo"><span>Modo</span>
+                <select id="invLectorModo">
+                  <option value="servidor">La app escucha (recomendado)</option>
+                  <option value="cliente">La app se conecta al lector</option>
+                  <option value="hid">Teclado USB / Bluetooth</option>
+                </select>
+              </label>
+              <label class="campo"><span>IP del lector</span><input id="invLectorHost" inputmode="decimal" autocomplete="off" placeholder="192.168.1.60" /></label>
+              <label class="campo"><span>Puerto</span><input id="invLectorPuerto" inputmode="numeric" value="9101" /></label>
+              <label class="campo"><span>Al leer</span>
+                <select id="invLectorAccion">
+                  <option value="buscar">Buscar el producto</option>
+                  <option value="apilador">Sumar al apilador</option>
+                </select>
+              </label>
+            </div>
+            <p class="inv-ayuda" id="invLectorIp">IP del teléfono: —</p>
+            <div class="inv-toolbar-acciones">
+              <button class="btn btn-primario" id="btnInvLectorIniciar" type="button"><span data-ico="ok"></span> Encender lector</button>
+              <button class="btn" id="btnInvLectorDetener" type="button"><span data-ico="cerrar"></span> Apagar</button>
+            </div>
+            <p class="inv-ayuda" id="invLectorEstado">Apagado.</p>
+            <div class="inv-lector-ultimos" id="invLectorUltimos"></div>
+          </div>
+        </section>
+
+        <!-- Importación masiva desde otra base (Eleventa, Excel, SQLite, CSV/TSV/JSON) -->
         <div id="invImportarPanel" class="inv-importar" hidden>
           <div class="inv-importar-cab">
             <h3><span data-ico="importar"></span> Importar productos de otra base</h3>
             <button class="btn btn-mini" id="btnInvImportarCerrar" type="button"><span data-ico="cerrar"></span></button>
           </div>
-          <p class="inv-ayuda">Elige el archivo exportado (CSV, TSV o JSON) o pega los datos.
-            Se reconocen las columnas por su nombre: <b>Producto/Descripción</b>,
-            <b>Código de barras</b>, <b>Precio</b>, <b>Costo</b>, <b>Existencia</b>,
-            <b>Marca</b>, <b>Categoría</b>. Nada se guarda hasta que lo confirmes.</p>
+
+          <!-- 1 · archivo nativo de la SD: SQLite, XLSX o texto -->
+          <div class="inv-base" id="invBaseNativa">
+            <div class="inv-base-cab">
+              <div>
+                <strong>Archivo descargado en la SD</strong>
+                <p class="inv-ayuda">SQLite (.db, .sqlite), Excel (.xlsx) o texto.
+                  Se trabaja sobre una copia: el archivo original no se modifica.</p>
+              </div>
+              <button class="btn btn-primario" id="btnInvBaseElegir" type="button"><span data-ico="caja"></span> Elegir archivo</button>
+            </div>
+            <p class="inv-ayuda" id="invBaseEstado">Ninguna base elegida todavía.</p>
+            <div class="inv-form-grid" id="invBaseSelector" hidden>
+              <label class="campo"><span>Tabla u hoja</span><select id="invBaseTabla"></select></label>
+              <label class="campo"><span>Filas a leer</span>
+                <select id="invBaseLimite">
+                  <option value="1000">1.000</option>
+                  <option value="5000" selected>5.000</option>
+                  <option value="20000">20.000</option>
+                </select>
+              </label>
+            </div>
+            <div id="invBaseMuestra" class="inv-base-muestra"></div>
+          </div>
+
+          <div class="inv-importar-o"><span>o un CSV, TSV o JSON</span></div>
+
           <label class="campo">
-            <span>Archivo de la otra base</span>
+            <span>Archivo exportado</span>
             <input type="file" id="invImportarArchivo" accept=".csv,.tsv,.txt,.json,text/csv,text/plain,application/json" />
           </label>
           <label class="campo">
             <span>…o pega los datos aquí</span>
             <textarea id="invImportarTexto" rows="6" placeholder="Producto;Código de barras;Precio;Existencia&#10;Arroz grado 1;7801234567890;1490;24"></textarea>
           </label>
+          <p class="inv-ayuda">Se reconocen las columnas por su nombre: <b>Producto/Descripción</b>,
+            <b>Código de barras</b>, <b>Precio</b>, <b>Costo</b>, <b>Existencia</b>,
+            <b>Marca</b>, <b>Categoría</b>. Nada se guarda hasta que lo confirmes.</p>
           <div id="invImportarPrevia" class="inv-importar-previa"></div>
           <div class="inv-toolbar-acciones">
             <button class="btn btn-primario" id="btnInvImportarEjecutar" type="button" disabled><span data-ico="ok"></span> Importar a mi base</button>
           </div>
         </div>
+
+        <!-- Guía para conectar la nube de InsForge -->
+        <details class="inv-guia" id="invGuiaInsforge">
+          <summary><span data-ico="nube"></span> Conectar la base de InsForge</summary>
+          <div class="inv-guia-cuerpo">
+            <p class="inv-ayuda">La app ya sincroniza con InsForge a través de <code>fabri-api</code>.
+              La APK nunca ve la cadena de Postgres: sólo un <code>Bearer</code> propio.
+              Son cuatro pasos y se hace una vez.</p>
+            <ol class="inv-guia-pasos">
+              <li><b>Creá el proyecto</b> en <code>insforge.app</code> y copiá la cadena
+                <code>postgresql://…</code> de <i>Connect → Connection string</i>.</li>
+              <li><b>Creá la tabla</b> <code>inv_productos</code> en el editor SQL de InsForge.</li>
+              <li><b>Configurá Vercel</b> (proyecto <code>fabri-api</code>) con
+                <code>INSFORGE_DATABASE_URL</code> y <code>FABRI_API_TOKEN</code>, y redeployá.</li>
+              <li><b>En la app</b>: Integración → Nube, URL <code>https://fabri-api.vercel.app</code>
+                y el mismo token. Probá con el botón de abajo.</li>
+            </ol>
+            <div class="inv-guia-bloque">
+              <div class="inv-guia-bloque-cab">
+                <span>Variables de Vercel</span>
+                <button class="btn btn-mini" type="button" data-copiar="invGuiaEnv">Copiar</button>
+              </div>
+              <pre class="inv-guia-sql" id="invGuiaEnv">INSFORGE_DATABASE_URL=postgresql://usuario:clave@host:5432/insforge
+FABRI_API_TOKEN=un-token-largo-y-propio</pre>
+            </div>
+            <div class="inv-guia-bloque">
+              <div class="inv-guia-bloque-cab">
+                <span>Tabla en InsForge</span>
+                <button class="btn btn-mini" type="button" data-copiar="invGuiaSql">Copiar</button>
+              </div>
+              <pre class="inv-guia-sql" id="invGuiaSql">CREATE TABLE IF NOT EXISTS inv_productos (
+  codigo       TEXT PRIMARY KEY,
+  nombre       TEXT NOT NULL DEFAULT '',
+  marca        TEXT NOT NULL DEFAULT '',
+  categoria    TEXT NOT NULL DEFAULT 'abarrotes',
+  unidad       TEXT NOT NULL DEFAULT 'unidad',
+  costo        REAL NOT NULL DEFAULT 0,
+  precio       REAL NOT NULL DEFAULT 0,
+  stock        INTEGER NOT NULL DEFAULT 0,
+  stock_minimo INTEGER NOT NULL DEFAULT 0,
+  iva          INTEGER NOT NULL DEFAULT 19,
+  proveedor    TEXT NOT NULL DEFAULT '',
+  origen       TEXT NOT NULL DEFAULT 'manual',
+  notas        TEXT NOT NULL DEFAULT '',
+  ficha        TEXT NOT NULL DEFAULT '{}',
+  creado       INTEGER NOT NULL DEFAULT 0,
+  actualizado  INTEGER NOT NULL DEFAULT 0,
+  sync_ts      INTEGER NOT NULL DEFAULT 0
+);</pre>
+            </div>
+            <div class="inv-guia-bloque">
+              <div class="inv-guia-bloque-cab">
+                <span>REST directo (para probar)</span>
+                <button class="btn btn-mini" type="button" data-copiar="invGuiaRest">Copiar</button>
+              </div>
+              <pre class="inv-guia-sql" id="invGuiaRest">curl -s "https://TU-APP.insforge.app/api/database/records/inv_productos?limit=5" \
+  -H "Authorization: Bearer TU_ANON_KEY"</pre>
+            </div>
+            <div class="inv-toolbar-acciones">
+              <button class="btn btn-primario" id="btnInvGuiaProbar" type="button"><span data-ico="verificar"></span> Probar mi nube</button>
+              <button class="btn" id="btnInvGuiaCompleta" type="button"><span data-ico="guia"></span> Ver guía completa</button>
+            </div>
+            <p class="inv-ayuda" id="invGuiaEstado">Sin probar todavía.</p>
+            <div id="invGuiaCompleta" class="inv-guia-completa" hidden>
+              <h4>Qué hace cada pieza</h4>
+              <p><b>La APK</b> guarda en SQLite y marca los cambios con <code>sync_ts</code>.
+                <b>Sincronizar</b> manda sólo los pendientes a <code>fabri-api</code>, que hace
+                upsert por <code>codigo</code> en InsForge. Si no hay red, el lote queda pendiente
+                y se reintenta solo.</p>
+              <p><b>fabri-api</b> es un proxy delgado en Vercel: valida el <code>Bearer</code>,
+                habla con Postgres y devuelve JSON. La cadena de base vive sólo en sus variables
+                de entorno, nunca en el teléfono.</p>
+              <h4>Si algo falla</h4>
+              <ul class="inv-guia-lista">
+                <li><b>401</b>: el token de la app no coincide con <code>FABRI_API_TOKEN</code>.</li>
+                <li><b>500 / ECONNREFUSED</b>: falta <code>INSFORGE_DATABASE_URL</code> o InsForge
+                  pausó el proyecto por inactividad.</li>
+                <li><b>No aparecen los productos</b>: revisá que la tabla se llame
+                  <code>inv_productos</code> y que el redeploy de Vercel haya terminado.</li>
+                <li><b>Prefiero REST directo</b>: usá
+                  <code>https://&lt;app&gt;.insforge.app/api/database/records/&lt;tabla&gt;</code>
+                  con <code>Authorization: Bearer &lt;anon-key&gt;</code>. El POST va con un array
+                  y <code>Prefer: return=representation</code>.</li>
+              </ul>
+              <p class="inv-ayuda">La guía larga, con el esquema completo y ejemplos, está en
+                <code>docs/INSFORGE.md</code> del repositorio.</p>
+            </div>
+          </div>
+        </details>
         <div id="invFormulario" class="inv-form" hidden>
           <h3 id="invFormTitulo">Nuevo producto</h3>
           <div class="inv-form-grid">
@@ -1888,6 +2107,10 @@ npx -y omniroute@latest
   <script src="datos.js"></script>
   <script src="conexiones.js"></script>
   <script src="inventario.js"></script>
+  <script src="impresora.js"></script>
+  <script src="lector-red.js"></script>
+  <script src="importar-base.js"></script>
+  <script src="insforge.js"></script>
   <script src="identidad.js"></script>
   <script src="flujo.js"></script>
   <script src="inicio.js"></script>

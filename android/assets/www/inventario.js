@@ -72,6 +72,9 @@ const INV = {
   apilador: [],
   ultimoEscaneo: 0,
   ultimoCodigo: "",
+  importar: null,
+  importarNativo: false,
+  importarOrigen: "",
   sync: {
     timer: null,
     enCurso: false,
@@ -131,7 +134,10 @@ const INV_SVG = {
   texto: '<path d="M4 6h10M4 11h16M4 16h12"/><path d="M18 15l3 3-3 3"/>',
   limpiar: '<path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M6 6l1 14a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-14"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>',
   verificar: '<path d="M22 11.5V12a10 10 0 1 1-5.9-9.1"/><polyline points="22 4 12 14.01 9 11.01"/>',
-  alerta: '<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>'
+  alerta: '<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+  wifi: '<path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/>',
+  cable: '<path d="M4 9V5a1 1 0 0 1 1-1h3v5"/><path d="M9 3h6v6a4 4 0 0 1-4 4H9Z"/><path d="M12 13v4a3 3 0 0 0 3 3h1"/><rect x="18" y="18" width="3" height="4" rx="1"/>',
+  guia: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/><line x1="9" y1="7" x2="15" y2="7"/><line x1="9" y1="11" x2="15" y2="11"/>'
 };
 
 /** Icono SVG en línea. `nombre` existe en INV_SVG; si no, devuelve "". */
@@ -341,6 +347,44 @@ function invConectarEventos() {
   });
 
   invPintarIconos();
+  invEquiposIniciar();
+}
+
+/** Tarjetas de equipos: abren un panel a la vez y cierran al tocar de nuevo. */
+function invEquiposIniciar() {
+  const tarjetas = document.querySelectorAll("[data-equipo]");
+  tarjetas.forEach(function (b) {
+    b.addEventListener("click", function () {
+      const tipo = b.dataset.equipo;
+      if (tipo === "base") {
+        const panelBase = document.getElementById("invImportarPanel");
+        if (panelBase && !panelBase.hidden) invImportarCerrar();
+        else invImportarPanel();
+        return;
+      }
+      const id = "invEquipoPanel" + tipo.charAt(0).toUpperCase() + tipo.slice(1);
+      const panel = document.getElementById(id);
+      const abierto = panel && !panel.hidden;
+      document.querySelectorAll(".inv-equipo-panel").forEach(function (p) { p.hidden = true; });
+      tarjetas.forEach(function (x) {
+        if (x.dataset.equipo !== "base") x.setAttribute("aria-expanded", "false");
+      });
+      if (panel && !abierto) {
+        panel.hidden = false;
+        b.setAttribute("aria-expanded", "true");
+        if (panel.scrollIntoView) {
+          setTimeout(function () { panel.scrollIntoView({ behavior: "smooth", block: "nearest" }); }, 60);
+        }
+      }
+    });
+  });
+  document.querySelectorAll("[data-equipo-cerrar]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      const panel = b.closest(".inv-equipo-panel");
+      if (panel) panel.hidden = true;
+      tarjetas.forEach(function (x) { x.setAttribute("aria-expanded", "false"); });
+    });
+  });
 }
 
 function invPaso(n) {
@@ -1332,6 +1376,8 @@ function invCategoriaDesdeTags(tags, porDefecto) {
 function invImportarPanel() {
   const caja = document.getElementById("invImportarPanel");
   if (caja) { caja.hidden = false; caja.scrollIntoView({ behavior: "smooth", block: "nearest" }); }
+  const tarjeta = document.querySelector('[data-equipo="base"]');
+  if (tarjeta) tarjeta.setAttribute("aria-expanded", "true");
   const t = document.getElementById("invImportarTexto");
   if (t) setTimeout(function () { t.focus(); }, 120);
   invImportarPrevia();
@@ -1340,6 +1386,8 @@ function invImportarPanel() {
 function invImportarCerrar() {
   const caja = document.getElementById("invImportarPanel");
   if (caja) caja.hidden = true;
+  const tarjeta = document.querySelector('[data-equipo="base"]');
+  if (tarjeta) tarjeta.setAttribute("aria-expanded", "false");
 }
 
 /** Lee el archivo elegido y lo vuelca al cuadro de texto para revisarlo. */
@@ -1566,26 +1614,23 @@ function invParseImportacion(textoCrudo) {
   return { productos: productos, errores: errores, formato: delim === "\t" ? "TSV" : "CSV" };
 }
 
-/** Vista previa antes de importar. No escribe nada en la base. */
-function invImportarPrevia() {
-  const texto = (document.getElementById("invImportarTexto") || {}).value || "";
+/** Pinta una importación ya mapeada (texto o base nativa). No escribe nada. */
+function invPintarImportacion(r, origen) {
   const caja = document.getElementById("invImportarPrevia");
   const btn = document.getElementById("btnInvImportarEjecutar");
   if (!caja) return;
-  if (!texto.trim()) {
-    INV.importar = null;
+  if (!r || !r.productos || !r.productos.length) {
     caja.innerHTML = `<p class="inv-ayuda">Pega los datos o elige el archivo exportado de la otra base.</p>`;
     if (btn) btn.disabled = true;
     return;
   }
-  const r = invParseImportacion(texto);
-  INV.importar = r;
   const muestra = r.productos.slice(0, 6).map(function (p) {
     return `<tr><td>${esc(p.codigo)}</td><td>${esc(p.nombre)}</td><td class="num">${invClp(p.precio)}</td><td class="num">${p.stock}</td></tr>`;
   }).join("");
   caja.innerHTML = `
     <div class="inv-meta">
-      <span class="inv-chip lima">${r.formato || "?"}</span>
+      <span class="inv-chip lima">${esc(r.formato || "?")}</span>
+      ${origen ? `<span class="inv-chip">${esc(origen)}</span>` : ""}
       <span class="inv-chip">${r.productos.length} producto(s) válidos</span>
       ${r.errores.length ? `<span class="inv-chip baja">${r.errores.length} fila(s) con problema</span>` : ""}
     </div>
@@ -1596,7 +1641,62 @@ function invImportarPrevia() {
       </table>
     </div>
     ${r.errores.length ? `<p class="inv-ayuda">Se omitirán ${r.errores.length} fila(s) sin nombre (fila ${r.errores.slice(0, 5).map(function (e) { return e.fila; }).join(", ")}).</p>` : ""}`;
-  if (btn) btn.disabled = r.productos.length === 0;
+  if (btn) btn.disabled = false;
+}
+
+/**
+ * Mapea filas ya extraídas de SQLite o Excel. `encabezados` son los nombres
+ * originales de la tabla/hoja; `filas` son arrays en el mismo orden. Se
+ * reutilizan los alias de `invCampoImport`, así que «Descripción», «EAN» o
+ * «Existencia» se reconocen igual que en un CSV.
+ */
+function invImportarFilas(encabezados, filas, etiqueta) {
+  const cabecera = (encabezados || []).map(function (x) { return String(x == null ? "" : x); });
+  let mapeados = cabecera.map(invCampoImport);
+  // Sin una columna de nombre reconocible no se adivina: se usa el orden
+  // clásico (código, nombre, precio, stock) y se avisa en la vista previa.
+  if (mapeados.indexOf("nombre") < 0) {
+    mapeados = ["codigo", "nombre", "precio", "stock", "costo", "stock_minimo", "marca", "categoria", "unidad"];
+  }
+  const productos = [];
+  const errores = [];
+  (filas || []).forEach(function (celdas, i) {
+    const fila = {};
+    mapeados.forEach(function (campo, j) {
+      if (campo && celdas && celdas[j] != null && String(celdas[j]).trim() !== "" && fila[campo] == null) {
+        fila[campo] = celdas[j];
+      }
+    });
+    if (!String(fila.nombre || "").trim()) { errores.push({ fila: i + 1, error: "sin nombre" }); return; }
+    productos.push(invProductoImport(fila, productos.length));
+  });
+  const r = { productos: productos, errores: errores, formato: etiqueta || "base" };
+  INV.importar = r;
+  INV.importarNativo = true;
+  INV.importarOrigen = etiqueta || "base";
+  invPintarImportacion(r, etiqueta);
+  return r;
+}
+
+/** Vista previa antes de importar. No escribe nada en la base. */
+function invImportarPrevia() {
+  const texto = (document.getElementById("invImportarTexto") || {}).value || "";
+  if (!texto.trim()) {
+    // Una base nativa (SQLite/Excel) ya mapeada no se borra porque el cuadro
+    // de texto esté vacío: se conserva hasta que el usuario elija otra cosa.
+    if (INV.importarNativo && INV.importar && INV.importar.productos && INV.importar.productos.length) {
+      invPintarImportacion(INV.importar, INV.importarOrigen);
+      return;
+    }
+    INV.importar = null;
+    invPintarImportacion(null);
+    return;
+  }
+  const r = invParseImportacion(texto);
+  INV.importar = r;
+  INV.importarNativo = false;
+  INV.importarOrigen = "";
+  invPintarImportacion(r, "");
 }
 
 /** Envía el lote a la base en una sola operación. */
@@ -1620,6 +1720,8 @@ function invImportarEjecutar() {
       const t = document.getElementById("invImportarTexto");
       if (t) t.value = "";
       INV.importar = null;
+      INV.importarNativo = false;
+      INV.importarOrigen = "";
       invImportarPrevia();
       invRefrescar();
     });
@@ -2531,7 +2633,6 @@ function invImprimir(formato, boleta) {
   if (!b) { toast("Emite una boleta primero", "error"); return; }
   const sel = document.getElementById("invFormatoImpresion");
   const fmt = formato || (sel && sel.value) || "80mm";
-  const html = invBoletaDocumento(b, fmt);
   // Animación del botón: spinner → check.
   const btnImprimir = document.getElementById("btnInvImprimir");
   if (btnImprimir) {
@@ -2553,6 +2654,42 @@ function invImprimir(formato, boleta) {
       setTimeout(function () { btnImprimir.classList.remove("btn-listo"); }, 1600);
     }
   };
+
+  // 1) Impresora WiFi configurada: ESC/POS crudo, sin diálogo de Android.
+  //    Sólo para rollo; A4 siempre va por el sistema.
+  let imp = null;
+  let cfgImp = null;
+  try {
+    imp = window.FabriImpresora || null;
+    cfgImp = imp && typeof imp.config === "function" ? imp.config() : null;
+  } catch (e) { imp = null; }
+  if (imp && cfgImp && cfgImp.host && cfgImp.destino === "wifi" && fmt !== "a4") {
+    try {
+      const r = imp.imprimir(b, {
+        negocio: invNegocio(),
+        formato: fmt,
+        ancho: fmt === "58mm" ? 32 : 48,
+        corte: cfgImp.corte,
+        silencioso: true
+      });
+      if (r && r.ok) {
+        finalizarAnimacion(true);
+        toast("Ticket enviado · " + r.bytes + " bytes · " + r.ms + " ms");
+        revision("inventario", "info", "boleta impresa por WiFi",
+          "folio " + b.folio + " · " + cfgImp.host + ":" + cfgImp.puerto + " · " + fmt);
+        return;
+      }
+      const motivo = (r && r.error) || "no se pudo conectar";
+      toast("WiFi: " + motivo + ". Abriendo el diálogo de Android…", "error");
+      revision("inventario", "aviso", "impresión WiFi falló; se usa el diálogo",
+        motivo + " · " + cfgImp.host + ":" + cfgImp.puerto);
+    } catch (e) {
+      revision("inventario", "error", "error al imprimir por WiFi", String(e));
+    }
+  }
+
+  // 2) Diálogo de impresión de Android (o vista previa en navegador).
+  const html = invBoletaDocumento(b, fmt);
   try {
     if (window.FabrickNative && typeof window.FabrickNative.imprimir === "function") {
       const r = JSON.parse(window.FabrickNative.imprimir(html, fmt));

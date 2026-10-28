@@ -3,14 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FABRI-CORE · Presentación Cinemática</title>
+<title>FABRI-CORE · Presentación Interactiva</title>
 <link rel="stylesheet" href="shared.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
 </head>
 <body>
 <canvas id="bg-canvas"></canvas>
-<div class="scanline"></div>
 
-<!-- NAV STRIP -->
+<!-- NAVIGATION -->
 <nav class="nav-strip">
   <a class="nav-home" href="index.html">← Inicio</a>
   <span class="nav-section-tag">HOME</span>
@@ -24,25 +25,11 @@
   </div>
 </nav>
 
-<!-- TIMER BAR -->
-<div class="timer-bar"><div class="timer-fill" id="timer-fill"></div></div>
-
-<!-- CHAPTER DOTS -->
-<div class="chapters" id="chapters">
-  <div class="chapter-dot active"></div>
-  <div class="chapter-dot"></div>
-  <div class="chapter-dot"></div>
-  <div class="chapter-dot"></div>
-  <div class="chapter-dot"></div>
-</div>
-
-<!-- SLIDE DECK -->
-<div class="slide-deck">
-
-  <!-- SLIDE 1: HERO -->
-  <section class="slide active" data-dur="7000">
-    <div class="stack">
-      <div class="logo-svg xl glow float">
+<!-- HERO SECTION -->
+<section class="section" id="hero">
+  <div class="section-content">
+    <div class="stack" style="gap:40px;">
+      <div class="logo-svg xl glow float motion-scale" style="opacity:0;">
         <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
           <rect width="80" height="80" rx="16" fill="#030303"/>
           <rect x="16" y="16" width="8" height="48" fill="#C8FF00"/>
@@ -50,10 +37,10 @@
           <rect x="16" y="36" width="28" height="8" fill="#C8FF00"/>
         </svg>
       </div>
-      <div class="label">Presentación Cinemática · v0.9.26 · Software Libre</div>
-      <h1 class="h1">FABRI-CORE <span class="accent">PRO</span></h1>
-      <p class="lead">La consola de operador con <strong>IA local-first</strong> para Android. Sin internet. Sin mensualidad. Sin humo. <strong>Software 100% gratuito.</strong></p>
-      <div class="row mt-20" style="gap:12px;">
+      <div class="label motion-reveal" style="opacity:0;">Presentación Interactiva · v0.9.26 · Software Libre</div>
+      <h1 class="h1 motion-reveal" style="opacity:0;">FABRI-CORE <span class="accent">PRO</span></h1>
+      <p class="lead motion-reveal" style="opacity:0;">La consola de operador con <strong>IA local-first</strong> para Android. Sin internet. Sin mensualidad. Sin humo. <strong>Software 100% gratuito.</strong></p>
+      <div class="row mt-20 motion-reveal" style="opacity:0;gap:12px;">
         <span class="badge">v0.9.26</span>
         <span class="badge">Android-first</span>
         <span class="badge">Sin mensualidad</span>
@@ -61,66 +48,74 @@
         <span class="badge badge-muted">17 módulos</span>
         <span class="free-badge">100% Gratis</span>
       </div>
+      <div class="row mt-32 motion-reveal" style="opacity:0;gap:16px;">
+        <a class="cta-btn cta-btn-primary" href="#secciones">Explorar →</a>
+        <a class="cta-btn cta-btn-secondary" href="https://www.tiktok.com/@fabricore.cl" target="_blank">❤️ Like en TikTok</a>
+      </div>
     </div>
-  </section>
+  </div>
+</section>
 
-  <!-- SLIDE 2: LAUNCHER GRID -->
-  <section class="slide" data-dur="0">
-    <div class="stack" style="gap:32px;">
-      <div class="label">Navegación · 6 Secciones · Documentación Completa</div>
-      <h2 class="h2">Explora la presentación</h2>
-      <p class="lead">Cada sección es una presentación cinemática independiente. Haz clic para entrar. Todo es gratis, sin registro.</p>
+<!-- SECTIONS GRID -->
+<section class="section section-alt" id="secciones">
+  <div class="section-content">
+    <div class="stack" style="gap:40px;">
+      <div class="label motion-reveal" style="opacity:0;">Navegación · 6 Secciones · Documentación Completa</div>
+      <h2 class="h2 motion-reveal" style="opacity:0;">Explora la presentación</h2>
+      <p class="lead motion-reveal" style="opacity:0;">Cada sección es una página interactiva independiente. Scroll libre. Sin playback. Todo gratis.</p>
       <div class="launcher-grid mt-20">
-        <a class="launcher-card" href="01-marca.html">
+        <a class="launcher-card motion-reveal stagger-1" href="01-marca.html" style="opacity:0;">
           <span class="lc-num">01 · Marca</span>
           <span class="lc-icon">🎨</span>
           <span class="lc-title">Marca &amp; Branding</span>
-          <span class="lc-desc">Identidad visual, paleta, tipografía, logotipo y sistema de diseño canónico. Guía de uso.</span>
-          <span class="lc-go">Ver presentación →</span>
+          <span class="lc-desc">Identidad visual, paleta, tipografía, logotipo y sistema de diseño canónico.</span>
+          <span class="lc-go">Ver página →</span>
         </a>
-        <a class="launcher-card" href="02-funciones.html">
+        <a class="launcher-card motion-reveal stagger-2" href="02-funciones.html" style="opacity:0;">
           <span class="lc-num">02 · Funciones</span>
           <span class="lc-icon">⚡</span>
           <span class="lc-title">Funciones</span>
-          <span class="lc-desc">17 módulos documentados: inventario, IA local, terminal Linux, RAG, facturación y más.</span>
-          <span class="lc-go">Ver presentación →</span>
+          <span class="lc-desc">17 módulos documentados: inventario, IA local, terminal, RAG, facturación.</span>
+          <span class="lc-go">Ver página →</span>
         </a>
-        <a class="launcher-card" href="03-beneficios.html">
+        <a class="launcher-card motion-reveal stagger-3" href="03-beneficios.html" style="opacity:0;">
           <span class="lc-num">03 · Beneficios</span>
           <span class="lc-icon">💎</span>
           <span class="lc-title">Beneficios</span>
-          <span class="lc-desc">Sin internet, sin mensualidad, IA privada, seguridad. Comparativa real vs competidores.</span>
-          <span class="lc-go">Ver presentación →</span>
+          <span class="lc-desc">Sin internet, sin mensualidad, IA privada, seguridad. Comparativa real.</span>
+          <span class="lc-go">Ver página →</span>
         </a>
-        <a class="launcher-card" href="04-mercado.html">
+        <a class="launcher-card motion-reveal stagger-4" href="04-mercado.html" style="opacity:0;">
           <span class="lc-num">04 · Mercado</span>
           <span class="lc-icon">📊</span>
           <span class="lc-title">Mercado</span>
-          <span class="lc-desc">Tamaño, segmentos, competidores, TAM/SAM/SOM y modelo de negocio. Análisis real.</span>
-          <span class="lc-go">Ver presentación →</span>
+          <span class="lc-desc">TAM/SAM/SOM, competidores, pricing, GTM. Análisis real.</span>
+          <span class="lc-go">Ver página →</span>
         </a>
-        <a class="launcher-card" href="05-redes.html">
+        <a class="launcher-card motion-reveal stagger-5" href="05-redes.html" style="opacity:0;">
           <span class="lc-num">05 · Redes</span>
           <span class="lc-icon">📱</span>
           <span class="lc-title">Redes Sociales</span>
-          <span class="lc-desc">Estrategia en 4 canales. Si te sirve, dale like y comparte. Sin costo.</span>
-          <span class="lc-go">Ver presentación →</span>
+          <span class="lc-desc">Estrategia en 4 canales. Si te sirve, dale like.</span>
+          <span class="lc-go">Ver página →</span>
         </a>
-        <a class="launcher-card" href="06-ia.html">
+        <a class="launcher-card motion-reveal stagger-6" href="06-ia.html" style="opacity:0;">
           <span class="lc-num">06 · IA</span>
           <span class="lc-icon">🤖</span>
           <span class="lc-title">Análisis IA</span>
-          <span class="lc-desc">Stack técnico, modelos GGUF, RAG, rotador cloud y visión de nivel 5. Documentación técnica.</span>
-          <span class="lc-go">Ver presentación →</span>
+          <span class="lc-desc">Stack técnico, modelos GGUF, RAG, rotador cloud, nivel 5.</span>
+          <span class="lc-go">Ver página →</span>
         </a>
       </div>
     </div>
-  </section>
+  </div>
+</section>
 
-  <!-- SLIDE 3: CLOSING QUOTE -->
-  <section class="slide" data-dur="8000">
-    <div class="stack">
-      <div class="logo-svg lg float">
+<!-- QUOTE SECTION -->
+<section class="section" id="quote">
+  <div class="section-content">
+    <div class="stack" style="gap:40px;">
+      <div class="logo-svg lg float motion-scale" style="opacity:0;">
         <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
           <rect width="80" height="80" rx="16" fill="#030303"/>
           <rect x="16" y="16" width="8" height="48" fill="#C8FF00"/>
@@ -128,22 +123,24 @@
           <rect x="16" y="36" width="28" height="8" fill="#C8FF00"/>
         </svg>
       </div>
-      <p class="quote">La caja registradora inteligente que cabe en tu bolsillo, no necesita internet y no te cobra todos los meses.</p>
-      <p class="quote-attr">Soluciones Fabrick · FABRI-CORE PRO · 2026 · Software Libre</p>
-      <div class="row mt-32" style="gap:16px;">
-        <a class="cta-btn cta-btn-primary" href="01-marca.html">Comenzar →</a>
-        <a class="cta-btn cta-btn-secondary" href="05-redes.html">Apóyanos con un like ❤️</a>
+      <p class="quote motion-reveal" style="opacity:0;">La caja registradora inteligente que cabe en tu bolsillo, no necesita internet y no te cobra todos los meses.</p>
+      <p class="quote-attr motion-reveal" style="opacity:0;">Soluciones Fabrick · FABRI-CORE PRO · 2026 · Software Libre</p>
+      <div class="row mt-32 motion-reveal" style="opacity:0;gap:16px;">
+        <a class="cta-btn cta-btn-primary" href="#secciones">Comenzar →</a>
+        <a class="cta-btn cta-btn-secondary" href="https://www.tiktok.com/@fabricore.cl" target="_blank">❤️ Like en TikTok</a>
       </div>
     </div>
-  </section>
+  </div>
+</section>
 
-  <!-- SLIDE 4: GRATIS / LIKE CTA -->
-  <section class="slide" data-dur="0">
-    <div class="stack" style="gap:32px;max-width:800px;">
-      <div class="label">Software Libre · Sin Humo</div>
-      <h2 class="h2">100% Gratis. Sin letra chica.</h2>
-      <p class="lead">FABRI-CORE es software libre. No vendemos humo. No hay suscripción oculta. No hay "versión pro" que desbloquee funciones. Lo que ves es lo que hay.</p>
-      <div class="cta-social">
+<!-- GRATIS / LIKE CTA -->
+<section class="section section-alt" id="gratis">
+  <div class="section-content">
+    <div class="stack" style="gap:40px;max-width:800px;">
+      <div class="label motion-reveal" style="opacity:0;">Software Libre · Sin Humo</div>
+      <h2 class="h2 motion-reveal" style="opacity:0;">100% Gratis. Sin letra chica.</h2>
+      <p class="lead motion-reveal" style="opacity:0;">FABRI-CORE es software libre. No vendemos humo. No hay suscripción oculta. No hay "versión pro" que desbloquee funciones. Lo que ves es lo que hay.</p>
+      <div class="cta-social motion-scale" style="opacity:0;">
         <div class="cta-title">Si te sirve, dale un like</div>
         <div class="cta-desc">El único "pago" que pedimos es un like en redes sociales si el software te fue útil. Sin compromisos, sin formularios, sin datos.</div>
         <div class="cta-buttons">
@@ -152,101 +149,156 @@
         </div>
         <span class="free-badge">Software 100% Gratuito · Open Source</span>
       </div>
-      <p class="sub">Si no te sirve, no pasa nada. Si te sirve, compártelo con otro almacenero.</p>
+      <p class="sub motion-reveal" style="opacity:0;">Si no te sirve, no pasa nada. Si te sirve, compártelo con otro almacenero.</p>
     </div>
-  </section>
+  </div>
+</section>
 
-  <!-- SLIDE 5: DOCUMENTACIÓN -->
-  <section class="slide" data-dur="0">
-    <div class="stack" style="gap:28px;max-width:900px;">
-      <div class="label">Documentación · Guía de Uso</div>
-      <h2 class="h2">Cómo usar esta presentación</h2>
-      <div class="doc-section">
+<!-- DOCUMENTACIÓN -->
+<section class="section" id="docs">
+  <div class="section-content">
+    <div class="stack" style="gap:40px;max-width:900px;">
+      <div class="label motion-reveal" style="opacity:0;">Documentación · Guía de Uso</div>
+      <h2 class="h2 motion-reveal" style="opacity:0;">Cómo usar esta presentación</h2>
+      <div class="doc-section motion-slide-left" style="opacity:0;">
         <h3>🎯 Navegación</h3>
-        <p>Usa las flechas ← → o los botones de control inferior. Los puntos laterales te permiten saltar a cualquier slide. Presiona espacio para pausar/reanudar. F para pantalla completa.</p>
+        <p>Scroll libre. No hay playback automático. Navega a tu ritmo. Usa el menú superior para saltar entre secciones. Cada página es independiente y documentada.</p>
       </div>
-      <div class="doc-section">
+      <div class="doc-section motion-slide-right" style="opacity:0;">
         <h3>📱 Secciones</h3>
-        <p>Cada sección es independiente. Marca (diseño), Funciones (módulos), Beneficios (ventajas), Mercado (análisis), Redes (estrategia), IA (técnico). Navega con el strip superior.</p>
+        <p>Cada sección es una página web completa. Marca (diseño), Funciones (módulos), Beneficios (ventajas), Mercado (análisis), Redes (estrategia), IA (técnico). Scroll infinito.</p>
       </div>
-      <div class="doc-section">
+      <div class="doc-section motion-slide-left" style="opacity:0;">
         <h3>🆓 Gratis y Libre</h3>
         <p>Todo el contenido es gratuito. No hay paywall, no hay registro. El software es libre y el código está disponible. Si te sirve, dale like en redes.</p>
       </div>
-      <div class="row mt-20">
-        <a class="cta-btn cta-btn-primary" href="index.html">Volver al inicio</a>
+      <div class="row mt-32 motion-reveal" style="opacity:0;gap:16px;">
+        <a class="cta-btn cta-btn-primary" href="01-marca.html">Comenzar →</a>
+        <a class="cta-btn cta-btn-secondary" href="https://github.com/thinkfashz/fabri-core" target="_blank">⭐ GitHub</a>
       </div>
     </div>
-  </section>
-
-</div>
-
-<!-- CONTROLS -->
-<div class="controls">
-  <button class="btn-ctrl" id="btn-prev">←</button>
-  <button class="btn-ctrl btn-ctrl-primary" id="btn-play"><span id="play-icon">⏸</span></button>
-  <button class="btn-ctrl" id="btn-next">→</button>
-  <div class="progress-wrap" id="progress-wrap">
-    <div class="progress-fill" id="progress-fill"></div>
   </div>
-  <div class="slide-count"><span id="cur-slide">1</span> / 5</div>
-  <button class="btn-ctrl" id="btn-fs">⛶</button>
-</div>
+</section>
 
+<!-- FOOTER -->
+<footer class="footer">
+  <div class="footer-logo">
+    <svg viewBox="0 0 80 80" width="48" height="48" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="80" height="80" rx="16" fill="#030303"/>
+      <rect x="16" y="16" width="8" height="48" fill="#C8FF00"/>
+      <rect x="16" y="16" width="36" height="8" fill="#C8FF00"/>
+      <rect x="16" y="36" width="28" height="8" fill="#C8FF00"/>
+    </svg>
+  </div>
+  <p class="footer-text">
+    FABRI-CORE · Soluciones Fabrick · Software Libre · 2026<br>
+    <a href="https://github.com/thinkfashz/fabri-core">GitHub</a> · 
+    <a href="https://www.tiktok.com/@fabricore.cl">TikTok</a> · 
+    <a href="https://www.facebook.com/fabricore">Facebook</a>
+  </p>
+  <p class="footer-text" style="margin-top:12px;font-size:11px;">
+    Sin humo. Sin suscripción. Sin datos en la nube de otro. 100% gratuito.
+  </p>
+</footer>
+
+<!-- VIDEO-ENGINE DIORAMA ELEMENT -->
 <script>
-const SLIDES = document.querySelectorAll('.slide');
-const DURATIONS = [...SLIDES].map(s => parseInt(s.dataset.dur || '6000'));
-let cur = 0, playing = true, timer = null;
-const $fill = document.getElementById('progress-fill');
-const $cur = document.getElementById('cur-slide');
-const $timer = document.getElementById('timer-fill');
-const $playIcon = document.getElementById('play-icon');
-const dots = document.querySelectorAll('.chapter-dot');
+// Remotion-style motion graphics via GSAP ScrollTrigger
+gsap.registerPlugin(ScrollTrigger);
 
-function showSlide(n) {
-  SLIDES[cur]?.classList.remove('active');
-  SLIDES[cur]?.classList.add('exit');
-  setTimeout(() => SLIDES[cur]?.classList.remove('exit'), 800);
-  cur = (n + SLIDES.length) % SLIDES.length;
-  SLIDES[cur].classList.add('active');
-  dots.forEach((d,i) => d.classList.toggle('active', i===cur));
-  if($cur) $cur.textContent = cur+1;
-  if($fill) $fill.style.width = ((cur/(SLIDES.length-1||1))*100)+'%';
-  if($timer){$timer.style.transition='none';$timer.style.width='0%';}
-  resetTimer();
-}
-
-function resetTimer() {
-  clearTimeout(timer);
-  if(!playing) return;
-  const dur = DURATIONS[cur];
-  if(dur === 0) return;
-  if($timer){ setTimeout(()=>{$timer.style.transition=`width ${dur}ms linear`;$timer.style.width='100%';},50); }
-  timer = setTimeout(()=>showSlide(cur+1), dur);
-}
-
-function togglePlay() {
-  playing = !playing;
-  if($playIcon) $playIcon.textContent = playing ? '⏸' : '▶';
-  if(playing) resetTimer(); else { clearTimeout(timer); if($timer){$timer.style.transition='none';} }
-}
-
-document.getElementById('btn-play')?.addEventListener('click', togglePlay);
-document.getElementById('btn-prev')?.addEventListener('click', ()=>{clearTimeout(timer);showSlide(cur-1);});
-document.getElementById('btn-next')?.addEventListener('click', ()=>{clearTimeout(timer);showSlide(cur+1);});
-document.getElementById('progress-wrap')?.addEventListener('click', e=>{
-  const r=e.currentTarget.getBoundingClientRect();
-  clearTimeout(timer);showSlide(Math.round((e.clientX-r.left)/r.width*(SLIDES.length-1)));
-});
-document.querySelectorAll('.chapter-dot').forEach((d,i)=>d.addEventListener('click',()=>{clearTimeout(timer);showSlide(i);}));
-document.getElementById('btn-fs')?.addEventListener('click',()=>{document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen();});
-document.addEventListener('keydown',e=>{
-  if(e.key==='ArrowRight'||e.key==='PageDown'){clearTimeout(timer);showSlide(cur+1);}
-  if(e.key==='ArrowLeft'||e.key==='PageUp'){clearTimeout(timer);showSlide(cur-1);}
-  if(e.key===' '){e.preventDefault();togglePlay();}
-  if(e.key==='f'||e.key==='F')document.getElementById('btn-fs')?.click();
+// Hero animations
+gsap.from('.motion-scale', {
+  scale: 0.8,
+  opacity: 0,
+  duration: 1.2,
+  ease: 'back.out(1.7)',
+  stagger: 0.2
 });
 
+gsap.utils.toArray('.motion-reveal').forEach((el, i) => {
+  gsap.fromTo(el, 
+    { opacity: 0, y: 40 },
+    {
+      opacity: 1,
+      y: 0,
+      duration: 0.8,
+      ease: 'power3.out',
+      scrollTrigger: {
+        trigger: el,
+        start: 'top 85%',
+        end: 'top 60%',
+        toggleActions: 'play none none reverse'
+      }
+    }
+  );
+});
+
+gsap.utils.toArray('.motion-slide-left').forEach((el) => {
+  gsap.fromTo(el,
+    { opacity: 0, x: -60 },
+    {
+      opacity: 1,
+      x: 0,
+      duration: 0.8,
+      ease: 'power3.out',
+      scrollTrigger: {
+        trigger: el,
+        start: 'top 85%',
+        toggleActions: 'play none none reverse'
+      }
+    }
+  );
+});
+
+gsap.utils.toArray('.motion-slide-right').forEach((el) => {
+  gsap.fromTo(el,
+    { opacity: 0, x: 60 },
+    {
+      opacity: 1,
+      x: 0,
+      duration: 0.8,
+      ease: 'power3.out',
+      scrollTrigger: {
+        trigger: el,
+        start: 'top 85%',
+        toggleActions: 'play none none reverse'
+      }
+    }
+  );
+});
+
+// Staggered launcher cards
+gsap.utils.toArray('.launcher-card').forEach((card, i) => {
+  gsap.fromTo(card,
+    { opacity: 0, y: 60, scale: 0.9 },
+    {
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      duration: 0.6,
+      delay: i * 0.1,
+      ease: 'back.out(1.4)',
+      scrollTrigger: {
+        trigger: card,
+        start: 'top 90%',
+        toggleActions: 'play none none reverse'
+      }
+    }
+  );
+});
+
+// Parallax for logo
+gsap.to('.logo-svg.xl', {
+  y: -50,
+  scrollTrigger: {
+    trigger: '#hero',
+    start: 'top top',
+    end: 'bottom top',
+    scrub: 1
+  }
+});
+
+// Canvas particles
 (function(){
   const canvas=document.getElementById('bg-canvas');if(!canvas)return;
   const ctx=canvas.getContext('2d');let W,H,pts=[];
@@ -255,20 +307,14 @@ document.addEventListener('keydown',e=>{
   for(let i=0;i<70;i++)pts.push({x:Math.random()*1920,y:Math.random()*1080,vx:(Math.random()-.5)*.35,vy:(Math.random()-.5)*.35,r:Math.random()*1.8+.4,a:Math.random()*.45+.05});
   function draw(){
     ctx.clearRect(0,0,W,H);
-    ctx.strokeStyle='rgba(200,255,0,0.02)';ctx.lineWidth=1;
-    for(let x=0;x<W;x+=60){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
-    for(let y=0;y<H;y+=60){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+    ctx.strokeStyle='rgba(200,255,0,0.015)';ctx.lineWidth=1;
+    for(let x=0;x<W;x+=80){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+    for(let y=0;y<H;y+=80){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
     pts.forEach(p=>{p.x+=p.vx;p.y+=p.vy;if(p.x<0)p.x=W;if(p.x>W)p.x=0;if(p.y<0)p.y=H;if(p.y>H)p.y=0;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fillStyle=`rgba(200,255,0,${p.a})`;ctx.fill();});
     requestAnimationFrame(draw);
   }
   draw();
 })();
-
-SLIDES[0]?.classList.add('active');
-if(dots[0])dots[0].classList.add('active');
-if($cur)$cur.textContent='1';
-if($fill)$fill.style.width='0%';
-setTimeout(()=>{if(playing)resetTimer();},500);
 </script>
 </body>
 </html>

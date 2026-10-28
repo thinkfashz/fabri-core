@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>01 · Marca &amp; Branding · FABRI-CORE</title>
+<link rel="stylesheet" href="shared.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+</head>
+<body>
+<canvas id="bg-canvas"></canvas>
+
+<nav class="nav-strip">
+  <a class="nav-home" href="index.html">← Inicio</a>
+  <span class="nav-section-tag">01 / MARCA</span>
+  <div class="nav-links">
+    <a class="nav-link active" href="01-marca.html">01 Marca</a>
+    <a class="nav-link" href="02-funciones.html">02 Funciones</a>
+    <a class="nav-link" href="03-beneficios.html">03 Beneficios</a>
+    <a class="nav-link" href="04-mercado.html">04 Mercado</a>
+    <a class="nav-link" href="05-redes.html">05 Redes</a>
+    <a class="nav-link" href="06-ia.html">06 IA</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="section" id="hero">
+  <div class="section-content">
+    <div class="stack" style="gap:32px;">
+      <div class="logo-svg xl glow float motion-scale" style="opacity:0;">
+        <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="80" height="80" rx="16" fill="#030303"/>
+          <rect x="16" y="16" width="8" height="48" fill="#C8FF00"/>
+          <rect x="16" y="16" width="36" height="8" fill="#C8FF00"/>
+          <rect x="16" y="36" width="28" height="8" fill="#C8FF00"/>
+        </svg>
+      </div>
+      <div class="label motion-reveal" style="opacity:0;">Identidad Visual · Documentación de Marca</div>
+      <h1 class="h1 motion-reveal" style="opacity:0;">FABRI-CORE <span class="accent">PRO</span></h1>
+      <p class="lead motion-reveal" style="opacity:0;">Sistema de diseño canónico. <strong>Fuente única de verdad</strong> para WEB y APP ANDROID. Industrial · Técnico · Premium · Local-first. <span class="accent">Software 100% gratuito.</span></p>
+      <div class="row mt-20 motion-reveal" style="opacity:0;gap:12px;">
+        <span class="badge">Soluciones Fabrick</span>
+        <span class="badge badge-muted">v0.9.26</span>
+        <span class="badge badge-muted">Android-first</span>
+        <span class="free-badge">Gratis</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PALETA -->
+<section class="section section-alt" id="paleta">
+  <div class="section-content">
+    <div class="stack" style="gap:32px;">
+      <div class="label motion-reveal" style="opacity:0;">Paleta Oficial · Documentación</div>
+      <h2 class="h2 motion-reveal" style="opacity:0;">Los colores del sistema</h2>
+      <p class="lead motion-reveal" style="opacity:0;max-width:600px;font-size:16px;">Negro como la eficiencia. Lima como la energía. Sin adornos — solo lo que funciona.</p>
+      <div class="row mt-20" style="gap:28px;flex-wrap:wrap;justify-content:center;">
+        <div class="stack motion-scale stagger-1" style="gap:10px;opacity:0;">
+          <div style="width:100px;height:100px;border-radius:24px;background:#030303;border:2px solid #2E2E2E;box-shadow:0 8px 24px rgba(0,0,0,0.6);transition:all 0.3s;" onmouseover="this.style.transform='scale(1.1)';this.style.borderColor='#C8FF00'" onmouseout="this.style.transform='scale(1)';this.style.borderColor='#2E2E2E'"></div>
+          <span class="stat-label">Negro Profundo</span>
+          <span style="font-size:12px;color:#7A7A7A;font-family:var(--mono);">#030303</span>
+        </div>
+        <div class="stack motion-scale stagger-2" style="gap:10px;opacity:0;">
+          <div style="width:100px;height:100px;border-radius:24px;background:#0A0A0A;border:2px solid #2E2E2E;box-shadow:0 8px 24px rgba(0,0,0,0.6);transition:all 0.3s;" onmouseover="this.style.transform='scale(1.1)';this.style.borderColor='#C8FF00'" onmouseout="this.style.transform='scale(1)';this.style.borderColor='#2E2E2E'"></div>
+          <span class="stat-label">Negro Mate</span>
+          <span style="font-size:12px;color:#7A7A7A;font-family:var(--mono);">#0A0A0A</span>
+        </div>
+        <div class="stack motion-scale stagger-3" style="gap:10px;opacity:0;">
+          <div style="width:120px;height:120px;border-radius:28px;background:#C8FF00;box-shadow:0 0 50px rgba(200,255,0,0.5),0 8px 24px rgba(0,0,0,0.6);transform:scale(1.1);transition:all 0.3s;" onmouseover="this.style.transform='scale(1.2)';this.style.boxShadow='0 0 70px rgba(200,255,0,0.7)'" onmouseout="this.style.transform='scale(1.1)';this.style.boxShadow='0 0 50px rgba(200,255,0,0.5)'"></div>
+          <span class="stat-label" style="color:#C8FF00;">Lima Principal</span>
+          <span style="font-size:12px;color:#C8FF00;font-family:var(--mono);">#C8FF00</span>
+        </div>
+        <div class="stack motion-scale stagger-4" style="gap:10px;opacity:0;">
+          <div style="width:100px;height:100px;border-radius:24px;background:#B7FF32;border:2px solid #2E2E2E;box-shadow:0 8px 24px rgba(0,0,0,0.6);transition:all 0.3s;" onmouseover="this.style.transform='scale(1.1)';this.style.borderColor='#C8FF00'" onmouseout="this.style.transform='scale(1)';this.style.borderColor='#2E2E2E'"></div>
+          <span class="stat-label">Lima Alt</span>
+          <span style="font-size:12px;color:#7A7A7A;font-family:var(--mono);">#B7FF32</span>
+        </div>
+        <div class="stack motion-scale stagger-5" style="gap:10px;opacity:0;">
+          <div style="width:100px;height:100px;border-radius:24px;background:#FFFFFF;border:2px solid #2E2E2E;box-shadow:0 8px 24px rgba(0,0,0,0.6);transition:all 0.3s;" onmouseover="this.style.transform='scale(1.1)';this.style.borderColor='#C8FF00'" onmouseout="this.style.transform='scale(1)';this.style.borderColor='#2E2E2E'"></div>
+          <span class="stat-label">Blanco</span>
+          <span style="font-size:12px;color:#7A7A7A;font-family:var(--mono);">#FFFFFF</span>
+        </div>
+      </div>
+      <div class="row mt-16 motion-reveal" style="opacity:0;">
+        <span class="pill">Semánticos: ok #3DDC84 · warn #FFB020 · err #FF6B6B · info #5AA9FF · violet #B48CFF · cyan #5AD9E8</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TIPOGRAFÍA -->
+<section class="section" id="tipografia">
+  <div class="section-content">
+    <div class="stack" style="gap:32px;max-width:960px;">
+      <div class="label motion-reveal" style="opacity:0;">Tipografía · Documentación</div>
+      <h2 class="h2 motion-reveal" style="opacity:0;">Inter — La voz del sistema</h2>
+      <div class="motion-reveal" style="opacity:0;width:100%;background:linear-gradient(135deg,var(--card) 0%,var(--card-2) 100%);border:1px solid var(--border);border-radius:var(--radius-lg);padding:36px;box-shadow:var(--shadow-card);">
+        <div style="font-size:52px;font-weight:900;letter-spacing:-0.04em;line-height:1;margin-bottom:14px;background:linear-gradient(135deg,var(--text) 0%,var(--text-2) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Soluciones Fabrick</div>
+        <div style="font-size:36px;font-weight:800;letter-spacing:-0.03em;margin-bottom:14px;color:var(--text);">Inventario Inteligente</div>
+        <div style="font-size:17px;font-weight:400;color:var(--muted);margin-bottom:14px;line-height:1.6;">La app que trabaja sin internet, sin suscripción y con IA en tu teléfono.</div>
+        <div style="font-size:12px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--lime);">VERSION 0.9.26 · BUILD 26 · FREE</div>
+      </div>
+      <div class="row motion-reveal" style="opacity:0;gap:10px;flex-wrap:wrap;justify-content:center;">
+        <span class="pill" style="font-weight:300;">300 Light</span>
+        <span class="pill" style="font-weight:400;">400 Regular</span>
+        <span class="pill" style="font-weight:500;">500 Medium</span>
+        <span class="pill" style="font-weight:600;">600 Semibold</span>
+        <span class="pill" style="font-weight:700;">700 Bold</span>
+        <span class="pill" style="font-weight:800;">800 Extrabold</span>
+        <span class="pill" style="font-weight:900;">900 Black</span>
+      </div>
+      <p class="sub motion-reveal" style="opacity:0;">Fuente: Inter (Google Fonts). Tracking: -0.02em en títulos, 0.08em en etiquetas uppercase. Números en tabular-nums.</p>
+    </div>
+  </div>
+</section>
+
+<!-- LOGO -->
+<section class="section section-alt" id="logo">
+  <div class="section-content">
+    <div class="stack" style="gap:32px;">
+      <div class="label motion-reveal" style="opacity:0;">Logotipo · Documentación</div>
+      <h2 class="h2 motion-reveal" style="opacity:0;">El monograma F</h2>
+      <div class="grid-4" style="max-width:960px;">
+        <div class="card motion-scale stagger-1" style="text-align:center;padding:28px 16px;opacity:0;">
+          <div style="background:#030303;border:1px solid #2E2E2E;border-radius:16px;padding:24px;margin-bottom:14px;display:flex;justify-content:center;transition:all 0.3s;" onmouseover="this.style.borderColor='#C8FF00';this.style.boxShadow='0 0 20px rgba(200,255,0,0.2)'" onmouseout="this.style.borderColor='#2E2E2E';this.style.boxShadow='none'">
+            <svg viewBox="0 0 80 80" width="64" height="64" fill="none"><rect width="80" height="80" rx="16" fill="#030303"/><rect x="16" y="16" width="8" height="48" fill="#C8FF00"/><rect x="16" y="16" width="36" height="8" fill="#C8FF00"/><rect x="16" y="36" width="28" height="8" fill="#C8FF00"/></svg>
+          </div>
+          <div class="card-title" style="font-size:13px;">Estándar</div>
+          <div class="card-desc">Sobre negro #030303</div>
+        </div>
+        <div class="card motion-scale stagger-2" style="text-align:center;padding:28px 16px;opacity:0;">
+          <div style="background:#C8FF00;border:1px solid #C8FF00;border-radius:16px;padding:24px;margin-bottom:14px;display:flex;justify-content:center;transition:all 0.3s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+            <svg viewBox="0 0 80 80" width="64" height="64" fill="none"><rect width="80" height="80" rx="16" fill="#C8FF00"/><rect x="16" y="16" width="8" height="48" fill="#030303"/><rect x="16" y="16" width="36" height="8" fill="#030303"/><rect x="16" y="36" width="28" height="8" fill="#030303"/></svg>
+          </div>
+          <div class="card-title" style="font-size:13px;">Invertido</div>
+          <div class="card-desc">Sobre lima #C8FF00</div>
+        </div>
+        <div class="card motion-scale stagger-3" style="text-align:center;padding:28px 16px;opacity:0;">
+          <div style="background:#141414;border:1px solid #2E2E2E;border-radius:16px;padding:24px;margin-bottom:14px;display:flex;justify-content:center;transition:all 0.3s;" onmouseover="this.style.borderColor='#F8F8F8'" onmouseout="this.style.borderColor='#2E2E2E'">
+            <svg viewBox="0 0 80 80" width="64" height="64" fill="none"><rect x="16" y="16" width="8" height="48" fill="#F8F8F8"/><rect x="16" y="16" width="36" height="8" fill="#F8F8F8"/><rect x="16" y="36" width="28" height="8" fill="#F8F8F8"/></svg>
+          </div>
+          <div class="card-title" style="font-size:13px;">Monocromo</div>
+          <div class="card-desc">Blanco sobre oscuro</div>
+        </div>
+        <div class="card motion-scale stagger-4" style="text-align:center;padding:28px 16px;opacity:0;">
+          <div style="background:#030303;border:1px solid #2E2E2E;border-radius:16px;padding:24px;margin-bottom:14px;display:flex;justify-content:center;align-items:center;gap:12px;transition:all 0.3s;" onmouseover="this.style.borderColor='#C8FF00'" onmouseout="this.style.borderColor='#2E2E2E'">
+            <svg viewBox="0 0 80 80" width="44" height="44" fill="none"><rect width="80" height="80" rx="16" fill="#030303"/><rect x="16" y="16" width="8" height="48" fill="#C8FF00"/><rect x="16" y="16" width="36" height="8" fill="#C8FF00"/><rect x="16" y="36" width="28" height="8" fill="#C8FF00"/></svg>
+            <span style="font-size:18px;font-weight:800;letter-spacing:-0.02em;">FABRI-CORE</span>
+          </div>
+          <div class="card-title" style="font-size:13px;">+ Wordmark</div>
+          <div class="card-desc">Logo + nombre</div>
+        </div>
+      </div>
+      <div class="row mt-16 motion-reveal" style="opacity:0;">
+        <span class="pill">Reglas: No deformar · No gradientes · Espacio de seguridad 12% · Proporción bloqueada · Libre para uso</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- COMPONENTES -->
+<section class="section" id="componentes">
+  <div class="section-content">
+    <div class="stack" style="gap:32px;max-width:960px;">
+      <div class="label motion-reveal" style="opacity:0;">Componentes · Documentación</div>
+      <h2 class="h2 motion-reveal" style="opacity:0;">Del token al componente</h2>
+      <div class="grid-2" style="max-width:960px;">
+        <div class="card motion-slide-left" style="opacity:0;">
+          <div class="card-icon">🔘</div>
+          <div class="card-title">Botón Primario</div>
+          <div style="margin:14px 0;">
+            <button style="padding:12px 24px;background:linear-gradient(135deg,#C8FF00,#B7FF32);color:#000;border:none;border-radius:12px;font-weight:700;font-size:14px;cursor:pointer;box-shadow:0 0 24px rgba(200,255,0,0.4);transition:all 0.3s;" onmouseover="this.style.transform='scale(1.05)';this.style.boxShadow='0 0 40px rgba(200,255,0,0.6)'" onmouseout="this.style.transform='scale(1)';this.style.boxShadow='0 0 24px rgba(200,255,0,0.4)'">Acción principal</button>
+          </div>
+          <div class="card-desc">Lima sólido, texto negro, glow sutil. Hover: scale + glow.</div>
+        </div>
+        <div class="card motion-slide-right" style="opacity:0;">
+          <div class="card-icon">🏷️</div>
+          <div class="card-title">Badges &amp; Pills</div>
+          <div style="margin:14px 0;" class="row">
+            <span class="badge">Activo</span>
+            <span class="badge badge-muted">Inactivo</span>
+            <span class="pill">Tag</span>
+          </div>
+          <div class="card-desc">Borde lima para activo, borde gris para inactivo. Hover glow.</div>
+        </div>
+        <div class="card motion-slide-left" style="opacity:0;">
+          <div class="card-icon">🃏</div>
+          <div class="card-title">Card con Hover</div>
+          <div style="margin:14px 0;padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:12px;font-size:13px;color:var(--muted);transition:all 0.3s;" onmouseover="this.style.borderColor='#C8FF00';this.style.transform='translateY(-4px)'" onmouseout="this.style.borderColor='#1F1F1F';this.style.transform='translateY(0)'">Pasa el mouse → borde lima + glow + lift.</div>
+          <div class="card-desc">Transición 300ms ease, línea superior lima, radial glow.</div>
+        </div>
+        <div class="card motion-slide-right" style="opacity:0;">
+          <div class="card-icon">📊</div>
+          <div class="card-title">Progress &amp; Stats</div>
+          <div style="margin:14px 0;">
+            <div style="height:6px;background:#1F1F1F;border-radius:3px;overflow:hidden;"><div style="width:68%;height:100%;background:linear-gradient(90deg,#C8FF00,#B7FF32);box-shadow:0 0 8px rgba(200,255,0,0.4);border-radius:3px;"></div></div>
+          </div>
+          <div class="row" style="gap:8px;margin-top:10px;">
+            <div class="stat" style="min-width:80px;padding:12px 8px;"><div class="stat-num" style="font-size:20px;">68%</div><div class="stat-label">Progreso</div></div>
+          </div>
+          <div class="card-desc">Números en tabular-nums, color lima, glow text.</div>
+        </div>
+      </div>
+      <div class="row mt-16 motion-reveal" style="opacity:0;">
+        <span class="pill">Tokens: --bg #030303 · --lime #C8FF00 · --border #1F1F1F · --radius 16px · --shadow-glow</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PERSONALIDAD -->
+<section class="section" id="personalidad">
+  <div class="section-content">
+    <div class="stack" style="gap:32px;">
+      <div class="label motion-reveal" style="opacity:0;">Personalidad de Marca · Documentación</div>
+      <h2 class="h2 motion-reveal" style="opacity:0;">Industrial · Técnico · Premium · Local</h2>
+      <div class="grid-4" style="max-width:960px;">
+        <div class="card card-lime motion-scale stagger-1" style="text-align:center;opacity:0;">
+          <div style="font-size:36px;margin-bottom:10px;">⚙️</div>
+          <div class="card-title">Industrial</div>
+          <div class="card-desc">Funcional, sin adornos. Lo que funciona, sin más.</div>
+        </div>
+        <div class="card motion-scale stagger-2" style="text-align:center;opacity:0;">
+          <div style="font-size:36px;margin-bottom:10px;">🔧</div>
+          <div class="card-title">Técnico</div>
+          <div class="card-desc">Precisión, datos, métricas. Habla el idioma del operador.</div>
+        </div>
+        <div class="card motion-scale stagger-3" style="text-align:center;opacity:0;">
+          <div style="font-size:36px;margin-bottom:10px;">💎</div>
+          <div class="card-title">Premium</div>
+          <div class="card-desc">Oscuro, elegante, cuidado en cada detalle.</div>
+        </div>
+        <div class="card motion-scale stagger-4" style="text-align:center;opacity:0;">
+          <div style="font-size:36px;margin-bottom:10px;">📍</div>
+          <div class="card-title">Local-first</div>
+          <div class="card-desc">Chile y LATAM. Sin dependencia de nube ni de terceros.</div>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <p class="lead motion-reveal" style="opacity:0;font-size:18px;">"Negro como la eficiencia. Lima como la energía. Sin adornos — solo lo que funciona."</p>
+      <div class="row mt-24 motion-reveal" style="opacity:0;gap:16px;">
+        <a class="cta-btn cta-btn-secondary" href="https://www.tiktok.com/@fabricore.cl" target="_blank">❤️ Like en TikTok</a>
+        <a class="cta-btn cta-btn-secondary" href="https://www.facebook.com/fabricore" target="_blank">👍 Like en Facebook</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <div class="footer-logo">
+    <svg viewBox="0 0 80 80" width="48" height="48" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="80" height="80" rx="16" fill="#030303"/>
+      <rect x="16" y="16" width="8" height="48" fill="#C8FF00"/>
+      <rect x="16" y="16" width="36" height="8" fill="#C8FF00"/>
+      <rect x="16" y="36" width="28" height="8" fill="#C8FF00"/>
+    </svg>
+  </div>
+  <p class="footer-text">
+    FABRI-CORE · Soluciones Fabrick · Software Libre · 2026<br>
+    <a href="https://github.com/thinkfashz/fabri-core">GitHub</a> · 
+    <a href="https://www.tiktok.com/@fabricore.cl">TikTok</a> · 
+    <a href="https://www.facebook.com/fabricore">Facebook</a>
+  </p>
+  <p class="footer-text" style="margin-top:12px;font-size:11px;">
+    Sin humo. Sin suscripción. Sin datos en la nube de otro. 100% gratuito.
+  </p>
+</footer>
+
+<script>
+gsap.registerPlugin(ScrollTrigger);
+
+gsap.utils.toArray('.motion-reveal').forEach((el, i) => {
+  gsap.fromTo(el, 
+    { opacity: 0, y: 40 },
+    {
+      opacity: 1,
+      y: 0,
+      duration: 0.8,
+      ease: 'power3.out',
+      scrollTrigger: {
+        trigger: el,
+        start: 'top 85%',
+        toggleActions: 'play none none reverse'
+      }
+    }
+  );
+});
+
+gsap.utils.toArray('.motion-scale').forEach((el, i) => {
+  gsap.fromTo(el,
+    { opacity: 0, scale: 0.85 },
+    {
+      opacity: 1,
+      scale: 1,
+      duration: 0.7,
+      delay: i * 0.08,
+      ease: 'back.out(1.4)',
+      scrollTrigger: {
+        trigger: el,
+        start: 'top 90%',
+        toggleActions: 'play none none reverse'
+      }
+    }
+  );
+});
+
+gsap.utils.toArray('.motion-slide-left').forEach((el) => {
+  gsap.fromTo(el,
+    { opacity: 0, x: -60 },
+    {
+      opacity: 1,
+      x: 0,
+      duration: 0.8,
+      ease: 'power3.out',
+      scrollTrigger: {
+        trigger: el,
+        start: 'top 85%',
+        toggleActions: 'play none none reverse'
+      }
+    }
+  );
+});
+
+gsap.utils.toArray('.motion-slide-right').forEach((el) => {
+  gsap.fromTo(el,
+    { opacity: 0, x: 60 },
+    {
+      opacity: 1,
+      x: 0,
+      duration: 0.8,
+      ease: 'power3.out',
+      scrollTrigger: {
+        trigger: el,
+        start: 'top 85%',
+        toggleActions: 'play none none reverse'
+      }
+    }
+  );
+});
+
+gsap.utils.toArray('.stagger-1, .stagger-2, .stagger-3, .stagger-4, .stagger-5, .stagger-6').forEach((el, i) => {
+  const delay = (i % 6) * 0.1;
+  gsap.fromTo(el,
+    { opacity: 0, y: 30 },
+    {
+      opacity: 1,
+      y: 0,
+      duration: 0.6,
+      delay: delay,
+      ease: 'power2.out',
+      scrollTrigger: {
+        trigger: el,
+        start: 'top 90%',
+        toggleActions: 'play none none reverse'
+      }
+    }
+  );
+});
+
+gsap.to('.logo-svg.xl', {
+  y: -30,
+  scrollTrigger: {
+    trigger: '#hero',
+    start: 'top top',
+    end: 'bottom top',
+    scrub: 1
+  }
+});
+
+(function(){
+  const canvas=document.getElementById('bg-canvas');if(!canvas)return;
+  const ctx=canvas.getContext('2d');let W,H,pts=[];
+  function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight;}
+  resize();window.addEventListener('resize',resize);
+  for(let i=0;i<60;i++)pts.push({x:Math.random()*1920,y:Math.random()*1080,vx:(Math.random()-.5)*.3,vy:(Math.random()-.5)*.3,r:Math.random()*1.5+.5,a:Math.random()*.4+.05});
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    ctx.strokeStyle='rgba(200,255,0,0.015)';ctx.lineWidth=1;
+    for(let x=0;x<W;x+=80){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+    for(let y=0;y<H;y+=80){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+    pts.forEach(p=>{p.x+=p.vx;p.y+=p.vy;if(p.x<0)p.x=W;if(p.x>W)p.x=0;if(p.y<0)p.y=H;if(p.y>H)p.y=0;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fillStyle=`rgba(200,255,0,${p.a})`;ctx.fill();});
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+</script>
+</body>
+</html>

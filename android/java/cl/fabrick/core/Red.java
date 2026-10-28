@@ -7,7 +7,9 @@ import java.net.Inet4Address;
 import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.NetworkInterface;
 import java.net.Socket;
+import java.util.Enumeration;
 
 /**
  * FABRI-CORE · diagnóstico de red y forzado de IPv4.
@@ -47,6 +49,53 @@ final class Red {
         } catch (Throwable t) {
             return false;
         }
+    }
+
+    /**
+     * IPv4 privada de este teléfono en la WiFi/LAN. La usan la impresora y el
+     * lector para decirle al usuario a qué IP apuntar. Se prefiere wlan0 y se
+     * descartan las interfaces de datos móviles y las virtuales.
+     */
+    static String ipLocal() {
+        String respaldo = "";
+        try {
+            Enumeration<NetworkInterface> redes = NetworkInterface.getNetworkInterfaces();
+            while (redes != null && redes.hasMoreElements()) {
+                NetworkInterface red = redes.nextElement();
+                try {
+                    if (!red.isUp() || red.isLoopback()) {
+                        continue;
+                    }
+                    String nombre = red.getName() == null ? "" : red.getName().toLowerCase();
+                    if (nombre.startsWith("rmnet") || nombre.startsWith("dummy")
+                            || nombre.startsWith("tun") || nombre.startsWith("ppp")) {
+                        continue;
+                    }
+                    Enumeration<InetAddress> direcciones = red.getInetAddresses();
+                    while (direcciones.hasMoreElements()) {
+                        InetAddress a = direcciones.nextElement();
+                        if (a instanceof Inet4Address && !a.isLoopbackAddress()
+                                && a.isSiteLocalAddress()) {
+                            String ip = a.getHostAddress();
+                            if (ip == null || ip.isEmpty()) {
+                                continue;
+                            }
+                            if (nombre.startsWith("wlan") || nombre.startsWith("ap")) {
+                                return ip;
+                            }
+                            if (respaldo.isEmpty()) {
+                                respaldo = ip;
+                            }
+                        }
+                    }
+                } catch (Throwable ignorado) {
+                    // una interfaz rara no invalida las demás.
+                }
+            }
+        } catch (Throwable ignorado) {
+            // sin red disponible.
+        }
+        return respaldo;
     }
 
     /** Diagnóstico completo en segundo plano; el resultado llega a FabriRed.recibir. */

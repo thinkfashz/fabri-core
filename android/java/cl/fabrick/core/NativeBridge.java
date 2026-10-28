@@ -1081,6 +1081,194 @@ public final class NativeBridge {
         return b.build();
     }
 
+    // ------------------------------------------------- impresora térmica WiFi
+
+    /** IP local del teléfono, para configurar impresora y lector. */
+    @JavascriptInterface
+    public String ipLocal() {
+        try {
+            JSONObject r = new JSONObject();
+            r.put("ok", true);
+            r.put("ip", Red.ipLocal());
+            r.put("impresora_puerto", ImpresoraWifi.PUERTO_ESTANDAR);
+            r.put("lector_puerto", 9101);
+            return r.toString();
+        } catch (Throwable t) {
+            return error(mensaje(t));
+        }
+    }
+
+    /**
+     * Manda un ticket ESC/POS ya armado (base64) a la impresora por TCP.
+     * Es síncrono a propósito: el trabajo pesa pocos KB y así la interfaz
+     * recibe el resultado real (bytes, milisegundos o el error de red).
+     */
+    @JavascriptInterface
+    public String imprimirWifi(String host, int puerto, String base64, int timeoutMs) {
+        try {
+            if (base64 == null || base64.trim().isEmpty()) {
+                return error("el ticket está vacío");
+            }
+            if (base64.length() > 700000) {
+                return error("el ticket es demasiado grande");
+            }
+            byte[] datos = android.util.Base64.decode(base64, android.util.Base64.DEFAULT);
+            JSONObject r = ImpresoraWifi.enviar(host, puerto, datos, timeoutMs);
+            return r.toString();
+        } catch (Throwable t) {
+            return error("no se pudo preparar el ticket: " + mensaje(t));
+        }
+    }
+
+    /** Prueba de conexión real contra la impresora (sin imprimir). */
+    @JavascriptInterface
+    public String probarImpresora(String host, int puerto, int timeoutMs) {
+        try {
+            return ImpresoraWifi.probar(host, puerto, timeoutMs).toString();
+        } catch (Throwable t) {
+            return error(mensaje(t));
+        }
+    }
+
+    /** Barrido de la /24 en segundo plano; avisa por FabriImpresora.descubiertas. */
+    @JavascriptInterface
+    public String buscarImpresoras(final int timeoutMs) {
+        Thread hilo = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                JSONObject r = ImpresoraWifi.descubrir(timeoutMs);
+                notificar("window.FabriImpresora && FabriImpresora.descubiertas("
+                        + r.toString() + ");");
+            }
+        }, "buscar-impresoras");
+        hilo.setDaemon(true);
+        hilo.start();
+        return "{\"ok\":true,\"estado\":\"BUSCANDO\"}";
+    }
+
+    // --------------------------------------------------- lector de red (HBAPO)
+
+    private LectorRed.Oyente oyenteLector() {
+        return new LectorRed.Oyente() {
+            @Override
+            public void linea(String codigo, String origen, String ip, int puerto,
+                              int bytes, String hex) {
+                try {
+                    JSONObject o = new JSONObject();
+                    o.put("codigo", codigo);
+                    o.put("origen", origen);
+                    o.put("ip", ip == null ? "" : ip);
+                    o.put("puerto", puerto);
+                    o.put("bytes", bytes);
+                    o.put("hex", hex == null ? "" : hex);
+                    o.put("ts", System.currentTimeMillis());
+                    notificar("window.FabriLector && FabriLector.linea(" + o.toString() + ");");
+                } catch (Throwable t) {
+                    Bitacora.anotar("lector", "no se pudo emitir a JS: " + mensaje(t));
+                }
+            }
+        };
+    }
+
+    @JavascriptInterface
+    public String lectorIniciar(String modo, String host, int puerto) {
+        try {
+            String m = modo == null ? "servidor" : modo.trim().toLowerCase(Locale.US);
+            if ("cliente".equals(m)) {
+                return LectorRed.conectar(host, puerto, oyenteLector()).toString();
+            }
+            return LectorRed.iniciarServidor(puerto, oyenteLector()).toString();
+        } catch (Throwable t) {
+            return error(mensaje(t));
+        }
+    }
+
+    @JavascriptInterface
+    public String lectorDetener(String modo) {
+        try {
+            String m = modo == null ? "" : modo.trim().toLowerCase(Locale.US);
+            if ("cliente".equals(m)) {
+                return LectorRed.desconectar().toString();
+            }
+            if ("todo".equals(m)) {
+                LectorRed.desconectar();
+            }
+            return LectorRed.detenerServidor().toString();
+        } catch (Throwable t) {
+            return error(mensaje(t));
+        }
+    }
+
+    @JavascriptInterface
+    public String lectorEstado() {
+        try {
+            return LectorRed.estado().toString();
+        } catch (Throwable t) {
+            return error(mensaje(t));
+        }
+    }
+
+    // ------------------------------------------- importación desde la SD/Excel
+
+    /** Abre el selector nativo (SAF) para elegir .db/.sqlite/.xlsx/.csv/.json. */
+    @JavascriptInterface
+    public String elegirBase() {
+        Activity act = actividad();
+        if (!(act instanceof MainActivity)) {
+            return error("el selector necesita la app abierta");
+        }
+        ((MainActivity) act).pedirBaseDatos();
+        return "{\"ok\":true,\"estado\":\"ESPERANDO\"}";
+    }
+
+    /** MainActivity entrega la URI elegida; se inspecciona fuera del hilo de UI. */
+    void importarDesdeUri(final Uri uri) {
+        Thread hilo = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                JSONObject r;
+                try {
+                    r = ImportadorBase.inspeccionar(contexto, uri);
+                } catch (Throwable t) {
+                    r = new JSONObject();
+                    try {
+                        r.put("ok", false);
+                        r.put("error", mensaje(t));
+                    } catch (Throwable ignorado) {
+                        // sin más.
+                    }
+                }
+                notificar("window.FabriImportar && FabriImportar.base(" + r.toString() + ");");
+            }
+        }, "importar-base");
+        hilo.setDaemon(true);
+        hilo.start();
+    }
+
+    void importarCancelado() {
+        notificar("window.FabriImportar && FabriImportar.cancelado();");
+    }
+
+    @JavascriptInterface
+    public String leerTablaBase(String tabla, int limite, int offset) {
+        try {
+            return ImportadorBase.leerTabla(tabla, limite, offset).toString();
+        } catch (Throwable t) {
+            return error(mensaje(t));
+        }
+    }
+
+    @JavascriptInterface
+    public String cerrarBase() {
+        try {
+            ImportadorBase.cerrar();
+            return "{\"ok\":true}";
+        } catch (Throwable t) {
+            return error(mensaje(t));
+        }
+    }
+
+
     // ------------------------------------------------------ diagnóstico de red
 
     /** Prueba IPv4/IPv6 reales contra Hugging Face, OpenAI y GitHub. */
@@ -2422,6 +2610,17 @@ public final class NativeBridge {
 
     private static String error(String motivo) {
         return "{\"ok\":false,\"error\":\"" + escapar(motivo) + "\"}";
+    }
+
+    private static String mensaje(Throwable t) {
+        if (t == null) {
+            return "error desconocido";
+        }
+        String m = t.getMessage();
+        if (m == null || m.trim().isEmpty()) {
+            m = t.getClass().getSimpleName();
+        }
+        return m;
     }
 
     /** Libera TTS y el modelo nativo cuando se cierra la actividad. */
