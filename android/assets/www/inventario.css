@@ -1701,3 +1701,329 @@ img.inv-mini { object-fit: cover; }
 .inv-apilador-card-acciones button:hover { color: var(--texto, #fff); border-color: var(--borde-fuerte, #3a3a3a); }
 .inv-apilador-card-acciones button[data-inv-apilador-quitar]:hover { color: var(--error, #f87171); border-color: rgba(248, 113, 113, 0.4); }
 .inv-apilador-card-acciones button[data-inv-apilador-editar]:hover { color: var(--acento, #C8FF00); border-color: rgba(200, 255, 0, 0.4); }
+
+/* ==========================================================================
+   MÓDULO EDITOR · ficha vertical sin scroll + lector de código propio
+   --------------------------------------------------------------------------
+   Ocupa la pantalla entera sobre el inventario. Arriba la cabecera con el
+   interruptor del lector, en medio la ficha viva (precio, margen, ganancia)
+   y abajo los campos y los botones. Todo cabe sin desplazar en un teléfono
+   de 6,1"; si la pantalla es chica, sólo los campos hacen scroll interno.
+   ========================================================================== */
+
+.inv-editor {
+  position: fixed;
+  left: 0; right: 0;
+  top: calc(env(safe-area-inset-top) + 62px);
+  bottom: calc(var(--nav-alto, 68px) + env(safe-area-inset-bottom));
+  z-index: 45;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px var(--esp, 16px) 0;
+  background: var(--bg, #050505);
+  animation: invEdEntrar 0.22s cubic-bezier(0.32, 0.72, 0, 1);
+}
+.inv-editor[hidden] { display: none; }
+@keyframes invEdEntrar {
+  from { opacity: 0; transform: translateY(14px) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ── cabecera: volver · título · interruptor del lector ──────────────────── */
+.inv-ed-cab {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 2px;
+}
+.inv-ed-volver {
+  flex: 0 0 auto;
+  width: 36px; height: 36px;
+  display: grid; place-items: center;
+  border: 1px solid var(--borde, #2A2A2A);
+  border-radius: 50%;
+  background: var(--card, #0d0d0d);
+  color: var(--texto-2, #C0C0C0);
+  font-size: 15px;
+  cursor: pointer;
+}
+.inv-ed-volver:active { transform: scale(0.92); }
+.inv-ed-tit { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+.inv-ed-tit strong {
+  font-size: 15.5px; letter-spacing: -0.01em; color: var(--texto, #fff);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.inv-ed-tit span { font-size: 11.5px; color: var(--texto-3, #8A8A8A); }
+
+.inv-ed-lector {
+  flex: 0 0 auto;
+  display: flex; align-items: center; gap: 6px;
+  height: 36px; padding: 0 12px;
+  border: 1px solid var(--borde, #2A2A2A);
+  border-radius: 999px;
+  background: var(--card, #0d0d0d);
+  color: var(--texto-3, #8A8A8A);
+  font-size: 12px; font-weight: 700; letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+}
+.inv-ed-lector svg { width: 15px; height: 15px; }
+.inv-ed-lector[aria-pressed="true"] {
+  background: rgba(200, 255, 0, 0.14);
+  border-color: rgba(200, 255, 0, 0.5);
+  color: var(--acento, #C8FF00);
+}
+.inv-ed-lector:active { transform: scale(0.95); }
+
+/* ── visor del lector propio ─────────────────────────────────────────────── */
+.inv-ed-lector-caja {
+  flex: 0 0 auto;
+  position: relative;
+  height: 128px;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(200, 255, 0, 0.25);
+  background: #000;
+}
+.inv-ed-lector-caja[hidden] { display: none; }
+.inv-ed-lector-caja video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.inv-ed-mira {
+  position: absolute; inset: 0;
+  display: grid; place-items: center;
+  pointer-events: none;
+}
+.inv-ed-mira::before {
+  content: "";
+  width: 74%; height: 46%;
+  border: 2px solid rgba(200, 255, 0, 0.75);
+  border-radius: 12px;
+  box-shadow: 0 0 0 2000px rgba(0, 0, 0, 0.32);
+}
+.inv-ed-mira i {
+  position: absolute;
+  width: 70%; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--acento, #C8FF00), transparent);
+  animation: invEdMira 1.6s ease-in-out infinite;
+}
+@keyframes invEdMira { 0%, 100% { transform: translateY(-16px); } 50% { transform: translateY(16px); } }
+.inv-ed-lector-caja p {
+  position: absolute; left: 0; right: 0; bottom: 6px;
+  margin: 0; text-align: center;
+  font-size: 11px; font-weight: 600; color: #fff;
+  text-shadow: 0 1px 6px rgba(0,0,0,0.9);
+}
+
+/* ── búsqueda por código ─────────────────────────────────────────────────── */
+.inv-ed-busca { flex: 0 0 auto; display: flex; gap: 8px; }
+.inv-ed-busca input {
+  flex: 1 1 auto; min-width: 0;
+  height: 42px;
+  padding: 0 14px;
+  border: 1px solid var(--borde, #2A2A2A);
+  border-radius: 12px;
+  background: var(--card, #0d0d0d);
+  color: var(--texto, #fff);
+  font-size: 15px;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.inv-ed-busca input:focus { outline: none; border-color: rgba(200, 255, 0, 0.45); }
+.inv-ed-busca .btn { height: 42px; padding: 0 18px; border-radius: 12px; }
+
+/* ── ficha viva: precio grande + celdas de porcentaje ───────────────────── */
+.inv-ed-ficha {
+  flex: 0 0 auto;
+  padding: 14px 16px 12px;
+  border: 1px solid var(--borde, #2A2A2A);
+  border-radius: 18px;
+  background:
+    radial-gradient(120% 140% at 100% 0%, rgba(200, 255, 0, 0.09), transparent 62%),
+    var(--card, #0d0d0d);
+}
+.inv-ed-et {
+  display: block;
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--texto-3, #8A8A8A);
+}
+.inv-ed-monto { display: flex; align-items: baseline; gap: 6px; margin: 2px 0 12px; }
+.inv-ed-mon { font-size: 20px; font-weight: 700; color: var(--acento, #C8FF00); }
+.inv-ed-monto input {
+  flex: 1 1 auto; min-width: 0;
+  border: 0; outline: 0; background: transparent;
+  color: var(--texto, #fff);
+  font-size: 40px; font-weight: 800; letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  padding: 0;
+  line-height: 1.05;
+}
+.inv-ed-cells { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.inv-ed-cell {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 8px 8px 9px;
+  border: 1px solid var(--borde, #2A2A2A);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.02);
+}
+.inv-ed-cell span { font-size: 10px; color: var(--texto-3, #8A8A8A); letter-spacing: 0.03em; }
+.inv-ed-cell b {
+  font-size: 13px; color: var(--texto, #fff);
+  font-variant-numeric: tabular-nums; letter-spacing: -0.01em;
+}
+.inv-ed-cell[data-buena="1"] b { color: var(--acento, #C8FF00); }
+.inv-ed-cell[data-mala="1"] b { color: var(--error, #f87171); }
+.inv-ed-barra { height: 4px; margin-top: 10px; border-radius: 999px; background: rgba(255,255,255,0.07); overflow: hidden; }
+.inv-ed-barra i {
+  display: block; height: 100%; width: 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--error, #f87171), var(--alerta, #fbbf24), var(--acento, #C8FF00));
+  transition: width 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* ── campos compactos ────────────────────────────────────────────────────── */
+.inv-ed-campos {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex; flex-direction: column; gap: 8px;
+  padding-bottom: 4px;
+}
+.inv-ed-par { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.inv-ed-campos .campo span { font-size: 10.5px; letter-spacing: 0.04em; }
+.inv-ed-campos .campo input,
+.inv-ed-campos .campo select { height: 38px; font-size: 14px; border-radius: 10px; }
+
+/* ── pie fijo: cancelar / guardar ────────────────────────────────────────── */
+.inv-ed-pie {
+  flex: 0 0 auto;
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 0 calc(8px + env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, rgba(5,5,5,0), var(--bg, #050505) 40%);
+}
+.inv-ed-pie .btn { flex: 1 1 auto; height: 46px; border-radius: 14px; font-size: 15px; }
+.inv-ed-pie .inv-guardado { flex: 0 0 auto; font-size: 11px; }
+
+/* pantallas chicas: el lector se achica para que la ficha siga cabiendo */
+@media (max-height: 640px) {
+  .inv-ed-lector-caja { height: 104px; }
+  .inv-ed-monto input { font-size: 34px; }
+  .inv-ed-cells { gap: 6px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .inv-editor { animation: none; }
+  .inv-ed-mira i { animation: none; }
+}
+
+/* ==========================================================================
+   GUÍA DE PASOS · segmentador moderno con progreso
+   --------------------------------------------------------------------------
+   En vez de cinco píldoras sueltas, una barra de segmentos: el activo va en
+   lima con el número en negro, los hechos quedan con check y el resto apagado.
+   ========================================================================== */
+.inv-pasos {
+  gap: 5px;
+  margin: 0 0 16px;
+  padding: 4px;
+  border: 1px solid var(--borde, #2A2A2A);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.025);
+}
+.inv-paso {
+  flex: 1 1 0;
+  justify-content: center;
+  min-width: 0;
+  padding: 8px 6px;
+  gap: 5px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  font-size: 11px;
+  letter-spacing: -0.005em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.inv-paso span { overflow: hidden; text-overflow: ellipsis; }
+.inv-paso b {
+  width: 19px; height: 19px; flex: 0 0 auto;
+  font-size: 10.5px; font-weight: 800;
+  background: rgba(255, 255, 255, 0.06);
+  transition: background 0.18s ease, color 0.18s ease;
+}
+.inv-paso.activo {
+  color: var(--acento, #C8FF00);
+  background: rgba(200, 255, 0, 0.13);
+  box-shadow: inset 0 0 0 1px rgba(200, 255, 0, 0.32);
+}
+.inv-paso.activo b { background: var(--acento, #C8FF00); color: #050505; }
+.inv-paso.hecho:not(.activo) { color: var(--texto-2, #C0C0C0); }
+.inv-paso.hecho:not(.activo) b { background: rgba(200, 255, 0, 0.16); color: var(--acento, #C8FF00); }
+
+/* ── visor de código de barras · barra fija de Productos ──────────────────── */
+.inv-scan-bar {
+  position: sticky;
+  top: calc(env(safe-area-inset-top) + 56px);
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 14px;
+  padding: 6px;
+  border: 1px solid var(--borde, #2A2A2A);
+  border-radius: 18px;
+  background: rgba(13, 13, 13, 0.92);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.5);
+}
+.inv-scan-bar-rect {
+  position: relative;
+  flex: 0 0 auto;
+  width: 46px; height: 42px;
+  display: grid; place-items: center;
+  border: 1px solid rgba(200, 255, 0, 0.35);
+  border-radius: 13px;
+  background: rgba(200, 255, 0, 0.08);
+  color: var(--acento, #C8FF00);
+  cursor: pointer;
+  overflow: hidden;
+  transition: transform 0.12s ease, background 0.18s ease;
+}
+.inv-scan-bar-rect:active { transform: scale(0.94); }
+.inv-scan-bar-rect svg { width: 20px; height: 20px; }
+.inv-scan-bar-line {
+  position: absolute;
+  left: 8px; right: 8px; top: 50%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--acento, #C8FF00), transparent);
+  animation: invScanBarMira 1.8s ease-in-out infinite;
+}
+@keyframes invScanBarMira {
+  0%, 100% { transform: translateY(-9px); opacity: 0.45; }
+  50%      { transform: translateY(9px);  opacity: 1; }
+}
+.inv-scan-bar input {
+  flex: 1 1 auto; min-width: 0;
+  height: 42px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--texto, #fff);
+  font-size: 15px;
+  letter-spacing: 0.03em;
+  font-variant-numeric: tabular-nums;
+}
+.inv-scan-bar input::placeholder { color: var(--texto-3, #8A8A8A); letter-spacing: 0; }
+.inv-scan-bar input:focus { outline: 0; background: rgba(255, 255, 255, 0.06); }
+.inv-scan-bar .btn {
+  flex: 0 0 auto;
+  width: 42px; height: 42px;
+  padding: 0;
+  display: grid; place-items: center;
+  border-radius: 12px;
+}
+@media (prefers-reduced-motion: reduce) { .inv-scan-bar-line { animation: none; opacity: 0.85; } }
+@media (max-height: 640px) { .inv-scan-bar { top: calc(env(safe-area-inset-top) + 52px); } }

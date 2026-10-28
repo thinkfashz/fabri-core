@@ -503,6 +503,10 @@ public final class NativeBridge {
                 || "revision.resumen".equals(op)
                 || "manifiestos".equals(op)
                 || "modulos".equals(op)
+                // Escanear modelos recorre varios directorios (incluido el
+                // almacenamiento externo, que puede tardar segundos). Con el
+                // tope de 600 ms se perdía siempre con «núcleo ocupado».
+                || "modelos".equals(op)
                 || "consultar_seguro".equals(op);
     }
 

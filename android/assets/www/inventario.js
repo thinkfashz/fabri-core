@@ -272,9 +272,11 @@ function invIniciar() {
   }
 }
 
-/** Se llama al salir de la vista: apaga la cámara. */
+/** Se llama al salir de la vista: apaga la cámara y cierra el editor. */
 function invSalir() {
   invCamaraParar();
+  invEdLector(false);
+  invEditorCerrar();
 }
 
 function invConectarEventos() {
@@ -304,10 +306,28 @@ function invConectarEventos() {
     if (e.key === "Enter") invBuscarCodigo($("invCodigo").value);
   });
 
-  if ($("btnInvNuevo")) $("btnInvNuevo").addEventListener("click", function () { INV.editarVolverScanner = false; invFormulario(null); });
+  if ($("btnInvNuevo")) $("btnInvNuevo").addEventListener("click", function () { INV.editarVolverScanner = false; invEditorAbrir(null); });
   if ($("btnInvRefrescar")) $("btnInvRefrescar").addEventListener("click", invRefrescar);
   if ($("btnInvGuardar")) $("btnInvGuardar").addEventListener("click", invGuardar);
   if ($("btnInvCancelar")) $("btnInvCancelar").addEventListener("click", function () { INV.editarVolverScanner = false; invFormularioCerrar(); });
+  // Módulo editor: lector propio on/off, búsqueda por código y ficha viva.
+  if ($("btnInvEdCerrar")) $("btnInvEdCerrar").addEventListener("click", invEditorCerrar);
+  if ($("btnInvEdCancelar")) $("btnInvEdCancelar").addEventListener("click", invEditorCerrar);
+  if ($("btnInvEdGuardar")) $("btnInvEdGuardar").addEventListener("click", invEdGuardar);
+  if ($("btnInvEdBuscar")) $("btnInvEdBuscar").addEventListener("click", invEdBuscar);
+  if ($("btnInvEdLector")) $("btnInvEdLector").addEventListener("click", function () {
+    invEdLector(!INV_ED.camara);
+  });
+  ["invEdCosto", "invEdPrecio", "invEdStock", "invEdIva"].forEach(function (id) {
+    const el = $(id);
+    if (el) el.addEventListener("input", invEdRecalcular);
+  });
+  const edCodigo = $("invEdCodigo");
+  if (edCodigo) {
+    edCodigo.addEventListener("keydown", function (ev) {
+      if (ev.key === "Enter") { ev.preventDefault(); invEdBuscar(); }
+    });
+  }
   if ($("btnInvSincronizar")) $("btnInvSincronizar").addEventListener("click", invSincronizar);
   if ($("btnInvNubeResumen")) $("btnInvNubeResumen").addEventListener("click", invNubeResumenPintar);
 
@@ -963,8 +983,7 @@ function invApiladorEditar(i) {
     };
   }
   INV.editarVolverScanner = true;
-  invPaso(2);
-  invFormulario(p);
+  invEditorAbrir(p);
 }
 
 /* ── escáner fijo de la vista Productos ──────────────────────────────────── */
@@ -1233,7 +1252,7 @@ function invMostrarLocal(p, caja) {
       </div>
     </div>`;
   const ed = document.getElementById("btnInvEditarEncontrado");
-  if (ed) ed.addEventListener("click", function () { invFormulario(p); });
+  if (ed) ed.addEventListener("click", function () { invEditorAbrir(p); });
   const pr = document.getElementById("btnInvPreciosEncontrado");
   if (pr) pr.addEventListener("click", function () { INV.sel = p.codigo; invPaso(3); });
   const ca = document.getElementById("btnInvCarritoEncontrado");
@@ -2210,7 +2229,7 @@ function invPintarCatalogo() {
     el.addEventListener("click", function () { invSeleccionarProducto(el.dataset.invSeleccionar); });
   });
   caja.querySelectorAll("[data-inv-editar]").forEach(function (b) {
-    b.addEventListener("click", function () { invFormulario(invPorCodigo(b.dataset.invEditar)); });
+    b.addEventListener("click", function () { invEditorAbrir(invPorCodigo(b.dataset.invEditar)); });
   });
   caja.querySelectorAll("[data-inv-precios]").forEach(function (b) {
     b.addEventListener("click", function () { INV.sel = b.dataset.invPrecios; invPaso(3); });
@@ -2315,6 +2334,255 @@ function invFormulario(p) {
 function invFormularioCerrar() {
   const caja = document.getElementById("invFormulario");
   if (caja) caja.hidden = true;
+}
+
+/* ==========================================================================
+   MÓDULO EDITOR · ficha vertical sin scroll + lector de código propio
+   --------------------------------------------------------------------------
+   Abre encima del inventario: cabecera con el interruptor del lector, la
+   ficha viva (precio, margen, ganancia, stock valor) y los campos al fondo.
+   El lector tiene su propio vídeo y su propio detector, así que se puede
+   escanear un producto sin apagar el escáner principal del paso 1.
+   ========================================================================== */
+
+const INV_ED = { camara: null, detector: null, timer: null, codigo: "", origen: "manual" };
+
+/** ¿El editor está abierto? Lo pregunta el escáner principal para no pelearse. */
+function invEditorAbierto() {
+  const caja = document.getElementById("invEditor");
+  return !!(caja && !caja.hidden);
+}
+
+/**
+ * Abre el editor. Con producto carga su ficha; sin producto deja la hoja en
+ * blanco con el código ya puesto (lo usa el escáner cuando lee algo nuevo).
+ */
+function invEditorAbrir(p) {
+  const caja = document.getElementById("invEditor");
+  if (!caja) return;
+  const codigo = (p && p.codigo) || "";
+  INV_ED.codigo = codigo;
+  INV_ED.origen = (p && p.origen) || "manual";
+
+  document.getElementById("invEdTitulo").textContent = codigo ? "Editar producto" : "Nuevo producto";
+  document.getElementById("invEdSubtitulo").textContent = codigo
+    ? ((p && p.nombre) || "sin nombre") + " · " + codigo
+    : "Sin código todavía";
+  document.getElementById("invEdCodigo").value = codigo;
+  document.getElementById("invEdNombre").value = (p && p.nombre) || "";
+  document.getElementById("invEdMarca").value = (p && p.marca) || "";
+  document.getElementById("invEdCategoria").value = (p && p.categoria) || "abarrotes";
+  document.getElementById("invEdCosto").value = p && p.costo != null ? p.costo : "";
+  document.getElementById("invEdPrecio").value = p && p.precio != null ? p.precio : "0";
+  document.getElementById("invEdStock").value = p && p.stock != null ? p.stock : 0;
+  document.getElementById("invEdProveedor").value = (p && p.proveedor) || "";
+  document.getElementById("invEdIva").value = p && p.iva != null ? p.iva : 19;
+  document.getElementById("invEdEstado").textContent = "";
+
+  caja.hidden = false;
+  invEdRecalcular();
+  if (!codigo) {
+    setTimeout(function () {
+      const c = document.getElementById("invEdCodigo");
+      if (c) c.focus();
+    }, 160);
+  }
+}
+
+function invEditorCerrar() {
+  invEdLector(false);
+  const caja = document.getElementById("invEditor");
+  if (caja) caja.hidden = true;
+}
+
+/** Recalcula margen, ganancia, costo visible y valor del stock en vivo. */
+function invEdRecalcular() {
+  const costo = invNum((document.getElementById("invEdCosto") || {}).value);
+  const precio = invNum((document.getElementById("invEdPrecio") || {}).value);
+  const stock = Math.round(invNum((document.getElementById("invEdStock") || {}).value));
+  const ganancia = precio - costo;
+  const margen = costo > 0 ? Math.round((ganancia / costo) * 100) : (precio > 0 ? 100 : 0);
+
+  const set = function (id, txt) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = txt;
+  };
+  set("invEdMargen", margen + " %");
+  set("invEdGanancia", "$ " + invMiles(ganancia));
+  set("invEdCostoV", "$ " + invMiles(costo));
+  set("invEdValor", "$ " + invMiles(precio * stock));
+
+  // Un margen bajo se marca en rojo y uno sano en lima: es lo que el
+  // comerciante mira antes de poner precio.
+  const cM = document.getElementById("invEdMargen");
+  if (cM) {
+    const cell = cM.parentElement;
+    cell.dataset.buena = margen >= 25 ? "1" : "0";
+    cell.dataset.mala = costo > 0 && margen < 10 ? "1" : "0";
+  }
+  const barra = document.getElementById("invEdBarra");
+  if (barra) barra.style.width = Math.max(0, Math.min(100, margen)) + "%";
+}
+
+/** Formatea números con separador de miles chileno. */
+function invMiles(n) {
+  const v = Math.round(Number(n) || 0);
+  return v.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+}
+
+/** Busca el código en la base local y carga el producto en el editor. */
+function invEdBuscar() {
+  const campo = document.getElementById("invEdCodigo");
+  const codigo = String((campo && campo.value) || "").trim();
+  if (!codigo) { invEdAviso("Escribe o escanea un código", "error"); return; }
+  const p = invPorCodigo(codigo);
+  if (p) {
+    invEditorAbrir(p);
+    invEdAviso("Producto cargado");
+    return;
+  }
+  // No existe: queda la hoja lista para crearlo con ese código.
+  INV_ED.codigo = codigo;
+  document.getElementById("invEdTitulo").textContent = "Nuevo producto";
+  document.getElementById("invEdSubtitulo").textContent = "Código " + codigo + " · sin registrar";
+  document.getElementById("invEdNombre").focus();
+  invEdAviso("Código nuevo: completa el producto");
+}
+
+function invEdAviso(txt, tipo) {
+  const caja = document.getElementById("invEdEstado");
+  if (!caja) return;
+  caja.textContent = txt || "";
+  caja.style.color = tipo === "error" ? "var(--error)" : "var(--acento)";
+}
+
+/** Enciende o apaga el lector propio del editor (cámara + detector EAN). */
+async function invEdLector(activar) {
+  const btn = document.getElementById("btnInvEdLector");
+  const caja = document.getElementById("invEdLectorCaja");
+  const nota = document.getElementById("invEdNota");
+  if (!activar) {
+    if (INV_ED.timer) { clearTimeout(INV_ED.timer); INV_ED.timer = null; }
+    if (INV_ED.camara) {
+      INV_ED.camara.getTracks().forEach(function (t) { try { t.stop(); } catch (e) {} });
+      INV_ED.camara = null;
+    }
+    const v = document.getElementById("invEdVideo");
+    if (v) v.srcObject = null;
+    INV_ED.detector = null;
+    if (caja) caja.hidden = true;
+    if (btn) { btn.setAttribute("aria-pressed", "false"); btn.querySelector("b").textContent = "OFF"; }
+    return;
+  }
+  try {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      throw new Error("este WebView no expone la cámara");
+    }
+    INV_ED.camara = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 } },
+      audio: false
+    });
+    const video = document.getElementById("invEdVideo");
+    video.srcObject = INV_ED.camara;
+    await video.play();
+    if (caja) caja.hidden = false;
+    if (btn) { btn.setAttribute("aria-pressed", "true"); btn.querySelector("b").textContent = "ON"; }
+    if (typeof window.BarcodeDetector === "function") {
+      INV_ED.detector = new window.BarcodeDetector({
+        formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "code_39", "itf", "qr_code"]
+      });
+      if (nota) nota.textContent = "Buscando código…";
+    } else {
+      INV_ED.detector = null;
+      if (nota) nota.textContent = "Lector EAN activo · apunta al código";
+    }
+    invEdBucle();
+  } catch (e) {
+    invEdLector(false);
+    const msg = e && e.message ? e.message : String(e);
+    revision("inventario", "error", "no se pudo abrir el lector del editor", msg, 0, "camara");
+    if (nota) nota.textContent = "Sin cámara. Escribe el código a mano.";
+    invEdAviso("Cámara: " + msg, "error");
+  }
+}
+
+function invEdBucle() {
+  const video = document.getElementById("invEdVideo");
+  if (!video || !INV_ED.camara) return;
+  INV_ED.timer = setTimeout(async function () {
+    try {
+      let valor = "";
+      if (INV_ED.detector) {
+        const codigos = await INV_ED.detector.detect(video);
+        if (codigos && codigos.length) valor = codigos[0].rawValue || "";
+      } else {
+        valor = invEscanearCuadro("invEdVideo");
+      }
+      if (valor) {
+        // Mismo freno que el escáner principal: el código no entra dos veces.
+        const ahora = Date.now();
+        if (valor !== INV_ED.codigo || ahora - (INV_ED.ultimo || 0) > 1600) {
+          INV_ED.ultimo = ahora;
+          const campo = document.getElementById("invEdCodigo");
+          if (campo) campo.value = valor;
+          invEdBuscar();
+        }
+      }
+    } catch (e) { /* un fotograma malo no corta el lector */ }
+    if (INV_ED.camara) invEdBucle();
+  }, INV_ED.detector ? 420 : 550);
+}
+
+/** Guarda desde el editor y, si se vino del escáner, vuelve a él con la lista. */
+function invEdGuardar() {
+  const producto = {
+    codigo: document.getElementById("invEdCodigo").value.trim(),
+    nombre: document.getElementById("invEdNombre").value.trim(),
+    marca: document.getElementById("invEdMarca").value.trim(),
+    categoria: document.getElementById("invEdCategoria").value,
+    unidad: "unidad",
+    costo: invNum(document.getElementById("invEdCosto").value),
+    precio: invNum(document.getElementById("invEdPrecio").value),
+    stock: Math.round(invNum(document.getElementById("invEdStock").value)),
+    stock_minimo: 0,
+    iva: Math.round(invNum(document.getElementById("invEdIva").value)),
+    proveedor: document.getElementById("invEdProveedor").value.trim(),
+    notas: "",
+    ficha: "{}",
+    origen: INV_ED.origen || "manual"
+  };
+  if (!producto.nombre) {
+    invEdAviso("El nombre es obligatorio", "error");
+    document.getElementById("invEdNombre").focus();
+    return;
+  }
+  invEdAviso("Guardando en SQLite…");
+  invApiTarde("guardar", { producto: producto }, { maxMs: 20000 }).then(function (r) {
+    if (!r.ok) { invEdAviso("No se pudo guardar: " + (r.error || "error"), "error"); return; }
+    const p = (r.data && r.data.producto) || {};
+    invEdAviso("Guardado · " + (p.nombre || producto.nombre));
+    revision("inventario", "info", "producto guardado desde el editor: " + (p.nombre || producto.nombre),
+      (p.codigo || producto.codigo) + " · $" + producto.precio, 0, "core");
+    invRefrescar();
+    invSello("Guardado en la base");
+    // Si se vino del apilador, se actualiza la card y se vuelve al escáner.
+    if (INV.editarVolverScanner) {
+      INV.editarVolverScanner = false;
+      const codigo = p.codigo || producto.codigo;
+      const item = INV.apilador.find(function (x) { return x.codigo === codigo; });
+      if (item) {
+        item.nombre = producto.nombre || item.nombre;
+        item.costo = producto.costo;
+        item.precio = producto.precio;
+        item.proveedor = producto.proveedor;
+      }
+      invApiladorPintar();
+      invEditorCerrar();
+      invPaso(1);
+      return;
+    }
+    invEditorCerrar();
+  });
 }
 
 /** Muestra y guarda la ficha ampliada (Nutri-Score, NOVA, «free», alérgenos). */
@@ -3276,8 +3544,12 @@ function invEanDesdeRuns(runs) {
 }
 
 /** Toma un fotograma del vídeo y busca un código de barras en él. */
-function invEscanearCuadro() {
-  const video = document.getElementById("invVideo");
+/**
+ * Lee un EAN de un fotograma. `idVideo` permite usar la cámara del editor
+ * (`invEdVideo`) además de la del escáner principal (`invVideo`).
+ */
+function invEscanearCuadro(idVideo) {
+  const video = document.getElementById(idVideo || "invVideo");
   if (!video || !video.videoWidth || !video.videoHeight) return "";
   const ancho = 640;
   const alto = Math.max(1, Math.round(video.videoHeight * ancho / video.videoWidth));

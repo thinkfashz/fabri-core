@@ -784,20 +784,28 @@ body.drawer-abierto { overflow: hidden; }
    ========================================================================== */
 
 #v-chat.activa {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: calc(env(safe-area-inset-top) + 62px);
+  bottom: calc(var(--nav-alto) + env(safe-area-inset-bottom));
+  z-index: 15;
   display: flex;
   flex-direction: column;
   gap: 0;
-  min-height: calc(100dvh - var(--nav-alto) - env(safe-area-inset-bottom) - 40px);
+  padding: 0 var(--esp);
+  background: var(--bg);
+  overflow: hidden;
 }
 
 /* ---------- cabecera mínima ---------- */
+.chat-cab, .chat-config, .chat-compositor, .chat-pie { flex: 0 0 auto; }
 .chat-cab {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
   padding: 6px 2px 12px;
-  position: sticky;
   top: 0;
   z-index: 6;
   background: linear-gradient(180deg, var(--bg) 72%, transparent);
@@ -941,6 +949,7 @@ body.drawer-abierto { overflow: hidden; }
 /* ---------- hilo de mensajes ---------- */
 .chat-hilo {
   flex: 1 1 auto;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 22px;
@@ -1175,33 +1184,44 @@ body.drawer-abierto { overflow: hidden; }
 .chat-sugerencias button:active { transform: scale(0.99); }
 
 /* ---------- compositor flotante ---------- */
+/* ── compositor estilo ChatGPT: pastilla flotante con vidrio ─────────────── */
+.chat-caja-compositor {
+  flex: 0 0 auto;
+  position: relative;
+  padding-bottom: env(safe-area-inset-bottom);
+  background: linear-gradient(180deg, rgba(5,5,5,0) 0%, rgba(5,5,5,0.92) 42%, var(--bg) 100%);
+}
 .chat-compositor {
-  position: sticky;
-  bottom: calc(var(--nav-alto) + env(safe-area-inset-bottom) + 6px);
+  position: static;
   display: flex;
   align-items: flex-end;
-  gap: 8px;
-  padding: 8px 8px 8px 10px;
-  border: 1px solid var(--borde-fuerte);
-  border-radius: 18px;
-  background: rgba(17,17,17,0.92);
-  backdrop-filter: blur(14px);
-  box-shadow: 0 10px 34px rgba(0,0,0,0.55);
+  gap: 6px;
+  padding: 6px 6px 6px 14px;
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 26px;
+  background: #212121;
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  box-shadow: 0 4px 22px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.05);
   z-index: 7;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
 }
-.chat-compositor:focus-within { border-color: rgba(200,245,66,0.4); }
+.chat-compositor:focus-within {
+  border-color: rgba(255,255,255,0.22);
+  box-shadow: 0 6px 26px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.06);
+}
 .chat-compositor textarea {
   flex: 1 1 auto;
   min-width: 0;
-  max-height: 132px;
+  max-height: 148px;
   border: 0;
   outline: 0;
   background: transparent;
   color: var(--texto);
   font-family: inherit;
-  font-size: 14px;
-  line-height: 1.45;
-  padding: 8px 2px;
+  font-size: 15px;
+  line-height: 1.5;
+  padding: 9px 2px;
   resize: none;
 }
 .chat-compositor textarea::placeholder { color: var(--texto-3); }
@@ -1316,29 +1336,29 @@ body.drawer-abierto { overflow: hidden; }
 }
 .msg-acciones button { transition: color 120ms ease, background 120ms ease, transform 120ms ease; }
 
-/* Material del compositor: vidrio sobre el hilo, con borde de luz arriba. */
+/* Material del compositor: vidrio oscuro estilo ChatGPT sobre el hilo. */
 .chat-compositor {
-  background: rgba(17,17,17,0.86);
+  background: #212121;
   backdrop-filter: blur(20px) saturate(160%);
   -webkit-backdrop-filter: blur(20px) saturate(160%);
   box-shadow:
-    0 12px 38px rgba(0,0,0,0.58),
+    0 6px 26px rgba(0,0,0,0.55),
     inset 0 1px 0 rgba(255,255,255,0.05);
   transition: border-color 180ms ease, box-shadow 180ms ease;
 }
 .chat-compositor:focus-within {
-  border-color: rgba(200,245,66,0.42);
+  border-color: rgba(255,255,255,0.22);
   box-shadow:
-    0 12px 38px rgba(0,0,0,0.58),
-    0 0 0 3px rgba(200,245,66,0.07),
+    0 6px 26px rgba(0,0,0,0.55),
+    0 0 0 3px rgba(255,255,255,0.05),
     inset 0 1px 0 rgba(255,255,255,0.06);
 }
 .btn-enviar {
-  background: var(--acento);
-  color: #060606;
+  background: #fff;
+  color: #0a0a0a;
   transition: transform 120ms ease, background 160ms ease, opacity 160ms ease;
 }
-.btn-enviar:hover { filter: brightness(1.04); }
+.btn-enviar:not(:disabled):hover { background: #e8e8e8; }
 
 @media (prefers-reduced-transparency: reduce) {
   .chat-compositor { background: #111; backdrop-filter: none; -webkit-backdrop-filter: none; }
@@ -1611,7 +1631,6 @@ body.drawer-abierto { overflow: hidden; }
 @media (max-width: 380px) {
   .nav { font-size: 9.5px; }
   .nav span { font-size: 17px; }
-  .chat-hilo { max-height: 44vh; }
   .chat-sub { display: none; }
   .fc-pill { max-width: 34vw; }
 }
@@ -2703,3 +2722,82 @@ body {
   text-overflow: ellipsis;
 }
 .rev-verif-detalle { color: var(--texto-3); font-size: 11px; }
+
+
+/* ── estilo ChatGPT: conversación centrada y limpia ─────────────────────── */
+.chat-hilo > .mensaje {
+  max-width: 720px;
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+}
+.mensaje-usuario .burbuja {
+  background: #2f2f2f;
+  border: 0;
+  border-radius: 18px 18px 4px 18px;
+  color: #ececec;
+  max-width: 86%;
+}
+.mensaje-ia .burbuja { font-size: 15px; line-height: 1.7; }
+.mensaje-ia .avatar { border-radius: 50%; }
+.chat-vacio { max-width: 720px; margin: 0 auto; }
+
+
+/* ── tira de herramienta: el asistente está consultando tus datos ────────── */
+.chat-herramienta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+  padding: 7px 12px;
+  border: 1px solid rgba(200,245,66,0.22);
+  border-radius: 999px;
+  background: rgba(200,245,66,0.07);
+  color: var(--acento);
+  font-size: 12px;
+  font-weight: 600;
+  width: fit-content;
+}
+.chat-herramienta[hidden] { display: none; }
+.chat-herramienta-punto {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--acento);
+  animation: chatPulso 1s ease-in-out infinite;
+}
+@keyframes chatPulso { 0%,100% { opacity: 0.35; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1.1); } }
+
+/* botón enviar redondo tipo ChatGPT */
+.btn-enviar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 0;
+  background: #fff;
+  color: #0a0a0a;
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  transition: background 0.15s ease, transform 0.12s ease, opacity 0.15s ease;
+}
+.btn-enviar:disabled { background: #3a3a3a; color: #8a8a8a; opacity: 1; }
+.btn-enviar:not(:disabled):active { transform: scale(0.9); }
+
+/* pie discreto, sin competir */
+.chat-pie { opacity: 0.75; }
+.chat-pie .btn-mini { font-size: 10.5px; padding: 4px 8px; }
+
+/* vacío centrado de verdad */
+.chat-vacio strong { font-size: 17px; letter-spacing: -0.01em; }
+.chat-vacio p { max-width: 300px; margin: 6px auto 0; }
+.chat-sugerencias { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.chat-sugerencias button {
+  border: 1px solid rgba(255,255,255,0.10);
+  background: #1a1a1a;
+  color: var(--texto-2);
+  border-radius: 999px;
+  padding: 8px 13px;
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.chat-sugerencias button:active { background: #262626; color: var(--texto); }

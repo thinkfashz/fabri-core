@@ -616,23 +616,30 @@
           <strong>Hola, soy FABRI-CORE</strong>
           <p>Pregúntame lo que quieras. Respondo corto y claro, y si quieres te lo leo en voz alta.</p>
           <div class="chat-sugerencias">
-            <button type="button" data-sugerencia="¿Qué puedes hacer por mí?">¿Qué puedes hacer?</button>
-            <button type="button" data-sugerencia="Resume en 3 líneas qué tengo instalado en la app.">Resume mi app</button>
-            <button type="button" data-sugerencia="Escríbeme un mensaje corto y amable para un cliente.">Escribe un mensaje</button>
+            <button type="button" data-sugerencia="¿Qué productos tengo con poco stock?">Poco stock</button>
+            <button type="button" data-sugerencia="¿Cuánto vale el inventario en total?">Valor inventario</button>
+            <button type="button" data-sugerencia="¿Qué productos me dejan más ganancia?">Más ganancia</button>
+            <button type="button" data-sugerencia="Resume mi inventario en 3 líneas.">Resumen</button>
           </div>
         </div>
       </div>
 
-      <div class="chat-compositor">
-        <button class="btn btn-icono" id="btnChatTts" type="button" title="Leer la última respuesta" aria-label="Leer respuesta">🔊</button>
-        <textarea id="chatEntrada" rows="1" placeholder="Escríbeme algo…" maxlength="12000"></textarea>
-        <button class="btn btn-primario btn-enviar" id="btnChatEnviar" type="button" aria-label="Enviar">➤</button>
-      </div>
-      <div class="chat-pie">
-        <button class="btn btn-mini" id="btnChatLimpiar" type="button">Nueva charla</button>
-        <span class="chat-contexto" id="chatContexto" hidden></span>
-        <span class="nota" id="chatContador">0 mensajes</span>
-        <button class="btn btn-mini" id="btnChatDetenerTts" type="button">Silenciar</button>
+      <div class="chat-caja-compositor">
+        <div class="chat-herramienta" id="chatHerramienta" hidden>
+          <span class="chat-herramienta-punto"></span>
+          <span id="chatHerramientaTexto">Consultando tu inventario…</span>
+        </div>
+        <div class="chat-compositor">
+          <button class="btn btn-icono" id="btnChatTts" type="button" title="Leer la última respuesta" aria-label="Leer respuesta">🔊</button>
+          <textarea id="chatEntrada" rows="1" placeholder="Pregúntame por tus productos, precios o stock…" maxlength="12000"></textarea>
+          <button class="btn btn-primario btn-enviar" id="btnChatEnviar" type="button" aria-label="Enviar">➤</button>
+        </div>
+        <div class="chat-pie">
+          <button class="btn btn-mini" id="btnChatLimpiar" type="button">Nueva charla</button>
+          <span class="chat-contexto" id="chatContexto" hidden></span>
+          <span class="nota" id="chatContador">0 mensajes</span>
+          <button class="btn btn-mini" id="btnChatDetenerTts" type="button">Silenciar</button>
+        </div>
       </div>
     </section>
 
@@ -1702,8 +1709,7 @@ CREATE INDEX IF NOT EXISTS idx_inv_productos_actualizado
           </div>
         </details>
         <div id="invFormulario" class="inv-form" hidden>
-          <h3 id="invFormTitulo">Nuevo producto</h3>
-          <div class="inv-form-grid">
+          <h3 id="invFormTitulo">Nuevo producto</h3>          <div class="inv-form-grid">
             <label class="campo"><span>Código de barras</span><input id="invFcodigo" inputmode="numeric" list="invCodigos" /></label>
             <label class="campo"><span>Nombre *</span><input id="invFnombre" /></label>
             <label class="campo"><span>Marca</span><input id="invFmarca" /></label>
@@ -1820,6 +1826,90 @@ CREATE INDEX IF NOT EXISTS idx_inv_productos_actualizado
           </div>
         </div>
         <div id="invBoletasHist" class="inv-lista"></div>
+      </div>
+
+      <!-- ── MÓDULO EDITOR · ficha vertical sin scroll + lector propio ──── -->
+      <div class="inv-editor" id="invEditor" hidden role="dialog" aria-modal="true"
+           aria-label="Editor de producto">
+        <header class="inv-ed-cab">
+          <button class="inv-ed-volver" id="btnInvEdCerrar" type="button" aria-label="Cerrar editor">✕</button>
+          <div class="inv-ed-tit">
+            <strong id="invEdTitulo">Editar producto</strong>
+            <span id="invEdSubtitulo">Nuevo · sin código</span>
+          </div>
+          <button class="inv-ed-lector" id="btnInvEdLector" type="button" aria-pressed="false"
+                  title="Lector de código on/off">
+            <span data-ico="scan"></span><b>OFF</b>
+          </button>
+        </header>
+
+        <!-- lector propio del editor: se abre y cierra sin tocar el escáner principal -->
+        <div class="inv-ed-lector-caja" id="invEdLectorCaja" hidden>
+          <video id="invEdVideo" playsinline muted autoplay></video>
+          <div class="inv-ed-mira" aria-hidden="true"><i></i></div>
+          <p id="invEdNota">Apunta al código de barras</p>
+        </div>
+
+        <!-- búsqueda por código: escribe o escanea y carga el producto -->
+        <div class="inv-ed-busca">
+          <input id="invEdCodigo" inputmode="numeric" list="invCodigos" autocomplete="off"
+                 spellcheck="false" placeholder="Código de barras…" />
+          <button class="btn btn-primario" id="btnInvEdBuscar" type="button">Buscar</button>
+        </div>
+
+        <!-- ficha viva: todo se recalcula al tocar cualquier campo -->
+        <div class="inv-ed-ficha" id="invEdFicha">
+          <div class="inv-ed-precio">
+            <span class="inv-ed-et">Precio de venta</span>
+            <div class="inv-ed-monto">
+              <span class="inv-ed-mon">$</span>
+              <input id="invEdPrecio" inputmode="decimal" value="0" aria-label="Precio de venta" />
+            </div>
+          </div>
+          <div class="inv-ed-cells">
+            <div class="inv-ed-cell"><span>Margen</span><b id="invEdMargen">0 %</b></div>
+            <div class="inv-ed-cell"><span>Ganancia</span><b id="invEdGanancia">$ 0</b></div>
+            <div class="inv-ed-cell"><span>Costo</span><b id="invEdCostoV">$ 0</b></div>
+            <div class="inv-ed-cell"><span>Stock valor</span><b id="invEdValor">$ 0</b></div>
+          </div>
+          <div class="inv-ed-barra" aria-hidden="true"><i id="invEdBarra"></i></div>
+        </div>
+
+        <!-- campos compactos: se pegan al fondo y caben sin desplazar -->
+        <div class="inv-ed-campos">
+          <label class="campo"><span>Nombre *</span><input id="invEdNombre" /></label>
+          <div class="inv-ed-par">
+            <label class="campo"><span>Costo neto</span><input id="invEdCosto" inputmode="decimal" /></label>
+            <label class="campo"><span>Stock</span><input id="invEdStock" inputmode="numeric" /></label>
+          </div>
+          <div class="inv-ed-par">
+            <label class="campo"><span>Categoría</span>
+              <select id="invEdCategoria">
+                <option value="abarrotes">Alimentos</option>
+                <option value="bebidas">Bebidas</option>
+                <option value="alcohol">Alcohol</option>
+                <option value="dulces">Dulces</option>
+                <option value="lacteos">Lácteos</option>
+                <option value="cosmetica">Cosmética</option>
+                <option value="limpieza">Limpieza</option>
+                <option value="congelados">Congelados</option>
+                <option value="mascotas">Mascotas</option>
+                <option value="otros">Otros</option>
+              </select>
+            </label>
+            <label class="campo"><span>Proveedor</span><input id="invEdProveedor" /></label>
+          </div>
+          <div class="inv-ed-par">
+            <label class="campo"><span>Marca</span><input id="invEdMarca" /></label>
+            <label class="campo"><span>IVA %</span><input id="invEdIva" inputmode="numeric" value="19" /></label>
+          </div>
+        </div>
+
+        <footer class="inv-ed-pie">
+          <button class="btn" id="btnInvEdCancelar" type="button">Cancelar</button>
+          <button class="btn btn-primario" id="btnInvEdGuardar" type="button">Guardar</button>
+          <span class="inv-guardado" id="invEdEstado"></span>
+        </footer>
       </div>
     </section>
 

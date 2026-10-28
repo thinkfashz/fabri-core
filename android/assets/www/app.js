@@ -1443,7 +1443,7 @@ async function escanearModelos() {
   dirs.push("/storage/emulated/0/Download/models");
   dirs.push("/storage/emulated/0/Documents/fabrick-core/modelos");
 
-  const r = api("modelos", { accion: "escanear", dirs });
+  const r = await apiTarde("modelos", { accion: "escanear", dirs }, { maxMs: 30000 });
   if (!r.ok) {
     toast("Error al escanear: " + r.error, "error");
     agregarLinea("error", "escaneo falló: " + r.error);
@@ -1908,6 +1908,11 @@ function chatProbarRemoto() {
 async function chatContextoRag(consulta) {
   const casilla = document.getElementById("chatRag");
   if (!casilla || !casilla.checked) return "";
+  try {
+    const av = document.getElementById("chatHerramienta");
+    const avt = document.getElementById("chatHerramientaTexto");
+    if (av && avt) { avt.textContent = "Buscando en tus textos indexados…"; av.hidden = false; }
+  } catch (e) { /* cosmético */ }
   const r = await apiTarde("rag", { accion: "buscar", consulta: consulta, k: 3 }, { maxMs: 20000 });
   if (!r.ok) {
     toast("RAG léxico: " + (r.error || "no disponible"), "error");
@@ -1926,13 +1931,66 @@ async function chatContextoRag(consulta) {
    Escrita corta a propósito: el modelo local de 0.5B pierde precisión con
    instrucciones largas. El tono es chileno, sin caricaturizarlo. */
 const PERSONALIDAD = [
-  "Eres FABRI-CORE, el asistente personal del usuario en su teléfono.",
-  "Hablas español de Chile, cercano y seguro, como un amigo que sabe.",
-  "Respondes en 2 o 3 líneas, al grano, sin relleno ni listas largas.",
-  "Usas muletillas naturales de vez en cuando (\"mira\", \"oye\", \"al tiro\"), sin exagerar.",
-  "Escribes con puntuación clara y pausada, porque tus respuestas también se leen en voz alta.",
-  "Si no sabes algo, lo dices sin inventar. Si el tema es técnico, explicas simple."
+  "Eres FABRI-CORE, el asistente que vive en el teléfono del usuario. Responde como una persona cercana y segura, no como una máquina.",
+  "Hablas español de Chile, natural y cálido. Frases cortas, una idea por frase.",
+  "Vas al grano: 2 o 3 líneas, sin relleno ni listas salvo que te las pidan.",
+  "Usa alguna muletilla chilena con medida (mira, oye, al tiro, cacha), sin exagerar.",
+  "Si la pregunta toca productos, stock, precios o ventas, contesta con los datos reales que te pasan como contexto. Si no los tienes, dilo y no inventes números.",
+  "Si no sabes algo, reconócelo y sugiere cómo averiguarlo."
 ].join(" ");
+
+/* ── identidad + preferencias (skill de personalización) ─────────────────── */
+const CHAT_PREFS_CLAVE = "fabrick.chat.preferencias";
+
+/** Preferencias que el usuario pidió recordar. */
+function chatPreferencias() {
+  try { return localStorage.getItem(CHAT_PREFS_CLAVE) || ""; } catch (e) { return ""; }
+}
+function chatPreferenciasGuardar(texto) {
+  try { localStorage.setItem(CHAT_PREFS_CLAVE, String(texto || "").slice(0, 600)); } catch (e) {}
+}
+
+/** Nombre y giro del negocio, para que el asistente hable con identidad. */
+function chatIdentidadContexto() {
+  let id = {};
+  try { if (typeof idDeCache === "function") id = idDeCache() || {}; } catch (e) { id = {}; }
+  const nombre = id.nombre || "";
+  const giro = (id.datos && (id.datos.giro || id.datos.razon_social)) || "";
+  if (!nombre) return "";
+  return "Atiendes a " + nombre + (giro ? " (" + giro + ")" : "") + ".";
+}
+
+/** Bloque de sistema completo: personalidad + identidad + preferencias. */
+function chatSistemaContexto() {
+  const partes = [PERSONALIDAD];
+  const identidad = chatIdentidadContexto();
+  if (identidad) partes.push(identidad);
+  const prefs = chatPreferencias();
+  if (prefs) partes.push("Preferencias del usuario que debes respetar: " + prefs + ".");
+  return partes.join(" ");
+}
+
+/** Detecta pedidos de «recuerda que…» y los guarda como preferencia. */
+function chatProcesarPreferencia(texto) {
+  const t = String(texto || "").trim();
+  if (!t) return false;
+  const patrones = [
+    /^recuerda que (.+)/i,
+    /^recuerda[:]?\s*(.+)/i,
+    /^siempre resp[oó]ndeme (.+)/i,
+    /^prefiero que (.+)/i
+  ];
+  for (let i = 0; i < patrones.length; i++) {
+    const m = t.match(patrones[i]);
+    if (m && m[1] && m[1].trim()) {
+      chatPreferenciasGuardar(t);
+      toast("Anotado: recordaré tu preferencia");
+      revision("chat", "info", "preferencia recordada", t.slice(0, 120), 0, "chat");
+      return true;
+    }
+  }
+  return false;
+}
 
 /** Estimación conservadora para español: ~3,2 caracteres por token. */
 function chatEstimarTokens(texto) {
@@ -1949,7 +2007,7 @@ function chatPromptLocal(contexto) {
   const c = estadoApp.chat;
   const maxSalida = 256;
   const presupuesto = Math.max(320, (c.nCtx || 2048) - maxSalida - 32);
-  const sistema = `<|im_start|>system\n${PERSONALIDAD}<|im_end|>\n`;
+  const sistema = `<|im_start|>system\n${chatSistemaContexto()}<|im_end|>\n`;
   const pregunta = `<|im_start|>assistant\n`;
   const ctx = String(contexto || "").trim().slice(0, 1400);
   let usado = chatEstimarTokens(sistema + pregunta);
@@ -1992,9 +2050,11 @@ function extraerSql(texto) {
 }
 
 function palabrasClaveBD(texto) {
-  const clave = ["producto", "productos", "factura", "facturas", "cliente", "clientes",
-    "stock", "total", "cuánto", "cuantos", "cuán", "precio", "venta", "ventas",
-    "impuesto", "iva", "detalle", "sincroniz", "resumen"];
+  const clave = ["producto", "productos", "stock", "precio", "precios", "costo", "margen",
+    "ganancia", "proveedor", "categoria", "categoría", "inventario", "unidades",
+    "total", "valor", "venta", "ventas", "cuánto", "cuanto", "cuántos", "cuantos",
+    "resumen", "agotado", "quedan", "factura", "facturas", "cliente", "clientes",
+    "iva", "impuesto"];
   const bajo = texto.toLowerCase();
   return clave.some((c) => bajo.includes(c));
 }
@@ -2044,8 +2104,9 @@ function esPreguntaBD(texto) {
   const bajo = texto.toLowerCase();
   const keywords = ["cuántos", "cuantos", "cuánto", "cuanto", "cuál", "cual", "qué", "que",
     "dónde", "donde", "cuando", "cuándo", "cómo", "como", "cuántas", "cuantas"];
-  const bdWords = ["producto", "productos", "factura", "facturas", "cliente", "clientes",
-    "stock", "total", "precio", "venta", "impuesto", "iva", "detalle", "base de datos",
+  const bdWords = ["producto", "productos", "stock", "precio", "precios", "costo", "margen",
+    "ganancia", "proveedor", "categoria", "categoría", "inventario", "unidades",
+    "total", "valor", "venta", "agotado", "factura", "cliente", "base de datos",
     "tabla", "filas"];
   return palabrasClaveBD(texto) && (keywords.some((k) => bajo.includes(k)) || bdWords.some((b) => bajo.includes(b)));
 }
@@ -2058,7 +2119,7 @@ function chatPromptRemoto(contexto) {
     .map((m) => (m.rol === "user" ? "Usuario: " : "Asistente: ") + m.texto)
     .join("\n")
     .slice(-8000);
-  return `${PERSONALIDAD}\n\n${contexto || ""}Conversación:\n${historial}\n\nResponde al último mensaje del usuario en 2 o 3 líneas.`;
+  return `${chatSistemaContexto()}\n\n${contexto || ""}Conversación:\n${historial}\n\nResponde al último mensaje del usuario en 2 o 3 líneas.`;
 }
 
 async function chatEnviar() {
@@ -2075,6 +2136,8 @@ async function chatEnviar() {
   const entrada = document.getElementById("chatEntrada");
   const texto = entrada.value.trim();
   if (!texto) return;
+  // Skill de personalización: «recuerda que…» se guarda como preferencia.
+  chatProcesarPreferencia(texto);
   if (estadoApp.chat.modo === "local" && !estadoApp.chat.localCargado) {
     toast("Carga primero un modelo local", "error");
     return;
@@ -2107,9 +2170,21 @@ async function chatEnviar() {
   chatPintarMensajes();
   chatActualizarBotonEnviar();
 
+  // Tira de herramienta (estilo ChatGPT): avisa qué está revisando el
+  // asistente mientras arma el contexto. Se apaga sola al empezar a generar.
+  const avisoEl = document.getElementById("chatHerramienta");
+  const avisoTxt = document.getElementById("chatHerramientaTexto");
+  const avisar = function (t) {
+    if (!avisoEl || !avisoTxt) return;
+    avisoTxt.textContent = t;
+    avisoEl.hidden = false;
+  };
+  const callar = function () { if (avisoEl) avisoEl.hidden = true; };
+
   // 1) Si es una consulta SQL directa (/sql), ejecutarla y usar el resultado como contexto
   let contextoSql = "";
   if (esConsultaSql(texto)) {
+    avisar("Ejecutando tu consulta en la base local…");
     const sql = extraerSql(texto);
     const rSql = await ejecutarSqlChat(sql);
     if (rSql.ok) {
@@ -2122,23 +2197,33 @@ async function chatEnviar() {
   // 2) Si es una pregunta sobre la base de datos, ejecutar consulta exploratoria automática
   let contextoBd = "";
   if (!contextoSql && esPreguntaBD(texto)) {
+    avisar("Consultando tu inventario…");
     // Intentar una consulta de resumen según las palabras detectadas
     const bajo = texto.toLowerCase();
     let sqlAuto = "";
-    if (bajo.includes("producto") && bajo.includes("stock")) {
-      sqlAuto = "SELECT nombre, stock_actual, stock_minimo, precio_venta FROM productos ORDER BY stock_actual ASC LIMIT 10;";
+    if (bajo.includes("stock") || bajo.includes("agotado") || bajo.includes("quedan") || bajo.includes("quedan")) {
+      sqlAuto = "SELECT nombre, stock, stock_minimo, precio FROM inv_productos ORDER BY stock ASC LIMIT 10;";
+    } else if (bajo.includes("margen") || bajo.includes("ganancia")) {
+      sqlAuto = "SELECT nombre, costo, precio, ROUND((precio - costo) / NULLIF(costo,0) * 100) AS margen_pct, (precio - costo) AS ganancia FROM inv_productos ORDER BY margen_pct DESC LIMIT 10;";
+    } else if (bajo.includes("proveedor")) {
+      sqlAuto = "SELECT nombre, proveedor, costo, precio FROM inv_productos WHERE proveedor <> '' ORDER BY proveedor, nombre LIMIT 10;";
+    } else if (bajo.includes("categoria") || bajo.includes("categoría")) {
+      sqlAuto = "SELECT categoria, COUNT(*) AS cantidad, SUM(stock) AS unidades FROM inv_productos GROUP BY categoria ORDER BY cantidad DESC;";
+    } else if (bajo.includes("total") || bajo.includes("valor") || bajo.includes("resumen") || bajo.includes("inventario")) {
+      sqlAuto = "SELECT COUNT(*) AS productos, SUM(stock) AS unidades, ROUND(SUM(precio * stock), 0) AS valor_inventario FROM inv_productos;";
+    } else if (bajo.includes("precio") || bajo.includes("costo") || bajo.includes("cuánto") || bajo.includes("cuanto") || bajo.includes("vale") || bajo.includes("cuesta")) {
+      sqlAuto = "SELECT nombre, costo, precio, proveedor, (precio - costo) AS ganancia FROM inv_productos ORDER BY precio DESC LIMIT 10;";
     } else if (bajo.includes("factura")) {
       sqlAuto = "SELECT id_factura, fecha_emision, subtotal, impuesto_calculado, total FROM facturas ORDER BY fecha_emision DESC LIMIT 10;";
-    } else if (bajo.includes("cliente")) {
-      sqlAuto = "SELECT id_cliente, nombre, contacto FROM clientes LIMIT 10;";
-    } else if (bajo.includes("total") || bajo.includes("impuesto") || bajo.includes("iva")) {
-      sqlAuto = "SELECT COUNT(*) AS total_facturas, SUM(total) AS gran_total, SUM(impuesto_calculado) AS total_impuestos FROM facturas;";
     } else {
-      sqlAuto = "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name;";
+      sqlAuto = "SELECT codigo, nombre, categoria, stock, precio FROM inv_productos ORDER BY nombre LIMIT 10;";
     }
     const rSql = await ejecutarSqlChat(sqlAuto);
     if (rSql.ok) {
-      contextoBd = "Datos de la base local:\n" + rSql.texto + "\n\n";
+      contextoBd = "Datos reales de tu inventario:\n" + rSql.texto + "\n\n";
+      avisar("Datos de tu inventario listos");
+    } else {
+      callar();
     }
   }
 
@@ -2148,6 +2233,8 @@ async function chatEnviar() {
   // 4) Combinar todo el contexto
   const contextoCombinado = (contextoSql || "") + (contextoBd || "")
     + (contextoGraphRAG || "") + (await chatContextoRag(texto));
+
+  callar();
 
   // Si pidieron detener mientras se armaba el contexto (SQL/RAG), no se
   // arranca la inferencia: la burbuja queda marcada como detenida.
