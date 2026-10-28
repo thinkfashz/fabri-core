@@ -287,6 +287,7 @@ body {
 
 /* ============ LAYOUT ============ */
 .stack { display: flex; flex-direction: column; align-items: center; gap: 24px; width: 100%; margin-inline: auto; }
+.row > .stack { width: auto; flex: 0 0 auto; }
 .row { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; align-items: center; }
 .col { display: flex; flex-direction: column; gap: 16px; }
 .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; width: 100%; max-width: 1000px; }
