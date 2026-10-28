@@ -2083,3 +2083,35 @@ html.no-gsap [style*="opacity: 0"] {
   opacity: 1 !important;
   transform: none !important;
 }
+
+/* ============================================================
+   v4 · ICONOS SVG (sin emojis)
+   ============================================================ */
+.ci {
+  width: 22px;
+  height: 22px;
+  display: inline-block;
+  vertical-align: middle;
+  fill: currentColor;
+  color: currentColor;
+  flex-shrink: 0;
+}
+.ci-lg { width: 36px; height: 36px; }
+.ci-hero { width: 80px; height: 80px; }
+.ci-cta { width: 18px; height: 18px; margin-right: 8px; }
+.ci-mock { width: 20px; height: 20px; vertical-align: middle; }
+.ci-desc { width: 16px; height: 16px; vertical-align: middle; margin-right: 6px; }
+
+/* estrellas de prioridad (04-mercado) */
+.stars { display: inline-flex; gap: 3px; }
+.stars svg { width: 16px; height: 16px; fill: currentColor; color: currentColor; }
+.stars svg.off { color: #333; }
+
+/* estados en tablas comparativas (04-mercado, 06-ia) */
+.ti { width: 16px; height: 16px; display: inline-block; vertical-align: middle; }
+.ti-no  { color: var(--err); }
+.ti-yes { color: var(--lime); }
+.ti-warn{ color: #F5A623; }
+
+/* sprite de capítulos (se inyecta en cada página) */
+#ci-sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
