@@ -676,8 +676,8 @@ public final class NativeBridge {
                 final long[] ultimo = {0L};
                 try {
                     // El texto se entrega token a token; la interfaz lo pinta
-                    // mientras llega. Se avisa como máximo cada 55 ms para no
-                    // saturar el WebView con evaluateJavascript.
+                    // mientras llega. Se avisa cada pieza, pero se agrupa hasta 3 tokens
+                    // o 20 ms para no saturar el WebView con evaluateJavascript seguidos.
                     json = RuntimeNativo.generarStream(prompt, maxTokens, new RuntimeNativo.Progreso() {
                         @Override
                         public void pieza(byte[] utf8, int tokens) {
@@ -685,7 +685,8 @@ public final class NativeBridge {
                                 acumulado.append(new String(utf8, java.nio.charset.StandardCharsets.UTF_8));
                             }
                             long ahora = System.nanoTime();
-                            if (tokens <= 1 || ahora - ultimo[0] >= 55000000L) {
+                            // Avizar cada pieza, pero agrupar hasta 3 tokens o 20 ms.
+                            if (tokens >= 3 || ahora - ultimo[0] >= 20000000L) {
                                 ultimo[0] = ahora;
                                 avisarPieza(acumulado.toString(), tokens);
                             }
