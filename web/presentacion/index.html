@@ -49,7 +49,7 @@
 <!-- HERO SECTION -->
 <section class="section" id="hero">
   <div class="section-content">
-    <div class="stack" style="gap:40px;">
+    <div class="stack">
       <div class="logo-svg xl glow float motion-scale" style="opacity:0;">
         <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
           <rect width="80" height="80" rx="16" fill="#030303"/>
@@ -366,13 +366,12 @@
 // Remotion-style motion graphics via GSAP ScrollTrigger
 gsap.registerPlugin(ScrollTrigger);
 
-// Hero animations
-gsap.from('.motion-scale', {
-  scale: 0.8,
-  opacity: 0,
-  duration: 1.2,
-  ease: 'back.out(1.7)',
-  stagger: 0.2
+// Hero animations (fromTo para que el opacity:0 inline termine en 1)
+gsap.utils.toArray('.motion-scale').forEach((el, i) => {
+  gsap.fromTo(el,
+    { scale: 0.8, opacity: 0 },
+    { scale: 1, opacity: 1, duration: 1.2, ease: 'back.out(1.7)', delay: i * 0.2 }
+  );
 });
 
 gsap.utils.toArray('.motion-reveal').forEach((el, i) => {

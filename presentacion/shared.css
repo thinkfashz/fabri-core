@@ -1774,14 +1774,15 @@ body::after {
   padding-bottom: 64px;
 }
 
-#hero .stack { gap: 20px; }
+#hero .stack { gap: 22px; }
 #hero .mt-20 { margin-top: 12px; }
 #hero .mt-32 { margin-top: 20px; }
 
 @media (max-width: 640px) {
   .section { padding: 96px 20px 64px; }
   #hero { padding-top: 84px; padding-bottom: 48px; }
-  #hero .stack { gap: 16px; }
+  #hero .stack { gap: 18px; }
+  #hero .logo-svg.xl { width: 112px; height: 112px; }
   #hero .mt-20 { margin-top: 10px; }
   #hero .mt-32 { margin-top: 18px; }
   #hero .label { font-size: 9px; letter-spacing: 0.14em; }
