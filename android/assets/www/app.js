@@ -2021,7 +2021,12 @@ function chatPromptLocal(contexto) {
   const presupuesto = Math.max(320, (c.nCtx || 2048) - maxSalida - 32);
   const sistema = `system
 ${chatSistemaContexto()}
-Longitud máxima: 4 o 5 líneas, español chileno. Sin listas largas, sin repeticiones, sin símbolos raros, sin emojis innecesarios. Ve directo al grano.`;
+Reglas obligatorias:
+- Responde SIEMPRE en español chileno, corto y directo.
+- Si el usuario pregunta por productos, stock, precios, márgenes o ventas, usa los DATOS REALES del inventario que se te dan como contexto. No inventes números.
+- Máximo 4 o 5 líneas. Sin listas largas. Sin repeticiones. Sin símbolos raros.
+- Si no tienes información suficiente, dilo claramente.
+`;
   const pregunta = `<|im_start|>assistant\n`;
   const ctx = String(contexto || "").trim().slice(0, 1400);
   let usado = chatEstimarTokens(sistema + pregunta);
@@ -2288,6 +2293,31 @@ function chatLimpiarRespuesta(texto) {
   return s.trim();
 }
 
+/** Detecta si una respuesta del modelo es inútil (muy corta, repetitiva, sin sentido)
+   y sugiere usar un modelo más grande. */
+function chatRespuestaInutil(texto, pregunta) {
+  if (!texto) return true;
+  const t = texto.trim().toLowerCase();
+  const p = (pregunta || "").toLowerCase();
+  // Muy corto para una pregunta que no es saludo
+  if (t.length < 5 && !p.includes("hola") && !p.includes("buenos") && !p.includes("buenas")) return true;
+  // Solo dice "hola" cuando no se le saludó
+  if (t === "hola" || t === "hola " || t === "ola") {
+    if (!p.includes("hola") && !p.includes("buenos") && !p.includes("buenas")) return true;
+  }
+  // Repite la pregunta sin agregar información
+  if (t === p || t.includes(p.slice(0, 20))) return true;
+  return false;
+}
+
+/** Avisa al usuario que el modelo es insuficiente y cómo mejorar. */
+function chatAvisarModeloInsuficiente() {
+  toast("El modelo actual es muy pequeño para responder bien. Descarga Qwen 1.5B o Llama 3.2 3B y cárgalo en el chat.", "aviso");
+  revision("llm", "aviso", "modelo insuficiente", "Se recomienda Qwen 1.5B o mayor para consultas de inventario y decisiones de negocio", 0, "llama");
+}
+
+
+
 async function chatEnviar() {
   if (estadoApp.chat.enviando) {
     // En local la inferencia se corta de verdad: el shim revisa el flag en
@@ -2314,6 +2344,7 @@ async function chatEnviar() {
   }
 
   estadoApp.chat.mensajes.push({ rol: "user", texto: texto, ts: Date.now() });
+  estadoApp.chat.ultimoUsuario = texto;
   entrada.value = "";
   chatAutoAlto(entrada);
   estadoApp.chat.enviando = true;
@@ -2429,7 +2460,7 @@ async function chatEnviar() {
         window.FabrickNative.localConfigurar(0.7, 0.95, 40, 1.1,
           (Math.random() * 2147483647) | 0);
       } catch (e) { /* el shim usa sus valores por defecto */ }
-      r = JSON.parse(window.FabrickNative.localChat(chatPromptLocal(contextoCombinado), 256));
+      r = JSON.parse(window.FabrickNative.localChat(chatPromptLocal(contextoCombinado), 512));
     } else {
       r = JSON.parse(window.FabrickNative.chatRemoto(chatPromptRemoto(contextoCombinado), 512));
     }
@@ -2810,6 +2841,15 @@ window.FabriChat = {
       toast("No se pudo cargar: " + ((r && r.error) || "error"), "error");
       api("log.append", { nivel: "ERROR", origen: "llama", mensaje: "carga fallida: " + ((r && r.error) || "error") });
     }
+    // Verificar si el modelo es demasiado pequeño para respuestas útiles
+    if (r && r.ok) {
+      const inf = r.info || {};
+      const paramsM = inf.n_params ? Number(inf.n_params) : 0;
+      if (paramsM < 1000) {
+        toast("Modelo pequeño (" + paramsM + "M). Para respuestas precisas descarga Qwen 1.5B o Llama 3.2 3B.", "aviso");
+        revision("llm", "aviso", "modelo muy pequeño: " + paramsM + "M parámetros", "Recomendado: Qwen 1.5B o mayor para consultas de inventario", 0, "llama");
+      }
+    }
   },
   /** Cada trozo que llega del motor: se pinta sin rehacer toda la lista. */
   localPieza: function (r) {
@@ -2841,7 +2881,12 @@ window.FabriChat = {
       const meta = toks + " tokens · " + (vel > 0 ? vel.toFixed(1) + " tok/s" : "sin medida")
         + (primer > 0 ? " · " + (primer / 1000).toFixed(1) + " s al primer token" : "");
       if (m) {
-        m.texto = chatLimpiarRespuesta(r.texto) || m.texto;
+        const textoLimpio = chatLimpiarRespuesta(r.texto) || m.texto;
+        // Detectar respuesta inútil y avisar al usuario
+        if (chatRespuestaInutil(textoLimpio, estadoApp.chat.ultimoUsuario || "")) {
+          chatAvisarModeloInsuficiente();
+        }
+        m.texto = textoLimpio;
         m.parcial = false;
         m.detenida = cancelada;
         m.origen = "local";
