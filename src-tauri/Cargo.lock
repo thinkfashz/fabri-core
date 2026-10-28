@@ -60,7 +60,7 @@ dependencies = [
 
 [[package]]
 name = "fabrick-core"
-version = "0.9.31"
+version = "0.9.32"
 dependencies = [
  "jni",
  "rusqlite",

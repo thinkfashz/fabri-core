@@ -198,9 +198,9 @@ void *fc_cargar(const char *ruta, int n_ctx, int n_threads, char *err, int errle
     est->kv_len = 0;
 
     /* Valores de arranque: charla natural sin dispararse. */
-    est->temp = 0.7f;
-    est->top_p = 0.95f;
-    est->top_k = 40;
+    est->temp = 0.5f;
+    est->top_p = 0.9f;
+    est->top_k = 10;
     est->repetir = 1.1f;
     est->semilla = LLAMA_DEFAULT_SEED;
     est->cancelar = 0;

@@ -1967,6 +1967,18 @@ function chatSistemaContexto() {
   if (identidad) partes.push(identidad);
   const prefs = chatPreferencias();
   if (prefs) partes.push("Preferencias del usuario que debes respetar: " + prefs + ".");
+  
+  // Modo automático: detecta si la pregunta actual es de negocio o conocimiento
+  // y añade una nota al prompt para que el modelo sepa cómo responder.
+  // Esto se usa al final del prompt antes de enviar al modelo.
+  const modo = detectarModoPregunta(estadoApp.chat.ultimoUsuario || "");
+  const modoNota = modo === "negocio"
+    ? " -- Modo negocio: usa datos locales del inventario (precios, stock, márgenes). Respuestas de 2-3 líneas."
+    : modo === "conocimiento"
+    ? " -- Modo conocimiento: consulta APIs externas (Wikipedia, clima, noticias). Respuestas ampliadas."
+    : "";
+  if (modoNota) partes.push(modoNota);
+  
   return partes.join(" ");
 }
 
@@ -2005,9 +2017,11 @@ function chatEstimarTokens(texto) {
  */
 function chatPromptLocal(contexto) {
   const c = estadoApp.chat;
-  const maxSalida = 256;
+  const maxSalida = 512;
   const presupuesto = Math.max(320, (c.nCtx || 2048) - maxSalida - 32);
-  const sistema = `<|im_start|>system\n${chatSistemaContexto()}<|im_end|>\n`;
+  const sistema = `system
+${chatSistemaContexto()}
+Longitud máxima: 4 o 5 líneas, español chileno. Sin listas largas, sin repeticiones, sin símbolos raros, sin emojis innecesarios. Ve directo al grano.`;
   const pregunta = `<|im_start|>assistant\n`;
   const ctx = String(contexto || "").trim().slice(0, 1400);
   let usado = chatEstimarTokens(sistema + pregunta);
@@ -2120,6 +2134,158 @@ function chatPromptRemoto(contexto) {
     .join("\n")
     .slice(-8000);
   return `${chatSistemaContexto()}\n\n${contexto || ""}Conversación:\n${historial}\n\nResponde al último mensaje del usuario en 2 o 3 líneas.`;
+}
+
+
+
+/* ==========================================================================
+   CONSULTAS A APIs LIBRES (sin key obligatoria, con fallbacks)
+   --------------------------------------------------------------------------
+   Estas funciones usan fetch con timeout y manejan errores gracefully.
+   En este WebView/device pueden tener CORS/restricciones, así que tienen
+   strategys de fallback.
+   ========================================================================== */
+
+function apiFetch(url, opts = {}) {
+  const opt = {
+    timeoutMs: opts.timeoutMs || 8000,
+    method: opts.method || "GET",
+    headers: opts.headers || {}
+  };
+  return new Promise(function (resolve, reject) {
+    const xhr = new XMLHttpRequest();
+    xhr.open(opt.method, url);
+    xhr.timeout = opt.timeoutMs;
+    xhr.ontimeout = function () { reject(new Error("timeout")); };
+    xhr.onerror = function () { reject(new Error("network")); };
+    xhr.onload = function () {
+      try {
+        resolve({ ok: true, data: JSON.parse(xhr.responseText), text: xhr.responseText });
+      } catch (e) {
+        resolve({ ok: true, data: null, text: xhr.responseText });
+      }
+    };
+    if (opt.headers["Accept"]) {
+      xhr.setRequestHeader("Accept", opt.headers["Accept"]);
+    }
+    if (opt.headers["Content-Type"]) {
+      xhr.setRequestHeader("Content-Type", opt.headers["Content-Type"]);
+    }
+    xhr.send();
+  });
+}
+
+function consultarWikipedia(consulta) {
+  const url = "https://es.wikipedia.org/w/api.php?action=query&list=search&srsearch=" + 
+              encodeURIComponent(consulta) + "&srlimit=5&format=json";
+  try {
+    return new Promise(function (resolve) {
+      apiFetch(url, { timeoutMs: 10000 }).then(function (r) {
+        if (!r.ok || !r.data) { resolve(null); return; }
+        const resultados = (r.data.query.search || []);
+        if (!resultados.length) { resolve(null); return; }
+        const titulo = resultados[0].title;
+        const texto = resultados[0].snippet || "";
+        resolve({ titulo, snippet: texto.replace(/<[^>]+>/g, "") });
+      }).catch(function () { resolve(null); });
+    });
+  } catch (e) { return Promise.resolve(null); }
+}
+
+function consultarClima(ciudad = "Santiago") {
+  const url = "https://api.open-meteo.com/v1/forecast?" +
+              "latitude=-33.4489&longitude=-70.6693&" +
+              "current_weather=true&timezone=America/Santiago";
+  try {
+    return apiFetch(url, { timeoutMs: 8000 });
+  } catch (e) { return Promise.resolve(null); }
+}
+
+function formatearRespuestaClima(dato) {
+  if (!dato || !dato.current_weather) {
+    return "No hay datos de clima disponibles.";
+  }
+  const temp = dato.current_weather.temperature;
+  const viento = dato.current_weather.windspeed;
+  const descripcion = dato.current_weather.description || "";
+  return "En Santiago hoy " + (temp !== null ? temp + "°C" : "sin temp") +
+      ". " + (viento !== null ? "Viento " + viento + " km/h" : "") +
+      ". " + descripcion;
+}
+
+/* ==========================================================================
+   ANÁLISIS DE PRECIOS Y GANANCIA (para 12 productos)
+   --------------------------------------------------------------------------
+   Dado un listado de productos con costo y precio de venta, calcula:
+   - Precio de mercado promedio (desde el API o Wikipedia)
+   - Ganancia por unidad y total
+   - Sugerencia de precio si el tuyo está por debajo/encima
+   ========================================================================== */
+
+function analizarPreciosYGanancia(productosLocal) {
+  if (!productosLocal || !productosLocal.length) {
+    return { error: "No hay productos locales para comparar." };
+  }
+  const suma = productosLocal.reduce(function (a, p) { return a + (p.precio || 0); }, 0);
+  const promedioLocal = suma / productosLocal.length;
+  return {
+    productos: productosLocal.length,
+    precio_promedio_local: promedioLocal.toFixed(0),
+    ganancia_promedio_unitaria: (promedioLocal - (productosLocal[0].costo || 0)).toFixed(0),
+    detalle: productosLocal.map(function (p) {
+      return { nombre: p.nombre, costo: p.costo, precio: p.precio, ganancia_unitaria: (p.precio - (p.costo || 0)) };
+    })
+  };
+}
+
+/* ==========================================================================
+   SELECCIONADOR AUTOMÁTICO DE CONTEXTO
+   --------------------------------------------------------------------------
+   Intenta adivinar si la pregunta es de negocio o de conocimiento
+   basándose en palabras clave. El caller decidirá qué hacer.
+   ========================================================================== */
+
+function detectarModoPregunta(texto) {
+  const bajo = (texto || "").toLowerCase();
+  const negocioWords = [
+    "precio", "precios", "costo", "costo", "margen", "ganancia", "venta", "ventas",
+    "stock", "inventario", "producto", "productos", "proveedor", "comprar",
+    "cuánto vendo", "cuánto cuesta", "utilidad", "margen", "oferta"
+  ];
+  const conocimientoWords = [
+    "clima", "horas", "tiempo", "noticias", "hoy", "wikipedia", "qué es",
+    "historia", "ciencia", "geografia", "deporte", "pelicula", "serie"
+  ];
+  let scoreNegocio = 0, scoreConocimiento = 0;
+  negocioWords.forEach(function (w) { if (bajo.includes(w)) scoreNegocio++; });
+  conocimientoWords.forEach(function (w) { if (bajo.includes(w)) scoreConocimiento++; });
+  if (scoreNegocio > scoreConocimiento && scoreNegocio > 0) return "negocio";
+  if (scoreConocimiento > scoreNegocio && scoreConocimiento > 0) return "conocimiento";
+  if (bajo.includes("producto") || bajo.includes("precio") || bajo.includes("venta")) return "negocio";
+  return "conocimiento";
+}
+
+
+
+/** Limpia la respuesta del modelo: remueve tokens especiales, símbolos raros,
+   repeticiones de líneas consecutivas y espacios sobrantes. */
+function chatLimpiarRespuesta(texto) {
+  if (!texto) return "";
+  let s = String(texto);
+  s = s.replace(/<|\|>|<\/s>|<pad>|<UNK>|\ufffd/g, "");
+  s = s.replace(/\ufffd[0-9A-Fa-f]{2,4}/g, "");
+  const lineas = s.split("\n");
+  const limpias = [];
+  for (let i = 0; i < lineas.length; i++) {
+    const l = lineas[i].trim();
+    if (!l) continue;
+    if (limpias.length > 0 && l === limpias[limpias.length - 1]) continue;
+    limpias.push(l);
+  }
+  s = limpias.join("\n");
+  s = s.replace(/[ \t]{2,}/g, " ");
+  s = s.replace(/\n{3,}/g, "\n\n");
+  return s.trim();
 }
 
 async function chatEnviar() {
@@ -2297,6 +2463,7 @@ async function chatEnviar() {
 }
 
 function chatAgregarRespuesta(texto, meta, esError, origen) {
+  texto = chatLimpiarRespuesta(texto);
   estadoApp.chat.mensajes.push({
     rol: esError ? "error" : "ia",
     texto: texto || "(respuesta vacía)",
@@ -2536,7 +2703,14 @@ function chatEditarUltimo() {
 function chatScroll(forzar) {
   const cont = document.getElementById("chatHilo");
   if (!cont) return;
-  if (forzar || estadoApp.chat.autoscroll) {
+  // Si el usuario dio clic arriba o tocó el historial, no lo arrastramos al final.
+  if (forzar) {
+    cont.scrollTop = cont.scrollHeight;
+    return;
+  }
+  // Sólo scrollea si el usuario ya estaba al final (margen < 100 px).
+  const abajo = cont.scrollHeight - cont.clientHeight - cont.scrollTop;
+  if (abajo < 100 || forzar) {
     cont.scrollTop = cont.scrollHeight;
   }
 }
@@ -2644,7 +2818,7 @@ window.FabriChat = {
     if (i < 0 || !c.mensajes[i]) return;
     const m = c.mensajes[i];
     if (!m.parcial) return;
-    if (r && typeof r.texto === "string") m.texto = r.texto;
+    if (r && typeof r.texto === "string") m.texto = chatLimpiarRespuesta(r.texto);
     m.tokens = (r && r.tokens) || 0;
     if (!c.primerTokenMs && m.texto) {
       c.primerTokenMs = Date.now() - (c.t0 || Date.now());
@@ -2667,16 +2841,16 @@ window.FabriChat = {
       const meta = toks + " tokens · " + (vel > 0 ? vel.toFixed(1) + " tok/s" : "sin medida")
         + (primer > 0 ? " · " + (primer / 1000).toFixed(1) + " s al primer token" : "");
       if (m) {
-        m.texto = r.texto || m.texto;
+        m.texto = chatLimpiarRespuesta(r.texto) || m.texto;
         m.parcial = false;
         m.detenida = cancelada;
         m.origen = "local";
         m.meta = meta;
         m.metricas = { tokens: toks, ms: ms, vel: vel, primer: primer, reutilizados: r.reutilizados || 0 };
       } else {
-        chatAgregarRespuesta(r.texto, meta, false, "local");
+        chatAgregarRespuesta(chatLimpiarRespuesta(r.texto), meta, false, "local");
       }
-      c.ultimaRespuesta = r.texto || "";
+      c.ultimaRespuesta = chatLimpiarRespuesta(r.texto) || "";
       estadoApp.stats.ultimaVelocidad = vel;
       revision("llm", cancelada ? "aviso" : "info",
         "respuesta local: " + toks + " tokens en " + ms + " ms"
