@@ -71,7 +71,7 @@
       </div>
       <div class="row mt-32 motion-reveal" style="opacity:0;gap:16px;">
         <a class="cta-btn cta-btn-primary" href="#secciones">Explorar →</a>
-        <a class="cta-btn cta-btn-secondary" href="https://www.tiktok.com/@fabricore.cl" target="_blank">❤️ Like en TikTok</a>
+        <a class="cta-btn cta-btn-secondary" href="https://www.tiktok.com/@fabricore.cl" target="_blank"><svg class="btn-ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-tiktok"/></svg>Like en TikTok</a>
       </div>
     </div>
   </div>
@@ -282,7 +282,7 @@
       <p class="quote-attr motion-reveal" style="opacity:0;">Soluciones Fabrick · FABRI-CORE PRO · 2026 · Software Libre</p>
       <div class="row mt-32 motion-reveal" style="opacity:0;gap:16px;">
         <a class="cta-btn cta-btn-primary" href="#secciones">Comenzar →</a>
-        <a class="cta-btn cta-btn-secondary" href="https://www.tiktok.com/@fabricore.cl" target="_blank">❤️ Like en TikTok</a>
+        <a class="cta-btn cta-btn-secondary" href="https://www.tiktok.com/@fabricore.cl" target="_blank"><svg class="btn-ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-tiktok"/></svg>Like en TikTok</a>
       </div>
     </div>
   </div>
@@ -299,8 +299,8 @@
         <div class="cta-title">Si te sirve, dale un like</div>
         <div class="cta-desc">El único "pago" que pedimos es un like en redes sociales si el software te fue útil. Sin compromisos, sin formularios, sin datos.</div>
         <div class="cta-buttons">
-          <a class="cta-btn cta-btn-primary" href="https://www.tiktok.com/@fabricore.cl" target="_blank">❤️ Like en TikTok</a>
-          <a class="cta-btn cta-btn-secondary" href="https://www.facebook.com/fabricore" target="_blank">👍 Like en Facebook</a>
+          <a class="cta-btn cta-btn-primary" href="https://www.tiktok.com/@fabricore.cl" target="_blank"><svg class="btn-ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-tiktok"/></svg>Like en TikTok</a>
+          <a class="cta-btn cta-btn-secondary" href="https://www.facebook.com/fabricore" target="_blank"><svg class="btn-ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-facebook"/></svg>Like en Facebook</a>
         </div>
         <span class="free-badge">Software 100% Gratuito · Open Source</span>
       </div>
@@ -315,21 +315,26 @@
     <div class="stack" style="gap:40px;max-width:900px;">
       <div class="label motion-reveal" style="opacity:0;">Documentación · Guía de Uso</div>
       <h2 class="h2 motion-reveal" style="opacity:0;">Cómo usar esta presentación</h2>
-      <div class="doc-section motion-slide-left" style="opacity:0;">
-        <h3>🎯 Navegación</h3>
-        <p>Scroll libre. No hay playback automático. Navega a tu ritmo. Usa el menú superior para saltar entre secciones. Cada página es independiente y documentada.</p>
-      </div>
-      <div class="doc-section motion-slide-right" style="opacity:0;">
-        <h3>📱 Secciones</h3>
-        <p>Cada sección es una página web completa. Marca (diseño), Funciones (módulos), Beneficios (ventajas), Mercado (análisis), Redes (estrategia), IA (técnico). Scroll infinito.</p>
-      </div>
-      <div class="doc-section motion-slide-left" style="opacity:0;">
-        <h3>🆓 Gratis y Libre</h3>
-        <p>Todo el contenido es gratuito. No hay paywall, no hay registro. El software es libre y el código está disponible. Si te sirve, dale like en redes.</p>
+      <div class="doc-grid">
+        <div class="doc-section motion-slide-left" style="opacity:0;">
+          <span class="doc-num">01</span>
+          <h3>Navegación</h3>
+          <p>Scroll libre. No hay playback automático. Navega a tu ritmo y usa el menú superior para saltar entre secciones.</p>
+        </div>
+        <div class="doc-section motion-slide-right" style="opacity:0;">
+          <span class="doc-num">02</span>
+          <h3>Secciones</h3>
+          <p>Seis páginas independientes: Marca, Funciones, Beneficios, Mercado, Redes e IA. Cada una documentada de principio a fin.</p>
+        </div>
+        <div class="doc-section motion-slide-left" style="opacity:0;">
+          <span class="doc-num">03</span>
+          <h3>Gratis y libre</h3>
+          <p>Sin paywall y sin registro. El código está disponible en GitHub. Si te sirve, devuélvelo con un like.</p>
+        </div>
       </div>
       <div class="row mt-32 motion-reveal" style="opacity:0;gap:16px;">
         <a class="cta-btn cta-btn-primary" href="01-marca.html">Comenzar →</a>
-        <a class="cta-btn cta-btn-secondary" href="https://github.com/thinkfashz/fabri-core" target="_blank">⭐ GitHub</a>
+        <a class="cta-btn cta-btn-secondary" href="https://github.com/thinkfashz/fabri-core" target="_blank"><svg class="btn-ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-github"/></svg>GitHub</a>
       </div>
     </div>
   </div>
@@ -382,7 +387,7 @@ gsap.utils.toArray('.motion-reveal').forEach((el, i) => {
         trigger: el,
         start: 'top 85%',
         end: 'top 60%',
-        toggleActions: 'play none none reverse'
+        toggleActions: 'play none none none'
       }
     }
   );
@@ -399,7 +404,7 @@ gsap.utils.toArray('.motion-slide-left').forEach((el) => {
       scrollTrigger: {
         trigger: el,
         start: 'top 85%',
-        toggleActions: 'play none none reverse'
+        toggleActions: 'play none none none'
       }
     }
   );
@@ -416,7 +421,7 @@ gsap.utils.toArray('.motion-slide-right').forEach((el) => {
       scrollTrigger: {
         trigger: el,
         start: 'top 85%',
-        toggleActions: 'play none none reverse'
+        toggleActions: 'play none none none'
       }
     }
   );
