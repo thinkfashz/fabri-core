@@ -7,8 +7,29 @@
 <link rel="stylesheet" href="shared.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script src="shared.js" defer></script>
 </head>
 <body>
+<svg class="icon-sprite" xmlns="http://www.w3.org/2000/svg" style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true" focusable="false"><defs>
+<symbol id="i-android" viewBox="0 0 24 24"><path d="M18.4395 5.5586c-.675 1.1664-1.352 2.3318-2.0274 3.498-.0366-.0155-.0742-.0286-.1113-.043-1.8249-.6957-3.484-.8-4.42-.787-1.8551.0185-3.3544.4643-4.2597.8203-.084-.1494-1.7526-3.021-2.0215-3.4864a1.1451 1.1451 0 0 0-.1406-.1914c-.3312-.364-.9054-.4859-1.379-.203-.475.282-.7136.9361-.3886 1.5019 1.9466 3.3696-.0966-.2158 1.9473 3.3593.0172.031-.4946.2642-1.3926 1.0177C2.8987 12.176.452 14.772 0 18.9902h24c-.119-1.1108-.3686-2.099-.7461-3.0683-.7438-1.9118-1.8435-3.2928-2.7402-4.1836a12.1048 12.1048 0 0 0-2.1309-1.6875c.6594-1.122 1.312-2.2559 1.9649-3.3848.2077-.3615.1886-.7956-.0079-1.1191a1.1001 1.1001 0 0 0-.8515-.5332c-.5225-.0536-.9392.3128-1.0488.5449zm-.0391 8.461c.3944.5926.324 1.3306-.1563 1.6503-.4799.3197-1.188.0985-1.582-.4941-.3944-.5927-.324-1.3307.1563-1.6504.4727-.315 1.1812-.1086 1.582.4941zM7.207 13.5273c.4803.3197.5506 1.0577.1563 1.6504-.394.5926-1.1038.8138-1.584.4941-.48-.3197-.5503-1.0577-.1563-1.6504.4008-.6021 1.1087-.8106 1.584-.4941z"/></symbol>
+<symbol id="i-kotlin" viewBox="0 0 24 24"><path d="M24 24H0V0h24L12 12Z"/></symbol>
+<symbol id="i-rust" viewBox="0 0 24 24"><path d="M23.8346 11.7033l-1.0073-.6236a13.7268 13.7268 0 00-.0283-.2936l.8656-.8069a.3483.3483 0 00-.1154-.578l-1.1066-.414a8.4958 8.4958 0 00-.087-.2856l.6904-.9587a.3462.3462 0 00-.2257-.5446l-1.1663-.1894a9.3574 9.3574 0 00-.1407-.2622l.49-1.0761a.3437.3437 0 00-.0274-.3361.3486.3486 0 00-.3006-.154l-1.1845.0416a6.7444 6.7444 0 00-.1873-.2268l.2723-1.153a.3472.3472 0 00-.417-.4172l-1.1532.2724a14.0183 14.0183 0 00-.2278-.1873l.0415-1.1845a.3442.3442 0 00-.49-.328l-1.076.491c-.0872-.0476-.1742-.0952-.2623-.1407l-.1903-1.1673A.3483.3483 0 0016.256.955l-.9597.6905a8.4867 8.4867 0 00-.2855-.086l-.414-1.1066a.3483.3483 0 00-.5781-.1154l-.8069.8666a9.2936 9.2936 0 00-.2936-.0284L12.2946.1683a.3462.3462 0 00-.5892 0l-.6236 1.0073a13.7383 13.7383 0 00-.2936.0284L9.9803.3374a.3462.3462 0 00-.578.1154l-.4141 1.1065c-.0962.0274-.1903.0567-.2855.086L7.744.955a.3483.3483 0 00-.5447.2258L7.009 2.348a9.3574 9.3574 0 00-.2622.1407l-1.0762-.491a.3462.3462 0 00-.49.328l.0416 1.1845a7.9826 7.9826 0 00-.2278.1873L3.8413 3.425a.3472.3472 0 00-.4171.4171l.2713 1.1531c-.0628.075-.1255.1509-.1863.2268l-1.1845-.0415a.3462.3462 0 00-.328.49l.491 1.0761a9.167 9.167 0 00-.1407.2622l-1.1662.1894a.3483.3483 0 00-.2258.5446l.6904.9587a13.303 13.303 0 00-.087.2855l-1.1065.414a.3483.3483 0 00-.1155.5781l.8656.807a9.2936 9.2936 0 00-.0283.2935l-1.0073.6236a.3442.3442 0 000 .5892l1.0073.6236c.008.0982.0182.1964.0283.2936l-.8656.8079a.3462.3462 0 00.1155.578l1.1065.4141c.0273.0962.0567.1914.087.2855l-.6904.9587a.3452.3452 0 00.2268.5447l1.1662.1893c.0456.088.0922.1751.1408.2622l-.491 1.0762a.3462.3462 0 00.328.49l1.1834-.0415c.0618.0769.1235.1528.1873.2277l-.2713 1.1541a.3462.3462 0 00.4171.4161l1.153-.2713c.075.0638.151.1255.2279.1863l-.0415 1.1845a.3442.3442 0 00.49.327l1.0761-.49c.087.0486.1741.0951.2622.1407l.1903 1.1662a.3483.3483 0 00.5447.2268l.9587-.6904a9.299 9.299 0 00.2855.087l.414 1.1066a.3452.3452 0 00.5781.1154l.8079-.8656c.0972.0111.1954.0203.2936.0294l.6236 1.0073a.3472.3472 0 00.5892 0l.6236-1.0073c.0982-.0091.1964-.0183.2936-.0294l.8069.8656a.3483.3483 0 00.578-.1154l.4141-1.1066a8.4626 8.4626 0 00.2855-.087l.9587.6904a.3452.3452 0 00.5447-.2268l.1903-1.1662c.088-.0456.1751-.0931.2622-.1407l1.0762.49a.3472.3472 0 00.49-.327l-.0415-1.1845a6.7267 6.7267 0 00.2267-.1863l1.1531.2713a.3472.3472 0 00.4171-.416l-.2713-1.1542c.0628-.0749.1255-.1508.1863-.2278l1.1845.0415a.3442.3442 0 00.328-.49l-.49-1.076c.0475-.0872.0951-.1742.1407-.2623l1.1662-.1893a.3483.3483 0 00.2258-.5447l-.6904-.9587.087-.2855 1.1066-.414a.3462.3462 0 00.1154-.5781l-.8656-.8079c.0101-.0972.0202-.1954.0283-.2936l1.0073-.6236a.3442.3442 0 000-.5892zm-6.7413 8.3551a.7138.7138 0 01.2986-1.396.714.714 0 11-.2997 1.396zm-.3422-2.3142a.649.649 0 00-.7715.5l-.3573 1.6685c-1.1035.501-2.3285.7795-3.6193.7795a8.7368 8.7368 0 01-3.6951-.814l-.3574-1.6684a.648.648 0 00-.7714-.499l-1.473.3158a8.7216 8.7216 0 01-.7613-.898h7.1676c.081 0 .1356-.0141.1356-.088v-2.536c0-.074-.0536-.0881-.1356-.0881h-2.0966v-1.6077h2.2677c.2065 0 1.1065.0587 1.394 1.2088.0901.3533.2875 1.5044.4232 1.8729.1346.413.6833 1.2381 1.2685 1.2381h3.5716a.7492.7492 0 00.1296-.0131 8.7874 8.7874 0 01-.8119.9526zM6.8369 20.024a.714.714 0 11-.2997-1.396.714.714 0 01.2997 1.396zM4.1177 8.9972a.7137.7137 0 11-1.304.5791.7137.7137 0 011.304-.579zm-.8352 1.9813l1.5347-.6824a.65.65 0 00.33-.8585l-.3158-.7147h1.2432v5.6025H3.5669a8.7753 8.7753 0 01-.2834-3.348zm6.7343-.5437V8.7836h2.9601c.153 0 1.0792.1772 1.0792.8697 0 .575-.7107.7815-1.2948.7815zm10.7574 1.4862c0 .2187-.008.4363-.0243.651h-.9c-.09 0-.1265.0586-.1265.1477v.413c0 .973-.5487 1.1846-1.0296 1.2382-.4576.0517-.9648-.1913-1.0275-.4717-.2704-1.5186-.7198-1.8436-1.4305-2.4034.8817-.5599 1.799-1.386 1.799-2.4915 0-1.1936-.819-1.9458-1.3769-2.3153-.7825-.5163-1.6491-.6195-1.883-.6195H5.4682a8.7651 8.7651 0 014.907-2.7699l1.0974 1.151a.648.648 0 00.9182.0213l1.227-1.1743a8.7753 8.7753 0 016.0044 4.2762l-.8403 1.8982a.652.652 0 00.33.8585l1.6178.7188c.0283.2875.0425.577.0425.8717zm-9.3006-9.5993a.7128.7128 0 11.984 1.0316.7137.7137 0 01-.984-1.0316zm8.3389 6.71a.7107.7107 0 01.9395-.3625.7137.7137 0 11-.9405.3635z"/></symbol>
+<symbol id="i-sqlite" viewBox="0 0 24 24"><path d="M21.678.521c-1.032-.92-2.28-.55-3.513.544a8.71 8.71 0 0 0-.547.535c-2.109 2.237-4.066 6.38-4.674 9.544.237.48.422 1.093.544 1.561a13.044 13.044 0 0 1 .164.703s-.019-.071-.096-.296l-.05-.146a1.689 1.689 0 0 0-.033-.08c-.138-.32-.518-.995-.686-1.289-.143.423-.27.818-.376 1.176.484.884.778 2.4.778 2.4s-.025-.099-.147-.442c-.107-.303-.644-1.244-.772-1.464-.217.804-.304 1.346-.226 1.478.152.256.296.698.422 1.186.286 1.1.485 2.44.485 2.44l.017.224a22.41 22.41 0 0 0 .056 2.748c.095 1.146.273 2.13.5 2.657l.155-.084c-.334-1.038-.47-2.399-.41-3.967.09-2.398.642-5.29 1.661-8.304 1.723-4.55 4.113-8.201 6.3-9.945-1.993 1.8-4.692 7.63-5.5 9.788-.904 2.416-1.545 4.684-1.931 6.857.666-2.037 2.821-2.912 2.821-2.912s1.057-1.304 2.292-3.166c-.74.169-1.955.458-2.362.629-.6.251-.762.337-.762.337s1.945-1.184 3.613-1.72C21.695 7.9 24.195 2.767 21.678.521m-18.573.543A1.842 1.842 0 0 0 1.27 2.9v16.608a1.84 1.84 0 0 0 1.835 1.834h9.418a22.953 22.953 0 0 1-.052-2.707c-.006-.062-.011-.141-.016-.2a27.01 27.01 0 0 0-.473-2.378c-.121-.47-.275-.898-.369-1.057-.116-.197-.098-.31-.097-.432 0-.12.015-.245.037-.386a9.98 9.98 0 0 1 .234-1.045l.217-.028c-.017-.035-.014-.065-.031-.097l-.041-.381a32.8 32.8 0 0 1 .382-1.194l.2-.019c-.008-.016-.01-.038-.018-.053l-.043-.316c.63-3.28 2.587-7.443 4.8-9.791.066-.069.133-.128.198-.194Z"/></symbol>
+<symbol id="i-python" viewBox="0 0 24 24"><path d="M14.25.18l.9.2.73.26.59.3.45.32.34.34.25.34.16.33.1.3.04.26.02.2-.01.13V8.5l-.05.63-.13.55-.21.46-.26.38-.3.31-.33.25-.35.19-.35.14-.33.1-.3.07-.26.04-.21.02H8.77l-.69.05-.59.14-.5.22-.41.27-.33.32-.27.35-.2.36-.15.37-.1.35-.07.32-.04.27-.02.21v3.06H3.17l-.21-.03-.28-.07-.32-.12-.35-.18-.36-.26-.36-.36-.35-.46-.32-.59-.28-.73-.21-.88-.14-1.05-.05-1.23.06-1.22.16-1.04.24-.87.32-.71.36-.57.4-.44.42-.33.42-.24.4-.16.36-.1.32-.05.24-.01h.16l.06.01h8.16v-.83H6.18l-.01-2.75-.02-.37.05-.34.11-.31.17-.28.25-.26.31-.23.38-.2.44-.18.51-.15.58-.12.64-.1.71-.06.77-.04.84-.02 1.27.05zm-6.3 1.98l-.23.33-.08.41.08.41.23.34.33.22.41.09.41-.09.33-.22.23-.34.08-.41-.08-.41-.23-.33-.33-.22-.41-.09-.41.09zm13.09 3.95l.28.06.32.12.35.18.36.27.36.35.35.47.32.59.28.73.21.88.14 1.04.05 1.23-.06 1.23-.16 1.04-.24.86-.32.71-.36.57-.4.45-.42.33-.42.24-.4.16-.36.09-.32.05-.24.02-.16-.01h-8.22v.82h5.84l.01 2.76.02.36-.05.34-.11.31-.17.29-.25.25-.31.24-.38.2-.44.17-.51.15-.58.13-.64.09-.71.07-.77.04-.84.01-1.27-.04-1.07-.14-.9-.2-.73-.25-.59-.3-.45-.33-.34-.34-.25-.34-.16-.33-.1-.3-.04-.25-.02-.2.01-.13v-5.34l.05-.64.13-.54.21-.46.26-.38.3-.32.33-.24.35-.2.35-.14.33-.1.3-.06.26-.04.21-.02.13-.01h5.84l.69-.05.59-.14.5-.21.41-.28.33-.32.27-.35.2-.36.15-.36.1-.35.07-.32.04-.28.02-.21V6.07h2.09l.14.01zm-6.47 14.25l-.23.33-.08.41.08.41.23.33.33.23.41.08.41-.08.33-.23.23-.33.08-.41-.08-.41-.23-.33-.33-.23-.41-.08-.41.08z"/></symbol>
+<symbol id="i-hf" viewBox="0 0 24 24"><path d="M12.025 1.13c-5.77 0-10.449 4.647-10.449 10.378 0 1.112.178 2.181.503 3.185.064-.222.203-.444.416-.577a.96.96 0 0 1 .524-.15c.293 0 .584.124.84.284.278.173.48.408.71.694.226.282.458.611.684.951v-.014c.017-.324.106-.622.264-.874s.403-.487.762-.543c.3-.047.596.06.787.203s.31.313.4.467c.15.257.212.468.233.542.01.026.653 1.552 1.657 2.54.616.605 1.01 1.223 1.082 1.912.055.537-.096 1.059-.38 1.572.637.121 1.294.187 1.967.187.657 0 1.298-.063 1.921-.178-.287-.517-.44-1.041-.384-1.581.07-.69.465-1.307 1.081-1.913 1.004-.987 1.647-2.513 1.657-2.539.021-.074.083-.285.233-.542.09-.154.208-.323.4-.467a1.08 1.08 0 0 1 .787-.203c.359.056.604.29.762.543s.247.55.265.874v.015c.225-.34.457-.67.683-.952.23-.286.432-.52.71-.694.257-.16.547-.284.84-.285a.97.97 0 0 1 .524.151c.228.143.373.388.43.625l.006.04a10.3 10.3 0 0 0 .534-3.273c0-5.731-4.678-10.378-10.449-10.378M8.327 6.583a1.5 1.5 0 0 1 .713.174 1.487 1.487 0 0 1 .617 2.013c-.183.343-.762-.214-1.102-.094-.38.134-.532.914-.917.71a1.487 1.487 0 0 1 .69-2.803m7.486 0a1.487 1.487 0 0 1 .689 2.803c-.385.204-.536-.576-.916-.71-.34-.12-.92.437-1.103.094a1.487 1.487 0 0 1 .617-2.013 1.5 1.5 0 0 1 .713-.174m-10.68 1.55a.96.96 0 1 1 0 1.921.96.96 0 0 1 0-1.92m13.838 0a.96.96 0 1 1 0 1.92.96.96 0 0 1 0-1.92M8.489 11.458c.588.01 1.965 1.157 3.572 1.164 1.607-.007 2.984-1.155 3.572-1.164.196-.003.305.12.305.454 0 .886-.424 2.328-1.563 3.202-.22-.756-1.396-1.366-1.63-1.32q-.011.001-.02.006l-.044.026-.01.008-.03.024q-.018.017-.035.036l-.032.04a1 1 0 0 0-.058.09l-.014.025q-.049.088-.11.19a1 1 0 0 1-.083.116 1.2 1.2 0 0 1-.173.18q-.035.029-.075.058a1.3 1.3 0 0 1-.251-.243 1 1 0 0 1-.076-.107c-.124-.193-.177-.363-.337-.444-.034-.016-.104-.008-.2.022q-.094.03-.216.087-.06.028-.125.063l-.13.074q-.067.04-.136.086a3 3 0 0 0-.135.096 3 3 0 0 0-.26.219 2 2 0 0 0-.12.121 2 2 0 0 0-.106.128l-.002.002a2 2 0 0 0-.09.132l-.001.001a1.2 1.2 0 0 0-.105.212q-.013.036-.024.073c-1.139-.875-1.563-2.317-1.563-3.203 0-.334.109-.457.305-.454m.836 10.354c.824-1.19.766-2.082-.365-3.194-1.13-1.112-1.789-2.738-1.789-2.738s-.246-.945-.806-.858-.97 1.499.202 2.362c1.173.864-.233 1.45-.685.64-.45-.812-1.683-2.896-2.322-3.295s-1.089-.175-.938.647 2.822 2.813 2.562 3.244-1.176-.506-1.176-.506-2.866-2.567-3.49-1.898.473 1.23 2.037 2.16c1.564.932 1.686 1.178 1.464 1.53s-3.675-2.511-4-1.297c-.323 1.214 3.524 1.567 3.287 2.405-.238.839-2.71-1.587-3.216-.642-.506.946 3.49 2.056 3.522 2.064 1.29.33 4.568 1.028 5.713-.624m5.349 0c-.824-1.19-.766-2.082.365-3.194 1.13-1.112 1.789-2.738 1.789-2.738s.246-.945.806-.858.97 1.499-.202 2.362c-1.173.864.233 1.45.685.64.451-.812 1.683-2.896 2.322-3.295s1.089-.175.938.647-2.822 2.813-2.562 3.244 1.176-.506 1.176-.506 2.866-2.567 3.49-1.898-.473 1.23-2.037 2.16c-1.564.932-1.686 1.178-1.464 1.53s3.675-2.511 4-1.297c.323 1.214-3.524 1.567-3.287 2.405.238.839 2.71-1.587 3.216-.642.506.946-3.49 2.056-3.522 2.064-1.29.33-4.568 1.028-5.713-.624"/></symbol>
+<symbol id="i-figma" viewBox="0 0 24 24"><path d="M15.852 8.981h-4.588V0h4.588c2.476 0 4.49 2.014 4.49 4.49s-2.014 4.491-4.49 4.491zM12.735 7.51h3.117c1.665 0 3.019-1.355 3.019-3.019s-1.355-3.019-3.019-3.019h-3.117V7.51zm0 1.471H8.148c-2.476 0-4.49-2.014-4.49-4.49S5.672 0 8.148 0h4.588v8.981zm-4.587-7.51c-1.665 0-3.019 1.355-3.019 3.019s1.354 3.02 3.019 3.02h3.117V1.471H8.148zm4.587 15.019H8.148c-2.476 0-4.49-2.014-4.49-4.49s2.014-4.49 4.49-4.49h4.588v8.98zM8.148 8.981c-1.665 0-3.019 1.355-3.019 3.019s1.355 3.019 3.019 3.019h3.117V8.981H8.148zM8.172 24c-2.489 0-4.515-2.014-4.515-4.49s2.014-4.49 4.49-4.49h4.588v4.441c0 2.503-2.047 4.539-4.563 4.539zm-.024-7.51a3.023 3.023 0 0 0-3.019 3.019c0 1.665 1.365 3.019 3.044 3.019 1.705 0 3.093-1.376 3.093-3.068v-2.97H8.148zm7.704 0h-.098c-2.476 0-4.49-2.014-4.49-4.49s2.014-4.49 4.49-4.49h.098c2.476 0 4.49 2.014 4.49 4.49s-2.014 4.49-4.49 4.49zm-.097-7.509c-1.665 0-3.019 1.355-3.019 3.019s1.355 3.019 3.019 3.019h.098c1.665 0 3.019-1.355 3.019-3.019s-1.355-3.019-3.019-3.019h-.098z"/></symbol>
+<symbol id="i-googlefonts" viewBox="0 0 24 24"><path d="M4 2.8A3.6 3.6 0 1 0 4 10a3.6 3.6 0 0 0 0-7.2zm7.6 0v18.4h7.2a5.2 5.2 0 1 1 0-10.4 4 4 0 1 1 0-8zm7.2 0v8a4 4 0 1 0 0-8zm0 8v10.4A5.2 5.2 0 0 0 24 16a5.2 5.2 0 0 0-5.2-5.2zm-7.7-7.206L0 21.199h8.8l2.3-3.64Z"/></symbol>
+<symbol id="i-svg" viewBox="0 0 24 24"><path d="M12 0c-1.497 0-2.749.965-3.248 2.17a3.45 3.45 0 00-.238 1.416 3.459 3.459 0 00-1.168-.834 3.508 3.508 0 00-1.463-.256 3.513 3.513 0 00-2.367 1.02c-1.06 1.058-1.263 2.625-.764 3.83.179.432.47.82.82 1.154a3.49 3.49 0 00-1.402.252C.965 9.251 0 10.502 0 12c0 1.497.965 2.749 2.17 3.248.437.181.924.25 1.414.236-.357.338-.65.732-.832 1.17-.499 1.205-.295 2.772.764 3.83 1.058 1.06 2.625 1.263 3.83.764.437-.181.83-.476 1.168-.832-.014.49.057.977.238 1.414C9.251 23.035 10.502 24 12 24c1.497 0 2.749-.965 3.248-2.17a3.45 3.45 0 00.238-1.416c.338.356.73.653 1.168.834 1.205.499 2.772.295 3.83-.764 1.06-1.058 1.263-2.625.764-3.83a3.459 3.459 0 00-.834-1.168 3.45 3.45 0 001.416-.238C23.035 14.749 24 13.498 24 12c0-1.497-.965-2.749-2.17-3.248a3.455 3.455 0 00-1.414-.236c.357-.338.65-.732.832-1.17.499-1.205.295-2.772-.764-3.83a3.513 3.513 0 00-2.367-1.02 3.508 3.508 0 00-1.463.256c-.437.181-.83.475-1.168.832a3.45 3.45 0 00-.238-1.414C14.749.965 13.498 0 12 0zm-.041 1.613a1.902 1.902 0 011.387 3.246v3.893L16.098 6A1.902 1.902 0 1118 7.902l-2.752 2.752h3.893a1.902 1.902 0 110 2.692h-3.893L18 16.098A1.902 1.902 0 1116.098 18l-2.752-2.752v3.893a1.902 1.902 0 11-2.692 0v-3.893L7.902 18A1.902 1.902 0 116 16.098l2.752-2.752H4.859a1.902 1.902 0 110-2.692h3.893L6 7.902A1.902 1.902 0 117.902 6l2.752 2.752V4.859a1.902 1.902 0 011.305-3.246z"/></symbol>
+<symbol id="i-d3" viewBox="0 0 24 24"><path d="M13.312 12C13.312 5.718 8.22.625 1.937.625H0v5h1.938c3.521 0 6.375 2.854 6.375 6.375s-2.854 6.375-6.375 6.375H0v5h1.938c6.281 0 11.374-5.093 11.374-11.375zM24 7.563C24 3.731 20.893.625 17.062.625h-8a13.4154 13.4154 0 0 1 4.686 5h3.314c1.069 0 1.938.868 1.938 1.938 0 1.07-.869 1.938-1.938 1.938h-1.938c.313 1.652.313 3.348 0 5h1.938c1.068 0 1.938.867 1.938 1.938s-.869 1.938-1.938 1.938h-3.314a13.4154 13.4154 0 0 1-4.686 5h8c1.621 0 3.191-.568 4.438-1.605 2.943-2.45 3.346-6.824.895-9.77A6.9459 6.9459 0 0 0 24 7.563z"/></symbol>
+<symbol id="i-chartjs" viewBox="0 0 24 24"><path d="M12 0L1.605 6v12L12 24l10.395-6V6zm0 1.41l9.172 5.295v10.59L12 22.59l-9.172-5.295V6.705zM5.902 8.334c-1.306 0-1.983.956-2.574 2.41v6.262L12 22.014l8.672-5.008v-5.971c-.447-.264-.894-.412-1.336-.412-4.275 0-3.97 4.885-6.717 5.8-2.748.917-3.511-8.089-6.717-8.089zm12.364.457c-2.9 0-2.137 4.732-5.342 4.732-1.63 0-2.52-1.317-3.477-1.981.148.326.3.655.442.98.467 1.068.922 2.09 1.379 2.734.228.322.455.541.644.644a.595.595 0 0 0 .549.05c.558-.187.968-.571 1.36-1.112.39-.541.74-1.228 1.154-1.916.413-.688.894-1.385 1.59-1.918.695-.534 1.607-.881 2.77-.881.465 0 .908.136 1.337.352v-.121c-.633-.849-1.348-1.563-2.406-1.563zm-6.68.152c-.868 0-1.491.82-2.076 2.06.094.055.192.106.277.167 1.06.761 1.798 1.853 3.137 1.853.678 0 1.067-.218 1.418-.585-.722-1.546-1.432-3.492-2.756-3.495Z"/></symbol>
+<symbol id="i-sheets" viewBox="0 0 24 24"><path d="M11.318 12.545H7.91v-1.909h3.41v1.91zM14.728 0v6h6l-6-6zm1.363 10.636h-3.41v1.91h3.41v-1.91zm0 3.273h-3.41v1.91h3.41v-1.91zM20.727 6.5v15.864c0 .904-.732 1.636-1.636 1.636H4.909a1.636 1.636 0 0 1-1.636-1.636V1.636C3.273.732 4.005 0 4.909 0h9.318v6.5h6.5zm-3.273 2.773H6.545v7.909h10.91v-7.91zm-6.136 4.636H7.91v1.91h3.41v-1.91z"/></symbol>
+<symbol id="i-tiktok" viewBox="0 0 24 24"><path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/></symbol>
+<symbol id="i-facebook" viewBox="0 0 24 24"><path d="M9.101 23.691v-7.98H6.627v-3.667h2.474v-1.58c0-4.085 1.848-5.978 5.858-5.978.401 0 .955.042 1.468.103a8.68 8.68 0 0 1 1.141.195v3.325a8.623 8.623 0 0 0-.653-.036 26.805 26.805 0 0 0-.733-.009c-.707 0-1.259.096-1.675.309a1.686 1.686 0 0 0-.679.622c-.258.42-.374.995-.374 1.752v1.297h3.919l-.386 2.103-.287 1.564h-3.246v8.245C19.396 23.238 24 18.179 24 12.044c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.628 3.874 10.35 9.101 11.647Z"/></symbol>
+<symbol id="i-linkedin" viewBox="0 0 24 24"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></symbol>
+<symbol id="i-youtube" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></symbol>
+<symbol id="i-telegram" viewBox="0 0 24 24"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></symbol>
+<symbol id="i-github" viewBox="0 0 24 24"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></symbol>
+</defs></svg>
 <canvas id="bg-canvas"></canvas>
 
 <!-- NAVIGATION -->
@@ -56,55 +77,189 @@
   </div>
 </section>
 
+<!-- TECH BAND -->
+<div class="tech-band" aria-label="Tecnologías que usa FABRI-CORE">
+  <div class="tech-track">
+    <div class="tech-group">
+      <span class="tech-item"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-android"/></svg>Android</span>
+      <span class="tech-item"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-kotlin"/></svg>Kotlin</span>
+      <span class="tech-item"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-rust"/></svg>Rust</span>
+      <span class="tech-item"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-sqlite"/></svg>SQLite</span>
+      <span class="tech-item"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-hf"/></svg>Hugging Face</span>
+      <span class="tech-item"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-python"/></svg>Python</span>
+      <span class="tech-item"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-telegram"/></svg>Telegram</span>
+      <span class="tech-item"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-github"/></svg>GitHub</span>
+      <span class="tech-item"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-figma"/></svg>Figma</span>
+      <span class="tech-item"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-googlefonts"/></svg>Google Fonts</span>
+    </div>
+    <div class="tech-group" aria-hidden="true">
+      <span class="tech-item"><svg viewBox="0 0 24 24"><use href="#i-android"/></svg>Android</span>
+      <span class="tech-item"><svg viewBox="0 0 24 24"><use href="#i-kotlin"/></svg>Kotlin</span>
+      <span class="tech-item"><svg viewBox="0 0 24 24"><use href="#i-rust"/></svg>Rust</span>
+      <span class="tech-item"><svg viewBox="0 0 24 24"><use href="#i-sqlite"/></svg>SQLite</span>
+      <span class="tech-item"><svg viewBox="0 0 24 24"><use href="#i-hf"/></svg>Hugging Face</span>
+      <span class="tech-item"><svg viewBox="0 0 24 24"><use href="#i-python"/></svg>Python</span>
+      <span class="tech-item"><svg viewBox="0 0 24 24"><use href="#i-telegram"/></svg>Telegram</span>
+      <span class="tech-item"><svg viewBox="0 0 24 24"><use href="#i-github"/></svg>GitHub</span>
+      <span class="tech-item"><svg viewBox="0 0 24 24"><use href="#i-figma"/></svg>Figma</span>
+      <span class="tech-item"><svg viewBox="0 0 24 24"><use href="#i-googlefonts"/></svg>Google Fonts</span>
+    </div>
+  </div>
+</div>
+
 <!-- SECTIONS GRID -->
 <section class="section section-alt" id="secciones">
   <div class="section-content">
-    <div class="stack" style="gap:40px;">
-      <div class="label motion-reveal" style="opacity:0;">Navegación · 6 Secciones · Documentación Completa</div>
-      <h2 class="h2 motion-reveal" style="opacity:0;">Explora la presentación</h2>
-      <p class="lead motion-reveal" style="opacity:0;">Cada sección es una página interactiva independiente. Scroll libre. Sin playback. Todo gratis.</p>
-      <div class="launcher-grid mt-20">
-        <a class="launcher-card motion-reveal stagger-1" href="01-marca.html" style="opacity:0;">
-          <span class="lc-num">01 · Marca</span>
-          <span class="lc-icon">🎨</span>
-          <span class="lc-title">Marca &amp; Branding</span>
-          <span class="lc-desc">Identidad visual, paleta, tipografía, logotipo y sistema de diseño canónico.</span>
-          <span class="lc-go">Ver página →</span>
+    <div class="stack" style="gap:32px;">
+      <div class="launcher-head">
+        <div>
+          <div class="label motion-reveal" style="opacity:0;">Navegación · Documentación viva</div>
+          <h2 class="h2 motion-reveal" style="opacity:0;">Explora la presentación</h2>
+          <p class="lead motion-reveal" style="opacity:0;">Seis capítulos, una sola idea: <strong>software libre que corre en tu teléfono</strong>. Scroll libre, sin playback, sin registro. Todo gratis.</p>
+        </div>
+        <div class="launcher-count motion-reveal" style="opacity:0;">
+          <span class="count-num">06</span>
+          <span class="count-label">capítulos<br>documentados</span>
+        </div>
+      </div>
+
+      <div class="deck-pills motion-reveal" style="opacity:0;">
+        <span class="pill">06 capítulos</span>
+        <span class="pill">Scroll libre</span>
+        <span class="pill">0 reproducciones</span>
+        <span class="pill">0 suscripción</span>
+        <span class="pill" style="border-color:rgba(61,220,132,.4);color:var(--ok);">100% gratis</span>
+      </div>
+
+      <div class="launcher-grid">
+        <a class="launcher-card" href="01-marca.html" style="opacity:0;--accent:200,255,0;">
+          <span class="lc-ghost" aria-hidden="true">01</span>
+          <div class="lc-body">
+            <div class="lc-top">
+              <span class="lc-num">01 · Marca</span>
+              <span class="lc-badge">Diseño</span>
+            </div>
+            <div class="lc-icons" aria-hidden="true">
+              <span class="lc-icon" style="--brand:#F24E1E;"><svg viewBox="0 0 24 24"><use href="#i-figma"/></svg></span>
+              <span class="lc-icon" style="--brand:#4285F4;"><svg viewBox="0 0 24 24"><use href="#i-googlefonts"/></svg></span>
+              <span class="lc-icon" style="--brand:#FFB13B;"><svg viewBox="0 0 24 24"><use href="#i-svg"/></svg></span>
+            </div>
+            <h3 class="lc-title">Marca &amp; Branding</h3>
+            <p class="lc-desc">Identidad, paleta lima, tipografía Inter y logotipo. El sistema de diseño canónico, token por token.</p>
+            <div class="lc-foot">
+              <span class="lc-tech">Figma · Inter · SVG</span>
+              <span class="lc-go">Abrir <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+            </div>
+          </div>
         </a>
-        <a class="launcher-card motion-reveal stagger-2" href="02-funciones.html" style="opacity:0;">
-          <span class="lc-num">02 · Funciones</span>
-          <span class="lc-icon">⚡</span>
-          <span class="lc-title">Funciones</span>
-          <span class="lc-desc">17 módulos documentados: inventario, IA local, terminal, RAG, facturación.</span>
-          <span class="lc-go">Ver página →</span>
+
+        <a class="launcher-card" href="02-funciones.html" style="opacity:0;--accent:90,217,232;">
+          <span class="lc-ghost" aria-hidden="true">02</span>
+          <div class="lc-body">
+            <div class="lc-top">
+              <span class="lc-num">02 · Funciones</span>
+              <span class="lc-badge">Producto</span>
+            </div>
+            <div class="lc-icons" aria-hidden="true">
+              <span class="lc-icon" style="--brand:#3DDC84;"><svg viewBox="0 0 24 24"><use href="#i-android"/></svg></span>
+              <span class="lc-icon" style="--brand:#7F52FF;"><svg viewBox="0 0 24 24"><use href="#i-kotlin"/></svg></span>
+              <span class="lc-icon" style="--brand:#4FA8D8;"><svg viewBox="0 0 24 24"><use href="#i-sqlite"/></svg></span>
+              <span class="lc-icon" style="--brand:#E05A2B;"><svg viewBox="0 0 24 24"><use href="#i-rust"/></svg></span>
+            </div>
+            <h3 class="lc-title">Funciones</h3>
+            <p class="lc-desc">17 módulos: inventario, escáner EAN, terminal Linux, RAG, facturación y cloud opcional.</p>
+            <div class="lc-foot">
+              <span class="lc-tech">Kotlin · Android · SQLite</span>
+              <span class="lc-go">Abrir <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+            </div>
+          </div>
         </a>
-        <a class="launcher-card motion-reveal stagger-3" href="03-beneficios.html" style="opacity:0;">
-          <span class="lc-num">03 · Beneficios</span>
-          <span class="lc-icon">💎</span>
-          <span class="lc-title">Beneficios</span>
-          <span class="lc-desc">Sin internet, sin mensualidad, IA privada, seguridad. Comparativa real.</span>
-          <span class="lc-go">Ver página →</span>
+
+        <a class="launcher-card" href="03-beneficios.html" style="opacity:0;--accent:61,220,132;">
+          <span class="lc-ghost" aria-hidden="true">03</span>
+          <div class="lc-body">
+            <div class="lc-top">
+              <span class="lc-num">03 · Beneficios</span>
+              <span class="lc-badge">Ventajas</span>
+            </div>
+            <div class="lc-icons" aria-hidden="true">
+              <span class="lc-icon" style="--brand:#3DDC84;"><svg viewBox="0 0 24 24"><use href="#i-android"/></svg></span>
+              <span class="lc-icon" style="--brand:#4FA8D8;"><svg viewBox="0 0 24 24"><use href="#i-sqlite"/></svg></span>
+              <span class="lc-icon" style="--brand:#E05A2B;"><svg viewBox="0 0 24 24"><use href="#i-rust"/></svg></span>
+              <span class="lc-icon" style="--brand:#26A5E4;"><svg viewBox="0 0 24 24"><use href="#i-telegram"/></svg></span>
+            </div>
+            <h3 class="lc-title">Beneficios</h3>
+            <p class="lc-desc">Offline real, cero mensualidad, IA privada y seguridad de grado militar.</p>
+            <div class="lc-foot">
+              <span class="lc-tech">Offline · Rust · Telegram</span>
+              <span class="lc-go">Abrir <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+            </div>
+          </div>
         </a>
-        <a class="launcher-card motion-reveal stagger-4" href="04-mercado.html" style="opacity:0;">
-          <span class="lc-num">04 · Mercado</span>
-          <span class="lc-icon">📊</span>
-          <span class="lc-title">Mercado</span>
-          <span class="lc-desc">TAM/SAM/SOM, competidores, pricing, GTM. Análisis real.</span>
-          <span class="lc-go">Ver página →</span>
+
+        <a class="launcher-card" href="04-mercado.html" style="opacity:0;--accent:255,176,32;">
+          <span class="lc-ghost" aria-hidden="true">04</span>
+          <div class="lc-body">
+            <div class="lc-top">
+              <span class="lc-num">04 · Mercado</span>
+              <span class="lc-badge">Estrategia</span>
+            </div>
+            <div class="lc-icons" aria-hidden="true">
+              <span class="lc-icon" style="--brand:#F9A03C;"><svg viewBox="0 0 24 24"><use href="#i-d3"/></svg></span>
+              <span class="lc-icon" style="--brand:#FF6384;"><svg viewBox="0 0 24 24"><use href="#i-chartjs"/></svg></span>
+              <span class="lc-icon" style="--brand:#0F9D58;"><svg viewBox="0 0 24 24"><use href="#i-sheets"/></svg></span>
+            </div>
+            <h3 class="lc-title">Mercado</h3>
+            <p class="lc-desc">TAM/SAM/SOM, competencia, pricing y go-to-market. Números públicos, sin humo.</p>
+            <div class="lc-foot">
+              <span class="lc-tech">D3 · Chart.js · Sheets</span>
+              <span class="lc-go">Abrir <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+            </div>
+          </div>
         </a>
-        <a class="launcher-card motion-reveal stagger-5" href="05-redes.html" style="opacity:0;">
-          <span class="lc-num">05 · Redes</span>
-          <span class="lc-icon">📱</span>
-          <span class="lc-title">Redes Sociales</span>
-          <span class="lc-desc">Estrategia en 4 canales. Si te sirve, dale like.</span>
-          <span class="lc-go">Ver página →</span>
+
+        <a class="launcher-card" href="05-redes.html" style="opacity:0;--accent:180,140,255;">
+          <span class="lc-ghost" aria-hidden="true">05</span>
+          <div class="lc-body">
+            <div class="lc-top">
+              <span class="lc-num">05 · Redes</span>
+              <span class="lc-badge">Difusión</span>
+            </div>
+            <div class="lc-icons" aria-hidden="true">
+              <span class="lc-icon" style="--brand:#25F4EE;"><svg viewBox="0 0 24 24"><use href="#i-tiktok"/></svg></span>
+              <span class="lc-icon" style="--brand:#1877F2;"><svg viewBox="0 0 24 24"><use href="#i-facebook"/></svg></span>
+              <span class="lc-icon" style="--brand:#0A66C2;"><svg viewBox="0 0 24 24"><use href="#i-linkedin"/></svg></span>
+              <span class="lc-icon" style="--brand:#FF0000;"><svg viewBox="0 0 24 24"><use href="#i-youtube"/></svg></span>
+            </div>
+            <h3 class="lc-title">Redes sociales</h3>
+            <p class="lc-desc">TikTok, Facebook, LinkedIn y YouTube. Cuatro canales y una sola petición: un like.</p>
+            <div class="lc-foot">
+              <span class="lc-tech">TikTok · Meta · YouTube</span>
+              <span class="lc-go">Abrir <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+            </div>
+          </div>
         </a>
-        <a class="launcher-card motion-reveal stagger-6" href="06-ia.html" style="opacity:0;">
-          <span class="lc-num">06 · IA</span>
-          <span class="lc-icon">🤖</span>
-          <span class="lc-title">Análisis IA</span>
-          <span class="lc-desc">Stack técnico, modelos GGUF, RAG, rotador cloud, nivel 5.</span>
-          <span class="lc-go">Ver página →</span>
+
+        <a class="launcher-card" href="06-ia.html" style="opacity:0;--accent:200,255,0;">
+          <span class="lc-ghost" aria-hidden="true">06</span>
+          <div class="lc-body">
+            <div class="lc-top">
+              <span class="lc-num">06 · IA</span>
+              <span class="lc-badge">Técnico</span>
+            </div>
+            <div class="lc-icons" aria-hidden="true">
+              <span class="lc-icon" style="--brand:#E05A2B;"><svg viewBox="0 0 24 24"><use href="#i-rust"/></svg></span>
+              <span class="lc-icon" style="--brand:#FFD21E;"><svg viewBox="0 0 24 24"><use href="#i-hf"/></svg></span>
+              <span class="lc-icon" style="--brand:#FFD43B;"><svg viewBox="0 0 24 24"><use href="#i-python"/></svg></span>
+              <span class="lc-icon" style="--brand:#3DDC84;"><svg viewBox="0 0 24 24"><use href="#i-android"/></svg></span>
+            </div>
+            <h3 class="lc-title">Análisis IA</h3>
+            <p class="lc-desc">llama.cpp, GGUF, embeddings y rotador cloud. El nivel 5 corriendo on-device.</p>
+            <div class="lc-foot">
+              <span class="lc-tech">llama.cpp · GGUF · Rust</span>
+              <span class="lc-go">Abrir <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+            </div>
+          </div>
         </a>
       </div>
     </div>
@@ -267,22 +422,23 @@ gsap.utils.toArray('.motion-slide-right').forEach((el) => {
   );
 });
 
-// Staggered launcher cards
+// Staggered launcher cards (clearProps deja el hover CSS libre)
 gsap.utils.toArray('.launcher-card').forEach((card, i) => {
   gsap.fromTo(card,
-    { opacity: 0, y: 60, scale: 0.9 },
+    { opacity: 0, y: 54, scale: 0.94 },
     {
       opacity: 1,
       y: 0,
       scale: 1,
-      duration: 0.6,
-      delay: i * 0.1,
-      ease: 'back.out(1.4)',
+      duration: 0.75,
+      delay: (i % 3) * 0.08,
+      ease: 'power3.out',
       scrollTrigger: {
         trigger: card,
-        start: 'top 90%',
-        toggleActions: 'play none none reverse'
-      }
+        start: 'top 92%',
+        once: true
+      },
+      clearProps: 'transform'
     }
   );
 });
