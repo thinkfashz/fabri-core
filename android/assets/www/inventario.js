@@ -2408,9 +2408,9 @@ function invEdRecalcular() {
     if (el) el.textContent = txt;
   };
   set("invEdMargen", margen + " %");
-  set("invEdGanancia", "$ " + invMiles(ganancia));
-  set("invEdCostoV", "$ " + invMiles(costo));
-  set("invEdValor", "$ " + invMiles(precio * stock));
+  set("invEdGanancia", invClp(ganancia));
+  set("invEdCostoV", invClp(costo));
+  set("invEdValor", invClp(precio * stock));
 
   // Un margen bajo se marca en rojo y uno sano en lima: es lo que el
   // comerciante mira antes de poner precio.
@@ -2422,12 +2422,6 @@ function invEdRecalcular() {
   }
   const barra = document.getElementById("invEdBarra");
   if (barra) barra.style.width = Math.max(0, Math.min(100, margen)) + "%";
-}
-
-/** Formatea números con separador de miles chileno. */
-function invMiles(n) {
-  const v = Math.round(Number(n) || 0);
-  return v.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 }
 
 /** Busca el código en la base local y carga el producto en el editor. */
