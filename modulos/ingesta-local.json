@@ -1,0 +1,18 @@
+{
+  "id": "ingesta-local",
+  "nombre": "Ingesta local (texto → fragmentos → vectores)",
+  "version": "1.0.0",
+  "tipo": "declarativo",
+  "lenguaje": "rust",
+  "licencia": "MIT",
+  "descripcion": "Convierte texto plano o Markdown en fragmentos con solape y los deja listos para indexar. Es la parte de RAGFlow que sí cabe en el teléfono.",
+  "capacidades": ["texto.dividir", "vector.indexar"],
+  "parametros": { "maxCaracteres": 900, "solape": 120 },
+  "limites": [
+    "Sólo texto/Markdown/JSON; PDF, DOCX y HTML requieren un paso externo.",
+    "No hace OCR.",
+    "No deduplica documentos automáticamente."
+  ],
+  "reemplaza": ["infiniflow/ragflow"],
+  "evidencia": "La ingesta de RAGFlow es mucho más amplia; este módulo conserva el camino texto→fragmento→índice."
+}

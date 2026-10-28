@@ -18,7 +18,9 @@ Una app Android ARM64 que funciona **sin internet** y sin cuenta en la nube:
 | **Lector de códigos** | EAN-13, EAN-8 y UPC-A con la cámara, decodificador propio (sin `BarcodeDetector`, que el WebView no trae). |
 | **Ficha del producto** | Nombre, marca, categoría, etiquetas «free» (sin gluten, sin azúcar, vegano…), alérgenos, Nutri-Score, NOVA e imagen, traídos de bases libres. |
 | **Boletas** | Cálculo de neto/IVA/total, folio correlativo, historial y reimpresión. |
-| **Impresión** | `PrintManager` de Android con hoja fuera de pantalla: rollo de 80 mm, 58 mm o A4 (también sirve «Guardar como PDF»). |
+| **Impresión** | **WiFi directo ESC/POS** (Xprinter XP-58LLH y compatibles, puerto 9100) y `PrintManager` de Android para rollo/A4 o PDF. |
+| **Lector de escritorio** | Lector 2D por red (TCP servidor o cliente) o USB/Bluetooth en modo teclado; se suma al apilador o busca el producto. |
+| **Importación** | Base SQLite (Eleventa y otras), Excel `.xlsx` o CSV/TSV/JSON desde la SD, con selector nativo y vista previa antes de escribir. |
 | **Sincronización** | Opcional y manual: sube los productos pendientes a InsForge por `POST /api/inventario` (upsert por código). |
 | **IA** | Apagada por defecto. Se enciende desde la app (runtime llama.cpp empaquetado). El arranque y el login **no dependen** de ella. |
 
@@ -266,6 +268,17 @@ Etiquetas «free» reconocidas: sin gluten, sin azúcar, sin lactosa, sin grasa,
 vegano, vegetariano, orgánico. Se guardan en `ficha.etiquetas` y se filtran sin
 volver a consultar internet.
 
+### 7.1 · Equipos del local
+
+| Equipo | Cómo se conecta | Notas |
+|---|---|---|
+| **Impresora térmica** | TCP crudo al puerto 9100, ESC/POS | 58 mm = 32 caracteres / 384 puntos; 80 mm = 48 / 576. Acentos en Windows-1252 (`ESC t 16`) o ASCII. Si falla, cae al diálogo de Android. |
+| **Lector 2D de escritorio** | La app escucha en 9101 (recomendado), se conecta al lector, o lo trata como teclado USB/Bluetooth | El HBAPO no documenta un protocolo único: se cubren los tres caminos. Deduplica lecturas en 1,2 s. |
+| **Base en la SD** | Selector nativo SAF (`ACTION_OPEN_DOCUMENT`, sólo local) | Copia a caché (máx. 80 MB), lee SQLite o XLSX y nunca modifica el original. CSV/TSV/JSON siguen por el parser de texto. |
+
+La IP del teléfono se muestra en la tarjeta «Equipos del local» para configurar
+el lector. El detalle de la nube está en [INSFORGE.md](INSFORGE.md).
+
 ---
 
 ## 8 · Versiones
@@ -287,6 +300,7 @@ volver a consultar internet.
 | 0.9.24 | 39 | escáner pro (malla en canvas), las 2 bases (local + tu nube) y más fuentes libres (Open Prices, Wikipedia) |
 | 0.9.25 | 40 | el módulo de inventario completo: apilador continuo, importación masiva (Eleventa/CSV/TSV/JSON), catálogo en tarjetas con miniatura y código de barras SVG, boleta con efecto de impresión, iconos SVG en línea, verificación real del sistema y limpieza de errores por versión |
 | **0.9.26** | **41** | **portada del producto**: estadísticas reales del negocio con tres gráficos d3 (ventas de 7 días, categorías, más vendidos), explicación de qué es FABRI-CORE y qué aporta a un minimarket, seis fichas con iconos animados (animateicons) y marcas retro-iluminadas (lobe-icons + simple-icons), héroe con canvas propio; el bloque técnico queda plegado en un `<details>` |
+| **0.9.27** | **42** | **equipos del local**: impresión WiFi ESC/POS real (Xprinter XP-58LLH, puerto 9100) con prueba, descubrimiento y respaldo al diálogo; lector 2D por red/HID con deduplicación; importación desde la SD de SQLite y Excel `.xlsx` con selector nativo y vista previa; guía de InsForge en la app y en `docs/INSFORGE.md`; tarjetas compactas de equipos y revisión de la UI de inventario |
 
 `dist/FABRI-CORE-0.9.26.apk` · **4.218.325 B** ·
 sha256 `4ef65bea9d905593f4fecf2da43b8287fe08be86b66b5ca41f8f64268aaaebc1`

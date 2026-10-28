@@ -1,0 +1,23 @@
+{
+  "id": "modelo-smollm2-135m-q2",
+  "nombre": "SmolLM2 135M Instruct GGUF (Q2_K)",
+  "tipo": "modelo",
+  "version": "q2_k-c53fe662",
+  "descripcion": "La versión más comprimida de SmolLM2 135M (~88 MB). Menos calidad que Q4_K_M, pero entra en cualquier teléfono y arranca rápido.",
+  "origen": "https://huggingface.co/unsloth/SmolLM2-135M-Instruct-GGUF/resolve/main/SmolLM2-135M-Instruct-Q2_K.gguf",
+  "origen_tipo": "huggingface",
+  "sha256": "c53fe6626c7165ebfd8de5db22edc3f719b813da001e662bc5cb453f2540a076",
+  "tamano": 88201792,
+  "autorizado": true,
+  "licencia": "apache-2.0",
+  "plataforma": "android",
+  "arquitectura": "agnostica-al-runtime",
+  "dependencias": [
+    "runtime-llama"
+  ],
+  "directorio": "filesDir/componentes/modelo-smollm2-135m-q2/",
+  "interfaz": "se pasa como -m <ruta> al runtime; nunca se ejecuta solo",
+  "salud": "cargar el modelo y responder un prompt corto sin error de cabecera",
+  "actualizacion": "manual: sólo si el autor publica un GGUF nuevo con hash verificado",
+  "desinstalacion": "borrar el directorio y dejar el registro en SQLite como histórico"
+}

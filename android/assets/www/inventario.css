@@ -1096,6 +1096,7 @@ img.inv-mini { object-fit: cover; }
 }
 .inv-equipos-cab {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
   gap: 10px;
@@ -1344,6 +1345,9 @@ img.inv-mini { object-fit: cover; }
 .inv-guia-completa h4 { margin: 4px 0 0; font-size: 13px; color: var(--acento); }
 .inv-guia-completa p { margin: 0; font-size: 12px; line-height: 1.55; color: var(--texto-2); }
 .inv-guia-lista { margin: 0; padding-left: 18px; display: grid; gap: 5px; font-size: 12px; line-height: 1.5; color: var(--texto-2); }
+
+/* Los estados de error de los paneles nuevos no dependen de otro módulo. */
+.inv-error { color: var(--error); }
 
 /* En pantallas anchas el panel de equipos no se estira de más. */
 @media (min-width: 980px) {

@@ -1,0 +1,26 @@
+{
+  "id": "pagina-ayuda",
+  "nombre": "Ayuda",
+  "version": "0.1.0",
+  "tipo": "pagina",
+  "estado": "POR CONSTRUIR",
+  "descripcion": "Documentación dentro de la app y guía de diagnóstico: qué hace cada pantalla, cómo importar un módulo, cómo leer un error y qué hacer si el núcleo no responde. Todo el texto se puede copiar sin depender de internet.",
+  "secciones": [
+    {
+      "titulo": "Qué resuelve",
+      "texto": "Evita que el usuario tenga que adivinar por qué una descarga no se instala o por qué una página dice NO DISPONIBLE. Explica el estado real, los requisitos y el siguiente paso."
+    },
+    {
+      "titulo": "Cómo funcionará",
+      "texto": "Acordeones por tema con texto en español, ejemplos de manifiestos y botones Copiar. Un bloque de diagnóstico muestra versión, arquitectura, W^X (T0), espacio libre y último error del log, sin exponer rutas sensibles."
+    },
+    {
+      "titulo": "Límites",
+      "texto": "La ayuda no ejecuta reparaciones automáticas ni descarga nada. Si un dato no está disponible, lo dice; no inventa versiones, hashes ni URLs."
+    }
+  ],
+  "instrucciones": "PLAN DE CONSTRUCCIÓN · Ayuda\n1. Reunir en un solo archivo los temas: instalación, módulos, descargas, T0, MCP y respaldo.\n2. Renderizar acordeones con texto local; nada de cargar documentación desde internet.\n3. Añadir un botón Copiar por tema (texto plano listo para pegar).\n4. Incluir un bloque de diagnóstico con los datos de sys y el último error del log.\n5. Enlazar cada tema con la página correspondiente cuando exista.\n6. Documentar cómo se mantiene esta ayuda en docs/fase-4/ayuda.md.\n\nCRITERIO DE ACEPTACIÓN\n- Todos los temas se leen sin red.\n- Copiar un tema produce texto completo y legible.\n- El bloque de diagnóstico no muestra tokens ni rutas privadas completas.\n\nREGLA: si falta un dato, mostrar NO DISPONIBLE; nunca inventarlo.",
+  "depende": [],
+  "modulo": "",
+  "licencia": "MIT"
+}

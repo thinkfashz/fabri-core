@@ -1,0 +1,24 @@
+{
+  "id": "embeddings",
+  "nombre": "bge-small-en-v1.5 GGUF (Q4_K_M)",
+  "tipo": "modelo",
+  "version": "q4_k_m-363a0a48",
+  "descripcion": "Modelo de embeddings en inglés para índice vectorial local. Requiere runtime con soporte de embeddings.",
+  "origen": "https://huggingface.co/CompendiumLabs/bge-small-en-v1.5-gguf/resolve/main/bge-small-en-v1.5-q4_k_m.gguf",
+  "origen_tipo": "huggingface",
+  "sha256": "363a0a4855dff6c653e06efe3209157debcf7f74e52d0d7c71e2747cd523043e",
+  "tamano": 24808576,
+  "licencia": "MIT",
+  "plataforma": "android",
+  "arquitectura": "agnostica-al-runtime",
+  "dependencias": [
+    "runtime-llama"
+  ],
+  "directorio": "filesDir/componentes/embeddings/",
+  "interfaz": "se pasa al runtime en modo embeddings (subcomando por verificar)",
+  "salud": "generar un vector de dimensión esperada para una frase de prueba",
+  "actualizacion": "manual: nuevo hash publicado por el autor",
+  "desinstalacion": "borrar sólo el .gguf del directorio del componente",
+  "contenido_verificado": false,
+  "estado": "PUBLICADO_VERIFICABLE"
+}

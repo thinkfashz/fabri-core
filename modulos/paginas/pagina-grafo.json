@@ -1,0 +1,26 @@
+{
+  "id": "pagina-grafo",
+  "nombre": "Grafo de conocimiento",
+  "version": "0.1.0",
+  "tipo": "pagina",
+  "estado": "POR CONSTRUIR",
+  "descripcion": "Grafo local de entidades y relaciones para reemplazar la función de GraphRAG sin servidor. Guarda personas, proyectos, documentos y vínculos en SQLite, y responde consultas por vecindad y caminos cortos.",
+  "secciones": [
+    {
+      "titulo": "Qué resuelve",
+      "texto": "Un RAG plano pierde las relaciones: quién aprobó qué, qué documento cita a cuál, cómo se conecta un proyecto con una persona. Esta página conserva esas aristas y permite navegarlas desde la interfaz."
+    },
+    {
+      "titulo": "Cómo funcionará",
+      "texto": "Tablas nodos(id, tipo, nombre, datos) y aristas(origen, destino, relacion, peso). La extracción inicial es asistida: el usuario confirma entidades y relaciones; no se inventan vínculos. Las consultas usan JOIN y CTE recursivas de SQLite, sin Neo4j ni proceso externo."
+    },
+    {
+      "titulo": "Límites",
+      "texto": "No hace extracción automática con un LLM dentro de la app hasta que exista el runtime A1–A3. El grafo se limita a decenas de miles de nodos para mantener la fluidez en el teléfono."
+    }
+  ],
+  "instrucciones": "PLAN DE CONSTRUCCIÓN · Grafo\n1. Crear tablas nodos y aristas con claves foráneas e índices por tipo y relación.\n2. Añadir acciones: grafo.nodo.crear, grafo.arista.crear, grafo.vecinos, grafo.camino.\n3. Implementar grafo.camino con CTE recursiva y límite de profundidad (máximo 4).\n4. Construir vista de lista y detalle: nodo, vecinos, relación y evidencia.\n5. Importar/exportar JSON con validación de ids y sin duplicar aristas.\n6. Documentar el modelo y las consultas en docs/fase-4/grafo.md.\n\nCRITERIO DE ACEPTACIÓN\n- Crear 3 nodos y 3 aristas, y ver los vecinos correctos.\n- Un camino de profundidad 3 se resuelve en menos de 200 ms con 5.000 aristas.\n- Exportar e importar conserva ids y relaciones.\n\nREEMPLAZA: microsoft/graphrag y servidores de grafos (Neo4j).",
+  "depende": ["SQLite"],
+  "modulo": "rag-basico",
+  "licencia": "MIT"
+}

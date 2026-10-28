@@ -1,0 +1,26 @@
+{
+  "id": "pagina-memoria",
+  "nombre": "Memoria",
+  "version": "0.1.0",
+  "tipo": "pagina",
+  "estado": "POR CONSTRUIR",
+  "descripcion": "Memoria durable del agente dentro del teléfono: hechos, preferencias y decisiones que sobreviven al cierre de la app. Se apoya en SQLite y en el módulo vector-local para recuperar por significado, sin depender de un servidor externo ni de la nube.",
+  "secciones": [
+    {
+      "titulo": "Qué resuelve",
+      "texto": "Hoy la app guarda logs y módulos, pero no recuerda lo que el usuario decidió ayer. Esta página permitirá guardar notas breves con fecha, origen y etiquetas, buscarlas por texto o por vector y exportarlas a JSONL para respaldarlas."
+    },
+    {
+      "titulo": "Cómo funcionará",
+      "texto": "Tabla memoria(id, texto, etiquetas, fuente, creado). El módulo vector-local calcula el vector y lo guarda; la búsqueda combina coincidencia exacta y similitud coseno. La interfaz muestra resultados con su fuente y fecha, y nunca inventa recuerdos: si no hay coincidencia, lo dice."
+    },
+    {
+      "titulo": "Límites y seguridad",
+      "texto": "La memoria vive en el sandbox de la app. No se sincroniza sola. El usuario puede borrar una entrada o exportar todo. No se guardan tokens ni claves: el guardián de credenciales rechaza ese contenido."
+    }
+  ],
+  "instrucciones": "PLAN DE CONSTRUCCIÓN · Memoria\n1. Crear tabla memoria(id, texto, etiquetas, fuente, vector BLOB, creado) en SQLite.\n2. Reutilizar el módulo vector-local para indexar y buscar; no crear otro índice.\n3. Añadir acciones de API: memoria.guardar, memoria.buscar, memoria.borrar, memoria.exportar.\n4. Construir la vista con formulario breve, lista de resultados y botón Exportar JSONL.\n5. Probar con 20 notas reales: búsqueda exacta, semántica y borrado.\n6. Documentar el formato de exportación y los límites en docs/fase-4/memoria.md.\n\nCRITERIO DE ACEPTACIÓN\n- Guardar una nota y recuperarla tras cerrar y abrir la app.\n- La búsqueda muestra fuente y fecha de cada resultado.\n- Exportar produce un JSONL válido, una nota por línea.\n\nMÓDULO RELACIONADO: vector-local (vector.indexar, vector.buscar).",
+  "depende": ["SQLite", "vector-local"],
+  "modulo": "vector-local",
+  "licencia": "MIT"
+}

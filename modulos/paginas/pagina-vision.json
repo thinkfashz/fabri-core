@@ -1,0 +1,26 @@
+{
+  "id": "pagina-vision",
+  "nombre": "Visión y OCR",
+  "version": "0.1.0",
+  "tipo": "pagina",
+  "estado": "POR CONSTRUIR",
+  "descripcion": "Lectura de imágenes y documentos: elegir una foto, extraer texto y adjuntarlo a la memoria o a un módulo. La imagen no sale del teléfono; el OCR se hace con la herramienta que esté realmente disponible.",
+  "secciones": [
+    {
+      "titulo": "Qué resuelve",
+      "texto": "Evita transcribir a mano facturas, cartas o capturas. El usuario elige una imagen y la app devuelve el texto reconocido, los metadatos y las advertencias de calidad."
+    },
+    {
+      "titulo": "Cómo funcionará",
+      "texto": "Selector de fotos del sistema (sin permisos de cámara si no se usan) y preprocesamiento básico de tamaño. OCR con ML Kit sólo si el paquete está integrado; si no, se ofrece Tesseract en Termux mediante un comando explícito del usuario, nunca automático."
+    },
+    {
+      "titulo": "Límites",
+      "texto": "No hay modelo de visión dentro de la APK. Sin ML Kit ni Tesseract instalado, la página muestra NO DISPONIBLE y no finge resultados. Las imágenes temporales se borran al terminar."
+    }
+  ],
+  "instrucciones": "PLAN DE CONSTRUCCIÓN · Visión y OCR\n1. Usar ACTION_OPEN_DOCUMENT con image/* y copiar la imagen a un temporal del sandbox.\n2. Redimensionar a un máximo de 2048 px para no agotar memoria.\n3. Detectar OCR disponible: ML Kit integrado o Tesseract en Termux.\n4. Si existe, extraer texto y devolver idioma, confianza y bloques.\n5. Si no existe, mostrar NO DISPONIBLE con el motivo y las opciones de instalación.\n6. Borrar el temporal y documentar en docs/fase-4/vision.md.\n\nCRITERIO DE ACEPTACIÓN\n- Elegir una imagen y ver texto reconocido o un NO DISPONIBLE honesto.\n- Cancelar el selector no deja archivos temporales.\n- Una imagen de 12 MP no cierra la app.\n\nMÓDULO RELACIONADO: analisis-local (analiza el texto extraído como archivo).",
+  "depende": ["Selector de fotos Android", "ML Kit (opcional)", "Tesseract (opcional)"],
+  "modulo": "analisis-local",
+  "licencia": "MIT"
+}

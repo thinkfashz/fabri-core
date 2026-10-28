@@ -1,0 +1,30 @@
+{
+  "id": "pagina-termux",
+  "nombre": "Termux y biblioteca",
+  "version": "0.1.0",
+  "tipo": "pagina",
+  "estado": "PARCIAL",
+  "descripcion": "Implementado en código; falta verificar Termux, TTS y la descarga en pantalla. Página de Termux con comandos copiables, apertura de la app y biblioteca de componentes descargables. No simula una shell: Android bloquea execve en el sandbox (W^X), así que los comandos se ejecutan en Termux, no dentro de FABRI-CORE.",
+  "secciones": [
+    {
+      "titulo": "Qué resuelve",
+      "texto": "Reúne lo que hay que instalar en Termux (Node, Python, clang, OmniRoute, llama.cpp, Qwen, GraphRAG) y lo que la app puede descargar y verificar por sí misma (runtime, modelos, embeddings, sqlite-vec, módulos)."
+    },
+    {
+      "titulo": "Cómo funciona",
+      "texto": "Cada comando tiene un botón Copiar y un botón Abrir Termux. La biblioteca lista los componentes reales del catálogo; Descargar sólo se habilita si el manifiesto declara HTTPS, SHA-256, tamaño y habilitación. Al terminar, el módulo declarativo se instala en SQLite; el modelo queda disponible para A2/A3."
+    },
+    {
+      "titulo": "Límites y seguridad",
+      "texto": "No hay shell libre dentro de la app. No se descargan .so para ejecutarlos: Android 10+ lo bloquea y sería una superficie de ataque. Para actualizar código nativo hay que instalar una APK firmada. TTS usa el motor del sistema Android."
+    }
+  ],
+  "instrucciones": "PLAN DE CONSTRUCCIÓN · Termux y biblioteca\n1. Abrir Termux por Intent si está instalado; si falta, mostrar el enlace de F-Droid.\n2. Copiar comandos base y por componente, sin ejecutarlos desde la WebView.\n3. Listar componentes con estado real y descargar con verificación.\n4. Instalar módulos declarativos después de verificar.\n5. Mostrar RAG/GraphRAG/TTS con su estado real, no como si estuvieran completos.\n6. Probar en el teléfono: abrir Termux, copiar, pegar y descargar un módulo.\n\nCRITERIO DE ACEPTACIÓN\n- Abrir Termux funciona.\n- Copiar produce el comando completo.\n- Una descarga verificada se puede instalar si es declarativa.\n- Un .so descargado no se ejecuta: se informa el bloqueo.",
+  "depende": [
+    "Termux (opcional)",
+    "Descargador verificado",
+    "Módulos declarativos"
+  ],
+  "modulo": "",
+  "licencia": "MIT"
+}

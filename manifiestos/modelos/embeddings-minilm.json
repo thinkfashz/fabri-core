@@ -1,0 +1,22 @@
+{
+  "id": "embeddings-minilm",
+  "nombre": "all-MiniLM-L6-v2 GGUF (Q4_K_M)",
+  "tipo": "modelo",
+  "version": "q4_k_m-2ec4cee2",
+  "descripcion": "Modelo de embeddings de 22 MB para el índice vectorial local. Mucho más chico que bge-small y suficiente para búsqueda semántica en el teléfono.",
+  "origen": "https://huggingface.co/second-state/All-MiniLM-L6-v2-Embedding-GGUF/resolve/main/all-MiniLM-L6-v2-Q4_K_M.gguf",
+  "origen_tipo": "huggingface",
+  "sha256": "2ec4cee28a27a9c973d5f5230930d6ef6e52694bd2bc71be26a9bef5b1d755e6",
+  "tamano": 20999104,
+  "licencia": "apache-2.0",
+  "plataforma": "android",
+  "arquitectura": "agnostica-al-runtime",
+  "dependencias": [
+    "runtime-llama"
+  ],
+  "directorio": "filesDir/componentes/embeddings-minilm/",
+  "interfaz": "se pasa al runtime en modo embeddings; no genera chat",
+  "salud": "generar un vector de 384 dimensiones para una frase de prueba",
+  "actualizacion": "manual: sólo si el autor publica un GGUF nuevo con hash verificado",
+  "desinstalacion": "borrar el directorio y dejar el registro en SQLite como histórico"
+}

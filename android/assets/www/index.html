@@ -1473,7 +1473,7 @@ npx -y omniroute@latest
           <div class="inv-equipo-panel" id="invEquipoPanelImpresora" hidden>
             <div class="inv-equipo-panel-cab">
               <h4><span data-ico="imprimir"></span> Impresora térmica WiFi</h4>
-              <button class="btn btn-mini" type="button" data-equipo-cerrar><span data-ico="cerrar"></span></button>
+              <button class="btn btn-mini" type="button" data-equipo-cerrar aria-label="Cerrar panel"><span data-ico="cerrar"></span></button>
             </div>
             <p class="inv-ayuda">ESC/POS directo al puerto 9100, sin el diálogo de Android.
               Funciona con la Xprinter XP-58LLH y casi cualquier térmica con WiFi.</p>
@@ -1515,7 +1515,7 @@ npx -y omniroute@latest
           <div class="inv-equipo-panel" id="invEquipoPanelLector" hidden>
             <div class="inv-equipo-panel-cab">
               <h4><span data-ico="scan"></span> Lector 2D de escritorio</h4>
-              <button class="btn btn-mini" type="button" data-equipo-cerrar><span data-ico="cerrar"></span></button>
+              <button class="btn btn-mini" type="button" data-equipo-cerrar aria-label="Cerrar panel"><span data-ico="cerrar"></span></button>
             </div>
             <p class="inv-ayuda">El HBAPO y los lectores de red no tienen un protocolo único.
               Elegí cómo se conecta: la app muestra la IP exacta que hay que configurar.</p>
@@ -1606,7 +1606,9 @@ npx -y omniroute@latest
             <ol class="inv-guia-pasos">
               <li><b>Creá el proyecto</b> en <code>insforge.app</code> y copiá la cadena
                 <code>postgresql://…</code> de <i>Connect → Connection string</i>.</li>
-              <li><b>Creá la tabla</b> <code>inv_productos</code> en el editor SQL de InsForge.</li>
+              <li><b>Creá la tabla</b> <code>inv_productos</code>: la primera llamada con
+                <code>accion: "asegurar"</code> la crea sola, o pegá el SQL de abajo en el
+                editor de InsForge.</li>
               <li><b>Configurá Vercel</b> (proyecto <code>fabri-api</code>) con
                 <code>INSFORGE_DATABASE_URL</code> y <code>FABRI_API_TOKEN</code>, y redeployá.</li>
               <li><b>En la app</b>: Integración → Nube, URL <code>https://fabri-api.vercel.app</code>
@@ -1631,19 +1633,23 @@ FABRI_API_TOKEN=un-token-largo-y-propio</pre>
   marca        TEXT NOT NULL DEFAULT '',
   categoria    TEXT NOT NULL DEFAULT 'abarrotes',
   unidad       TEXT NOT NULL DEFAULT 'unidad',
-  costo        REAL NOT NULL DEFAULT 0,
-  precio       REAL NOT NULL DEFAULT 0,
+  costo        NUMERIC NOT NULL DEFAULT 0,
+  precio       NUMERIC NOT NULL DEFAULT 0,
   stock        INTEGER NOT NULL DEFAULT 0,
   stock_minimo INTEGER NOT NULL DEFAULT 0,
   iva          INTEGER NOT NULL DEFAULT 19,
   proveedor    TEXT NOT NULL DEFAULT '',
   origen       TEXT NOT NULL DEFAULT 'manual',
   notas        TEXT NOT NULL DEFAULT '',
-  ficha        TEXT NOT NULL DEFAULT '{}',
-  creado       INTEGER NOT NULL DEFAULT 0,
-  actualizado  INTEGER NOT NULL DEFAULT 0,
-  sync_ts      INTEGER NOT NULL DEFAULT 0
-);</pre>
+  ficha        JSONB NOT NULL DEFAULT '{}'::jsonb,
+  actualizado  BIGINT NOT NULL DEFAULT 0,
+  nube_ts      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_inv_productos_categoria
+  ON inv_productos (categoria);
+CREATE INDEX IF NOT EXISTS idx_inv_productos_actualizado
+  ON inv_productos (actualizado);</pre>
             </div>
             <div class="inv-guia-bloque">
               <div class="inv-guia-bloque-cab">

@@ -1,0 +1,20 @@
+{
+  "id": "modelo-efficientdet-lite0",
+  "nombre": "EfficientDet-Lite0 (detección de objetos)",
+  "tipo": "modelo",
+  "version": "float16-1",
+  "descripcion": "Detector de objetos de MediaPipe entrenado con las 80 clases de COCO (botella, taza, caja, libro, etc.). En el inventario sirve para PROPONER una categoría a partir de la foto y para recortar el producto antes de leer su etiqueta; no identifica un SKU ni un modelo concreto. La categoría siempre la confirma el usuario antes de guardarse.",
+  "origen": "https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float16/1/efficientdet_lite0.tflite",
+  "origen_tipo": "google-storage",
+  "sha256": "4b59100025bea1235a84c1038879a6cccc9f6c49f5e41144e91e74d99e780993",
+  "tamano": 7254339,
+  "licencia": "Apache-2.0",
+  "plataforma": "android",
+  "arquitectura": "agnostica-al-runtime",
+  "dependencias": [],
+  "directorio": "filesDir/componentes/modelo-efficientdet-lite0/",
+  "interfaz": "lo carga el runtime de visión dentro del WebView; es un archivo de pesos, nunca se ejecuta solo",
+  "salud": "detectar al menos un objeto con confianza mayor a 0.5 sobre una imagen de prueba",
+  "actualizacion": "manual: sólo si el autor publica una versión nueva con hash verificado",
+  "desinstalacion": "borrar el directorio y dejar el registro en SQLite como histórico"
+}

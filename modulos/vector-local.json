@@ -1,0 +1,18 @@
+{
+  "id": "vector-local",
+  "nombre": "Vector local (reemplazo liviano de Qdrant/Chroma)",
+  "version": "1.0.0",
+  "tipo": "declarativo",
+  "lenguaje": "rust",
+  "licencia": "MIT",
+  "descripcion": "Índice vectorial embebido en SQLite con similitud coseno calculada en Rust. Sin servidor, sin red y sin extensiones: cubre corpus pequeños y medianos dentro del teléfono.",
+  "capacidades": ["vector.indexar", "vector.buscar"],
+  "parametros": { "dimMax": 4096, "kMax": 20, "filasMax": 20000 },
+  "limites": [
+    "Búsqueda lineal en memoria sobre hasta 20.000 vectores; no es un HNSW.",
+    "No reemplaza filtrado/agregación avanzada de Qdrant.",
+    "Los vectores se guardan como f32 little-endian sin comprimir."
+  ],
+  "reemplaza": ["qdrant/qdrant", "chroma-core/chroma"],
+  "evidencia": "Qdrant y Chroma son servidores; este módulo mantiene la función de búsqueda semántica sin proceso externo."
+}

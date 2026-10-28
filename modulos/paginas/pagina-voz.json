@@ -1,0 +1,26 @@
+{
+  "id": "pagina-voz",
+  "nombre": "Voz",
+  "version": "0.1.0",
+  "tipo": "pagina",
+  "estado": "PARCIAL",
+  "descripcion": "Entrada y salida de voz del agente: lectura de respuestas con el motor TTS del sistema Android ya integrada, dictado pendiente y STT local con whisper.cpp fuera del sandbox. La app no descarga un binario TTS: usa las voces instaladas en Android.",
+  "secciones": [
+    {
+      "titulo": "Qué resuelve",
+      "texto": "Permite operar la app sin teclado: dictar una consulta, escuchar un resultado o convertir una nota de voz en texto. Todo el audio se procesa en el teléfono; no se envía a servicios externos."
+    },
+    {
+      "titulo": "Cómo funcionará",
+      "texto": "TTS con android.speech.tts.TextToSpeech expuesto por NativeBridge: estado, hablar y detener. El chat tiene un botón Leer en cada respuesta. STT con el reconocedor del sistema como opción inmediata y, más adelante, whisper.cpp compilado como biblioteca nativa A1–A3 o ejecutado en Termux. La app pide permiso de micrófono sólo al usarlo."
+    },
+    {
+      "titulo": "Límites",
+      "texto": "El reconocedor del sistema puede requerir red y depende del fabricante. whisper.cpp no trae binarios Android listos; sin runtime nativo la app no promete STT offline. Los audios no se conservan salvo que el usuario lo pida."
+    }
+  ],
+  "instrucciones": "PLAN DE CONSTRUCCIÓN · Voz\n1. Exponer TTS por JNI: listar voces, hablar texto, detener, velocidad y tono.\n2. Añadir permiso RECORD_AUDIO y pedirlo sólo al iniciar el dictado.\n3. Integrar RecognizerIntent como STT básico y mostrar el texto en un campo editable.\n4. Evaluar whisper.cpp: compilar para arm64 y cargarlo como biblioteca (A1–A3), nunca ejecutar un binario descargado.\n5. Añadir botones Escuchar y Detener con estado visible.\n6. Documentar voces, permisos y límites en docs/fase-4/voz.md.\n\nCRITERIO DE ACEPTACIÓN\n- Leer en voz alta un texto de 200 caracteres sin bloquear la interfaz.\n- Dictar una frase y verla en el campo de texto.\n- Negar el permiso de micrófono no rompe la app.\n\nMÓDULO RELACIONADO: analisis-local (procesa la transcripción como archivo de texto).",
+  "depende": ["Android TTS", "Reconocedor del sistema", "whisper.cpp (opcional)"],
+  "modulo": "analisis-local",
+  "licencia": "MIT"
+}

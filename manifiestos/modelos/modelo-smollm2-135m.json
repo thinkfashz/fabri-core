@@ -1,0 +1,23 @@
+{
+  "id": "modelo-smollm2-135m",
+  "nombre": "SmolLM2 135M Instruct GGUF (Q4_K_M)",
+  "tipo": "modelo",
+  "version": "q4_k_m-ed5fa30c",
+  "descripcion": "LLM instruct de 135M parámetros, ~105 MB. Es el más liviano del catálogo: responde en segundos incluso en un teléfono modesto. Ideal para el chat local cuando no querés gastar 500 MB.",
+  "origen": "https://huggingface.co/unsloth/SmolLM2-135M-Instruct-GGUF/resolve/main/SmolLM2-135M-Instruct-Q4_K_M.gguf",
+  "origen_tipo": "huggingface",
+  "sha256": "ed5fa30c487b282ec156c29062f1222e5c20875a944ac98289dbd242e947f747",
+  "tamano": 105454144,
+  "autorizado": true,
+  "licencia": "apache-2.0",
+  "plataforma": "android",
+  "arquitectura": "agnostica-al-runtime",
+  "dependencias": [
+    "runtime-llama"
+  ],
+  "directorio": "filesDir/componentes/modelo-smollm2-135m/",
+  "interfaz": "se pasa como -m <ruta> al runtime; nunca se ejecuta solo",
+  "salud": "cargar el modelo y responder un prompt corto sin error de cabecera",
+  "actualizacion": "manual: sólo si el autor publica un GGUF nuevo con hash verificado",
+  "desinstalacion": "borrar el directorio y dejar el registro en SQLite como histórico"
+}

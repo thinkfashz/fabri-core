@@ -1,0 +1,26 @@
+{
+  "id": "pagina-automatizaciones",
+  "nombre": "Automatizaciones",
+  "version": "0.1.0",
+  "tipo": "pagina",
+  "estado": "POR CONSTRUIR",
+  "descripcion": "Tareas repetibles que combinan módulos con un disparador: manual, al abrir la app o programado. Cada automatización declara qué módulo y qué capacidad usa, y el núcleo rechaza cualquier paso que no esté permitido.",
+  "secciones": [
+    {
+      "titulo": "Qué resuelve",
+      "texto": "Convierte una secuencia útil —ingerir un archivo, dividirlo, indexarlo y buscar— en un botón o una tarea programada, sin escribir código ni depender de un servidor."
+    },
+    {
+      "titulo": "Cómo funcionará",
+      "texto": "Tabla automatizaciones(id, nombre, pasos JSON, disparador, activo). Cada paso referencia un módulo y una capacidad declarada; el motor ejecuta en orden y guarda el resultado y los errores. Los disparadores programados usan WorkManager con límites de frecuencia."
+    },
+    {
+      "titulo": "Límites y seguridad",
+      "texto": "No hay shell, ni scripts descargados, ni acceso a archivos fuera del sandbox. Una automatización no puede elevar permisos ni llamar capacidades que el módulo no declare. Si un paso falla, se detiene y se informa."
+    }
+  ],
+  "instrucciones": "PLAN DE CONSTRUCCIÓN · Automatizaciones\n1. Crear tabla automatizaciones(id, nombre, pasos, disparador, activo, ultima_ejecucion).\n2. Definir pasos como [{modulo, capacidad, entrada, guardar_como}] y validarlos al guardar.\n3. Implementar el ejecutor secuencial con límite de 20 pasos y tiempo máximo de 60 s.\n4. Registrar resultado y error por paso en la tabla operaciones.\n5. Añadir disparador manual; programado con WorkManager sólo tras probar el manual.\n6. Documentar el formato de pasos en docs/fase-4/automatizaciones.md.\n\nCRITERIO DE ACEPTACIÓN\n- Crear una automatización de 3 pasos y ejecutarla con un archivo real.\n- Un paso con capacidad no declarada se rechaza al guardar.\n- Un error a mitad de camino detiene la tarea y queda registrado.\n\nMÓDULOS RELACIONADOS: ingesta-local y rag-basico.",
+  "depende": ["ingesta-local", "rag-basico", "WorkManager (opcional)"],
+  "modulo": "ingesta-local",
+  "licencia": "MIT"
+}

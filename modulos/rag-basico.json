@@ -1,0 +1,19 @@
+{
+  "id": "rag-basico",
+  "nombre": "RAG básico (chunking + contexto + prompt)",
+  "version": "1.0.0",
+  "tipo": "declarativo",
+  "lenguaje": "rust",
+  "licencia": "MIT",
+  "descripcion": "Divide documentos en fragmentos, recupera los más cercanos y arma un prompt con citas. Es el núcleo mínimo de LlamaIndex/RAGFlow sin Python.",
+  "capacidades": ["texto.dividir", "vector.buscar", "plantilla.render"],
+  "parametros": { "maxCaracteres": 900, "solape": 120, "fragmentos": 5 },
+  "plantilla": "Contexto recuperado:\n{{contexto}}\n\nPregunta: {{pregunta}}\n\nResponde sólo con lo que aparece en el contexto. Si no alcanza, dilo y cita el documento.",
+  "limites": [
+    "No parsea PDF ni Office: la ingesta de esos formatos ocurre fuera de la app.",
+    "La calidad depende del modelo de embeddings; sin embeddings reales el índice no sirve.",
+    "No genera respuestas por sí solo: entrega el prompt al proveedor LLM configurado."
+  ],
+  "reemplaza": ["run-llama/llama_index", "infiniflow/ragflow"],
+  "evidencia": "LlamaIndex y RAGFlow orquestan ingesta/recuperación; el camino mínimo se replica con chunking, búsqueda vectorial y plantilla."
+}

@@ -1,0 +1,26 @@
+{
+  "id": "pagina-mcp",
+  "nombre": "Servidores MCP",
+  "version": "0.1.0",
+  "tipo": "pagina",
+  "estado": "POR CONSTRUIR",
+  "descripcion": "Catálogo y conexión de servidores MCP por HTTP desde el teléfono. La app actúa como cliente: descubre herramientas, muestra permisos y ejecuta sólo las que el usuario autoriza. Los servidores por stdio quedan fuera porque exigirían ejecutar procesos.",
+  "secciones": [
+    {
+      "titulo": "Qué resuelve",
+      "texto": "Permite conectar el agente a servicios que hablan MCP (por ejemplo, un servidor propio en la red local) sin meter Node ni Python dentro de la APK. Cada servidor declara URL, transporte y herramientas."
+    },
+    {
+      "titulo": "Cómo funcionará",
+      "texto": "Cliente HTTP con JSON-RPC 2.0: initialize, tools/list y tools/call. La tabla servidores_mcp guarda nombre, URL, token opcional (nunca visible) y herramientas autorizadas. La conexión exige HTTPS salvo loopback explícito."
+    },
+    {
+      "titulo": "Límites",
+      "texto": "MCP por stdio no es viable en Android sin exec, que está bloqueado por W^X. No se descargan servidores ni se ejecutan. Si un servidor no responde, la app muestra el error y no inventa herramientas."
+    }
+  ],
+  "instrucciones": "PLAN DE CONSTRUCCIÓN · Servidores MCP\n1. Definir tabla servidores_mcp(id, nombre, url, transporte, token_cifrado, activo).\n2. Implementar initialize y tools/list con JSON-RPC 2.0 sobre HTTP.\n3. Mostrar cada herramienta con su descripción y pedir autorización explícita.\n4. Implementar tools/call con timeout de 30 s y límite de tamaño de respuesta.\n5. Guardar token en el almacén seguro de Android, nunca en texto plano ni en logs.\n6. Documentar el protocolo y los límites en docs/fase-4/mcp.md.\n\nCRITERIO DE ACEPTACIÓN\n- Conectar un servidor local de prueba y listar sus herramientas.\n- Ejecutar una herramienta autorizada y ver el resultado.\n- Un servidor caído muestra error de red, no una lista vacía silenciosa.\n\nREFERENCIA: OmniRoute se consume por HTTP desde la app (ver docs/fase-3/omniroute.md).",
+  "depende": ["HTTP", "JSON-RPC 2.0", "Almacén seguro Android"],
+  "modulo": "",
+  "licencia": "MIT"
+}

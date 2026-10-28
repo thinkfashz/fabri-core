@@ -351,6 +351,21 @@ function invConectarEventos() {
 }
 
 /** Tarjetas de equipos: abren un panel a la vez y cierran al tocar de nuevo. */
+/** Cierra todos los paneles de equipos menos el indicado (null = todos). */
+function invCerrarPanelesEquipo(excepto) {
+  document.querySelectorAll(".inv-equipo-panel").forEach(function (p) {
+    if (p.id !== excepto) p.hidden = true;
+  });
+  const panelBase = document.getElementById("invImportarPanel");
+  if (panelBase && excepto !== "invImportarPanel") panelBase.hidden = true;
+  document.querySelectorAll("[data-equipo]").forEach(function (x) {
+    const tipo = x.dataset.equipo;
+    let id = "invImportarPanel";
+    if (tipo !== "base") id = "invEquipoPanel" + tipo.charAt(0).toUpperCase() + tipo.slice(1);
+    x.setAttribute("aria-expanded", id === excepto ? "true" : "false");
+  });
+}
+
 function invEquiposIniciar() {
   const tarjetas = document.querySelectorAll("[data-equipo]");
   tarjetas.forEach(function (b) {
@@ -358,17 +373,16 @@ function invEquiposIniciar() {
       const tipo = b.dataset.equipo;
       if (tipo === "base") {
         const panelBase = document.getElementById("invImportarPanel");
-        if (panelBase && !panelBase.hidden) invImportarCerrar();
-        else invImportarPanel();
+        const abierto = panelBase && !panelBase.hidden;
+        invCerrarPanelesEquipo(abierto ? null : "invImportarPanel");
+        if (abierto) return;
+        invImportarPanel();
         return;
       }
       const id = "invEquipoPanel" + tipo.charAt(0).toUpperCase() + tipo.slice(1);
       const panel = document.getElementById(id);
       const abierto = panel && !panel.hidden;
-      document.querySelectorAll(".inv-equipo-panel").forEach(function (p) { p.hidden = true; });
-      tarjetas.forEach(function (x) {
-        if (x.dataset.equipo !== "base") x.setAttribute("aria-expanded", "false");
-      });
+      invCerrarPanelesEquipo(abierto ? null : id);
       if (panel && !abierto) {
         panel.hidden = false;
         b.setAttribute("aria-expanded", "true");
@@ -380,9 +394,7 @@ function invEquiposIniciar() {
   });
   document.querySelectorAll("[data-equipo-cerrar]").forEach(function (b) {
     b.addEventListener("click", function () {
-      const panel = b.closest(".inv-equipo-panel");
-      if (panel) panel.hidden = true;
-      tarjetas.forEach(function (x) { x.setAttribute("aria-expanded", "false"); });
+      invCerrarPanelesEquipo(null);
     });
   });
 }
@@ -1640,7 +1652,8 @@ function invPintarImportacion(r, origen) {
         <tbody>${muestra || `<tr><td colspan="4">Nada reconocible todavía.</td></tr>`}</tbody>
       </table>
     </div>
-    ${r.errores.length ? `<p class="inv-ayuda">Se omitirán ${r.errores.length} fila(s) sin nombre (fila ${r.errores.slice(0, 5).map(function (e) { return e.fila; }).join(", ")}).</p>` : ""}`;
+    ${r.errores.length ? `<p class="inv-ayuda">Se omitirán ${r.errores.length} fila(s) sin nombre (fila ${r.errores.slice(0, 5).map(function (e) { return e.fila; }).join(", ")}).</p>` : ""}
+    ${r.aviso ? `<p class="inv-ayuda inv-error">${esc(r.aviso)}</p>` : ""}`;
   if (btn) btn.disabled = false;
 }
 
@@ -1653,10 +1666,12 @@ function invPintarImportacion(r, origen) {
 function invImportarFilas(encabezados, filas, etiqueta) {
   const cabecera = (encabezados || []).map(function (x) { return String(x == null ? "" : x); });
   let mapeados = cabecera.map(invCampoImport);
+  let aviso = "";
   // Sin una columna de nombre reconocible no se adivina: se usa el orden
   // clásico (código, nombre, precio, stock) y se avisa en la vista previa.
   if (mapeados.indexOf("nombre") < 0) {
     mapeados = ["codigo", "nombre", "precio", "stock", "costo", "stock_minimo", "marca", "categoria", "unidad"];
+    aviso = "No se reconoció la columna de nombre: se leyó en el orden código, nombre, precio, stock.";
   }
   const productos = [];
   const errores = [];
@@ -1670,7 +1685,7 @@ function invImportarFilas(encabezados, filas, etiqueta) {
     if (!String(fila.nombre || "").trim()) { errores.push({ fila: i + 1, error: "sin nombre" }); return; }
     productos.push(invProductoImport(fila, productos.length));
   });
-  const r = { productos: productos, errores: errores, formato: etiqueta || "base" };
+  const r = { productos: productos, errores: errores, formato: etiqueta || "base", aviso: aviso };
   INV.importar = r;
   INV.importarNativo = true;
   INV.importarOrigen = etiqueta || "base";

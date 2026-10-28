@@ -1,0 +1,30 @@
+{
+  "id": "pagina-chat",
+  "nombre": "Chat IA",
+  "version": "0.2.0",
+  "tipo": "pagina",
+  "estado": "PARCIAL",
+  "descripcion": "Implementado en código; falta verificar A2/A3 y el chat remoto en pantalla. Chat con modelo local llama.cpp y proveedores OpenAI-compatible (OmniRoute, Ollama/LM Studio por IP, OpenRouter, Groq, OpenAI, Mistral, Together y Hugging Face). Desde 0.8.0 la interfaz muestra avatar con estados, badge Local/Remoto, barra inferior de 5 accesos y TTS es-CL a velocidad 1.2 y tono 0.95.",
+  "secciones": [
+    {
+      "titulo": "Qué resuelve",
+      "texto": "Un solo lugar para hablar con un GGUF que ya está en el teléfono (A2/A3) o con un modelo remoto por URL y clave. Muestra el origen del mensaje (Local o Remoto), el proveedor, el modelo, los milisegundos y los tokens; permite copiar y leer cada respuesta en voz alta."
+    },
+    {
+      "titulo": "Cómo funciona",
+      "texto": "Local: NativeBridge valida que el .gguf esté dentro de filesDir, RuntimeNativo carga los backends CPU desde nativeLibraryDir y llama a fc_cargar/fc_generar. Remoto: se guarda URL/clave/modelo en SQLite y se llama /v1/chat/completions en un hilo de fondo. La clave nunca vuelve a JavaScript."
+    },
+    {
+      "titulo": "Límites y seguridad",
+      "texto": "HTTP sólo se acepta en localhost o IPv4 privada (10/8, 172.16/12, 192.168/16); el resto exige HTTPS. No se descargan binarios nativos: el runtime .so viaja dentro de la APK. Los modelos y los módulos declarativos sí se descargan con HTTPS + SHA-256 + tamaño."
+    }
+  ],
+  "instrucciones": "PLAN DE CONSTRUCCIÓN · Chat IA\n1. Elegir modo Local o Remoto.\n2. Local: escanear modelos, seleccionar el GGUF, cargar con A2 y enviar con A3.\n3. Remoto: elegir proveedor, guardar URL/clave/modelo, traer /v1/models y enviar.\n4. Mostrar error real si falta modelo, clave, red o memoria.\n5. Añadir TTS del sistema con botón Leer.\n6. Probar con Qwen 0.5B local y con OmniRoute en 127.0.0.1:20128.\n\nCRITERIO DE ACEPTACIÓN\n- El chat local responde sin bloquear la UI.\n- El chat remoto funciona con un proveedor OpenAI-compatible real.\n- La clave no aparece en pantalla ni en el log.\n\nRIESGO: cargar un modelo grande sin RAM suficiente. La app informa el error, no mata el proceso.",
+  "depende": [
+    "RuntimeNativo A1-A3",
+    "SQLite",
+    "OmniRoute o proveedor OpenAI-compatible"
+  ],
+  "modulo": "",
+  "licencia": "MIT"
+}

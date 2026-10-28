@@ -272,7 +272,20 @@
 
   /* ── encendido / apagado ──────────────────────────────────────────────── */
 
+  /** La UI manda: si hay campos en pantalla, eso es lo que se enciende. */
+  function leerCampos() {
+    var modo = ($("invLectorModo") || {}).value;
+    if (["servidor", "cliente", "hid"].indexOf(modo) >= 0) guardar(CLAVES.modo, modo);
+    var host = ($("invLectorHost") || {}).value;
+    if (host != null) guardar(CLAVES.host, String(host).trim());
+    var puerto = Number(($("invLectorPuerto") || {}).value);
+    if (puerto >= 1 && puerto <= 65535) guardar(CLAVES.puerto, puerto);
+    var accion = ($("invLectorAccion") || {}).value;
+    if (accion === "buscar" || accion === "apilador") guardar(CLAVES.accion, accion);
+  }
+
   function iniciar() {
+    leerCampos();
     var cfg = config();
     guardar(CLAVES.modo, cfg.modo);
     guardar(CLAVES.host, cfg.host);

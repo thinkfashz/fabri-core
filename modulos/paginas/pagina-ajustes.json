@@ -1,0 +1,26 @@
+{
+  "id": "pagina-ajustes",
+  "nombre": "Ajustes",
+  "version": "0.1.0",
+  "tipo": "pagina",
+  "estado": "POR CONSTRUIR",
+  "descripcion": "Centro de control de la app: almacenamiento, privacidad, proveedores, respaldo y versión. Reúne lo que hoy está disperso y deja claro qué dato se guarda, dónde y cómo se borra.",
+  "secciones": [
+    {
+      "titulo": "Qué resuelve",
+      "texto": "Permite liberar espacio, exportar o importar la base, revisar permisos y cambiar el proveedor del modelo sin tocar archivos a mano. También muestra la versión real de la APK y del núcleo."
+    },
+    {
+      "titulo": "Cómo funcionará",
+      "texto": "Secciones: Almacenamiento (tamaño de DB, componentes y logs, con borrado selectivo), Privacidad (qué se guarda y qué no), Proveedores (OmniRoute, MCP), Respaldo (exportar/importar JSON validado) y Acerca de (versión, licencias)."
+    },
+    {
+      "titulo": "Límites",
+      "texto": "Borrar es irreversible y siempre pide confirmación. No se borran modelos ni archivos del usuario sin una acción explícita. Las claves nunca se muestran; sólo se indica si están configuradas."
+    }
+  ],
+  "instrucciones": "PLAN DE CONSTRUCCIÓN · Ajustes\n1. Mostrar versión de la APK (PackageManager) y del núcleo (ping).\n2. Calcular tamaño de fabrick.db, logs y componentes con File.length().\n3. Añadir borrado selectivo de logs y caché con confirmación de dos pasos.\n4. Exportar la base a un JSON validado y permitir importar sin sobrescribir sin confirmar.\n5. Enmascarar tokens: mostrar sólo configurado/no configurado.\n6. Documentar cada ajuste en docs/fase-4/ajustes.md.\n\nCRITERIO DE ACEPTACIÓN\n- Ver el tamaño real de la base y de los logs.\n- Exportar e importar conserva módulos y memoria.\n- Ningún token aparece en pantalla ni en el log.\n\nRIESGO A EVITAR: borrar la base por accidente. Usar copia previa y confirmación explícita.",
+  "depende": ["SQLite", "PackageManager", "Almacén seguro Android"],
+  "modulo": "",
+  "licencia": "MIT"
+}

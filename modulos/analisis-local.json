@@ -1,0 +1,18 @@
+{
+  "id": "analisis-local",
+  "nombre": "Análisis estático local (triage inspirado en REA)",
+  "version": "1.0.0",
+  "tipo": "declarativo",
+  "lenguaje": "rust",
+  "licencia": "MIT",
+  "descripcion": "Reconoce ELF/PE/ZIP-APK/GGUF/PDF/JSON/JS, lee cabeceras, cuenta cadenas imprimibles y devuelve evidencia con límites. No ejecuta el archivo ni usa Ghidra.",
+  "capacidades": ["archivo.analizar"],
+  "parametros": { "maxBytes": 67108864, "maxCadenas": 2000, "muestraCadenas": 12 },
+  "limites": [
+    "No descompila ni desofusca: es triage, no ingeniería inversa profunda.",
+    "No analiza APK por dentro (solo reconoce el contenedor ZIP).",
+    "Para análisis profundo se usa REA/Ghidra en un equipo de escritorio."
+  ],
+  "reemplaza": ["morluto/rea"],
+  "evidencia": "REA orquesta Ghidra/Hopper/IDA por MCP; en el teléfono se conserva la parte de triage y evidencia, sin los motores nativos."
+}

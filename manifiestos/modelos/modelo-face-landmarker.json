@@ -1,0 +1,20 @@
+{
+  "id": "modelo-face-landmarker",
+  "nombre": "MediaPipe Face Landmarker (malla facial)",
+  "tipo": "modelo",
+  "version": "float16-1",
+  "descripcion": "Malla facial de 478 puntos de MediaPipe. Sirve para dos cosas concretas: sustituir la malla decorativa del acceso por una malla real sobre la foto del operador, y validar después que quien escanea un producto es la persona registrada. No reconoce identidad por sí solo: entrega puntos, no nombres.",
+  "origen": "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
+  "origen_tipo": "google-storage",
+  "sha256": "64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff",
+  "tamano": 3758596,
+  "licencia": "Apache-2.0",
+  "plataforma": "android",
+  "arquitectura": "agnostica-al-runtime",
+  "dependencias": [],
+  "directorio": "filesDir/componentes/modelo-face-landmarker/",
+  "interfaz": "lo carga el runtime de visión dentro del WebView; es un archivo de pesos, nunca se ejecuta solo",
+  "salud": "cargar el modelo y devolver 478 puntos faciales sobre una foto de prueba",
+  "actualizacion": "manual: sólo si el autor publica una versión nueva con hash verificado",
+  "desinstalacion": "borrar el directorio y dejar el registro en SQLite como histórico"
+}

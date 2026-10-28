@@ -1,0 +1,26 @@
+{
+  "id": "pagina-repositorio",
+  "nombre": "Repositorio",
+  "version": "0.1.0",
+  "tipo": "pagina",
+  "estado": "PARCIAL",
+  "descripcion": "Página de interacción con el repositorio del proyecto: URL configurable, apertura en GitHub y estado de las descargas. La URL exacta del repo de esta APK no está confirmada; el repo conocido contiene prototipos históricos sin licencia y no se usa como fuente de la versión actual.",
+  "secciones": [
+    {
+      "titulo": "Qué resuelve",
+      "texto": "Evita que el usuario busque a mano el código, los releases o los módulos. La página muestra la URL guardada, abre el repositorio y explica qué se puede descargar con verificación."
+    },
+    {
+      "titulo": "Cómo funcionará",
+      "texto": "Guardar una URL https:// en config, abrirla con Intent y, cuando exista un release firmado, descargar la APK con URL + SHA-256 + tamaño. Los módulos declarativos se publican en plugins/ con catalogo.json y hashes reales."
+    },
+    {
+      "titulo": "Límites",
+      "texto": "No se inventan URLs, hashes ni versiones. Un release de prototipos no se presenta como la APK actual. El código nativo no se descarga ni se ejecuta: viaja dentro de la APK."
+    }
+  ],
+  "instrucciones": "PLAN DE CONSTRUCCIÓN · Repositorio\n1. Pedir al autor la URL exacta del repositorio de esta APK.\n2. Guardarla en config repo.url y abrirla con Intent.\n3. Publicar la APK y los módulos en releases con SHA-256 y tamaño.\n4. Añadir descarga verificada y confirmación de instalación.\n5. Diferenciar prototipos históricos de la versión actual.\n6. Documentar la URL y el procedimiento en docs/fase-4/repositorio.md.\n\nCRITERIO DE ACEPTACIÓN\n- La página muestra la URL real, no un placeholder.\n- Abrir el repo funciona.\n- Una descarga sólo se habilita con hash y tamaño.\n\nBLOQUEO: falta la URL exacta del repo de esta APK.",
+  "depende": ["URL del repositorio", "GitHub Releases", "Descargador verificado"],
+  "modulo": "",
+  "licencia": "MIT"
+}

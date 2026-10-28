@@ -1,0 +1,30 @@
+{
+  "id": "runtime-llama",
+  "nombre": "llama.cpp para Android arm64",
+  "tipo": "ejecutable",
+  "version": "b11835",
+  "descripcion": "Binarios de llama.cpp compilados para Android arm64-v8a. Release rodante: la versión debe quedar fijada, nunca 'latest'.",
+  "origen": "https://github.com/ggml-org/llama.cpp/releases/download/b11835/llama-b11835-bin-android-arm64.tar.gz",
+  "origen_tipo": "github-release",
+  "sha256": "0b0aff44980d4b7f243fc13aedb0dad378133773307988c7b590d59535976124",
+  "tamano": 76728827,
+  "autorizado": true,
+  "licencia": "MIT",
+  "plataforma": "android",
+  "arquitectura": "arm64-v8a",
+  "min_android": 28,
+  "dependencias": [],
+  "directorio": "filesDir/componentes/runtime-llama/",
+  "comando": [
+    "llama-cli",
+    "-m",
+    "modelo.gguf",
+    "-n",
+    "32"
+  ],
+  "contenido_verificado": true,
+  "salud": "llama-cli --version debe responder 'build 11835'",
+  "actualizacion": "manual: comparar la versión fijada y verificar el hash nuevo antes de descargar",
+  "desinstalacion": "borrar filesDir/componentes/runtime-llama/ y marcar NO DISPONIBLE",
+  "estado": "DESCARGADO_VERIFICADO"
+}
