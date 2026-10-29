@@ -1616,3 +1616,11 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
 ### Pendiente
 - Prueba en dispositivo real (cámara, micrófono, descarga de Llama 3.2 3B con ~1,9 GB libres).
 - `tests/seguridad/validar-manifiestos.sh` sigue fallando por `tools/validador/Cargo.toml` ausente.
+
+## Sesión 2026-10-29 · Rebrand: FABRI-CORE -> FORGE CORE STOCK
+
+- Marca visible renombrada (92 archivos): `FABRI-CORE` → `FORGE CORE STOCK` y `FABRI-CORE PRO` → `FORGE CORE STOCK PRO` en la APK (HTML/JS/CSS/SVG/Java/strings.xml), la PWA/landing/web (`web/`, `presentacion/`), el proyecto Gradle `app/` y `fast/` (títulos, prompts del asistente, directorio de descargas `FORGE CORE STOCK`, manifests y `Cargo.toml` description).
+- Identificadores técnicos NO tocados: package `cl.fabri.core` / `cl.fabrick.core`, crate `fabrick-core`, proyecto Vercel `fabri-core-web.vercel.app`, indexedDB `'fabri-core'`, nombre de descarga `.sqlite` y `thinkfashz/fabri-core` (remoto).
+- Se conserva el copy diferenciador: «Sin nube / Local / Local-first / 100% Offline».
+- Commit `8f23efc` pusheado a `origin/master` (`thinkfashz/fabri-core`).
+- El deploy de Vercel no se tocó; el dominio `fabri-core-web.vercel.app` sigue activo.
