@@ -153,7 +153,14 @@ const estadoApp = {
     deteniendo: false,
     primerTokenMs: 0,
     nCtx: 2048,
-    autoscroll: true
+    autoscroll: true,
+    /* Ajustes de muestreo del modelo local (se aplican al núcleo nativo).
+       Predeterminados para Qwen 2: respuestas rápidas y naturales. */
+    temperatura: 0.7,
+    topP: 0.9,
+    topK: 40,
+    repeticion: 1.1,
+    maxTokens: 256
   }
 };
 
@@ -1496,6 +1503,7 @@ function chatIniciar() {
         hilo.scrollTop + hilo.clientHeight >= hilo.scrollHeight - 48;
     }, { passive: true });
   }
+  chatInicializarAjustesIA();
 }
 
 /** Refresca el pill de estado y el avatar según el modo y el modelo. */
@@ -2316,7 +2324,82 @@ function chatAvisarModeloInsuficiente() {
   revision("llm", "aviso", "modelo insuficiente", "Se recomienda Qwen 1.5B o mayor para consultas de inventario y decisiones de negocio", 0, "llama");
 }
 
+/* --------------------------------------------------------------- ajustes de IA */
+/** Lee los valores actuales de los controles de muestreo y los guarda en el
+ *  estado del chat. Se aplican al modelo nativo en cada envío. */
+function chatLeerAjustesIA() {
+  const c = estadoApp.chat;
+  c.temperatura = Number(document.getElementById("cfgTemperatura").value) || 0.7;
+  c.topP = Number(document.getElementById("cfgTopP").value) || 0.9;
+  c.topK = Number(document.getElementById("cfgTopK").value) || 40;
+  c.repeticion = Number(document.getElementById("cfgRepeticion").value) || 1.1;
+  c.maxTokens = Number(document.getElementById("cfgMaxTokens").value) || 256;
+  document.getElementById("valTemperatura").textContent = c.temperatura.toFixed(1);
+  document.getElementById("valTopP").textContent = c.topP.toFixed(2);
+  document.getElementById("valTopK").textContent = c.topK;
+  document.getElementById("valRepeticion").textContent = c.repeticion.toFixed(1);
+  document.getElementById("valMaxTokens").textContent = c.maxTokens;
+  return {
+    temperatura: c.temperatura,
+    top_p: c.topP,
+    top_k: c.topK,
+    repetir: c.repeticion,
+    semilla: (Math.random() * 2147483647) | 0,
+    max_tokens: c.maxTokens
+  };
+}
 
+/** Escribe los valores guardados en los controles (al abrir el panel). */
+function chatPintarAjustesIA() {
+  const c = estadoApp.chat;
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+  set("cfgTemperatura", c.temperatura);
+  set("cfgTopP", c.topP);
+  set("cfgTopK", c.topK);
+  set("cfgRepeticion", c.repeticion);
+  set("cfgMaxTokens", c.maxTokens);
+  chatLeerAjustesIA(); // actualiza etiquetas de valor
+}
+
+/** Aplica la configuración al núcleo nativo y la guarda en estadoApp.chat. */
+function chatAplicarConfiguracionIA() {
+  const cfg = chatLeerAjustesIA();
+  try {
+    window.FabrickNative.localConfigurar(
+      cfg.temperatura, cfg.top_p, cfg.top_k, cfg.repetir, cfg.semilla
+    );
+  } catch (e) { /* el shim usa sus valores por defecto */ }
+  toast("Configuración de IA aplicada");
+}
+
+/** Actualiza solo las etiquetas de valor junto a cada slider (no aplica al modelo).
+   `chatLeerAjustesIA` lee los controles y pinta los valores, sin tocar el núcleo. */
+function chatActualizarValoresIA() {
+  chatLeerAjustesIA();
+}
+
+/** Conecta los controles de ajuste de IA (una sola vez).
+   Los sliders solo muestran el valor; la aplicación al modelo se hace
+   al pulsar «Aplicar a Qwen 2» para evitar que el modelo se quede pegado
+   con cada movimiento del slider. */
+function chatInicializarAjustesIA() {
+  if (estadoApp.chat._ajustesIAListos) return;
+  const ids = ["cfgTemperatura", "cfgTopP", "cfgTopK", "cfgRepeticion", "cfgMaxTokens"];
+  ids.forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener("input", chatActualizarValoresIA, { passive: true });
+  });
+  const btn = document.getElementById("btnChatAplicarConfig");
+  if (btn) {
+    btn.addEventListener("click", function () {
+      chatAplicarConfiguracionIA();
+    }, { passive: true });
+  }
+  estadoApp.chat._ajustesIAListos = true;
+}
+
+/* --------------------------------------------------------------- envío */
 
 async function chatEnviar() {
   if (estadoApp.chat.enviando) {
@@ -2453,16 +2536,18 @@ async function chatEnviar() {
 
   let r;
   try {
+    // Muestreo por turno: natural pero sin dispararse. Semilla nueva para
+    // que «regenerar» no devuelva exactamente lo mismo.
+    const cfg = chatLeerAjustesIA();
     if (estadoApp.chat.modo === "local") {
-      // Muestreo por turno: natural pero sin dispararse. Semilla nueva para
-      // que «regenerar» no devuelva exactamente lo mismo.
       try {
-        window.FabrickNative.localConfigurar(0.7, 0.95, 40, 1.1,
-          (Math.random() * 2147483647) | 0);
+        window.FabrickNative.localConfigurar(
+          cfg.temperatura, cfg.top_p, cfg.top_k, cfg.repetir, cfg.semilla
+        );
       } catch (e) { /* el shim usa sus valores por defecto */ }
-      r = JSON.parse(window.FabrickNative.localChat(chatPromptLocal(contextoCombinado), 512));
+      r = JSON.parse(window.FabrickNative.localChat(chatPromptLocal(contextoCombinado), cfg.max_tokens));
     } else {
-      r = JSON.parse(window.FabrickNative.chatRemoto(chatPromptRemoto(contextoCombinado), 512));
+      r = JSON.parse(window.FabrickNative.chatRemoto(chatPromptRemoto(contextoCombinado), cfg.max_tokens));
     }
 
     // localChat es asíncrono: devuelve {"ok":true,"estado":"GENERANDO"} al instante
@@ -2782,6 +2867,13 @@ function ttsTextoNatural(texto) {
     .slice(0, 3800);
 }
 
+/** Refleja en el botón TTS si se está leyendo (ola animada) o no. */
+function chatTtsEstado(leyendo) {
+  const btn = document.getElementById("btnChatTts");
+  if (!btn) return;
+  btn.dataset.estado = leyendo ? "leyendo" : "inactivo";
+}
+
 function chatLeerUltima() {
   const texto = ttsTextoNatural(estadoApp.chat.ultimaRespuesta);
   if (!texto) {
@@ -2792,16 +2884,20 @@ function chatLeerUltima() {
   try { r = JSON.parse(window.FabrickNative.ttsHablar(texto)); } catch (e) { r = { ok: false, error: String(e) }; }
   if (!r.ok) {
     chatAvatarEstado("idle");
+    chatTtsEstado(false);
     toast("Voz: " + (r.error || "no disponible"), "error");
     return;
   }
   chatAvatarEstado("talking");
+  chatTtsEstado(true);
 }
 
 /** El nativo avisa cuando empieza o termina de hablar. */
 window.FabriTts = {
   estado: function (cual) {
-    chatAvatarEstado(cual === "talking" ? "talking" : "idle");
+    const hablando = cual === "talking";
+    chatAvatarEstado(hablando ? "talking" : "idle");
+    chatTtsEstado(hablando);
   }
 };
 
@@ -4007,6 +4103,7 @@ document.addEventListener("click", (ev) => {
   if (ev.target.id === "btnChatDetenerTts") {
     try { window.FabrickNative.ttsDetener(); } catch (e) { /* sin TTS */ }
     chatAvatarEstado("idle");
+    chatTtsEstado(false);
     toast("Voz detenida");
     return;
   }

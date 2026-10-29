@@ -87,10 +87,22 @@ const INV = {
   nube: {
     url: "https://fabri-api.vercel.app",
     token: ""
+  },
+  lec: {
+    camara: null,   // MediaStream del lector fijo del paso activo
+    detector: null, // BarcodeDetector o null (lector propio EAN)
+    timer: null,    // temporizador del bucle de frames
+    pasoActivo: null,
+    ultimo: "",     // último código leído (freno de repetición)
+    ultimoT: 0
   }
 };
 // Copia accesible desde la consola del teléfono (diagnóstico) y las pruebas.
 window.INV = INV;
+
+/** Margen objetivo aplicado al sugerir el precio de venta óptimo a partir del
+ *  precio de mercado: precio óptimo = mercado · (1 + margen/100). */
+const INV_MARGEN_OBJETIVO = 30;
 
 const INV_CATEGORIAS = {
   abarrotes: "Alimentos",
@@ -318,7 +330,15 @@ function invConectarEventos() {
   if ($("btnInvEdLector")) $("btnInvEdLector").addEventListener("click", function () {
     invEdLector(!INV_ED.camara);
   });
-  ["invEdCosto", "invEdPrecio", "invEdStock", "invEdIva"].forEach(function (id) {
+  // Lector fijo de los pasos 1 a 4: cada uno enciende/apaga su propia cámara.
+  for (let p = 1; p <= 4; p++) {
+    const bp = $("btnInvLec" + p);
+    if (bp) bp.addEventListener("click", (function (n) { return function () { invLecToggle(n); }; })(p));
+  }
+  // Mercado del editor: consulta de referencia y precio óptimo.
+  if ($("btnInvEdMercado")) $("btnInvEdMercado").addEventListener("click", invEdMercadoConsultar);
+  if ($("btnInvEdAplicarOptimo")) $("btnInvEdAplicarOptimo").addEventListener("click", invEdAplicarOptimo);
+  ["invEdCosto", "invEdPrecio", "invEdStock", "invEdIva", "invEdPrecioProveedor", "invEdPrecioMercado"].forEach(function (id) {
     const el = $(id);
     if (el) el.addEventListener("input", invEdRecalcular);
   });
@@ -429,6 +449,9 @@ function invPaso(n) {
   INV.paso = n;
   if (n !== 1) invCamaraParar();
   else if (!INV.modoApilador) invModoApilador(true);
+  // El lector fijo solo está activo en los pasos 1 a 4; en la boleta (paso 5)
+  // nunca se enciende su cámara. Al cambiar de paso se apaga el anterior.
+  invLectorParar();
   document.querySelectorAll(".inv-panel").forEach(function (p) {
     p.classList.toggle("activo", p.id === "invPaso" + n);
   });
@@ -440,6 +463,7 @@ function invPaso(n) {
   if (n === 3) invPintarPrecios();
   if (n === 4) { invCalcularMargen(); invPintarMargenes(); }
   if (n === 5) { invPintarCarrito(); invBoletasHistorial(); }
+  if (n >= 1 && n <= 4) invLectorIniciar(n);
   window.scrollTo({ top: 0, behavior: "instant" });
 }
 
@@ -718,6 +742,216 @@ function invBucleEscaneo() {
     }
     if (INV.camara) invBucleEscaneo();
   }, INV.detector ? 420 : 550);
+}
+
+/* ── lector fijo de los pasos 1 a 4 ─────────────────────────────────────────
+   Un recuadro de cámara con mira animada que permanece visible en los pasos
+   de escanear, productos, precios y márgenes (nunca en la boleta, paso 5).
+   Solo la cámara del paso activo está encendida. Tiene su propio detector
+   EAN (BarcodeDetector si el WebView lo trae, lector propio si no) y no se
+   pisa con el escáner principal del paso 1. */
+
+function invLectorIniciar(paso) {
+  if (paso < 1 || paso > 4) return;
+  const caja = document.getElementById("invLecCaja" + paso);
+  const video = document.getElementById("invLecVideo" + paso);
+  const videoCaja = document.getElementById("invLecVideoCaja" + paso);
+  const btn = document.getElementById("btnInvLec" + paso);
+  if (!caja || !video || !btn) return;
+  caja.hidden = false;
+  if (!INV.lec.camara) {
+    // La cámara no se enciende sola: el usuario toca el botón ON de cada paso.
+    videoCaja.hidden = true;
+    btn.setAttribute("aria-pressed", "false");
+    const bOff = btn.querySelector("b");
+    if (bOff) bOff.textContent = "OFF";
+    return;
+  }
+  // Ya hay una cámara abierta (otro paso): se reutiliza para este vídeo.
+  video.srcObject = INV.lec.camara;
+  videoCaja.hidden = false;
+  btn.setAttribute("aria-pressed", "true");
+  const bOn = btn.querySelector("b");
+  if (bOn) bOn.textContent = "ON";
+  INV.lec.pasoActivo = paso;
+  if (typeof window.BarcodeDetector === "function" && !INV.lec.detector) {
+    INV.lec.detector = new window.BarcodeDetector({
+      formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "code_39", "itf", "qr_code"]
+    });
+  }
+  invLecBucle(paso);
+}
+
+/** Enciende/apaga la cámara del lector fijo de un paso (toggle del botón). */
+function invLecToggle(paso) {
+  if (paso < 1 || paso > 4) return;
+  const btn = document.getElementById("btnInvLec" + paso);
+  const encendido = btn && btn.getAttribute("aria-pressed") === "true";
+  if (!encendido) {
+    invLecEncender(paso);
+  } else {
+    invLecApagarPaso(paso);
+  }
+}
+
+function invLecEncender(paso) {
+  const video = document.getElementById("invLecVideo" + paso);
+  const videoCaja = document.getElementById("invLecVideoCaja" + paso);
+  const btn = document.getElementById("btnInvLec" + paso);
+  const nota = document.getElementById("invLecNota" + paso);
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    if (nota) nota.textContent = "este WebView no expone la cámara";
+    toast("Cámara: este WebView no expone la cámara", "error");
+    return;
+  }
+  invLectorParar(); // una sola cámara a la vez
+  navigator.mediaDevices.getUserMedia({
+    video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 } },
+    audio: false
+  }).then(function (stream) {
+    INV.lec.camara = stream;
+    video.srcObject = stream;
+    return video.play();
+  }).then(function () {
+    INV.lec.pasoActivo = paso;
+    videoCaja.hidden = false;
+    btn.setAttribute("aria-pressed", "true");
+    const bOn = btn.querySelector("b");
+    if (bOn) bOn.textContent = "ON";
+    if (typeof window.BarcodeDetector === "function" && !INV.lec.detector) {
+      INV.lec.detector = new window.BarcodeDetector({
+        formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "code_39", "itf", "qr_code"]
+      });
+    }
+    if (nota) nota.textContent = "Lector activo · apunta al código";
+    invLecBucle(paso);
+  }).catch(function (e) {
+    INV.lec.camara = null;
+    const msg = e && e.message ? e.message : String(e);
+    revision("inventario", "error", "lector fijo: no se pudo abrir la cámara", msg, 0, "camara");
+    if (nota) nota.textContent = "Sin cámara. Usa el código manual.";
+    toast("Cámara: " + msg, "error");
+  });
+}
+
+function invLecApagarPaso(paso) {
+  const video = document.getElementById("invLecVideo" + paso);
+  const videoCaja = document.getElementById("invLecVideoCaja" + paso);
+  const btn = document.getElementById("btnInvLec" + paso);
+  const nota = document.getElementById("invLecNota" + paso);
+  if (video) video.srcObject = null;
+  if (videoCaja) videoCaja.hidden = true;
+  if (btn) {
+    btn.setAttribute("aria-pressed", "false");
+    const b = btn.querySelector("b");
+    if (b) b.textContent = "OFF";
+  }
+  if (nota) nota.textContent = "Apunta al código de barras";
+  if (INV.lec.pasoActivo === paso) INV.lec.pasoActivo = null;
+  if (!INV.lec.pasoActivo) {
+    if (INV.lec.camara) {
+      INV.lec.camara.getTracks().forEach(function (t) { try { t.stop(); } catch (e) {} });
+      INV.lec.camara = null;
+    }
+    INV.lec.detector = null;
+  }
+}
+
+/** Apaga el lector fijo (cámara y bucle) de todos los pasos. */
+function invLectorParar() {
+  if (INV.lec.timer) { clearTimeout(INV.lec.timer); INV.lec.timer = null; }
+  for (let p = 1; p <= 4; p++) {
+    const video = document.getElementById("invLecVideo" + p);
+    const videoCaja = document.getElementById("invLecVideoCaja" + p);
+    const btn = document.getElementById("btnInvLec" + p);
+    const nota = document.getElementById("invLecNota" + p);
+    if (video) video.srcObject = null;
+    if (videoCaja) videoCaja.hidden = true;
+    if (btn) {
+      btn.setAttribute("aria-pressed", "false");
+      const b = btn.querySelector("b");
+      if (b) b.textContent = "OFF";
+    }
+    if (nota) nota.textContent = "Apunta al código de barras";
+  }
+  if (INV.lec.camara) {
+    INV.lec.camara.getTracks().forEach(function (t) { try { t.stop(); } catch (e) {} });
+    INV.lec.camara = null;
+  }
+  INV.lec.detector = null;
+  INV.lec.pasoActivo = null;
+}
+
+function invLecBucle(paso) {
+  if (INV.lec.pasoActivo !== paso) return;
+  const video = document.getElementById("invLecVideo" + paso);
+  if (!video || !INV.lec.camara) return;
+  INV.lec.timer = setTimeout(async function () {
+    try {
+      let valor = "";
+      if (INV.lec.detector) {
+        const codigos = await INV.lec.detector.detect(video);
+        if (codigos && codigos.length) valor = codigos[0].rawValue || "";
+      } else {
+        valor = invEscanearCuadro("invLecVideo" + paso);
+      }
+      if (valor) {
+        const ahora = Date.now();
+        if (valor !== INV.lec.ultimo || ahora - INV.lec.ultimoT > 1600) {
+          INV.lec.ultimo = valor;
+          INV.lec.ultimoT = ahora;
+          const mira = document.getElementById("invLecMira" + paso);
+          if (mira) { mira.classList.add("leyo"); setTimeout(function () { mira.classList.remove("leyo"); }, 220); }
+          invLectorLeido(valor, paso);
+        }
+      }
+    } catch (e) { /* un frame malo no corta el lector */ }
+    if (INV.lec.camara && INV.lec.pasoActivo === paso) invLecBucle(paso);
+  }, INV.lec.detector ? 420 : 550);
+}
+
+/** Resultado de una lectura del lector fijo: muestra la ficha y ofrece editar. */
+function invLectorLeido(codigo, paso) {
+  const resultado = document.getElementById("invLecResultado" + paso);
+  const p = invPorCodigo(codigo);
+  if (p) {
+    const m = invMargenDe(p);
+    if (resultado) {
+      resultado.innerHTML = `
+        <div class="inv-card-api">
+          <h3>${esc(p.nombre)}</h3>
+          <div class="inv-meta">
+            <span class="inv-chip lima">en tu base</span>
+            <span class="inv-chip">${esc(p.codigo)}</span>
+            <span class="inv-chip">${invClp(p.precio)}</span>
+            <span class="inv-chip">stock ${p.stock}</span>
+          </div>
+          <div class="inv-item-acciones">
+            <button class="btn btn-primario" id="btnInvLecEditar">${ico("editar", 14)} Editar en el editor</button>
+          </div>
+        </div>`;
+      const b = resultado.querySelector("#btnInvLecEditar");
+      if (b) b.addEventListener("click", function () { invEditorAbrir(p); });
+    }
+    toast("Código leído: " + codigo + " · " + esc(p.nombre));
+    return;
+  }
+  if (resultado) {
+    resultado.innerHTML = `
+      <div class="inv-card-api">
+        <h3>Código ${esc(codigo)}</h3>
+        <p class="inv-ayuda">No está en tu base local.</p>
+        <div class="inv-item-acciones">
+          <button class="btn btn-primario" id="btnInvLecCrear">${ico("nuevo", 14)} Crear producto</button>
+        </div>
+      </div>`;
+    const b = resultado.querySelector("#btnInvLecCrear");
+    if (b) b.addEventListener("click", function () {
+      resultado.innerHTML = "";
+      invFormulario({ codigo: codigo, origen: "manual" });
+    });
+  }
+  toast("Código no registrado: " + codigo);
 }
 
 /* ── apilador continuo ──────────────────────────────────────────────────────
@@ -1193,6 +1427,20 @@ async function invBuscarCodigo(codigoCrudo) {
     return;
   }
 
+  // 1b) Búsqueda por texto: nombre, marca o código (contienen lo escrito).
+  //     Útil cuando el usuario no tiene el código de barras a la vista.
+  const texto = codigo.toLowerCase();
+  if (texto.length >= 2) {
+    const resultados = (INV.productos || []).filter(function (p) {
+      const hay = (p.nombre + " " + p.marca + " " + p.codigo + " " + (p.categoria || "")).toLowerCase();
+      return hay.indexOf(texto) >= 0;
+    });
+    if (resultados.length) {
+      invMostrarResultados(resultados, caja, codigo);
+      return;
+    }
+  }
+
   // 2) Tu nube (fabri-api → InsForge). Es la otra mitad de «mis 2 bases»: si el
   //    producto ya se sincronizó desde otro dispositivo, aparece aquí aunque
   //    todavía no esté en este teléfono.
@@ -1231,6 +1479,44 @@ async function invBuscarCodigo(codigoCrudo) {
   }
   revision("inventario", "aviso", "código no encontrado en bases libres",
     codigo + " · " + api.motivo, 0, "inventario");
+}
+
+/** Muestra una lista de productos que coinciden con una búsqueda de texto
+   (nombre, marca o código) con un botón «Editar» por cada uno. */
+function invMostrarResultados(lista, caja, texto) {
+  if (!caja) return;
+  caja.innerHTML = `
+    <div class="inv-card-api">
+      <h3>Coincidencias para <b>${esc(texto)}</b></h3>
+      <div class="inv-meta"><span class="inv-chip">${lista.length}</span></div>
+      ${lista.slice(0, 10).map(function (p) {
+        const m = invMargenDe(p);
+        return `<div style="display:flex;gap:8px;align-items:center;border-bottom:1px solid var(--borde);padding:6px 0">
+          ${invMiniaturaHtml(p, 34)}
+          <div style="min-width:0">
+            <div style="display:flex;justify-content:space-between;gap:6px">
+              <strong style="min-width:0">${esc(p.nombre)}</strong>
+              <span class="inv-chip">${invClp(p.precio)}</span>
+            </div>
+            <div style="font-size:11px;color:var(--texto-3)">${esc(p.codigo)} · ${esc(p.marca || "")} · ${esc(INV_CATEGORIAS[p.categoria] || p.categoria)} · margen ${m.margen}%</div>
+          </div>
+          <button class="btn btn-primario btn-mini" data-inv-editar-resultado="${esc(p.codigo)}">${ico("editar", 12)}</button>
+        </div>`;
+      }).join("")}
+      <div class="inv-item-acciones">
+        <button class="btn btn-primario" id="btnInvCrearDesdeTexto">${ico("nuevo", 14)} Crear producto nuevo</button>
+      </div>
+    </div>`;
+  caja.querySelectorAll("[data-inv-editar-resultado]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      invEditorAbrir(invPorCodigo(b.dataset.invEditarResultado));
+    });
+  });
+  const bc = document.getElementById("btnInvCrearDesdeTexto");
+  if (bc) bc.addEventListener("click", function () {
+    caja.innerHTML = "";
+    invFormulario({ codigo: texto, origen: "manual" });
+  });
 }
 
 function invMostrarLocal(p, caja) {
@@ -2377,7 +2663,13 @@ function invEditorAbrir(p) {
   document.getElementById("invEdStock").value = p && p.stock != null ? p.stock : 0;
   document.getElementById("invEdProveedor").value = (p && p.proveedor) || "";
   document.getElementById("invEdIva").value = p && p.iva != null ? p.iva : 19;
+  document.getElementById("invEdPrecioProveedor").value = p && p.precio_proveedor != null ? p.precio_proveedor : "";
+  document.getElementById("invEdPrecioMercado").value = p && p.precio_mercado != null ? p.precio_mercado : "";
   document.getElementById("invEdEstado").textContent = "";
+
+  // Mientras el editor está abierto, el lector fijo del paso queda apagado
+  // para que no siga consumiendo la cámara detrás de la ficha.
+  invLectorParar();
 
   caja.hidden = false;
   invEdRecalcular();
@@ -2395,13 +2687,33 @@ function invEditorCerrar() {
   if (caja) caja.hidden = true;
 }
 
-/** Recalcula margen, ganancia, costo visible y valor del stock en vivo. */
+/** Recalcula margen, ganancia, costo visible y valor del stock en vivo.
+   * También muestra precio compra y precio venta en la ficha. */
 function invEdRecalcular() {
   const costo = invNum((document.getElementById("invEdCosto") || {}).value);
   const precio = invNum((document.getElementById("invEdPrecio") || {}).value);
   const stock = Math.round(invNum((document.getElementById("invEdStock") || {}).value));
+  const precioProveedor = invNum((document.getElementById("invEdPrecioProveedor") || {}).value);
+  const precioMercado = invNum((document.getElementById("invEdPrecioMercado") || {}).value);
   const ganancia = precio - costo;
   const margen = costo > 0 ? Math.round((ganancia / costo) * 100) : (precio > 0 ? 100 : 0);
+
+  // Línea base local con la utilidad compartida de app.js (ganancia unitaria,
+  // precio de costo y precio de venta del producto que se está editando).
+  const base = analizarPreciosYGanancia([{
+    codigo: document.getElementById("invEdCodigo").value.trim(),
+    nombre: document.getElementById("invEdNombre").value.trim(),
+    costo: costo, precio: precio
+  }]);
+  const gananciaUnitaria = (base && base.detalle && base.detalle[0])
+    ? base.detalle[0].ganancia_unitaria : ganancia;
+
+  const utilidadReal = precio - (precioProveedor > 0 ? precioProveedor : costo);
+  let difMercado = 0, precioOptimo = 0;
+  if (precioMercado > 0) {
+    difMercado = Math.round(((precio - precioMercado) / precioMercado) * 100);
+    precioOptimo = Math.round(precioMercado * (1 + INV_MARGEN_OBJETIVO / 100));
+  }
 
   const set = function (id, txt) {
     const el = document.getElementById(id);
@@ -2411,6 +2723,31 @@ function invEdRecalcular() {
   set("invEdGanancia", invClp(ganancia));
   set("invEdCostoV", invClp(costo));
   set("invEdValor", invClp(precio * stock));
+  set("invEdProvV", invClp(precioProveedor));
+  const cDif = document.getElementById("invEdMercadoDif");
+  if (cDif) {
+    cDif.textContent = precioMercado > 0 ? (difMercado >= 0 ? "+" : "") + difMercado + " %" : "–";
+    cDif.parentElement.dataset.estado = precioMercado > 0 ? (difMercado >= 0 ? "ok" : "alerta") : "";
+  }
+  set("invEdPrecioOptimo", invClp(precioOptimo));
+  set("invEdUtilidadR", invClp(utilidadReal));
+  const cUtil = document.getElementById("invEdUtilidadR");
+  if (cUtil) cUtil.parentElement.dataset.estado = utilidadReal >= 0 ? "ok" : "alerta";
+
+  // Campos de compra/venta en la ficha: mostrados al lado del margen
+  const ic = document.getElementById("invEdCostoInput"); // campo hidden o visible
+  // Recalculamos los valores ocultos que se usan al guardar
+  const producto = {
+    codigo: document.getElementById("invEdCodigo").value.trim(),
+    costo: invNum(document.getElementById("invEdCosto").value),
+    precio: invNum(document.getElementById("invEdPrecio").value),
+    margen_pct: margen,
+    ganancia: ganancia,
+    stock: stock
+  };
+  // Guardamos en un data-attribute para que invEdGuardar lo pueda leer
+  const fichaDiv = document.getElementById("invEdFicha");
+  if (fichaDiv) fichaDiv.dataset.producto = JSON.stringify(producto);
 
   // Un margen bajo se marca en rojo y uno sano en lima: es lo que el
   // comerciante mira antes de poner precio.
@@ -2465,7 +2802,11 @@ async function invEdLector(activar) {
     if (v) v.srcObject = null;
     INV_ED.detector = null;
     if (caja) caja.hidden = true;
-    if (btn) { btn.setAttribute("aria-pressed", "false"); btn.querySelector("b").textContent = "OFF"; }
+    if (btn) {
+      btn.setAttribute("aria-pressed", "false");
+      const b = btn.querySelector("b");
+      if (b) b.textContent = "OFF";
+    }
     return;
   }
   try {
@@ -2541,6 +2882,9 @@ function invEdGuardar() {
     stock_minimo: 0,
     iva: Math.round(invNum(document.getElementById("invEdIva").value)),
     proveedor: document.getElementById("invEdProveedor").value.trim(),
+    nombre_proveedor: document.getElementById("invEdProveedor").value.trim(),
+    precio_proveedor: invNum(document.getElementById("invEdPrecioProveedor").value),
+    precio_mercado: invNum(document.getElementById("invEdPrecioMercado").value),
     notas: "",
     ficha: "{}",
     origen: INV_ED.origen || "manual"
@@ -2548,6 +2892,11 @@ function invEdGuardar() {
   if (!producto.nombre) {
     invEdAviso("El nombre es obligatorio", "error");
     document.getElementById("invEdNombre").focus();
+    return;
+  }
+  if (producto.stock < 0) {
+    invEdAviso("El stock no puede ser negativo", "error");
+    document.getElementById("invEdStock").focus();
     return;
   }
   invEdAviso("Guardando en SQLite…");
@@ -2558,6 +2907,9 @@ function invEdGuardar() {
     revision("inventario", "info", "producto guardado desde el editor: " + (p.nombre || producto.nombre),
       (p.codigo || producto.codigo) + " · $" + producto.precio, 0, "core");
     invRefrescar();
+    if (producto.stock_minimo > 0 && producto.stock <= producto.stock_minimo) {
+      invEdAviso("Alerta: stock bajo (" + producto.stock + " ≤ " + producto.stock_minimo + ")", "alerta");
+    }
     invSello("Guardado en la base");
     // Si se vino del apilador, se actualiza la card y se vuelve al escáner.
     if (INV.editarVolverScanner) {
@@ -2577,6 +2929,47 @@ function invEdGuardar() {
     }
     invEditorCerrar();
   });
+}
+
+/** Consulta las bases libres para confirmar el producto (nombre/marca) y
+   avisa que el precio de mercado se ingresa a mano (lo que se ve en la
+   competencia o en tu nube). Las bases libres abiertas no publican precios,
+   así que no se inventa ninguna cifra. */
+async function invEdMercadoConsultar() {
+  const codigo = document.getElementById("invEdCodigo").value.trim();
+  const nombre = document.getElementById("invEdNombre").value.trim();
+  const campo = document.getElementById("invEdPrecioMercado");
+  if (!codigo) { invEdAviso("Escribe o escanea primero un código", "error"); return; }
+  invEdAviso("Consultando bases libres…");
+  try {
+    const res = await invConsultarApiLibre(codigo);
+    if (res.ok && res.producto) {
+      const pp = res.producto;
+      if (pp.nombre && !nombre) document.getElementById("invEdNombre").value = pp.nombre;
+      if (pp.marca && !document.getElementById("invEdMarca").value) document.getElementById("invEdMarca").value = pp.marca;
+      invEdAviso("Confirmado en " + esc(pp.fuente || "base libre") + ". Ingresá el precio de mercado que ves en la competencia.");
+    } else {
+      invEdAviso("Sin referencia de precio en las bases libres. Ingresá el precio de mercado a mano.");
+    }
+  } catch (e) {
+    invEdAviso("No se pudo consultar el mercado. Ingresá el precio de mercado a mano.");
+  }
+  if (campo) campo.focus();
+  invEdRecalcular();
+}
+
+/** Aplica el precio de venta óptimo: mercado + margen objetivo (30 % por defecto). */
+function invEdAplicarOptimo() {
+  const mercado = invNum(document.getElementById("invEdPrecioMercado").value);
+  if (!mercado || mercado <= 0) {
+    invEdAviso("Ingresá primero el precio de mercado", "error");
+    document.getElementById("invEdPrecioMercado").focus();
+    return;
+  }
+  const optimo = Math.round(mercado * (1 + INV_MARGEN_OBJETIVO / 100));
+  document.getElementById("invEdPrecio").value = optimo;
+  invEdRecalcular();
+  invEdAviso("Precio de venta sugerido aplicado: " + invClp(optimo));
 }
 
 /** Muestra y guarda la ficha ampliada (Nutri-Score, NOVA, «free», alérgenos). */
@@ -2618,6 +3011,9 @@ function invGuardar() {
     stock_minimo: Math.round(invNum(document.getElementById("invFminimo").value)),
     iva: Math.round(invNum(document.getElementById("invFiva").value)),
     proveedor: document.getElementById("invFproveedor").value.trim(),
+    nombre_proveedor: document.getElementById("invFproveedor").value.trim(),
+    precio_proveedor: invNum(document.getElementById("invFprecioProveedor").value),
+    precio_mercado: invNum(document.getElementById("invFprecioMercado").value),
     notas: document.getElementById("invFnotas").value.trim(),
     ficha: (document.getElementById("invFficha") || {}).value || "{}",
     origen: (document.getElementById("invFormulario").dataset.origen || "manual")
@@ -2625,6 +3021,11 @@ function invGuardar() {
   if (!producto.nombre) {
     invAviso("El nombre es obligatorio", "error");
     document.getElementById("invFnombre").focus();
+    return;
+  }
+  if (producto.stock < 0) {
+    invAviso("El stock no puede ser negativo", "error");
+    document.getElementById("invFstock").focus();
     return;
   }
   invAviso("Guardando en SQLite…");
@@ -2639,6 +3040,9 @@ function invGuardar() {
     invFormularioCerrar();
     invRefrescar();
     invSello("Guardado en la base");
+    if (producto.stock_minimo > 0 && producto.stock <= producto.stock_minimo) {
+      invAviso("Alerta: stock bajo (" + producto.stock + " ≤ " + producto.stock_minimo + ")", "alerta");
+    }
     if (INV.editarVolverScanner) {
       INV.editarVolverScanner = false;
       const codigo = p.codigo || producto.codigo;

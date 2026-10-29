@@ -608,6 +608,46 @@
           </div>
           <p class="nota" id="chatRemotoEstado">Sin configurar.</p>
         </div>
+
+        <div id="chatAjustesIA" class="chat-panel">
+          <div class="etiqueta">Modelo · ajustes de IA</div>
+          <p class="nota config-subtitulo">Configuración optimizada para <strong>Qwen 2</strong> (modelo local rápido)</p>
+
+          <div class="ajuste-fila">
+            <label>Temperatura <span class="ajuste-info" title="Creatividad: 0 = respuestas iguales siempre, 2 = muy variado. Qwen 2: 0.7">0.7</span></label>
+            <span class="ajuste-valor" id="valTemperatura">0.7</span>
+          </div>
+          <input type="range" id="cfgTemperatura" min="0" max="2" step="0.1" value="0.7" />
+
+          <div class="ajuste-fila">
+            <label>Top-p <span class="ajuste-info" title="Muestreo nuclear: 0.9 = considera solo el 90% de tokens más probables. Qwen 2: 0.9">0.9</span></label>
+            <span class="ajuste-valor" id="valTopP">0.9</span>
+          </div>
+          <input type="range" id="cfgTopP" min="0" max="1" step="0.05" value="0.9" />
+
+          <div class="ajuste-fila">
+            <label>Top-k <span class="ajuste-info" title="Solo los K mejores tokens candidatos. Qwen 2: 40">40</span></label>
+            <span class="ajuste-valor" id="valTopK">40</span>
+          </div>
+          <input type="number" id="cfgTopK" min="0" max="200" value="40" />
+
+          <div class="ajuste-fila">
+            <label>Penalización repetición <span class="ajuste-info" title="Evita que el modelo repita palabras. 1.0 = sin penalizar, 2.0 = muy estricto. Qwen 2: 1.1">1.1</span></label>
+            <span class="ajuste-valor" id="valRepeticion">1.1</span>
+          </div>
+          <input type="range" id="cfgRepeticion" min="1" max="2" step="0.1" value="1.1" />
+
+          <div class="ajuste-fila">
+            <label>Máx. tokens salida <span class="ajuste-info" title="Límite de palabras que genera el modelo. Menos = más rápido. Qwen 2: 256">256</span></label>
+            <span class="ajuste-valor" id="valMaxTokens">256</span>
+          </div>
+          <input type="number" id="cfgMaxTokens" min="16" max="4096" value="256" />
+
+          <div class="fila-botones">
+            <button class="btn btn-primario" id="btnChatAplicarConfig" type="button">Aplicar a Qwen 2</button>
+          </div>
+          <p class="nota">Configuración predeterminada para Qwen 2: Temperatura 0.7 · Top-p 0.9 · Top-k 40 · Repetición 1.1 · Tokens 256. Cambia solo si necesitas respuestas más creativas o más largas.</p>
+        </div>
       </div>
 
       <div class="chat-hilo" id="chatHilo" aria-live="polite">
@@ -630,7 +670,25 @@
           <span id="chatHerramientaTexto">Consultando tu inventario…</span>
         </div>
         <div class="chat-compositor">
-          <button class="btn btn-icono" id="btnChatTts" type="button" title="Leer la última respuesta" aria-label="Leer respuesta">🔊</button>
+          <button class="btn btn-icono" id="btnChatTts" type="button"
+                  title="Leer la última respuesta" aria-label="Leer respuesta"
+                  data-estado="inactivo">
+            <svg class="tts-icono tts-icono-mic" viewBox="0 0 24 24" aria-hidden="true"
+                 fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+              <path d="M12 19v4"/>
+              <path d="M8 23h8"/>
+            </svg>
+            <svg class="tts-icono tts-icono-onda" viewBox="0 0 24 24" aria-hidden="true"
+                 fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+              <path d="M12 2v3"/>
+              <path d="M12 7v3"/>
+              <path d="M12 12v3"/>
+              <path d="M12 17v3"/>
+              <path d="M12 22v2"/>
+            </svg>
+          </button>
           <textarea id="chatEntrada" rows="1" placeholder="Pregúntame por tus productos, precios o stock…" maxlength="12000"></textarea>
           <button class="btn btn-primario btn-enviar" id="btnChatEnviar" type="button" aria-label="Enviar">➤</button>
         </div>
@@ -1366,6 +1424,23 @@ npx -y omniroute@latest
               (Open Food/Beauty/Products Facts, Open Prices, Wikipedia).</p>
           </div>
         </div>
+
+        <!-- ── Lector de código fijo (paso 1) · visible también en los pasos 2-4, nunca en la boleta ── -->
+        <div class="inv-lector-fijo" id="invLecCaja1">
+          <div class="inv-lector-cab">
+            <button class="inv-lector-btn" id="btnInvLec1" type="button" aria-pressed="false"
+                    title="Lector de código on/off">
+              <span data-ico="scan"></span><b>OFF</b>
+            </button>
+            <span class="inv-lector-estado" id="invLecNota1">Apunta al código de barras</span>
+          </div>
+          <div class="inv-lector-video" id="invLecVideoCaja1">
+            <video id="invLecVideo1" playsinline muted autoplay></video>
+            <div class="inv-lector-mira" id="invLecMira1" aria-hidden="true"><i></i></div>
+          </div>
+          <div id="invLecResultado1" class="inv-lector-resultado"></div>
+        </div>
+
         <div id="invResultadoApi" class="inv-resultado"></div>
         <div id="invOcrPanel" class="inv-ocr" hidden>
           <div class="inv-ocr-cab">
@@ -1413,6 +1488,23 @@ npx -y omniroute@latest
                  placeholder="Escanea o escribe un código…" autocomplete="off" spellcheck="false" />
           <button class="btn" id="btnInvScanBarBuscar" type="button" aria-label="Buscar"><span data-ico="buscar"></span></button>
         </div>
+
+        <!-- ── Lector de código fijo (paso 2) ── -->
+        <div class="inv-lector-fijo" id="invLecCaja2">
+          <div class="inv-lector-cab">
+            <button class="inv-lector-btn" id="btnInvLec2" type="button" aria-pressed="false"
+                    title="Lector de código on/off">
+              <span data-ico="scan"></span><b>OFF</b>
+            </button>
+            <span class="inv-lector-estado" id="invLecNota2">Apunta al código de barras</span>
+          </div>
+          <div class="inv-lector-video" id="invLecVideoCaja2">
+            <video id="invLecVideo2" playsinline muted autoplay></video>
+            <div class="inv-lector-mira" id="invLecMira2" aria-hidden="true"><i></i></div>
+          </div>
+          <div id="invLecResultado2" class="inv-lector-resultado"></div>
+        </div>
+
         <div class="inv-toolbar">
           <label class="campo campo-buscar">
             <span>Buscar</span>
@@ -1733,7 +1825,9 @@ CREATE INDEX IF NOT EXISTS idx_inv_productos_actualizado
             <label class="campo"><span>Stock</span><input id="invFstock" inputmode="numeric" /></label>
             <label class="campo"><span>Stock mínimo</span><input id="invFminimo" inputmode="numeric" /></label>
             <label class="campo"><span>IVA %</span><input id="invFiva" inputmode="numeric" value="19" /></label>
-            <label class="campo"><span>Proveedor</span><input id="invFproveedor" /></label>
+            <label class="campo"><span>Nombre del proveedor</span><input id="invFproveedor" /></label>
+            <label class="campo"><span>Precio proveedor</span><input id="invFprecioProveedor" inputmode="decimal" placeholder="0" /></label>
+            <label class="campo"><span>Precio de mercado</span><input id="invFprecioMercado" inputmode="decimal" placeholder="–" /></label>
             <label class="campo campo-ancho"><span>Notas</span><input id="invFnotas" /></label>
             <input type="hidden" id="invFficha" value="{}" />
           </div>
@@ -1750,6 +1844,23 @@ CREATE INDEX IF NOT EXISTS idx_inv_productos_actualizado
 
       <!-- ── PASO 3 · PRECIOS ──────────────────────────────────────────── -->
       <div class="inv-panel" id="invPaso3">
+
+        <!-- ── Lector de código fijo (paso 3) ── -->
+        <div class="inv-lector-fijo" id="invLecCaja3">
+          <div class="inv-lector-cab">
+            <button class="inv-lector-btn" id="btnInvLec3" type="button" aria-pressed="false"
+                    title="Lector de código on/off">
+              <span data-ico="scan"></span><b>OFF</b>
+            </button>
+            <span class="inv-lector-estado" id="invLecNota3">Apunta al código de barras</span>
+          </div>
+          <div class="inv-lector-video" id="invLecVideoCaja3">
+            <video id="invLecVideo3" playsinline muted autoplay></video>
+            <div class="inv-lector-mira" id="invLecMira3" aria-hidden="true"><i></i></div>
+          </div>
+          <div id="invLecResultado3" class="inv-lector-resultado"></div>
+        </div>
+
         <label class="campo">
           <span>Producto</span>
           <select id="invPrecioProducto"></select>
@@ -1765,6 +1876,23 @@ CREATE INDEX IF NOT EXISTS idx_inv_productos_actualizado
 
       <!-- ── PASO 4 · MÁRGENES + EXCEL ─────────────────────────────────── -->
       <div class="inv-panel" id="invPaso4">
+
+        <!-- ── Lector de código fijo (paso 4) ── -->
+        <div class="inv-lector-fijo" id="invLecCaja4">
+          <div class="inv-lector-cab">
+            <button class="inv-lector-btn" id="btnInvLec4" type="button" aria-pressed="false"
+                    title="Lector de código on/off">
+              <span data-ico="scan"></span><b>OFF</b>
+            </button>
+            <span class="inv-lector-estado" id="invLecNota4">Apunta al código de barras</span>
+          </div>
+          <div class="inv-lector-video" id="invLecVideoCaja4">
+            <video id="invLecVideo4" playsinline muted autoplay></video>
+            <div class="inv-lector-mira" id="invLecMira4" aria-hidden="true"><i></i></div>
+          </div>
+          <div id="invLecResultado4" class="inv-lector-resultado"></div>
+        </div>
+
         <div class="inv-calc">
           <label class="campo"><span>Costo</span><input id="invMcosto" inputmode="decimal" /></label>
           <label class="campo"><span>Precio</span><input id="invMprecio" inputmode="decimal" /></label>
@@ -1839,6 +1967,7 @@ CREATE INDEX IF NOT EXISTS idx_inv_productos_actualizado
           </div>
           <button class="inv-ed-lector" id="btnInvEdLector" type="button" aria-pressed="false"
                   title="Lector de código on/off">
+            <span class="inv-ed-lector-status"></span>
             <span data-ico="scan"></span><b>OFF</b>
           </button>
         </header>
@@ -1871,18 +2000,19 @@ CREATE INDEX IF NOT EXISTS idx_inv_productos_actualizado
             <div class="inv-ed-cell"><span>Ganancia</span><b id="invEdGanancia">$ 0</b></div>
             <div class="inv-ed-cell"><span>Costo</span><b id="invEdCostoV">$ 0</b></div>
             <div class="inv-ed-cell"><span>Stock valor</span><b id="invEdValor">$ 0</b></div>
+            <div class="inv-ed-cell"><span>Precio proveedor</span><b id="invEdProvV">$ 0</b></div>
+            <div class="inv-ed-cell"><span>Dif. mercado</span><b id="invEdMercadoDif">0 %</b></div>
+            <div class="inv-ed-cell"><span>Precio óptimo</span><b id="invEdPrecioOptimo">$ 0</b></div>
+            <div class="inv-ed-cell"><span>Utilidad real</span><b id="invEdUtilidadR">$ 0</b></div>
           </div>
           <div class="inv-ed-barra" aria-hidden="true"><i id="invEdBarra"></i></div>
         </div>
 
-        <!-- campos compactos: se pegan al fondo y caben sin desplazar -->
+        <!-- campos compactos: todos editables y se guardan en SQLite -->
         <div class="inv-ed-campos">
           <label class="campo"><span>Nombre *</span><input id="invEdNombre" /></label>
           <div class="inv-ed-par">
-            <label class="campo"><span>Costo neto</span><input id="invEdCosto" inputmode="decimal" /></label>
-            <label class="campo"><span>Stock</span><input id="invEdStock" inputmode="numeric" /></label>
-          </div>
-          <div class="inv-ed-par">
+            <label class="campo"><span>Marca</span><input id="invEdMarca" /></label>
             <label class="campo"><span>Categoría</span>
               <select id="invEdCategoria">
                 <option value="abarrotes">Alimentos</option>
@@ -1897,11 +2027,23 @@ CREATE INDEX IF NOT EXISTS idx_inv_productos_actualizado
                 <option value="otros">Otros</option>
               </select>
             </label>
-            <label class="campo"><span>Proveedor</span><input id="invEdProveedor" /></label>
           </div>
           <div class="inv-ed-par">
-            <label class="campo"><span>Marca</span><input id="invEdMarca" /></label>
+            <label class="campo"><span>Costo neto</span><input id="invEdCosto" inputmode="decimal" /></label>
+            <label class="campo"><span>Precio proveedor</span><input id="invEdPrecioProveedor" inputmode="decimal" placeholder="0" /></label>
+          </div>
+          <div class="inv-ed-par">
+            <label class="campo"><span>Precio de venta</span><input id="invEdPrecio" inputmode="decimal" value="0" /></label>
+            <label class="campo"><span>Precio de mercado</span><input id="invEdPrecioMercado" inputmode="decimal" placeholder="–" /></label>
+          </div>
+          <div class="inv-ed-par">
+            <label class="campo"><span>Stock</span><input id="invEdStock" inputmode="numeric" /></label>
             <label class="campo"><span>IVA %</span><input id="invEdIva" inputmode="numeric" value="19" /></label>
+          </div>
+          <label class="campo"><span>Nombre del proveedor</span><input id="invEdProveedor" /></label>
+          <div class="inv-ed-mercado">
+            <button class="btn btn-mini" id="btnInvEdMercado" type="button"><span data-ico="buscar"></span> Consultar mercado</button>
+            <button class="btn btn-mini btn-primario" id="btnInvEdAplicarOptimo" type="button"><span data-ico="ok"></span> Aplicar precio óptimo</button>
           </div>
         </div>
 
