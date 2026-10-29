@@ -25,7 +25,7 @@ import java.util.Comparator;
 import java.util.List;
 
 /**
- * FABRI-CORE · importación de bases desde la SD.
+ * FORGE CORE STOCK · importación de bases desde la SD.
  *
  * <p>El selector de archivos de Android entrega una URI, no una ruta. Para
  * poder abrir SQLite y ZIP hace falta un archivo real, así que se copia a la

@@ -12,7 +12,7 @@ import java.net.Socket;
 import java.util.Enumeration;
 
 /**
- * FABRI-CORE · diagnóstico de red y forzado de IPv4.
+ * FORGE CORE STOCK · diagnóstico de red y forzado de IPv4.
  *
  * En esta red el IPv6 es un agujero negro: resuelve, pero no conecta. Java
  * intenta las direcciones AAAA primero y se queda esperando hasta el timeout.

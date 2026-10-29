@@ -1,4 +1,4 @@
-/* FABRI-CORE · seguridad en el navegador (auth real + bóveda cifrada).
+/* FORGE CORE STOCK · seguridad en el navegador (auth real + bóveda cifrada).
  *
  * · Contraseñas: PBKDF2-HMAC-SHA256, 120.000 iteraciones, sal única (WebCrypto).
  * · Sesiones: token de 256 bits; en la base solo su SHA-256, con vencimiento.
@@ -255,7 +255,7 @@
       const kind = p ? p.kind : 'openai';
       base = (base || '').replace(/\/+$/, '');
       const t0 = performance.now();
-      const SYS = 'Eres FABRI-CORE, consola que corre en el dispositivo del usuario. Respondes en español, breve y concreto. ' +
+      const SYS = 'Eres FORGE CORE STOCK, consola que corre en el dispositivo del usuario. Respondes en español, breve y concreto. ' +
         'No inventas datos: si algo requiere la base local, dices qué consulta SQL haría falta. No pides credenciales.';
       let res, raw;
       try {

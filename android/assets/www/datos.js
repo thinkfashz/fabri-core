@@ -1,5 +1,5 @@
 /* ==========================================================================
-   FABRI-CORE · hoja de datos editable (SQLite local)
+   FORGE CORE STOCK · hoja de datos editable (SQLite local)
    --------------------------------------------------------------------------
    Todo lo que se ve acá sale de Rust: `sqlite` con acciones tablas, esquema,
    filas, actualizar, insertar, borrar, importar, exportar y auditoria.
@@ -1095,7 +1095,7 @@ async function hojaRespaldoCompleto() {
     }
     const tablas = rTablas.data.tablas || [];
     const respaldo = {
-      sistema: "FABRI-CORE",
+      sistema: "FORGE CORE STOCK",
       version: "0.9.16",
       fecha: new Date().toISOString(),
       tablas: {}

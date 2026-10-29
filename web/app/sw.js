@@ -1,4 +1,4 @@
-/* FABRI-CORE · service worker
+/* FORGE CORE STOCK · service worker
    Shell cache-first (arranca sin red), navegación network-first con respaldo,
    y /api siempre a la red (un agente cacheado sería una mentira).
 

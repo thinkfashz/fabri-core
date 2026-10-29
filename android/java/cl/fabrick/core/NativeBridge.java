@@ -1128,7 +1128,7 @@ public final class NativeBridge {
                                     return;
                                 }
                                 android.print.PrintAttributes attrs = atributosImpresion(cual);
-                                String trabajo = "FABRI-CORE boleta";
+                                String trabajo = "FORGE CORE STOCK boleta";
                                 android.print.PrintDocumentAdapter adaptador =
                                         vista.createPrintDocumentAdapter(trabajo);
                                 pm.print(trabajo, adaptador, attrs);
@@ -1413,6 +1413,12 @@ public final class NativeBridge {
     @JavascriptInterface
     public String huellaBorrar() {
         return Huella.borrar(contexto);
+    }
+
+    /** Desactiva la huella y conserva el PIN (a diferencia de huellaBorrar). */
+    @JavascriptInterface
+    public String huellaDesactivar() {
+        return Huella.desactivar(contexto);
     }
 
     @JavascriptInterface
@@ -2063,7 +2069,7 @@ public final class NativeBridge {
             con.setConnectTimeout(conectarMs);
             con.setReadTimeout(leerMs);
             con.setRequestProperty("Accept", "application/json");
-            con.setRequestProperty("User-Agent", "FABRI-CORE/0.9.0 (Android)");
+            con.setRequestProperty("User-Agent", "FORGE CORE STOCK/0.9.0 (Android)");
             if (clave != null && !clave.isEmpty()) {
                 con.setRequestProperty("Authorization", "Bearer " + clave);
             }
@@ -2268,7 +2274,7 @@ public final class NativeBridge {
         try {
             JSONObject doc = new JSONObject(json);
             if (!"fabrick-conexiones".equals(doc.optString("tipo", ""))) {
-                return error("ese archivo no es un respaldo de FABRI-CORE");
+                return error("ese archivo no es un respaldo de FORGE CORE STOCK");
             }
             JSONArray lista = doc.optJSONArray("conexiones");
             int n = boveda().importar(lista);
@@ -2575,7 +2581,7 @@ public final class NativeBridge {
                         @Override
                         public void onPageFinished(android.webkit.WebView v, String url) {
                             try {
-                                String titulo = "FABRI-CORE " + System.currentTimeMillis();
+                                String titulo = "FORGE CORE STOCK " + System.currentTimeMillis();
                                 android.print.PrintDocumentAdapter adaptador =
                                         v.createPrintDocumentAdapter(titulo);
                                 gestor.print(titulo, adaptador, null);

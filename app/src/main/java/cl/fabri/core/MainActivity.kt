@@ -103,7 +103,7 @@ fun FabShell(app: FabriApp) {
                         .background(accent, RoundedCornerShape(7.dp))
                 )
                 Spacer(Modifier.width(10.dp))
-                Text("FABRI-CORE", fontWeight = FontWeight.Black, fontSize = 17.sp, letterSpacing = 1.sp)
+                Text("FORGE CORE STOCK", fontWeight = FontWeight.Black, fontSize = 17.sp, letterSpacing = 1.sp)
                 Spacer(Modifier.weight(1f))
                 Text(route.path, color = Color(0xFF858585), fontSize = 11.sp)
             }

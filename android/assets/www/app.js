@@ -1,5 +1,5 @@
 /* ==========================================================================
-   FABRI-CORE · interfaz
+   FORGE CORE STOCK · interfaz
    --------------------------------------------------------------------------
    Toda la lógica de datos vive en Rust. Este archivo sólo:
      1. llama al puente `FabrickNative.call(op, json)`;
@@ -253,7 +253,7 @@ const TERMUX_COMANDOS = [
   { titulo: "OmniRoute", cmd: "npx -y omniroute@latest\n# API local: http://127.0.0.1:20128/v1" },
   { titulo: "llama.cpp", cmd: "git clone https://github.com/ggml-org/llama.cpp\ncd llama.cpp\ncmake -B build\ncmake --build build -j4" },
   { titulo: "Modelo Qwen 0.5B", cmd: "pip install huggingface_hub\nhuggingface-cli download Qwen/Qwen2.5-0.5B-Instruct-GGUF qwen2.5-0.5b-instruct-q4_k_m.gguf --local-dir ~/modelos" },
-  { titulo: "GraphRAG (servidor)", cmd: "pip install graphrag\n# GraphRAG es Python y no trae binario Android; ejecútalo en Termux o en un servidor\n# y consúmelo por HTTP desde FABRI-CORE." },
+  { titulo: "GraphRAG (servidor)", cmd: "pip install graphrag\n# GraphRAG es Python y no trae binario Android; ejecútalo en Termux o en un servidor\n# y consúmelo por HTTP desde FORGE CORE STOCK." },
   { titulo: "Voz del sistema", cmd: "# TTS usa el motor de Android, no un binario descargado:\n# Ajustes → Accesibilidad → Salida de texto a voz → Instalar voces" }
 ];
 
@@ -703,7 +703,7 @@ function pintarDispositivo() {
     <table class="sql-tabla">
       <thead><tr><th>Dato</th><th>Valor</th></tr></thead>
       <tbody>
-        <tr><td>Versión FABRI-CORE</td><td>${esc(d.version)}</td></tr>
+        <tr><td>Versión FORGE CORE STOCK</td><td>${esc(d.version)}</td></tr>
         <tr><td>Arquitectura</td><td>${esc(d.arch)}</td></tr>
         <tr><td>Sistema</td><td>${esc(d.os)}</td></tr>
         <tr><td>Android</td><td>${esc(d.androidVersion)} (SDK ${esc(d.sdk)})</td></tr>
@@ -720,7 +720,7 @@ function pintarDispositivo() {
     </table>`;
 }
 
-/** Pinta modelos recomendados y detectados con tabla de comparación. */
+/** Pinta el catálogo de modelos como tarjetas comparables. */
 function pintarModelos() {
   const cont = document.getElementById("modelosLista");
   const g = estadoApp.global || (estadoApp.global = {});
@@ -733,24 +733,59 @@ function pintarModelos() {
   }
   const rec = g.recomendados || [];
   const det = g.detectados || [];
+  const disp = g.dispositivo || {};
+  const memoria = disp.memTotalMB ? disp.memTotalMB : "—";
+  const disponible = disp.memDisponibleMB ? disp.memDisponibleMB : "—";
 
   let html = "";
   if (rec.length) {
-    html += `<h4>Recomendados para este dispositivo (RAM ${g.dispositivo ? g.dispositivo.memTotalMB : "—"} MB)</h4>`;
-    html += `<table class="sql-tabla">
-      <thead><tr><th>Modelo</th><th>Tamaño</th><th>RAM mínima</th><th>Nivel</th><th>Uso sugerido</th><th>Acción</th></tr></thead>
-      <tbody>`;
+    const estrella = rec.find(function (m) { return m.estrella; });
+    html += `<div class="modelos-hero">
+      <div class="modelos-hero-texto">
+        <p class="modelos-hero-etq">Catálogo para este teléfono</p>
+        <strong>${memoria} MB de RAM · ${disponible} MB libres</strong>
+        <span>${esc(disp.perfil || "perfil por detectar")}${disp.nucleos ? " · " + disp.nucleos + " núcleos" : ""}${disp.presupuestoMB ? " · presupuesto " + disp.presupuestoMB + " MB" : ""}</span>
+      </div>
+      ${estrella ? `<div class="modelos-estrella">
+        <span>Recomendado</span>
+        <strong>${esc((estrella.familia || "") + " " + (estrella.parametros || "") + "B")}</strong>
+        <small>${estrella.velocidadToks || "—"} tok/s estimados</small>
+      </div>` : ""}
+    </div>`;
+    html += `<div class="modelos-grid">`;
     rec.forEach((m) => {
-      html += `<tr>
-        <td>${esc(m.nombre)}</td>
-        <td>${m.tamanoMB} MB</td>
-        <td>${m.ramMinimaMB} MB</td>
-        <td><span class="estado ${m.nivel === "fluido" ? "ok" : m.nivel === "muy fluido" ? "ok" : "warning"}">${esc(m.nivel)}</span></td>
-        <td>${esc(m.uso)}</td>
-        <td><button class="btn btn-primario" data-modelo-descargar="${esc(m.id)}">Descargar</button></td>
-      </tr>`;
+      const etiqueta = m.tipo === "embeddings" ? "Embeddings" : (m.familia || "GGUF");
+      const params = m.parametros ? m.parametros + "B" : "";
+      const cabe = m.cabeEnRam !== false;
+      html += `<article class="modelo-card${m.estrella ? " estrella" : ""}${cabe ? "" : " no-cabe"}">
+        <div class="modelo-card-cab">
+          <div class="modelo-card-titulo">
+            <h4>${esc(m.nombre || m.id)}</h4>
+            <span class="modelo-card-sub">${esc(etiqueta)}${params ? " · " + esc(params) : ""}${m.licencia ? " · " + esc(m.licencia) : ""}</span>
+          </div>
+          ${m.estrella ? `<span class="modelo-badge estrella">Mejor para ti</span>` : ""}
+        </div>
+        <div class="modelo-card-datos">
+          <div><span>Tamaño</span><b>${m.tamanoMB || "—"} MB</b></div>
+          <div><span>RAM mínima</span><b>${m.ramMinimaMB || "—"} MB</b></div>
+          <div><span>Velocidad</span><b>${m.velocidadToks || "—"} tok/s</b></div>
+          <div><span>Nivel</span><b class="${m.nivel === "exigente" ? "alerta" : "ok"}">${esc(m.nivel || "—")}</b></div>
+        </div>
+        <div class="modelo-card-calidad" title="Calidad relativa del catálogo">
+          ${[1,2,3,4,5].map(function (n) {
+            return `<i class="${n <= (m.calidad || 0) ? "lleno" : ""}"></i>`;
+          }).join("")}
+          <span>${esc(m.uso || "")}</span>
+        </div>
+        <p class="modelo-card-nota">${esc(m.nota || "")}</p>
+        <div class="modelo-card-pie">
+          <span class="modelo-card-aviso">${cabe ? "Cabe en tu RAM" : "Puede no caber: libera memoria"}</span>
+          <button class="btn btn-primario btn-mini" data-modelo-descargar="${esc(m.id)}">Descargar</button>
+        </div>
+      </article>`;
     });
-    html += `</tbody></table>`;
+    html += `</div>`;
+    html += `<p class="nota">La velocidad es una estimación para un teléfono de gama media; el primer token siempre tarda más. Los modelos de 3B necesitan ~2,7 GB de RAM y disco libre.</p>`;
   }
 
   if (det.length) {
@@ -890,6 +925,10 @@ async function cargarModelosRecomendados() {
   estadoApp.global.detectados = d.detectados || [];
   estadoApp.global.dispositivo = estadoApp.global.dispositivo || {};
   estadoApp.global.dispositivo.memTotalMB = d.memTotalMB;
+  estadoApp.global.dispositivo.memDisponibleMB = d.memDisponibleMB;
+  estadoApp.global.dispositivo.nucleos = d.nucleos;
+  estadoApp.global.dispositivo.presupuestoMB = d.presupuestoMB;
+  estadoApp.global.dispositivo.perfil = d.perfil;
   pintarModelos();
 }
 
@@ -1504,6 +1543,8 @@ function chatIniciar() {
     }, { passive: true });
   }
   chatInicializarAjustesIA();
+  chatInicializarPestanas();
+  chatPintarFamilia();
 }
 
 /** Refresca el pill de estado y el avatar según el modo y el modelo. */
@@ -1624,6 +1665,8 @@ function chatPintarEstadoLocal(r) {
     punto.className = "punto ok";
     const inf = r.info || {};
     estadoApp.chat.nCtx = Number(r.n_ctx || inf.n_ctx || 2048) || 2048;
+    estadoApp.chat.infoDesc = inf.desc || "";
+    if (r.ruta) estadoApp.chat.modeloRuta = r.ruta;
     estado.textContent = "Modelo cargado · ctx " + estadoApp.chat.nCtx;
     info.textContent = [
       inf.desc || "GGUF listo",
@@ -1632,6 +1675,7 @@ function chatPintarEstadoLocal(r) {
       r.ruta ? "ruta: " + r.ruta : ""
     ].filter(Boolean).join(" · ");
     estadoApp.chat.cargando = false;
+    chatPintarFamilia();
     chatActualizarCabecera();
     chatActualizarContexto();
     return;
@@ -1939,7 +1983,7 @@ async function chatContextoRag(consulta) {
    Escrita corta a propósito: el modelo local de 0.5B pierde precisión con
    instrucciones largas. El tono es chileno, sin caricaturizarlo. */
 const PERSONALIDAD = [
-  "Eres FABRI-CORE, el asistente que vive en el teléfono del usuario. Responde como una persona cercana y segura, no como una máquina.",
+  "Eres FORGE CORE STOCK, el asistente que vive en el teléfono del usuario. Responde como una persona cercana y segura, no como una máquina.",
   "Hablas español de Chile, natural y cálido. Frases cortas, una idea por frase.",
   "Vas al grano: 2 o 3 líneas, sin relleno ni listas salvo que te las pidan.",
   "Usa alguna muletilla chilena con medida (mira, oye, al tiro, cacha), sin exagerar.",
@@ -2018,6 +2062,156 @@ function chatEstimarTokens(texto) {
 }
 
 /*
+ * Plantillas de chat por familia de modelo.
+ *
+ * Cada familia espera marcadores distintos. Con la plantilla equivocada el
+ * modelo responde peor o no se detiene: Llama 3.2 no entiende ChatML y Qwen no
+ * entiende los headers de Llama. La plantilla se elige sola por el nombre del
+ * GGUF cargado y el preset de muestreo la acompaña.
+ */
+const CHAT_FAMILIAS = {
+  qwen: {
+    nombre: "Qwen 2 · ChatML",
+    plantilla: "chatml",
+    preset: { temperatura: 0.7, topP: 0.9, topK: 40, repeticion: 1.1, maxTokens: 256 },
+    nota: "ChatML con <|im_start|>. Es el preset por defecto de la app."
+  },
+  llama: {
+    nombre: "Llama 3.2 · headers",
+    plantilla: "llama3",
+    preset: { temperatura: 0.6, topP: 0.9, topK: 40, repeticion: 1.1, maxTokens: 384 },
+    nota: "Usa <|begin_of_text|> y <|eot_id|>. Temperatura 0.6, como recomienda Meta."
+  },
+  smollm: {
+    nombre: "SmolLM2 · ChatML",
+    plantilla: "chatml",
+    preset: { temperatura: 0.7, topP: 0.9, topK: 50, repeticion: 1.1, maxTokens: 256 },
+    nota: "ChatML. Top-k 50 porque su vocabulario es más pequeño."
+  },
+  gemma: {
+    nombre: "Gemma · turnos",
+    plantilla: "gemma",
+    preset: { temperatura: 0.7, topP: 0.95, topK: 64, repeticion: 1.1, maxTokens: 256 },
+    nota: "Usa <start_of_turn> y <end_of_turn>. Top-p 0.95."
+  },
+  phi: {
+    nombre: "Phi-3 · turnos",
+    plantilla: "phi3",
+    preset: { temperatura: 0.7, topP: 0.9, topK: 40, repeticion: 1.1, maxTokens: 256 },
+    nota: "Usa <|system|>, <|user|> y <|end|>."
+  },
+  generico: {
+    nombre: "GGUF genérico · ChatML",
+    plantilla: "chatml",
+    preset: { temperatura: 0.7, topP: 0.9, topK: 40, repeticion: 1.1, maxTokens: 256 },
+    nota: "No se reconoce la familia: se usa ChatML, el formato más común."
+  }
+};
+
+/** Familia del modelo cargado, deducida del nombre del archivo. */
+function chatFamiliaActual() {
+  const ruta = String(estadoApp.chat.modeloRuta || "").toLowerCase();
+  const desc = String((estadoApp.chat.infoDesc || "")).toLowerCase();
+  const todo = ruta + " " + desc;
+  if (!todo.trim()) return "qwen"; // preset por defecto de la app
+  if (/qwen/.test(todo)) return "qwen";
+  if (/llama-?3|llama3|llama 3/.test(todo)) return "llama";
+  if (/smollm/.test(todo)) return "smollm";
+  if (/gemma/.test(todo)) return "gemma";
+  if (/phi-?3|phi3/.test(todo)) return "phi";
+  return "generico";
+}
+
+/** Preset recomendado para el modelo cargado. */
+function chatPresetActual() {
+  return CHAT_FAMILIAS[chatFamiliaActual()] || CHAT_FAMILIAS.qwen;
+}
+
+/** Pinta la plantilla y el preset activos en la pestaña IA / Modelo. */
+function chatPintarFamilia() {
+  const fam = chatPresetActual();
+  const nombre = document.getElementById("chatFamiliaNombre");
+  const nota = document.getElementById("chatFamiliaNota");
+  const presetNombre = document.getElementById("chatPresetNombre");
+  const presetNota = document.getElementById("chatPresetNota");
+  const btn = document.getElementById("btnChatAplicarConfig");
+  if (nombre) nombre.textContent = fam.nombre;
+  if (nota) nota.textContent = fam.nota;
+  if (presetNombre) presetNombre.textContent = fam.nombre.split(" · ")[0];
+  if (presetNota) presetNota.textContent = "Recomendado para " + fam.nombre.split(" · ")[0]
+    + ": temperatura " + fam.preset.temperatura + " · top-p " + fam.preset.topP
+    + " · top-k " + fam.preset.topK + " · repetición " + fam.preset.repeticion
+    + " · " + fam.preset.maxTokens + " tokens. Al cargar otro modelo se ajusta sola.";
+  if (btn) btn.textContent = "Aplicar a " + fam.nombre.split(" · ")[0];
+}
+
+/** Aplica el preset de la familia al estado y a los controles. */
+function chatAplicarPresetModelo(avisar) {
+  const fam = chatPresetActual();
+  const p = fam.preset;
+  const c = estadoApp.chat;
+  c.temperatura = p.temperatura;
+  c.topP = p.topP;
+  c.topK = p.topK;
+  c.repeticion = p.repeticion;
+  c.maxTokens = p.maxTokens;
+  chatPintarAjustesIA();
+  chatPintarFamilia();
+  // Se envía al núcleo ahora, con el modelo recién cargado y sin inferencia en
+  // curso: es el único momento seguro para tocar el sampler.
+  try {
+    window.FabrickNative.localConfigurar(c.temperatura, c.topP, c.topK, c.repeticion, 0);
+  } catch (e) { /* el shim usa sus valores por defecto */ }
+  if (avisar) {
+    toast("Ajustes de IA para " + fam.nombre.split(" · ")[0] + " listos");
+    revision("llm", "info", "preset aplicado", fam.nombre, 0, "llama");
+  }
+}
+
+/** Envuelve el bloque de sistema + historial en la plantilla de la familia. */
+function chatArmarPlantilla(sistema, bloques, familia) {
+  const fam = CHAT_FAMILIAS[familia] || CHAT_FAMILIAS.generico;
+  if (fam.plantilla === "llama3") {
+    const ini = "<|begin_of_text|>";
+    let s = ini + "<|start_header_id|>system<|end_header_id|>\n\n" + sistema + "<|eot_id|>";
+    bloques.forEach(function (b) {
+      s += "<|start_header_id|>" + (b.rol === "user" ? "user" : "assistant") + "<|end_header_id|>\n\n"
+        + b.texto + "<|eot_id|>";
+    });
+    return s + "<|start_header_id|>assistant<|end_header_id|>\n\n";
+  }
+  if (fam.plantilla === "gemma") {
+    // Gemma no tiene rol system: las instrucciones van dentro del primer turno.
+    let s = "";
+    let primera = true;
+    bloques.forEach(function (b) {
+      if (b.rol === "user") {
+        const cuerpo = primera ? sistema + "\n\n" + b.texto : b.texto;
+        primera = false;
+        s += "<start_of_turn>user\n" + cuerpo + "<end_of_turn>\n";
+      } else {
+        s += "<start_of_turn>model\n" + b.texto + "<end_of_turn>\n";
+      }
+    });
+    return s + "<start_of_turn>model\n";
+  }
+  if (fam.plantilla === "phi3") {
+    let s = "<|system|>\n" + sistema + "<|end|>\n";
+    bloques.forEach(function (b) {
+      s += (b.rol === "user" ? "<|user|>\n" : "<|assistant|>\n") + b.texto + "<|end|>\n";
+    });
+    return s + "<|assistant|>\n";
+  }
+  // ChatML (Qwen, SmolLM2 y genéricos)
+  let s = "<|im_start|>system\n" + sistema + "<|im_end|>\n";
+  bloques.forEach(function (b) {
+    s += "<|im_start|>" + (b.rol === "user" ? "user" : "assistant") + "\n"
+      + b.texto + "<|im_end|>\n";
+  });
+  return s + "<|im_start|>assistant\n";
+}
+
+/*
  * El prompt se arma para que el prefijo sea estable entre turnos: el bloque de
  * sistema no cambia y el contexto dinámico (SQL, RAG) viaja dentro del último
  * mensaje del usuario. Así la memoria KV del turno anterior se reutiliza casi
@@ -2025,36 +2219,31 @@ function chatEstimarTokens(texto) {
  */
 function chatPromptLocal(contexto) {
   const c = estadoApp.chat;
-  const maxSalida = 512;
+  const maxSalida = c.maxTokens || 256;
   const presupuesto = Math.max(320, (c.nCtx || 2048) - maxSalida - 32);
-  const sistema = `system
-${chatSistemaContexto()}
+  const sistema = `Eres FORGE CORE STOCK, el asistente de inventario y ventas del negocio. Respondes en español chileno, corto y directo.
 Reglas obligatorias:
-- Responde SIEMPRE en español chileno, corto y directo.
-- Si el usuario pregunta por productos, stock, precios, márgenes o ventas, usa los DATOS REALES del inventario que se te dan como contexto. No inventes números.
-- Máximo 4 o 5 líneas. Sin listas largas. Sin repeticiones. Sin símbolos raros.
-- Si no tienes información suficiente, dilo claramente.
-`;
-  const pregunta = `<|im_start|>assistant\n`;
-  const ctx = String(contexto || "").trim().slice(0, 1400);
-  let usado = chatEstimarTokens(sistema + pregunta);
+- Si la pregunta es de productos, stock, precios, márgenes o ventas, usa los DATOS REALES que vienen en el mensaje. Nunca inventes números.
+- Máximo 4 o 5 líneas. Sin listas largas, sin repetir la pregunta, sin símbolos raros.
+- Si no tienes el dato, dilo en una línea y sugiere dónde mirarlo.
+${chatSistemaContexto()}`;
+  const ctx = String(contexto || "").trim().slice(0, 1600);
+  let usado = chatEstimarTokens(sistema) + 16;
 
   const msgs = c.mensajes.filter((m) => (m.rol === "user" || m.rol === "ia") && m.texto);
-  const historial = [];
+  const bloques = [];
   for (let i = msgs.length - 1; i >= 0; i--) {
     const m = msgs[i];
     let cuerpo = m.texto;
     if (m.rol === "user" && i === msgs.length - 1 && ctx) {
       cuerpo = "Contexto real disponible:\n" + ctx + "\n\n" + cuerpo;
     }
-    const bloque = (m.rol === "user" ? "<|im_start|>user\n" : "<|im_start|>assistant\n")
-      + cuerpo + "<|im_end|>\n";
-    const costo = chatEstimarTokens(bloque);
+    const costo = chatEstimarTokens(cuerpo) + 8;
     if (usado + costo > presupuesto) break;
-    historial.unshift(bloque);
+    bloques.unshift({ rol: m.rol, texto: cuerpo });
     usado += costo;
   }
-  return sistema + historial.join("") + pregunta;
+  return chatArmarPlantilla(sistema, bloques, chatFamiliaActual());
 }
 
 /* ------------------------------------------------------------------
@@ -2327,18 +2516,43 @@ function chatAvisarModeloInsuficiente() {
 /* --------------------------------------------------------------- ajustes de IA */
 /** Lee los valores actuales de los controles de muestreo y los guarda en el
  *  estado del chat. Se aplican al modelo nativo en cada envío. */
+/** Lee un control numérico respetando el 0 (que es un valor válido). */
+function chatNumControl(id, def) {
+  const el = document.getElementById(id);
+  const v = el ? Number(el.value) : NaN;
+  return Number.isFinite(v) ? v : def;
+}
+
+/** Escribe las etiquetas de valor junto a cada control. */
+function chatPintarValoresIA(c) {
+  const poner = function (id, txt) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = txt;
+  };
+  poner("valTemperatura", Number(c.temperatura).toFixed(1));
+  poner("valTopP", Number(c.topP).toFixed(2));
+  poner("valTopK", String(c.topK));
+  poner("valRepeticion", Number(c.repeticion).toFixed(2));
+  poner("valMaxTokens", String(c.maxTokens));
+}
+
+/** Lee los CONTROLES (sin tocar el estado). Solo lo usa «Aplicar al modelo». */
+function chatLeerControlesIA() {
+  // Ojo: `Number(v) || def` convertía 0 en el valor por defecto. Temperatura 0
+  // (respuestas deterministas) y top-k 0 son válidos y deben respetarse.
+  return {
+    temperatura: Math.min(2, Math.max(0, chatNumControl("cfgTemperatura", 0.7))),
+    topP: Math.min(1, Math.max(0, chatNumControl("cfgTopP", 0.9))),
+    topK: Math.min(200, Math.max(0, Math.round(chatNumControl("cfgTopK", 40)))),
+    repeticion: Math.min(2, Math.max(1, chatNumControl("cfgRepeticion", 1.1))),
+    maxTokens: Math.min(4096, Math.max(16, Math.round(chatNumControl("cfgMaxTokens", 256))))
+  };
+}
+
+/** Sampler del estado ya aplicado. Es lo que recibe el modelo en cada turno:
+ *  mover un slider no cambia nada hasta pulsar «Aplicar al modelo». */
 function chatLeerAjustesIA() {
   const c = estadoApp.chat;
-  c.temperatura = Number(document.getElementById("cfgTemperatura").value) || 0.7;
-  c.topP = Number(document.getElementById("cfgTopP").value) || 0.9;
-  c.topK = Number(document.getElementById("cfgTopK").value) || 40;
-  c.repeticion = Number(document.getElementById("cfgRepeticion").value) || 1.1;
-  c.maxTokens = Number(document.getElementById("cfgMaxTokens").value) || 256;
-  document.getElementById("valTemperatura").textContent = c.temperatura.toFixed(1);
-  document.getElementById("valTopP").textContent = c.topP.toFixed(2);
-  document.getElementById("valTopK").textContent = c.topK;
-  document.getElementById("valRepeticion").textContent = c.repeticion.toFixed(1);
-  document.getElementById("valMaxTokens").textContent = c.maxTokens;
   return {
     temperatura: c.temperatura,
     top_p: c.topP,
@@ -2358,24 +2572,34 @@ function chatPintarAjustesIA() {
   set("cfgTopK", c.topK);
   set("cfgRepeticion", c.repeticion);
   set("cfgMaxTokens", c.maxTokens);
-  chatLeerAjustesIA(); // actualiza etiquetas de valor
+  chatPintarValoresIA(c);
 }
 
 /** Aplica la configuración al núcleo nativo y la guarda en estadoApp.chat. */
 function chatAplicarConfiguracionIA() {
-  const cfg = chatLeerAjustesIA();
+  const v = chatLeerControlesIA();
+  const c = estadoApp.chat;
+  c.temperatura = v.temperatura;
+  c.topP = v.topP;
+  c.topK = v.topK;
+  c.repeticion = v.repeticion;
+  c.maxTokens = v.maxTokens;
+  chatPintarValoresIA(c);
   try {
     window.FabrickNative.localConfigurar(
-      cfg.temperatura, cfg.top_p, cfg.top_k, cfg.repetir, cfg.semilla
+      c.temperatura, c.topP, c.topK, c.repeticion, (Math.random() * 2147483647) | 0
     );
   } catch (e) { /* el shim usa sus valores por defecto */ }
-  toast("Configuración de IA aplicada");
+  const fam = chatPresetActual();
+  toast("Ajustes aplicados a " + fam.nombre.split(" · ")[0]);
+  revision("llm", "info", "muestreo aplicado", "temp " + c.temperatura
+    + " · top_p " + c.topP + " · top_k " + c.topK + " · rep " + c.repeticion
+    + " · " + c.maxTokens + " tokens", 0, "llama");
 }
 
-/** Actualiza solo las etiquetas de valor junto a cada slider (no aplica al modelo).
-   `chatLeerAjustesIA` lee los controles y pinta los valores, sin tocar el núcleo. */
+/** Actualiza solo las etiquetas de valor (no toca el estado ni el modelo). */
 function chatActualizarValoresIA() {
-  chatLeerAjustesIA();
+  chatPintarValoresIA(chatLeerControlesIA());
 }
 
 /** Conecta los controles de ajuste de IA (una sola vez).
@@ -2397,6 +2621,268 @@ function chatInicializarAjustesIA() {
     }, { passive: true });
   }
   estadoApp.chat._ajustesIAListos = true;
+}
+
+/* --------------------------------------------------------------- pestañas */
+
+/** Cambia la pestaña visible de los ajustes y mueve el indicador. */
+function chatCambiarPestana(nombre) {
+  const tabs = document.getElementById("chatTabs");
+  if (!tabs) return;
+  const destino = ["modelo", "ia", "datos"].indexOf(nombre) >= 0 ? nombre : "modelo";
+  tabs.dataset.tab = destino;
+  tabs.querySelectorAll("[data-chat-tab]").forEach(function (b) {
+    const on = b.dataset.chatTab === destino;
+    b.classList.toggle("activo", on);
+    b.setAttribute("aria-selected", String(on));
+  });
+  tabs.parentNode.querySelectorAll("[data-chat-panel]").forEach(function (p) {
+    p.classList.toggle("activo", p.dataset.chatPanel === destino);
+  });
+  if (destino === "datos") chatCargarDatos(false);
+  if (destino === "ia") chatPintarFamilia();
+}
+
+function chatInicializarPestanas() {
+  const tabs = document.getElementById("chatTabs");
+  if (!tabs || tabs.dataset.listo) return;
+  tabs.dataset.listo = "1";
+  tabs.addEventListener("click", function (ev) {
+    const b = ev.target.closest("[data-chat-tab]");
+    if (b) chatCambiarPestana(b.dataset.chatTab);
+  });
+  // Las explicaciones «i» se abren al tocar y se cierran al tocar de nuevo.
+  document.querySelectorAll(".ajuste-info").forEach(function (b) {
+    b.addEventListener("click", function (ev) {
+      ev.preventDefault();
+      const abierto = b.classList.contains("abierto");
+      document.querySelectorAll(".ajuste-info.abierto").forEach(function (x) { x.classList.remove("abierto"); });
+      if (!abierto) b.classList.add("abierto");
+    });
+  });
+  document.addEventListener("click", function (ev) {
+    if (ev.target.closest(".ajuste-info")) return;
+    document.querySelectorAll(".ajuste-info.abierto").forEach(function (x) { x.classList.remove("abierto"); });
+  }, { passive: true });
+  chatPintarFamilia();
+}
+
+/* ----------------------------------------------------- panel de datos reales */
+/* La MISMA llamada que usa el inventario (`inventario.panel`): así el chat y
+   la pestaña Datos muestran exactamente los mismos números que el inventario. */
+
+let chatDatosCache = null;
+let chatDatosTs = 0;
+let chatDatosCargando = false;
+
+function chatClp(n) {
+  const v = Number(n || 0);
+  return "$" + Math.round(v).toLocaleString("es-CL");
+}
+
+async function chatCargarDatos(forzar) {
+  const caja = document.getElementById("chatDatos");
+  if (!caja) return chatDatosCache;
+  // Caché de 30 s: abrir la pestaña varias veces no golpea la base.
+  if (!forzar && chatDatosCache && Date.now() - chatDatosTs < 30000) {
+    chatPintarDatos(chatDatosCache);
+    return chatDatosCache;
+  }
+  if (chatDatosCargando) return chatDatosCache;
+  chatDatosCargando = true;
+  caja.innerHTML = `<div class="chat-datos-vacio">Leyendo inventario y ventas…</div>`;
+  const r = await apiTarde("inventario", { accion: "panel" }, { maxMs: 12000 });
+  chatDatosCargando = false;
+  if (!r.ok || !r.data || !r.data.ok) {
+    caja.innerHTML = `<div class="chat-datos-vacio">No se pudo leer el inventario: `
+      + esc((r.error || "sin respuesta")) + `</div>`;
+    return null;
+  }
+  chatDatosCache = r.data;
+  chatDatosTs = Date.now();
+  chatPintarDatos(chatDatosCache);
+  return chatDatosCache;
+}
+
+function chatPintarDatos(d) {
+  const caja = document.getElementById("chatDatos");
+  if (!caja || !d) return;
+  const res = d.resumen || {};
+  const ven = d.ventas || {};
+  const v24 = ven.ultimas_24h || {};
+  const v30 = ven.ultimos_30d || {};
+  const sync = d.sync || {};
+  const cats = (d.categorias || []).slice(0, 5);
+  const bajos = (d.stock_bajo || []).slice(0, 5);
+  const margen = (d.top_margen || []).slice(0, 5);
+
+  caja.innerHTML = `
+    <div class="chat-datos-grid">
+      <div class="chat-dato lima"><span>Valor de venta</span><strong>${chatClp(res.valor_venta)}</strong><small>${res.unidades || 0} unidades</small></div>
+      <div class="chat-dato"><span>Utilidad potencial</span><strong>${chatClp(res.utilidad_potencial)}</strong><small>margen ${res.margen_promedio || 0}%</small></div>
+      <div class="chat-dato ${res.stock_bajo > 0 ? "alerta" : ""}"><span>Stock bajo</span><strong>${res.stock_bajo || 0}</strong><small>${res.agotados || 0} agotados</small></div>
+      <div class="chat-dato"><span>Ventas 24 h</span><strong>${chatClp(v24.total)}</strong><small>${v24.n || 0} boletas · ${v24.unidades || 0} u.</small></div>
+      <div class="chat-dato"><span>Ventas 30 días</span><strong>${chatClp(v30.total)}</strong><small>utilidad ${chatClp(v30.utilidad)}</small></div>
+      <div class="chat-dato"><span>Ticket promedio</span><strong>${chatClp(ven.ticket_promedio)}</strong><small>${v30.n || 0} boletas</small></div>
+      <div class="chat-dato ancho"><span>Productos</span><strong>${res.total || 0} en ${cats.length ? (d.categorias || []).length + " categorías" : "sin categorías"}</strong><small>${res.sin_precio || 0} sin precio · ${res.sin_costo || 0} sin costo</small></div>
+    </div>
+
+    ${bajos.length ? `<p class="chat-datos-titulo">Reponer primero</p>
+      <div class="chat-datos-lista">${bajos.map(function (p) {
+        return `<div class="chat-datos-fila"><b>${esc(p.nombre)}</b><span>${p.stock} / mín ${p.stock_minimo}</span></div>`;
+      }).join("")}</div>` : ""}
+
+    ${margen.length ? `<p class="chat-datos-titulo">Mejor margen</p>
+      <div class="chat-datos-lista">${margen.map(function (p) {
+        return `<div class="chat-datos-fila"><b>${esc(p.nombre)}</b><span>${p.margen_pct}%</span></div>`;
+      }).join("")}</div>` : ""}
+
+    ${cats.length ? `<p class="chat-datos-titulo">Categorías</p>
+      <div class="chat-datos-lista">${cats.map(function (c) {
+        return `<div class="chat-datos-fila"><b>${esc(c.categoria)}</b><span>${chatClp(c.valor_venta)}</span></div>`;
+      }).join("")}</div>` : ""}
+
+    <p class="chat-datos-pie">${sync.pendientes || 0} productos y ${sync.boletas_pendientes || 0} boletas sin subir · ${hora(Math.round((d.generado || 0) / 1000))}</p>
+  `;
+}
+
+/* ------------------------------------------ respuestas directas de inventario */
+/* Si la pregunta es clara («¿qué falta?», «¿cuánto vale?», «¿qué deja más
+   margen?»), la respuesta sale de SQLite al instante, sin esperar al modelo.
+   El modelo queda para lo que de verdad necesita lenguaje: explicar, comparar,
+   redactar. Esto es lo que hace que el chat se sienta instantáneo. */
+
+/** Devuelve el tipo de consulta de inventario, o "" si no es una. */
+function chatTipoConsultaInventario(texto) {
+  const t = String(texto || "").toLowerCase();
+  if (t.length > 220) return "";
+  if (t.indexOf("/sql") === 0 || t.indexOf("/consulta") === 0) return "";
+  const tieneProducto = /producto|inventario|stock|precio|margen|ganancia|utilidad|venta|categor|proveedor|reponer|agotad|unidad/.test(t);
+  if (!tieneProducto) return "";
+  if (/qu[eé]\s+(me\s+)?falta|reponer|reposici[oó]n|stock\s*bajo|poco\s+stock|agotad|sin\s+stock|se\s+acab/.test(t)) return "stock";
+  if (/m[aá]s\s+(ganancia|margen|rentab)|mejor\s+margen|qu[eé]\s+deja|rentab/.test(t)) return "margen";
+  if (/cu[aá]nto\s+(vend[ií]|he\s+vendido)|ventas|vendido|ticket/.test(t)) return "ventas";
+  if (/categor[ií]a/.test(t)) return "categorias";
+  if (/cu[aá]ntos?\s+productos|cu[aá]ntas?\s+unidades|resumen|valor\s+(del\s+)?inventario|cu[aá]nto\s+vale|c[oó]mo\s+va|estado\s+del\s+negocio/.test(t)) return "resumen";
+  if (/proveedor/.test(t)) return "proveedores";
+  return "";
+}
+
+/** Respuesta determinista, en texto, con los datos del panel. */
+function chatRespuestaInventario(tipo, d) {
+  if (!d || !d.resumen) return "";
+  const r = d.resumen;
+  const v = d.ventas || {};
+  const v24 = v.ultimas_24h || {};
+  const v30 = v.ultimos_30d || {};
+  if (tipo === "stock") {
+    const bajos = (d.stock_bajo || []).slice(0, 5);
+    if (!bajos.length) {
+      return "No tienes productos bajo el mínimo. " + (r.agotados || 0) + " agotados de " + r.total + " productos.";
+    }
+    const lista = bajos.map(function (p) {
+      return "· " + p.nombre + ": " + p.stock + " (mínimo " + p.stock_minimo + ")";
+    }).join("\n");
+    return "Tienes " + r.stock_bajo + " productos bajo el mínimo y " + r.agotados + " agotados.\n" + lista
+      + (r.stock_bajo > bajos.length ? "\n…y " + (r.stock_bajo - bajos.length) + " más." : "");
+  }
+  if (tipo === "margen") {
+    const m = (d.top_margen || []).slice(0, 5);
+    if (!m.length) return "Aún no hay productos con costo y precio cargados, así que no puedo calcular margen real.";
+    return "Tu margen promedio es " + (r.margen_promedio || 0) + "%. Los que más dejan:\n"
+      + m.map(function (p) {
+        return "· " + p.nombre + ": " + p.margen_pct + "% (" + chatClp(p.ganancia) + " por unidad)";
+      }).join("\n");
+  }
+  if (tipo === "ventas") {
+    if (!v30.n) return "No hay boletas en los últimos 30 días. El ticket promedio aparecerá cuando emitas la primera.";
+    return "Últimas 24 h: " + v24.n + " boletas por " + chatClp(v24.total) + " (utilidad " + chatClp(v24.utilidad) + ").\n"
+      + "Últimos 30 días: " + v30.n + " boletas por " + chatClp(v30.total) + " (utilidad " + chatClp(v30.utilidad) + ").\n"
+      + "Ticket promedio: " + chatClp(v.ticket_promedio) + ".";
+  }
+  if (tipo === "categorias") {
+    const cats = (d.categorias || []).slice(0, 6);
+    if (!cats.length) return "Todavía no hay productos clasificados por categoría.";
+    return "Tus categorías por valor de venta:\n"
+      + cats.map(function (c) {
+        return "· " + c.categoria + ": " + c.n + " productos, " + chatClp(c.valor_venta) + " (margen " + c.margen_pct + "%)";
+      }).join("\n");
+  }
+  if (tipo === "proveedores") {
+    return "Los proveedores se ven en Inventario → Precios. Ahí cada producto guarda su proveedor y el historial de precios.";
+  }
+  // resumen
+  return "Tienes " + r.total + " productos y " + r.unidades + " unidades en stock.\n"
+    + "Valor de venta " + chatClp(r.valor_venta) + " · costo " + chatClp(r.valor_costo) + " · utilidad potencial " + chatClp(r.utilidad_potencial) + " (margen " + r.margen_promedio + "%).\n"
+    + r.stock_bajo + " bajo el mínimo, " + r.agotados + " agotados. Ventas 24 h: " + v24.n + " boletas por " + chatClp(v24.total) + ".";
+}
+
+/** Intenta responder sin modelo. Devuelve el texto o "" si hay que usar el LLM. */
+async function chatIntentarRespuestaDirecta(texto) {
+  const tipo = chatTipoConsultaInventario(texto);
+  if (!tipo) return "";
+  const d = await chatCargarDatos(true);
+  if (!d) return "";
+  return chatRespuestaInventario(tipo, d);
+}
+
+/** Resumen compacto del panel para inyectar como contexto al modelo. */
+function chatResumenParaModelo(d) {
+  if (!d || !d.resumen) return "";
+  const r = d.resumen;
+  const v = d.ventas || {};
+  const v24 = v.ultimas_24h || {};
+  const v30 = v.ultimos_30d || {};
+  const lineas = [
+    "Productos: " + r.total + " · unidades en stock: " + r.unidades,
+    "Valor de venta: " + chatClp(r.valor_venta) + " · costo: " + chatClp(r.valor_costo)
+      + " · utilidad potencial: " + chatClp(r.utilidad_potencial) + " (margen " + r.margen_promedio + "%)",
+    "Stock bajo: " + r.stock_bajo + " · agotados: " + r.agotados
+      + " · sin precio: " + (r.sin_precio || 0) + " · sin costo: " + (r.sin_costo || 0),
+    "Ventas 24 h: " + (v24.n || 0) + " boletas por " + chatClp(v24.total)
+      + " · 30 días: " + (v30.n || 0) + " boletas por " + chatClp(v30.total)
+      + " · ticket promedio " + chatClp(v.ticket_promedio)
+  ];
+  const bajos = (d.stock_bajo || []).slice(0, 6);
+  if (bajos.length) {
+    lineas.push("Bajo el mínimo: " + bajos.map(function (p) {
+      return p.nombre + " (" + p.stock + "/" + p.stock_minimo + ")";
+    }).join(", "));
+  }
+  const margen = (d.top_margen || []).slice(0, 6);
+  if (margen.length) {
+    lineas.push("Mejor margen: " + margen.map(function (p) {
+      return p.nombre + " " + p.margen_pct + "%";
+    }).join(", "));
+  }
+  const cats = (d.categorias || []).slice(0, 6);
+  if (cats.length) {
+    lineas.push("Categorías: " + cats.map(function (c) {
+      return c.categoria + " (" + c.n + ", " + chatClp(c.valor_venta) + ")";
+    }).join(", "));
+  }
+  return lineas.join("\n");
+}
+
+/** Resuelve con el valor de la promesa o con "" si tarda más de `ms`. */
+function conTope(promesa, ms) {
+  return new Promise(function (resolve) {
+    let listo = false;
+    const t = setTimeout(function () {
+      if (!listo) { listo = true; resolve(""); }
+    }, ms);
+    Promise.resolve(promesa).then(function (v) {
+      if (listo) return;
+      listo = true;
+      clearTimeout(t);
+      resolve(v || "");
+    }).catch(function () {
+      if (listo) return;
+      listo = true;
+      clearTimeout(t);
+      resolve("");
+    });
+  });
 }
 
 /* --------------------------------------------------------------- envío */
@@ -2461,58 +2947,77 @@ async function chatEnviar() {
   };
   const callar = function () { if (avisoEl) avisoEl.hidden = true; };
 
-  // 1) Si es una consulta SQL directa (/sql), ejecutarla y usar el resultado como contexto
-  let contextoSql = "";
+  // 0) Respuesta directa de inventario. Si la pregunta es clara, SQLite
+  //    responde al instante y el modelo ni se toca: cero espera, cero
+  //    alucinación. El modelo queda para explicar, comparar o redactar.
+  avisar("Leyendo tu inventario…");
+  // Tope duro: si la base tarda, se sigue con el modelo en vez de dejar el
+  // chat colgado. La respuesta directa nunca puede bloquear el turno.
+  let directa = "";
+  try {
+    directa = await conTope(chatIntentarRespuestaDirecta(texto), 5000);
+  } catch (e) {
+    directa = "";
+    revision("chat", "aviso", "respuesta directa falló", String(e), 0, "chat");
+  }
+  if (directa) {
+    callar();
+    let m = estadoApp.chat.mensajes[estadoApp.chat.indiceIA];
+    if (!m) {
+      m = { rol: "ia", ts: Date.now() };
+      estadoApp.chat.mensajes.push(m);
+    }
+    m.rol = "ia";
+    m.texto = directa;
+    m.parcial = false;
+    m.origen = "datos";
+    m.meta = "datos locales";
+    estadoApp.chat.ultimaRespuesta = directa;
+    estadoApp.chat.enviando = false;
+    estadoApp.chat.indiceIA = -1;
+    chatAvatarEstado("idle");
+    chatPintarMensajes();
+    chatActualizarBotonEnviar();
+    revision("chat", "info", "respuesta directa de inventario", String(texto).slice(0, 90), 0, "chat");
+    return;
+  }
+
+  // 1) Contexto en PARALELO con topes cortos. Antes se pedía en cadena
+  //    (SQL → BD → GraphRAG → RAG) y cada paso podía tardar 15 s: el chat se
+  //    sentía colgado aunque el modelo fuera rápido. Ahora todo sale a la vez
+  //    y lo que no llega en el tope simplemente no viaja.
+  const negocio = detectarModoPregunta(texto) === "negocio";
+  const topeRag = negocio ? 1200 : 4000;
+  avisar(negocio ? "Revisando inventario y números…" : "Buscando contexto…");
+
+  const tareas = [];
+
+  // SQL directo pedido por el usuario (/sql …)
   if (esConsultaSql(texto)) {
-    avisar("Ejecutando tu consulta en la base local…");
-    const sql = extraerSql(texto);
-    const rSql = await ejecutarSqlChat(sql);
-    if (rSql.ok) {
-      contextoSql = "Resultado de la consulta SQL:\n" + rSql.texto + "\n\n";
-    } else {
-      contextoSql = "Error en la consulta SQL: " + (rSql.error || "desconocido") + "\n\n";
-    }
+    tareas.push(conTope((async function () {
+      const rSql = await ejecutarSqlChat(extraerSql(texto));
+      return rSql.ok
+        ? "Resultado de la consulta SQL:\n" + rSql.texto + "\n\n"
+        : "Error en la consulta SQL: " + (rSql.error || "desconocido") + "\n\n";
+    })(), 6000));
+  } else if (esPreguntaBD(texto)) {
+    // Pregunta de negocio: se usa el panel real, no una consulta adivinada.
+    tareas.push(conTope((async function () {
+      const d = await chatCargarDatos(true);
+      if (!d) return "";
+      return "Datos reales de tu inventario:\n" + chatResumenParaModelo(d) + "\n\n";
+    })(), 4000));
   }
 
-  // 2) Si es una pregunta sobre la base de datos, ejecutar consulta exploratoria automática
-  let contextoBd = "";
-  if (!contextoSql && esPreguntaBD(texto)) {
-    avisar("Consultando tu inventario…");
-    // Intentar una consulta de resumen según las palabras detectadas
-    const bajo = texto.toLowerCase();
-    let sqlAuto = "";
-    if (bajo.includes("stock") || bajo.includes("agotado") || bajo.includes("quedan") || bajo.includes("quedan")) {
-      sqlAuto = "SELECT nombre, stock, stock_minimo, precio FROM inv_productos ORDER BY stock ASC LIMIT 10;";
-    } else if (bajo.includes("margen") || bajo.includes("ganancia")) {
-      sqlAuto = "SELECT nombre, costo, precio, ROUND((precio - costo) / NULLIF(costo,0) * 100) AS margen_pct, (precio - costo) AS ganancia FROM inv_productos ORDER BY margen_pct DESC LIMIT 10;";
-    } else if (bajo.includes("proveedor")) {
-      sqlAuto = "SELECT nombre, proveedor, costo, precio FROM inv_productos WHERE proveedor <> '' ORDER BY proveedor, nombre LIMIT 10;";
-    } else if (bajo.includes("categoria") || bajo.includes("categoría")) {
-      sqlAuto = "SELECT categoria, COUNT(*) AS cantidad, SUM(stock) AS unidades FROM inv_productos GROUP BY categoria ORDER BY cantidad DESC;";
-    } else if (bajo.includes("total") || bajo.includes("valor") || bajo.includes("resumen") || bajo.includes("inventario")) {
-      sqlAuto = "SELECT COUNT(*) AS productos, SUM(stock) AS unidades, ROUND(SUM(precio * stock), 0) AS valor_inventario FROM inv_productos;";
-    } else if (bajo.includes("precio") || bajo.includes("costo") || bajo.includes("cuánto") || bajo.includes("cuanto") || bajo.includes("vale") || bajo.includes("cuesta")) {
-      sqlAuto = "SELECT nombre, costo, precio, proveedor, (precio - costo) AS ganancia FROM inv_productos ORDER BY precio DESC LIMIT 10;";
-    } else if (bajo.includes("factura")) {
-      sqlAuto = "SELECT id_factura, fecha_emision, subtotal, impuesto_calculado, total FROM facturas ORDER BY fecha_emision DESC LIMIT 10;";
-    } else {
-      sqlAuto = "SELECT codigo, nombre, categoria, stock, precio FROM inv_productos ORDER BY nombre LIMIT 10;";
-    }
-    const rSql = await ejecutarSqlChat(sqlAuto);
-    if (rSql.ok) {
-      contextoBd = "Datos reales de tu inventario:\n" + rSql.texto + "\n\n";
-      avisar("Datos de tu inventario listos");
-    } else {
-      callar();
-    }
+  // GraphRAG y aprendizajes: sólo si la pregunta NO es de negocio. En una
+  // consulta de stock no aportan nada y son los que más tardaban.
+  if (!negocio) {
+    tareas.push(conTope(obtenerContextoGraphRAG(texto), topeRag));
+    tareas.push(conTope(chatContextoRag(texto), topeRag));
   }
 
-  // 3) Obtener contexto de GraphRAG y aprendizajes
-  const contextoGraphRAG = await obtenerContextoGraphRAG(texto);
-
-  // 4) Combinar todo el contexto
-  const contextoCombinado = (contextoSql || "") + (contextoBd || "")
-    + (contextoGraphRAG || "") + (await chatContextoRag(texto));
+  const partes = await Promise.all(tareas);
+  const contextoCombinado = partes.filter(Boolean).join("");
 
   callar();
 
@@ -2664,7 +3169,7 @@ function chatFormatear(texto) {
 function chatVacioHTML() {
   return `<div class="chat-vacio" id="chatVacio">
       <span class="chat-vacio-icono">✦</span>
-      <strong>Hola, soy FABRI-CORE</strong>
+      <strong>Hola, soy FORGE CORE STOCK</strong>
       <p>Pregúntame lo que quieras. Respondo corto y claro, y si quieres te lo leo en voz alta.</p>
       <div class="chat-sugerencias">
         <button type="button" data-sugerencia="¿Qué puedes hacer por mí?">¿Qué puedes hacer?</button>
@@ -2675,10 +3180,16 @@ function chatVacioHTML() {
 }
 
 function chatCabeceraIA(origen) {
+  if (origen === "datos") {
+    return `<div class="msg-cab">
+      <span class="msg-nombre">FORGE CORE STOCK</span>
+      <span class="badge-origen datos">Datos</span>
+    </div>`;
+  }
   const tipo = origen === "remoto" ? "remoto" : "local";
   const texto = tipo === "remoto" ? "Remoto" : "Local";
   return `<div class="msg-cab">
-      <span class="msg-nombre">FABRI-CORE</span>
+      <span class="msg-nombre">FORGE CORE STOCK</span>
       <span class="badge-origen ${tipo}">${texto}</span>
     </div>`;
 }
@@ -2929,7 +3440,11 @@ window.FabriChat = {
     if (r && r.ok) {
       estadoApp.chat.localCargado = true;
       chatPintarEstadoLocal(r);
-      toast("Modelo cargado: " + (r.desc || "GGUF listo"));
+      // La plantilla y el muestreo se ajustan solos al modelo cargado: Llama
+      // 3.2 3B no usa ChatML ni la temperatura de Qwen.
+      chatAplicarPresetModelo(false);
+      const fam = chatPresetActual();
+      toast("Modelo cargado: " + (r.desc || "GGUF listo") + " · " + fam.nombre.split(" · ")[0]);
       api("log.append", { nivel: "OK", origen: "llama", mensaje: "modelo cargado: " + (r.desc || "") });
     } else {
       estadoApp.chat.localCargado = false;
@@ -3635,7 +4150,7 @@ async function cargarDiagnostico() {
 function informe() {
   const s = estadoApp.sistema || {};
   const lineas = [
-    "# Informe FABRI-CORE",
+    "# Informe FORGE CORE STOCK",
     "",
     "Generado: " + new Date().toLocaleString("es-CL"),
     "Núcleo: v" + (s.version || "?"),
@@ -4087,8 +4602,14 @@ document.addEventListener("click", (ev) => {
     const cfg = document.getElementById("chatConfig");
     cfg.hidden = !cfg.hidden;
     ev.target.setAttribute("aria-expanded", String(!cfg.hidden));
+    if (!cfg.hidden) {
+      chatInicializarPestanas();
+      chatPintarFamilia();
+    }
     return;
   }
+  if (ev.target.id === "btnChatDatosRefrescar") { chatCargarDatos(true); return; }
+  if (ev.target.id === "btnChatPresetRestaurar") { chatAplicarPresetModelo(true); return; }
   if (ev.target.id === "btnChatNuevaCab") { chatLimpiar(); return; }
   if (ev.target.id === "btnIrConsolaLibre") { navegar("flujo"); return; }
   if (ev.target.id === "btnChatEscanear") { chatEscanearModelos(); return; }
@@ -4112,7 +4633,7 @@ document.addEventListener("click", (ev) => {
   if (ev.target.id === "btnRagIndexar") { ragIndexar(); return; }
   if (ev.target.id === "btnTtsProbar") {
     let r;
-    try { r = JSON.parse(window.FabrickNative.ttsHablar("Hola. Soy FABRI-CORE. La voz del sistema está funcionando.")); } catch (e) { r = { ok: false, error: String(e) }; }
+    try { r = JSON.parse(window.FabrickNative.ttsHablar("Hola. Soy FORGE CORE STOCK. La voz del sistema está funcionando.")); } catch (e) { r = { ok: false, error: String(e) }; }
     toast(r.ok ? "Reproduciendo voz" : "TTS: " + (r.error || "no disponible"), r.ok ? "" : "error");
     return;
   }
@@ -4757,12 +5278,106 @@ document.addEventListener("click", function (ev) {
 }, true);
 
 /* ==========================================================================
+   CÓDIGO DE BARRAS · Code128-B real (ISO/IEC 15417)
+   --------------------------------------------------------------------------
+   La credencial del login y la tarjeta de «Mi identidad» comparten este mismo
+   codificador. No es un patrón decorativo: lleva start B, dígito verificador
+   módulo 103 y stop, así que un lector Code128 lo puede leer de verdad.
+   ========================================================================== */
+
+/* Anchos de cada símbolo: 3 barras + 3 espacios = 11 módulos. El stop usa
+   7 elementos = 13 módulos. Tabla ISO/IEC 15417. */
+const FABRICK_CODE128 = [
+  "212222", "222122", "222221", "121223", "121322", "131222", "122213", "122312", "132212", "221213",
+  "221312", "231212", "112232", "122132", "122231", "113222", "123122", "123221", "223211", "221132",
+  "221231", "213212", "223112", "312131", "311222", "321122", "321221", "312212", "322112", "322211",
+  "212123", "212321", "232121", "111323", "131123", "131321", "112313", "132113", "132311", "211313",
+  "231113", "231311", "112133", "112331", "132131", "113123", "113321", "133121", "313121", "211331",
+  "231131", "213113", "213311", "213131", "311123", "311321", "331121", "312113", "312311", "332111",
+  "314111", "221411", "431111", "111224", "111422", "121124", "121421", "141122", "141221", "112214",
+  "112412", "122114", "122411", "142112", "142211", "241211", "221114", "413111", "241112", "134111",
+  "111242", "121142", "121241", "114212", "124112", "124211", "411212", "421112", "421211", "212141",
+  "214121", "412121", "111143", "111341", "131141", "114113", "114311", "411113", "411311", "113141",
+  "114131", "311141", "411131", "211412", "211214", "211232", "2331112"
+];
+
+/** Devuelve {texto, patron, ancho, verificador} para un texto en Code128-B. */
+function fabrickCode128(texto) {
+  // Code128-B cubre ASCII 32..126. El ID de cliente y el indicativo son
+  // códigos legibles, así que se normalizan a mayúsculas y sin acentos.
+  let limpio = String(texto == null ? "" : texto)
+    .toUpperCase()
+    .replace(/[^\x20-\x7E]/g, "")
+    .trim()
+    .slice(0, 48);
+  if (!limpio) limpio = "FORGE CORE STOCK";
+  const valores = [];
+  for (let i = 0; i < limpio.length; i++) {
+    valores.push(limpio.charCodeAt(i) - 32);
+  }
+  // Verificador: start B (104) + valor × posición, módulo 103.
+  let suma = 104;
+  for (let i = 0; i < valores.length; i++) suma += valores[i] * (i + 1);
+  const verificador = suma % 103;
+  const secuencia = [104].concat(valores, [verificador, 106]);
+  let patron = "";
+  for (let i = 0; i < secuencia.length; i++) patron += FABRICK_CODE128[secuencia[i]];
+  let ancho = 0;
+  for (let i = 0; i < patron.length; i++) ancho += Number(patron.charAt(i));
+  return { texto: limpio, patron: patron, ancho: ancho, verificador: verificador };
+}
+
+/** Pinta un Code128-B dentro de un <svg>. Devuelve el patrón o null. */
+function fabrickBarcodePintar(svg, texto, alto) {
+  if (!svg) return null;
+  const info = fabrickCode128(texto);
+  const H = alto || 34;
+  const QUIETO = 10; // zona de silencio mínima de Code128: 10 módulos
+  const ns = "http://www.w3.org/2000/svg";
+  try {
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    svg.setAttribute("viewBox", (-QUIETO) + " 0 " + (info.ancho + QUIETO * 2) + " " + H);
+    svg.setAttribute("preserveAspectRatio", "none");
+    const frag = document.createDocumentFragment();
+    let x = 0;
+    for (let i = 0; i < info.patron.length; i++) {
+      const w = Number(info.patron.charAt(i));
+      if (i % 2 === 0) {
+        const r = document.createElementNS(ns, "rect");
+        r.setAttribute("x", String(x));
+        r.setAttribute("y", "0");
+        r.setAttribute("width", String(w));
+        r.setAttribute("height", String(H));
+        r.setAttribute("fill", "currentColor");
+        frag.appendChild(r);
+      }
+      x += w;
+    }
+    svg.appendChild(frag);
+  } catch (e) {
+    return null;
+  }
+  return info;
+}
+
+window.fabrickCode128 = fabrickCode128;
+window.fabrickBarcodePintar = fabrickBarcodePintar;
+
+/* ==========================================================================
    ACCESO · huella + PIN
    ========================================================================== */
 
 window.FabriHuella = {
   /** Callback que Java invoca tras activar o autenticar con huella. */
   resultado: function (r) {
+    // «Mi identidad» también enrola huella. Si dejó una operación pendiente,
+    // el resultado es suyo: no debe entrar a la app por detrás.
+    try {
+      if (window.FabriIdentidad && FabriIdentidad.huellaPendiente()
+          && FabriIdentidad.huellaResultado(r || {})) {
+        return;
+      }
+    } catch (e) { /* sigue el camino del login */ }
     // Si la delegación de clics no llegó a registrarse (app.js murió a mitad),
     // el respaldo de index.html es quien decide: así la huella no se pierde.
     if (!window.__fabriDelegacion && typeof window.__fabriRespaldoResultado === "function") {
@@ -5140,7 +5755,7 @@ const FabriLogin = (function () {
 
   function borrar() {
     const seguro = window.confirm(
-      "Esto borra el PIN y la huella de FABRI-CORE.\n\n"
+      "Esto borra el PIN y la huella de FORGE CORE STOCK.\n\n"
       + "Después tendrás que crear un PIN nuevo. No borra datos, ni modelos, ni la base."
     );
     if (!seguro) return;
@@ -5315,24 +5930,37 @@ const FabriLogin = (function () {
     if (!d.indicativo && p.indicativo) d.indicativo = p.indicativo;
     if (!d.foto && p.foto) d.foto = p.foto;
 
-    perfil.nombre = d.nombre || "";
-    perfil.indicativo = d.indicativo || "";
-    perfil.foto = d.foto || "";
     perfil.datos = p.datos || {};
+    // Dos identidades en una: el negocio (marca del acceso) y el operador
+    // (TITLE de la credencial). «Mi identidad» edita las dos; si el operador
+    // no tiene nombre propio, se usa el del negocio como hasta ahora.
+    const negocio = p.nombre || d.nombre || "";
+    const operador = String((perfil.datos && perfil.datos.operador) || "").trim()
+      || d.nombre || negocio;
+    perfil.negocio = negocio;
+    perfil.nombre = operador;
+    perfil.indicativo = d.indicativo || p.indicativo || "";
+    perfil.foto = p.foto || d.foto || "";
     const foto = $("loginFoto");
     const ind = $("loginIndicativo");
     const nom = $("loginNombre");
     const marca = $("loginMarca");
     // Sin foto del operador se usa el logo del negocio: la tarjeta nunca queda
     // con el marcador de carga si ya hay una imagen real guardada.
-    const imagen = d.foto || (perfil.datos && perfil.datos.logo) || "";
-    if (imagen && foto) {
-      foto.src = imagen;
-      foto.classList.add("real");
+    const imagen = perfil.foto || (perfil.datos && perfil.datos.logo) || "";
+    if (foto) {
+      if (imagen) {
+        foto.src = imagen;
+        foto.classList.add("real");
+      } else {
+        // Se quitó la foto: no dejar la anterior pegada en la credencial.
+        foto.src = "logo-f.svg";
+        foto.classList.remove("real");
+      }
     }
-    if (d.indicativo && ind) ind.textContent = d.indicativo;
-    if (d.nombre && nom) nom.textContent = d.nombre;
-    if (marca) marca.textContent = d.nombre || "FABRI-CORE PRO";
+    if (ind) ind.textContent = perfil.indicativo || "FC-OPERATOR";
+    if (nom) nom.textContent = operador || "CORE MODULE";
+    if (marca) marca.textContent = negocio || "FORGE CORE STOCK PRO";
     // El código de barras es identidad visual del operador, no del acceso:
     // se dibuja siempre, haya o no foto en la base.
     barcodeConstruir(codigoOperador());
@@ -5362,61 +5990,20 @@ const FabriLogin = (function () {
     }
     const hex = ("00000000" + h.toString(16).toUpperCase()).slice(-8)
       + ("00000000" + g.toString(16).toUpperCase()).slice(-8);
-    return "FC " + hex.slice(0, 4) + " " + hex.slice(4, 8) + " " + hex.slice(8, 10);
+    return "FC-" + hex.slice(0, 4) + "-" + hex.slice(4, 8) + "-" + hex.slice(8, 10);
   }
 
   /**
-   * Dibuja las barras del código a partir del texto. Es un patrón derivado
-   * del código (no un Code128 real): la tarjeta no se escanea en ningún
-   * lector, se lee como credencial. Las barras son SVG para que se vean
-   * nítidas en cualquier densidad de pantalla.
+   * Dibuja el código del operador como Code128-B real (ISO/IEC 15417), con su
+   * dígito verificador. Las barras son SVG para que se vean nítidas en
+   * cualquier densidad de pantalla.
    */
   function barcodeConstruir(codigo) {
     const texto = codigo || codigoOperador();
     const num = $("loginCodigo");
     if (num) num.textContent = texto;
-    const svg = $("loginBarcode");
-    if (!svg) return;
-    try {
-      while (svg.firstChild) svg.removeChild(svg.firstChild);
-      const limpio = texto.replace(/[^A-Z0-9]/g, "");
-      let semilla = 0x811c9dc5;
-      for (let i = 0; i < limpio.length; i++) {
-        semilla ^= limpio.charCodeAt(i);
-        semilla = Math.imul(semilla, 0x01000193) >>> 0;
-      }
-      // 64 barras de ancho variable, deterministas para el mismo código.
-      const patron = [];
-      let total = 0;
-      for (let i = 0; i < 64; i++) {
-        semilla ^= semilla << 13; semilla >>>= 0;
-        semilla ^= semilla >>> 17;
-        semilla ^= semilla << 5; semilla >>>= 0;
-        const w = (semilla & 3) + 1;
-        patron.push(w);
-        total += w;
-      }
-      const ns = "http://www.w3.org/2000/svg";
-      const frag = document.createDocumentFragment();
-      const ANCHO = 200;
-      const escala = ANCHO / total;
-      let x = 0;
-      patron.forEach(function (w, i) {
-        const ancho = w * escala;
-        if (i % 2 === 0) {
-          const r = document.createElementNS(ns, "rect");
-          r.setAttribute("x", x.toFixed(2));
-          r.setAttribute("y", "0");
-          r.setAttribute("width", Math.max(0.9, ancho).toFixed(2));
-          r.setAttribute("height", "30");
-          frag.appendChild(r);
-        }
-        x += ancho;
-      });
-      svg.appendChild(frag);
-    } catch (e) {
-      // Sin barras la tarjeta sigue siendo legible: no es parte del acceso.
-    }
+    // Code128-B real, el mismo codificador que usa «Mi identidad».
+    fabrickBarcodePintar($("loginBarcode"), texto, 30);
   }
 
   function fotoElegir() {
@@ -5940,7 +6527,7 @@ async function errorIniciar() {
   });
   // Componente / APK
   items.push({
-    componente: "APK FABRI-CORE",
+    componente: "APK FORGE CORE STOCK",
     funciona: true,
     detalle: "APK instalada (versión 0.9.1). El contenedor es el archivo; los modelos de IA no están dentro.",
     solucion: "La APK funciona como contenedor. Descarga modelos por separado (local o nube) y luego conéctalos."

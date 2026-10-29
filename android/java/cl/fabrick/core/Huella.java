@@ -23,7 +23,7 @@ import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.PBEKeySpec;
 
 /**
- * FABRI-CORE · acceso local con huella + PIN.
+ * FORGE CORE STOCK · acceso local con huella + PIN.
  *
  * Diseño:
  *   · El PIN se guarda como PBKDF2-SHA256 con sal aleatoria (nunca en claro).
@@ -74,6 +74,9 @@ final class Huella {
             o.put("ok", true);
             o.put("pinConfigurado", pin);
             o.put("huellaActiva", activa);
+            // El testigo cifrado es lo que realmente permite desbloquear: si
+            // falta, la huella no está operativa aunque la preferencia diga sí.
+            o.put("tokenGuardado", p.contains(K_IV) && p.contains(K_CT));
             o.put("huellaDisponible", hw);
             o.put("desbloqueado", desbloqueado);
             o.put("bloqueado", bloqueadoHasta > System.currentTimeMillis());
@@ -113,6 +116,29 @@ final class Huella {
             }
             desbloqueado = false;
             return "{\"ok\":true,\"borrado\":true}";
+        } catch (Throwable t) {
+            return TermuxPuente.error(TermuxPuente.tipo(t), "EXCEPCION");
+        }
+    }
+
+    /**
+     * Desactiva sólo la huella: borra el testigo cifrado y la clave del
+     * Keystore, pero conserva el PIN. Es distinto de `borrar`, que restablece
+     * todo el acceso. El usuario puede seguir entrando con su PIN y volver a
+     * activar la huella cuando quiera.
+     */
+    static String desactivar(Context ctx) {
+        try {
+            SharedPreferences p = prefs(ctx);
+            p.edit().remove(K_ACTIVA).remove(K_IV).remove(K_CT).apply();
+            KeyStore ks = KeyStore.getInstance("AndroidKeyStore");
+            ks.load(null);
+            if (ks.containsAlias(ALIAS)) {
+                ks.deleteEntry(ALIAS);
+            }
+            // No se toca `desbloqueado`: el usuario ya está dentro de la app.
+            return "{\"ok\":true,\"huellaActiva\":false,\"pinConfigurado\":"
+                    + p.getBoolean(K_PIN_OK, false) + "}";
         } catch (Throwable t) {
             return TermuxPuente.error(TermuxPuente.tipo(t), "EXCEPCION");
         }
@@ -292,7 +318,7 @@ final class Huella {
             descifrado.init(Cipher.DECRYPT_MODE, clave(), new GCMParameterSpec(128, iv));
             final Cipher finalDescifrado = descifrado;
             final NativeBridge.Notificador finalNoti = notificador;
-            autenticarBiometrico(actividad, "FABRI-CORE",
+            autenticarBiometrico(actividad, "FORGE CORE STOCK",
                     "Confirma tu huella para entrar",
                     new Resultado() {
                         @Override

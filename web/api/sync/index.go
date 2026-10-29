@@ -1,4 +1,4 @@
-// FABRI-CORE · /api/sync
+// FORGE CORE STOCK · /api/sync
 // Guarda y devuelve la copia cifrada del dispositivo en Vercel Blob.
 //
 // El servidor NUNCA ve el contenido en claro: el navegador cifra con

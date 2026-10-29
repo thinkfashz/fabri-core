@@ -1,5 +1,5 @@
 /* ============================================================================
-   FABRI-CORE Web · PWA
+   FORGE CORE STOCK Web · PWA
    Misma arquitectura que el APK, en el navegador:
      · SQLite real (sql.js WASM) con las 13 tablas del contrato + FTS5
      · persistencia en IndexedDB (sobrevive recargas y funciona offline)
@@ -161,7 +161,7 @@
     run(`INSERT OR IGNORE INTO brand_settings(id, business_name, accent, updated_at) VALUES(1,?,?,?)`, ['Soluciones Fabrick', '#8C8CFF', t]);
     run(`INSERT OR IGNORE INTO products(sku, name, price, unit) VALUES('SF-001','Kit audio Fabrick',12990,'CLP')`);
     const seeds = [
-      ['hecho', 'FABRI-CORE corre entero en el navegador: SQLite con FTS5 por WASM, sin backend obligatorio.', 'ejemplo · editable', 1],
+      ['hecho', 'FORGE CORE STOCK corre entero en el navegador: SQLite con FTS5 por WASM, sin backend obligatorio.', 'ejemplo · editable', 1],
       ['preferencia', 'La marca usa lima #C8F542 como señal; la nube la lleva a iris #8C8CFF sobre azul noche #04060D. El acento es configurable.', 'ejemplo · editable', 1],
       ['decision', 'Si el motor no trae FTS5, la búsqueda pasa a LIKE y la interfaz lo indica en vez de fingir.', 'ejemplo · editable', 1]
     ];

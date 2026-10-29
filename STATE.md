@@ -1545,3 +1545,74 @@ Pendiente de esta entrega:
 - Compilar con `bash scripts/compilar.sh` (wrapper de clang incluido).
 - No usar `pm install` ni `am start` con `file://`.
 - No habilitar botones a mano ni aceptar un manifiesto sin hash verificado.
+
+## Sesión 2026-10-28 · Agente 2 — módulo de inventario (editor, lector fijo, cálculos y mercado)
+
+Alcance: `android/assets/www/inventario.js`, `inventario.css`, `index.html` (no se tocó `app.js`).
+
+### Qué se hizo
+- **Lector fijo en pasos 1-4 (no boleta)**: recuadro con cámara + mira animada y detector EAN propio (BarcodeDetector o lector propio) en cada paso; una sola cámara a la vez; al leer se muestra la ficha con botón «Editar en el editor» o se ofrece crear el producto.
+- **Editor de productos**: se reparó el bloque HTML malformado que ocultaba/rompía los campos; se agregaron precio proveedor, precio de mercado y nombre del proveedor (todos editables, guardados en SQLite); ficha viva con 8 celdas (margen, ganancia, costo, stock valorizado, precio proveedor, diferencia vs mercado, precio óptimo, utilidad real).
+- **Cálculos**: `invEdRecalcular` usa `analizarPreciosYGanancia()` de app.js; precio óptimo = mercado + 30 %; utilidad real vs precio de proveedor.
+- **Validaciones**: `invEdGuardar` e invGuardar rechazan stock negativo y alertan stock bajo (stock ≤ stock_mínimo).
+- **Búsqueda**: `invBuscarCodigo` busca también por nombre/marca además de código.
+- **Mercado**: `invEdMercadoConsultar` confirma el producto en bases libres (Open Food/Beauty/Products Facts) y el usuario ingresa el precio de mercado de referencia; se muestra diferencia % y precio óptimo sugerido.
+- **Diseño**: foco con anillo lima en inputs del editor; filete ámbar en tarjetas de stock bajo; micro-transición scale 0.95 al tocar; sin scroll horizontal; reduced motion respetado.
+
+### Verificación
+- `node --check inventario.js` ✔
+- `bash tests/inventario/correr.sh` **6/6** ✔
+- `bash tests/arranque/correr.sh` **8/8** ✔
+- IDs HTML/JS verificadas: todas las nuevas existen en ambos lados.
+
+### Pendiente
+- Revisión visual en dispositivo real (cámaras y ficha de mercado).
+
+## Sesión 2026-10-29 · APK 0.9.37 (52) — «Mi identidad» premium, Code128 real y acceso
+
+Alcance: `android/assets/www/identidad.js`, `identidad.css`, `index.html`, `app.js`, `android/java/cl/fabrick/core/{Huella,NativeBridge,MainActivity}.java`, `src-tauri/src/lib.rs` y `tests/arranque/barcode.js`.
+
+### Qué se hizo
+- **«Mi identidad» reescrita**: credencial premium del operador (foto cuadrada, iniciales, nombre a 2 líneas, indicativo/CALL SIGN, RUT, ID de cliente y código de barras real). Foto desde galería/Archivos (FileReader + canvas → data URL, recorte cuadrado 360 px, JPEG ~0.84) y logo 256 px sobre fondo blanco. Todo se guarda en SQLite (`perfil`), sin nube.
+- **Reflejo en el login**: `perfilCargar()` distingue negocio (`perfil.nombre`) de operador (`datos.operador`); prefiere `perfil.foto`, limpia la foto si se quitó (`logo-f.svg`) y pinta marca/TITLE/CALL SIGN/barcode.
+- **Code128-B real (ISO/IEC 15417)**: `FABRICK_CODE128` (107 símbolos, validada contra la tabla de Wikipedia), `fabrickCode128()` con start B + verificador módulo 103 + stop, y `fabrickBarcodePintar()` con zona de silencio de 10 módulos. Compartido entre login e ID.
+- **Seguridad y acceso desde ID**: crear/cambiar PIN (con verificador PBKDF2 respaldado en `usuarios`), activar/desactivar huella. `Huella.desactivar(Context)` borra solo la huella/Keystore y conserva el PIN; `Huella.estado` expone `tokenGuardado`; `NativeBridge.huellaDesactivar()`.
+- **Núcleo**: `op_perfil.guardar` y `op_usuarios.actualizar` aceptan `borrar_foto` (limpiar foto de verdad); `guardar` extrae el operador de `datos` para no pisar `usuarios.nombre` con el nombre del negocio.
+- **Fix crítico**: `idConectarEventos()` ahora se invoca al cierre de `identidad.js`: antes `app.js` intentaba enganchar los listeners durante su arranque, antes de que `identidad.js` se evaluara, dejando la página inerte (ningún botón respondía).
+
+### Verificación
+- `node --check identidad.js` y `app.js` ✔.
+- `bash tests/arranque/correr.sh` **9/9** ✔ (nuevo `barcode.js`: «1234»→88, «PJJ123C»→55, 79/112 módulos, SVG con 10 módulos de silencio).
+- `tests/web/escaneo.js`, `boleta.js`, `diseno.js` ✔.
+- Render visual (`/tmp/opencode/id-top.png` y `id-full.png`): credencial, bloques y seguridad con inputs en bloque y nombre a 2 líneas.
+- APK: versionCode 52 / versionName 0.9.37, zipalign 4 ✔, apksigner V2+V3 ✔, `identidad.css/js`, `app.js` e `index.html` dentro del APK ✔.
+- SHA-256: `11b88a8f9d7830706442227bc30cb550064a8f0baea8d0642e944d7863337d33` · 4.329.267 B.
+- Copiada a `/tmp/opencode/FABRI-CORE-0.9.37.apk` y `/storage/emulated/0/Download/FABRI-CORE-0.9.37.apk`.
+
+### Pendiente
+- Prueba de punta a punta en dispositivo real: foto, Code128 escaneable, enrolamiento de huella y login con huella (sin dispositivo/adb en esta sesión).
+- `Restablecer acceso` (borrar) aún no limpia el verificador de `usuarios.hash` en SQLite; falta una acción `usuarios.limpiar_pin` (documentado en auditoría).
+- `tests/seguridad/validar-manifiestos.sh` sigue fallando por `tools/validador/Cargo.toml` ausente.
+
+## Sesión 2026-10-29 · APK 0.9.36 (51) — IA rápida, catálogo y negocio
+
+Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `lib.rs`, shim C, manifiestos y presentación.
+
+### Qué se hizo
+- **Catálogo de modelos**: Llama 3.2 1B/3B, Qwen 2.5 1.5B/3B y SmolLM2 1.7B con SHA-256 y tamaños reales; `modelos_recomendados` devuelve RAM total/libre, núcleos, presupuesto, perfil, nivel y modelo «estrella» (el mejor que cabe en el 55 % de la RAM).
+- **Chat**: plantilla por familia (ChatML, Llama 3, Gemma, Phi-3) y preset de muestreo automático al cargar el modelo (Llama 3.2: temp 0.6 / top_p 0.9 / top_k 40 / rep 1.1 / 384).
+- **Respuestas instantáneas**: las consultas claras de inventario (stock, margen, ventas, categorías, resumen) se responden desde SQLite sin tocar el modelo, con tope de 5 s; el contexto SQL/RAG va en paralelo con topes de 1,2–6 s.
+- **Ajustes de IA**: pestañas Modelo / IA / Datos, cada parámetro con explicación tocable; los sliders solo pintan la etiqueta y el modelo recibe los valores al pulsar «Aplicar al modelo». Se respeta temperatura 0 (antes `||` la convertía en 0.7).
+- **Inventario**: una sola llamada `inventario.panel` alimenta KPIs, categorías, stock bajo, top margen, ventas 24 h/30 d, ticket promedio y el panel del chat; sincronización de productos y boletas (`subir_boletas`), con las boletas pendientes si la nube aún no las acepta.
+- **Escáner on/off**: el botón principal ahora es un toggle real («Abrir cámara» ↔ «Detener cámara»); un contador de generación descarta aperturas viejas, así tocar OFF durante el permiso ya no vuelve a encender la cámara. El lector fijo de los pasos 1–4 usa el mismo guardia y no abre dos streams. La cámara ya no se abre sola al entrar al paso 1 ni al activar el apilador.
+- **Shim**: `<end_of_turn>` agregado a los marcadores de fin (Gemma).
+
+### Verificación
+- `cargo check --target aarch64-linux-android --release` ✔ (solo warning preexistente de `token`).
+- `tests/inventario` 6/6, `tests/arranque` 8/8, `tests/web/escaneo.js` y `tests/web/boleta.js` ✔.
+- APK: versionCode 51 / versionName 0.9.36, zipalign 4 ✔, apksigner V3 ✔, assets nuevos dentro del APK ✔.
+- SHA-256: `79d538a2b974c057b968c61945180a0d7bde54b27aa30d607e404ce3cc4ef503` · 4.321.005 B.
+
+### Pendiente
+- Prueba en dispositivo real (cámara, micrófono, descarga de Llama 3.2 3B con ~1,9 GB libres).
+- `tests/seguridad/validar-manifiestos.sh` sigue fallando por `tools/validador/Cargo.toml` ausente.

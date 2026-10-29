@@ -1,4 +1,4 @@
-/* FABRI-CORE · escritor de .xlsx real, sin librerías (multi-hoja + fórmulas).
+/* FORGE CORE STOCK · escritor de .xlsx real, sin librerías (multi-hoja + fórmulas).
  *
  * Genera un ZIP (método store) con las partes OOXML mínimas que Excel,
  * LibreOffice y Google Sheets abren sin quejarse.

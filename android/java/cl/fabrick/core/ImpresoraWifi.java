@@ -22,7 +22,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 /**
- * FABRI-CORE · impresora térmica por WiFi (ESC/POS sobre TCP).
+ * FORGE CORE STOCK · impresora térmica por WiFi (ESC/POS sobre TCP).
  *
  * <p>La Xprinter XP-58LLH, como casi toda térmica con WiFi, escucha en el
  * puerto 9100 y acepta el flujo ESC/POS crudo. Eso es distinto del diálogo de

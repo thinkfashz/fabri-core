@@ -1,0 +1,23 @@
+{
+  "id": "modelo-qwen15",
+  "nombre": "Qwen2.5 1.5B Instruct GGUF (Q4_K_M)",
+  "tipo": "modelo",
+  "version": "q4_k_m-6a1a2eb6",
+  "descripcion": "Qwen2.5 1.5B Instruct, cuantizado Q4_K_M (~1,04 GB). Muy bueno en español, matemática simple y consultas de negocio. Velocidad y precisión equilibradas; ideal para el chat de inventario cuando no querés cargar un 3B.",
+  "origen": "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf",
+  "origen_tipo": "huggingface",
+  "sha256": "6a1a2eb6d15622bf3c96857206351ba97e1af16c30d7a74ee38970e434e9407e",
+  "tamano": 1117320736,
+  "autorizado": true,
+  "licencia": "apache-2.0",
+  "plataforma": "android",
+  "arquitectura": "agnostica-al-runtime",
+  "dependencias": [
+    "runtime-llama"
+  ],
+  "directorio": "filesDir/componentes/modelo-qwen15/",
+  "interfaz": "se pasa como -m <ruta> al runtime; nunca se ejecuta solo",
+  "salud": "cargar el modelo y responder un prompt corto sin error de cabecera",
+  "actualizacion": "manual: sólo si Qwen publica un GGUF nuevo con hash verificado",
+  "desinstalacion": "borrar el directorio y dejar el registro en SQLite como histórico"
+}

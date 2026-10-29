@@ -41,7 +41,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * FABRI-CORE · app nativa en Java puro (sin Kotlin, sin librerías externas).
+ * FORGE CORE STOCK · app nativa en Java puro (sin Kotlin, sin librerías externas).
  * Compila con javac + d8 en segundos. Deja rastro de arranque en Android/data/.../files/boot.log
  */
 public class MainActivity extends Activity {
@@ -130,7 +130,7 @@ public class MainActivity extends Activity {
     private void auth() {
         screen = "auth";
         body.removeAllViews();
-        body.addView(top("FABRI-CORE", "Núcleo local · sin nube"));
+        body.addView(top("FORGE CORE STOCK", "Núcleo local · sin nube"));
         body.addView(pad());
 
         boolean first = db.scalar("SELECT COUNT(*) FROM users") <= 0;
@@ -200,7 +200,7 @@ public class MainActivity extends Activity {
         screen = "home";
         body.removeAllViews();
         String email = prefsEmail();
-        body.addView(top("FABRI-CORE", email.isEmpty() ? "local" : email));
+        body.addView(top("FORGE CORE STOCK", email.isEmpty() ? "local" : email));
 
         long users = db.scalar("SELECT COUNT(*) FROM users");
         long logs = db.scalar("SELECT COUNT(*) FROM logs");
@@ -662,7 +662,7 @@ public class MainActivity extends Activity {
         LinearLayout l = new LinearLayout(this);
         l.setOrientation(LinearLayout.VERTICAL);
         l.setPadding(dp(20), dp(60), dp(20), dp(20));
-        l.addView(tv("FABRI-CORE no pudo arrancar", 18, ERR, true));
+        l.addView(tv("FORGE CORE STOCK no pudo arrancar", 18, ERR, true));
         TextView d = tv(msg, 12, TX2, false);
         d.setTextIsSelectable(true);
         l.addView(d);

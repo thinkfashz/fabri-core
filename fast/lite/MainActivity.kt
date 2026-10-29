@@ -28,7 +28,7 @@ import java.io.File
 import java.util.concurrent.Executors
 
 /**
- * FABRI-CORE · app Android (sin librerías externas).
+ * FORGE CORE STOCK · app Android (sin librerías externas).
  *
  * Todo lo que se ve sale de la base SQLite del dispositivo. Si algo falla, se muestra
  * el error en pantalla en vez de cerrar la app (y se guarda para diagnóstico).
@@ -90,7 +90,7 @@ class LiteActivity : Activity() {
         addView(View(this@LiteActivity).apply {
             background = GradientDrawable().apply { cornerRadius = dp(7).toFloat(); setColor(accent) }
         }, LinearLayout.LayoutParams(dp(24), dp(24)))
-        addView(Ui.text(this@LiteActivity, "FABRI-CORE", 16f, C.TX, true).apply { letterSpacing = 0.08f }, LinearLayout.LayoutParams(
+        addView(Ui.text(this@LiteActivity, "FORGE CORE STOCK", 16f, C.TX, true).apply { letterSpacing = 0.08f }, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { leftMargin = dp(10) })
         addView(Ui.text(this@LiteActivity, "v1.1 · ${db.ftsMode()}", 11f, C.MUTED).apply { gravity = Gravity.END }, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { weight = 1f })
@@ -145,7 +145,7 @@ class LiteActivity : Activity() {
         val first = auth.userCount() == 0L
         val v = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(4), dp(30), dp(4), dp(20)) }
 
-        v.addView(Ui.text(this, if (first) "Crea la cuenta del dispositivo" else "Entra a FABRI-CORE", 24f, C.TX, true))
+        v.addView(Ui.text(this, if (first) "Crea la cuenta del dispositivo" else "Entra a FORGE CORE STOCK", 24f, C.TX, true))
         v.addView(Ui.text(this,
             if (first) "Es la primera vez. La cuenta y sus tokens viven en esta base SQLite, no en un servidor."
             else "La sesión se guarda como token en la base del dispositivo.", 13f, C.TX2))
@@ -320,7 +320,7 @@ class LiteActivity : Activity() {
     }
 
     private fun welcome() =
-        "FABRI-CORE · consola abierta\nusuario: ${auth.current()?.email ?: "invitado"} · uid app ${android.os.Process.myUid()}\nmotor de texto: ${db.ftsMode()} · base: ${Ui.human(db.sizeBytes())}\n\nEscribe 'help' para ver los comandos."
+        "FORGE CORE STOCK · consola abierta\nusuario: ${auth.current()?.email ?: "invitado"} · uid app ${android.os.Process.myUid()}\nmotor de texto: ${db.ftsMode()} · base: ${Ui.human(db.sizeBytes())}\n\nEscribe 'help' para ver los comandos."
 
     // ── 2 · DATOS ─────────────────────────────────────────────────────────
     private fun datos(): View {
@@ -567,7 +567,7 @@ class LiteActivity : Activity() {
                     Ui.pill(this@LiteActivity, "avanzado", false, C.WARN)
                 ))
                 addView(Ui.text(this@LiteActivity,
-                    "Opcional. Sin esto la app funciona igual: guarda en Descargas/FABRI-CORE con MediaStore. " +
+                    "Opcional. Sin esto la app funciona igual: guarda en Descargas/FORGE CORE STOCK con MediaStore. " +
                     "Con esto podría leer otras carpetas, incluido lo que exporte Termux. Se concede en los ajustes del sistema.", 12f, C.TX2))
                 addView(Ui.row(this@LiteActivity,
                     Ui.button(this@LiteActivity, "Abrir ajustes", false) {
@@ -660,7 +660,7 @@ class LiteActivity : Activity() {
             }
         }))
 
-        v.addView(Ui.card(this, "Sobre", "FABRI-CORE lite · ${packageName}\nSQLite ${db.scalar("SELECT sqlite_version()")} · ${db.ftsMode()} · ${tabs.size} módulos\nSin librerías externas: solo el SDK de Android.", "v1.1"))
+        v.addView(Ui.card(this, "Sobre", "FORGE CORE STOCK lite · ${packageName}\nSQLite ${db.scalar("SELECT sqlite_version()")} · ${db.ftsMode()} · ${tabs.size} módulos\nSin librerías externas: solo el SDK de Android.", "v1.1"))
         return v
     }
 
@@ -679,7 +679,7 @@ class LiteActivity : Activity() {
                 n++
             }
             db.metric("exportaciones", n.toDouble())
-            ui.post { toast("Exportadas $n tabla(s) a Descargas/FABRI-CORE") ; render() }
+            ui.post { toast("Exportadas $n tabla(s) a Descargas/FORGE CORE STOCK") ; render() }
         }
     }
 
@@ -725,7 +725,7 @@ class LiteActivity : Activity() {
             setBackgroundColor(C.BG)
             setPadding(dp(18), dp(40), dp(18), dp(18))
         }
-        v.addView(Ui.text(this, "FABRI-CORE no pudo arrancar", 20f, C.ERR, true))
+        v.addView(Ui.text(this, "FORGE CORE STOCK no pudo arrancar", 20f, C.ERR, true))
         v.addView(Ui.text(this, "Copia este texto y mándalo: es el diagnóstico exacto.", 12.5f, C.TX2))
         v.addView(ScrollView(this).apply {
             addView(Ui.text(this@LiteActivity, trace.take(4000), 10f, C.TX2).apply { typeface = Typeface.MONOSPACE })

@@ -1,11 +1,11 @@
 /* ==========================================================================
-   FABRI-CORE · hoja de estilos
+   FORGE CORE STOCK · hoja de estilos
    Sistema de diseño: "neon lime" (tokens de Fabrick Design System v1.0.0).
    Mobile-first, sin fuentes ni recursos externos: todo funciona sin red.
    ========================================================================== */
 
 :root {
-  /* ── Colores canónicos FABRI-CORE PRO (branding/tokens.json) ── */
+  /* ── Colores canónicos FORGE CORE STOCK PRO (branding/tokens.json) ── */
   --fb-fondo: #050505;
   --fb-fondo-alt: #0B0B0B;
   --fb-superficie: #0B0B0B;
@@ -17,7 +17,7 @@
   --fb-estado-activo: #C8FF00;
   --fb-estado-inactivo: #333333;
 
-  /* colores de marca · FABRI-CORE PRO Brand System v2.4.1 (tokens del kit) */
+  /* colores de marca · FORGE CORE STOCK PRO Brand System v2.4.1 (tokens del kit) */
   --bg: #050505;
   --bg-alt: #0B0B0B;
   --card: #0B0B0B;
@@ -42,7 +42,7 @@
   --esp: 16px;
   --nav-alto: 68px;
 
-  /* radios FABRI-CORE PRO (12px) */
+  /* radios FORGE CORE STOCK PRO (12px) */
   --fb-radio-boton: 12px;
   --fb-radio-input: 12px;
   --fb-radio-tarjeta: 12px;
@@ -64,7 +64,7 @@
    huella» con la huella sin activar). `!important` es deliberado. */
 [hidden] { display: none !important; }
 
-/* ── Pantalla de carga FABRI-CORE PRO (diseño de marca) ──────────────────────
+/* ── Pantalla de carga FORGE CORE STOCK PRO (diseño de marca) ──────────────────────
    REGLA DURA: el loader no puede depender de JavaScript para irse.
 
    Antes, si el hilo de JavaScript quedaba esperando al núcleo, ni el reloj de
@@ -1039,6 +1039,7 @@ body.drawer-abierto { overflow: hidden; }
 }
 .badge-origen.local { color: var(--acento); border-color: rgba(200,245,66,0.3); background: var(--acento-suave); }
 .badge-origen.remoto { color: var(--info); border-color: rgba(96,165,250,0.3); background: rgba(96,165,250,0.08); }
+.badge-origen.datos { color: #7dd3fc; border-color: rgba(125,211,252,0.32); background: rgba(125,211,252,0.09); }
 
 /* markdown mínimo */
 .mensaje .burbuja code {
@@ -2544,7 +2545,7 @@ body.login-abierto { overflow: hidden; }
 @keyframes sqlSpin { to { transform: rotate(360deg); } }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   Refinamiento de alto nivel · FABRI-CORE PRO (0.9.16)
+   Refinamiento de alto nivel · FORGE CORE STOCK PRO (0.9.16)
    Aplicado con el estándar high-end / impeccable sobre la marca neon-lime.
    Principios: doble-bezel, motion físico con curvas custom, botones pill con
    icono anidado, jerarquía tipográfica limpia y micro-estados táctiles.
@@ -2824,3 +2825,401 @@ body {
 }
 .msg-acciones button:hover { color: #ececec; background: rgba(255,255,255,0.07); }
 .msg-acciones button:active { transform: scale(0.94); }
+
+/* ── icono TTS: micrófono quieto / onda mientras lee ─────────────────────── */
+#btnChatTts { position: relative; }
+.tts-icono { width: 20px; height: 20px; display: block; }
+#btnChatTts[data-estado="inactivo"] .tts-icono-mic { display: block; }
+#btnChatTts[data-estado="inactivo"] .tts-icono-onda { display: none; }
+#btnChatTts[data-estado="leyendo"] .tts-icono-mic { display: none; }
+#btnChatTts[data-estado="leyendo"] .tts-icono-onda { display: block; }
+#btnChatTts[data-estado="leyendo"] { color: var(--acento); }
+.tts-icono-onda .onda-b {
+  transform-origin: bottom;
+  animation: ttsOnda 1.2s ease-in-out infinite;
+}
+.tts-icono-onda .onda-b:nth-child(2) { animation-delay: 0.12s; }
+.tts-icono-onda .onda-b:nth-child(3) { animation-delay: 0.22s; }
+.tts-icono-onda .onda-b:nth-child(4) { animation-delay: 0.12s; }
+.tts-icono-onda .onda-b:nth-child(5) { animation-delay: 0s; }
+@keyframes ttsOnda { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(1.7); } }
+@media (prefers-reduced-motion: reduce) {
+  .tts-icono-onda .onda-b { animation: none; transform: scaleY(1); }
+}
+
+/* ── controles de ajuste de IA (temperatura, top-p, top-k, repetición) ────── */
+.ajuste-fila {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 10px 0 4px;
+  font-size: 12px;
+  color: var(--texto-2);
+}
+.ajuste-fila label {
+  font-weight: 600;
+  color: var(--texto);
+  flex: 0 0 auto;
+}
+.ajuste-valor {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--acento);
+  flex: 0 0 auto;
+  min-width: 40px;
+  text-align: right;
+}
+input[type="range"] {
+  width: 100%;
+  accent-color: var(--acento);
+  cursor: pointer;
+}
+input[type="range"]:active { opacity: 0.9; }
+
+/* ==========================================================================
+   Chat · pestañas Modelo / IA / Datos, preset por familia y panel de negocio
+   --------------------------------------------------------------------------
+   Mismo lenguaje que el resto: vidrio oscuro, borde fino, acento lima y
+   respuesta en pointer-down (escala al tocar). Sin sombras duras.
+   ========================================================================== */
+
+.chat-tabs {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  padding: 3px;
+  margin-bottom: 12px;
+  border: 1px solid var(--borde);
+  border-radius: 12px;
+  background: var(--hundido, rgba(255, 255, 255, 0.04));
+  isolation: isolate;
+}
+.chat-tabs-indicador {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc((100% - 6px) / 3);
+  border-radius: 9px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.04));
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset, 0 6px 14px -10px rgba(0, 0, 0, 0.8);
+  transition: transform 340ms cubic-bezier(0.22, 1.2, 0.36, 1);
+  will-change: transform;
+}
+.chat-tabs[data-tab="ia"] .chat-tabs-indicador { transform: translateX(100%); }
+.chat-tabs[data-tab="datos"] .chat-tabs-indicador { transform: translateX(200%); }
+
+.chat-tab {
+  position: relative;
+  z-index: 1;
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--texto-3);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  padding: 8px 6px;
+  border-radius: 9px;
+  cursor: pointer;
+  transition: color 180ms ease, transform 120ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.chat-tab:active { transform: scale(0.97); }
+.chat-tab.activo { color: var(--texto); }
+.chat-tab[aria-selected="true"] { color: var(--texto); }
+
+.chat-tab-panel { display: none; }
+.chat-tab-panel.activo {
+  display: block;
+  animation: chatPanelIn 240ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes chatPanelIn {
+  from { opacity: 0; transform: translateY(4px) scale(0.995); }
+  to { opacity: 1; transform: none; }
+}
+
+/* plantilla activa */
+.chat-familia {
+  display: grid;
+  gap: 2px;
+  margin-top: 10px;
+  padding: 9px 11px;
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(200, 245, 66, 0.06), transparent 65%);
+}
+.chat-familia-etq {
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--texto-3);
+}
+.chat-familia strong { font-size: 12.5px; color: var(--acento); font-weight: 650; }
+.chat-familia-nota { font-size: 11px; color: var(--texto-3); line-height: 1.4; }
+
+/* preset del modelo */
+.chat-preset {
+  padding: 11px 12px;
+  margin-bottom: 12px;
+  border: 1px solid rgba(200, 245, 66, 0.22);
+  border-radius: 11px;
+  background:
+    radial-gradient(120% 120% at 0% 0%, rgba(200, 245, 66, 0.10), transparent 60%),
+    var(--card);
+}
+.chat-preset-cab { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.chat-preset-etq {
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--texto-3);
+}
+.chat-preset-cab strong { font-size: 13px; color: var(--acento); }
+.chat-preset .nota { margin: 6px 0 0; font-size: 11.5px; line-height: 1.45; }
+
+/* botón «i» con explicación, tocable */
+.ajuste-fila label { display: inline-flex; align-items: center; gap: 6px; position: relative; }
+.ajuste-info {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid var(--borde-fuerte, rgba(255, 255, 255, 0.18));
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--texto-3);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  cursor: help;
+  flex: 0 0 auto;
+  transition: transform 120ms ease, border-color 160ms ease, color 160ms ease;
+}
+.ajuste-info:active { transform: scale(0.9); }
+.ajuste-info:hover, .ajuste-info:focus-visible, .ajuste-info.abierto {
+  color: var(--acento);
+  border-color: rgba(200, 245, 66, 0.5);
+  outline: none;
+}
+.ajuste-info::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 8px);
+  width: min(260px, 78vw);
+  padding: 9px 11px;
+  border-radius: 10px;
+  border: 1px solid var(--borde);
+  background: #171717;
+  color: var(--texto-2);
+  font-size: 11.5px;
+  font-weight: 400;
+  line-height: 1.45;
+  letter-spacing: 0;
+  text-transform: none;
+  box-shadow: 0 18px 40px -20px rgba(0, 0, 0, 0.9);
+  opacity: 0;
+  transform: translateY(4px) scale(0.98);
+  transform-origin: bottom left;
+  pointer-events: none;
+  transition: opacity 160ms ease, transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
+  z-index: 30;
+}
+.ajuste-info:hover::after,
+.ajuste-info:focus-visible::after,
+.ajuste-info.abierto::after {
+  opacity: 1;
+  transform: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .chat-tabs-indicador, .chat-tab, .chat-tab-panel.activo, .ajuste-info, .ajuste-info::after {
+    transition: none;
+    animation: none;
+  }
+}
+
+/* panel de datos del negocio (misma foto que el inventario) */
+.chat-datos { display: grid; gap: 10px; }
+.chat-datos-vacio {
+  padding: 16px;
+  border: 1px dashed var(--borde);
+  border-radius: 11px;
+  color: var(--texto-3);
+  font-size: 12px;
+  text-align: center;
+}
+.chat-datos-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.chat-dato {
+  padding: 10px 11px;
+  border: 1px solid var(--borde);
+  border-radius: 11px;
+  background: var(--card);
+  min-width: 0;
+}
+.chat-dato span {
+  display: block;
+  font-size: 9.5px;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--texto-3);
+  margin-bottom: 3px;
+}
+.chat-dato strong {
+  display: block;
+  font-size: 16px;
+  font-weight: 680;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--texto);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.chat-dato small { display: block; font-size: 10.5px; color: var(--texto-3); margin-top: 2px; }
+.chat-dato.lima strong { color: var(--acento); }
+.chat-dato.alerta strong { color: var(--alerta, #f87171); }
+.chat-dato.ancho { grid-column: 1 / -1; }
+
+.chat-datos-lista { display: grid; gap: 6px; }
+.chat-datos-fila {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 9px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 11.5px;
+  color: var(--texto-2);
+}
+.chat-datos-fila b { color: var(--texto); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chat-datos-fila span { flex: 0 0 auto; font-variant-numeric: tabular-nums; color: var(--acento); }
+.chat-datos-titulo {
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--texto-3);
+  margin: 4px 0 0;
+}
+.chat-datos-pie { font-size: 10.5px; color: var(--texto-3); text-align: right; }
+
+/* ==========================================================================
+   Catálogo de modelos · tarjetas comparables
+   ========================================================================== */
+.modelos-hero {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px;
+  margin-bottom: 12px;
+  border: 1px solid var(--borde);
+  border-radius: var(--r-md, 12px);
+  background:
+    radial-gradient(130% 130% at 100% 0%, rgba(200, 245, 66, 0.10), transparent 55%),
+    var(--card);
+}
+.modelos-hero-texto { min-width: 0; display: grid; gap: 2px; align-content: center; }
+.modelos-hero-etq {
+  margin: 0;
+  font-size: 9.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--acento);
+}
+.modelos-hero-texto strong { font-size: 15px; letter-spacing: -0.01em; }
+.modelos-hero-texto span { font-size: 11.5px; color: var(--texto-3); }
+.modelos-estrella {
+  flex: 0 0 auto;
+  display: grid;
+  gap: 1px;
+  align-content: center;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(200, 245, 66, 0.28);
+  background: var(--acento-suave, rgba(200, 245, 66, 0.08));
+  text-align: right;
+}
+.modelos-estrella span { font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--acento); }
+.modelos-estrella strong { font-size: 13px; }
+.modelos-estrella small { font-size: 10px; color: var(--texto-3); }
+
+.modelos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 10px;
+}
+.modelo-card {
+  display: grid;
+  gap: 9px;
+  padding: 13px;
+  border: 1px solid var(--borde);
+  border-radius: var(--r-md, 12px);
+  background: var(--card);
+  transition: border-color 180ms ease, transform 160ms ease;
+}
+.modelo-card:active { transform: scale(0.995); }
+.modelo-card.estrella { border-color: rgba(200, 245, 66, 0.35); }
+.modelo-card.no-cabe { opacity: 0.72; }
+.modelo-card-cab { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.modelo-card-titulo { min-width: 0; }
+.modelo-card-titulo h4 { margin: 0; font-size: 13px; line-height: 1.25; letter-spacing: -0.01em; }
+.modelo-card-sub { display: block; margin-top: 2px; font-size: 10.5px; color: var(--texto-3); }
+.modelo-badge {
+  flex: 0 0 auto;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 3px 7px;
+  border-radius: 6px;
+}
+.modelo-badge.estrella { color: #050505; background: var(--acento); }
+
+.modelo-card-datos {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+.modelo-card-datos div { min-width: 0; }
+.modelo-card-datos span {
+  display: block;
+  font-size: 8.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--texto-3);
+}
+.modelo-card-datos b {
+  display: block;
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.modelo-card-datos b.ok { color: var(--acento); }
+.modelo-card-datos b.alerta { color: var(--alerta, #f87171); }
+
+.modelo-card-calidad { display: flex; align-items: center; gap: 3px; }
+.modelo-card-calidad i {
+  width: 12px;
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.12);
+}
+.modelo-card-calidad i.lleno { background: var(--acento); }
+.modelo-card-calidad span { margin-left: 5px; font-size: 10px; color: var(--texto-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.modelo-card-nota { margin: 0; font-size: 11px; line-height: 1.45; color: var(--texto-2); }
+.modelo-card-pie { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.modelo-card-aviso { font-size: 10px; color: var(--texto-3); }

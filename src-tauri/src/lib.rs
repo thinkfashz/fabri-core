@@ -1,5 +1,5 @@
 // ============================================================================
-//  FABRI-CORE · núcleo Rust
+//  FORGE CORE STOCK · núcleo Rust
 //  ---------------------------------------------------------------------------
 //  Este archivo es el corazón del contenedor: guarda configuración, catálogo de
 //  componentes, historial de operaciones, logs persistentes y diagnóstico.
@@ -19,7 +19,7 @@ use jni::JNIEnv;
 use rusqlite::types::ValueRef;
 use rusqlite::{params, Connection, OpenFlags, OptionalExtension};
 use serde_json::{json, Value};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -93,6 +93,28 @@ const MANIFIESTOS: &[(&str, &str)] = &[
     (
         "manifiestos/modelos/modelo-qwen05-q2.json",
         include_str!("../../manifiestos/modelos/modelo-qwen05-q2.json"),
+    ),
+    // Catálogo de chat para el teléfono: de 1B a 3B. Los cuatro son GGUF
+    // estándar de llama.cpp y se descargan con SHA-256 real de Hugging Face.
+    (
+        "manifiestos/modelos/modelo-llama32-1b.json",
+        include_str!("../../manifiestos/modelos/modelo-llama32-1b.json"),
+    ),
+    (
+        "manifiestos/modelos/modelo-qwen15.json",
+        include_str!("../../manifiestos/modelos/modelo-qwen15.json"),
+    ),
+    (
+        "manifiestos/modelos/modelo-smollm2-17b.json",
+        include_str!("../../manifiestos/modelos/modelo-smollm2-17b.json"),
+    ),
+    (
+        "manifiestos/modelos/modelo-llama32-3b.json",
+        include_str!("../../manifiestos/modelos/modelo-llama32-3b.json"),
+    ),
+    (
+        "manifiestos/modelos/modelo-qwen3b.json",
+        include_str!("../../manifiestos/modelos/modelo-qwen3b.json"),
     ),
     (
         "manifiestos/modelos/embeddings-minilm.json",
@@ -580,7 +602,7 @@ fn migrar(conn: &Connection) -> rusqlite::Result<()> {
 
     // Catálogo semilla: se muestran las entradas aunque no estén instaladas.
     let semilla = [
-        ("backend", "Backend FABRI-CORE", "backend", "Servicio local de FABRI-CORE", "Apache-2.0"),
+        ("backend", "Backend FORGE CORE STOCK", "backend", "Servicio local de FORGE CORE STOCK", "Apache-2.0"),
         ("runtime-llama", "Motor de inferencia local", "runtime", "llama.cpp para ARM64", "MIT"),
         ("modelo-qwen05", "Modelo Qwen2.5 0.5B (Q4_K_M)", "modelo", "LLM pequeño ya presente en el dispositivo", "Apache-2.0"),
         ("embeddings", "Embeddings y recuperación semántica", "modelo", "Índice vectorial local", "MIT"),
@@ -1371,6 +1393,60 @@ fn op_dispositivo_detalles(_payload: &Value) -> Result<Value, String> {
 
 /// Recomendación de modelos según la arquitectura del dispositivo.
 /// Devuelve qué modelos GGUF deberían correr bien basado en RAM y CPU.
+/// Ficha editorial de los modelos de chat del catálogo.
+///
+/// El manifiesto declara lo que se descarga (URL, SHA-256, tamaño y licencia);
+/// esta tabla añade lo que el usuario necesita para elegir: parámetros,
+/// familia, calidad relativa y velocidad estimada en un teléfono de gama
+/// media. Los valores son estimaciones honestas, no benchmarks del dispositivo.
+fn modelo_ficha(id: &str, mb: u64) -> (f64, &'static str, u8, f64, &'static str) {
+    match id {
+        "modelo-smollm2-135m" => (
+            0.135, "SmolLM2", 1, 28.0,
+            "Ultra rápido, pero sólo para saludos y frases cortas.",
+        ),
+        "modelo-qwen05" => (
+            0.5, "Qwen 2.5", 2, 20.0,
+            "El más liviano útil: responde al instante y entiende órdenes simples.",
+        ),
+        "modelo-qwen05-q2" => (
+            0.5, "Qwen 2.5", 2, 22.0,
+            "Igual que el 0.5B Q4 pero ocupa menos disco; algo menos preciso.",
+        ),
+        "modelo-smollm2-135m-q2" => (
+            0.135, "SmolLM2", 1, 30.0,
+            "Mínimo consumo; no sirve para consultas de inventario.",
+        ),
+        "modelo-llama32-1b" => (
+            1.0, "Llama 3.2", 3, 13.0,
+            "Rápido y obediente: la mejor relación velocidad/calidad para el día a día.",
+        ),
+        "modelo-qwen15" => (
+            1.5, "Qwen 2.5", 4, 9.0,
+            "Muy bueno en español y números; el equilibrio recomendado para inventario.",
+        ),
+        "modelo-smollm2-17b" => (
+            1.7, "SmolLM2", 3, 8.0,
+            "Compacto y rápido, con licencia Apache-2.0.",
+        ),
+        "modelo-llama32-3b" => (
+            3.0, "Llama 3.2", 5, 4.5,
+            "El más inteligente: razona, mantiene contexto y sigue instrucciones largas.",
+        ),
+        "modelo-qwen3b" => (
+            3.0, "Qwen 2.5", 5, 4.2,
+            "Gama alta en español y matemática; compite con Llama 3.2 3B.",
+        ),
+        _ => {
+            // Sin ficha: se estima por tamaño, marcando la calidad como media.
+            let p = ((mb as f64 / 620.0) * 10.0).round() / 10.0;
+            let toks = if mb > 0 { (14000.0 / mb as f64).clamp(2.0, 30.0) } else { 8.0 };
+            (p.max(0.1), "GGUF", 3, (toks * 10.0).round() / 10.0,
+             "Modelo GGUF compatible con llama.cpp.")
+        }
+    }
+}
+
 fn op_modelos_recomendados(_payload: &Value) -> Result<Value, String> {
     // Las recomendaciones salen de los MISMOS manifiestos que se pueden
     // descargar. Antes eran ids sueltos que no existían en el catálogo y el
@@ -1406,35 +1482,45 @@ fn op_modelos_recomendados(_payload: &Value) -> Result<Value, String> {
             continue;
         }
         let mb = (tam / (1024 * 1024)) as u64;
-        let ram = (mb as f64 * 1.7) as u64 + 256;
-        let nivel = if ram <= 1200 {
-            "muy fluido"
-        } else if ram <= 2400 {
-            "fluido"
-        } else {
-            "funcional"
-        };
+        // RAM mínima realista: pesos + caché KV + margen para la app.
+        // Antes se usaba 1,7× el tamaño, que asustaba con los modelos de 1B.
+        let ram = mb + 700;
         let es_embeddings = m
             .get("interfaz")
             .and_then(|v| v.as_str())
             .map(|x| x.contains("embeddings"))
             .unwrap_or(false);
+        let (parametros, familia, calidad, toks, nota) = if es_embeddings {
+            (0.0, "Embeddings", 3, 0.0, "Vectoriza texto para búsqueda semántica y RAG.")
+        } else {
+            modelo_ficha(&id, mb)
+        };
         let uso = if es_embeddings {
             "Embeddings: búsqueda semántica y RAG"
         } else if mb <= 150 {
-            "Chat local rápido con poca RAM"
+            "Chat local ultrarrápido con poca RAM"
+        } else if parametros <= 1.1 {
+            "Chat diario rápido y obediente"
+        } else if parametros <= 1.8 {
+            "Inventario, precios y ventas"
         } else {
-            "Asistente general y razonamiento básico"
+            "Razonamiento y respuestas largas"
         };
         recomendaciones.push(json!({
             "id": id,
             "nombre": m.get("nombre").cloned().unwrap_or(Value::Null),
             "tamanoMB": mb,
             "ramMinimaMB": ram,
-            "nivel": nivel,
+            "parametros": parametros,
+            "familia": familia,
+            "calidad": calidad,
+            "velocidadToks": toks,
+            "nota": nota,
+            "nivel": "por calcular",
             "uso": uso,
             "tipo": if es_embeddings { "embeddings" } else { "chat" },
             "descargar": true,
+            "recomendado": false,
             "licencia": m.get("licencia").cloned().unwrap_or(Value::Null)
         }));
     }
@@ -1450,6 +1536,59 @@ fn op_modelos_recomendados(_payload: &Value) -> Result<Value, String> {
                 .unwrap_or(0)
         };
         let mem_total_mb = leer_kb("MemTotal:") / 1024;
+        let mem_disp_mb = leer_kb("MemAvailable:") / 1024;
+        let cpu = fs::read_to_string("/proc/cpuinfo").unwrap_or_default();
+        let nucleos = cpu.lines().filter(|l| l.starts_with("processor")).count().max(1);
+        // Presupuesto de RAM para el modelo: 55 % de la RAM total. Deja el
+        // resto para Android, el WebView y el resto de la app; si se pasa, el
+        // kernel mata el proceso a mitad de la inferencia.
+        let presupuesto = (mem_total_mb as f64 * 0.55) as u64;
+        let mut estrella: Option<String> = None;
+        let mut mejor_calidad: u8 = 0;
+        for m in recomendaciones.iter_mut() {
+            let ram = m.get("ramMinimaMB").and_then(|x| x.as_u64()).unwrap_or(0);
+            let calidad = m.get("calidad").and_then(|x| x.as_u64()).unwrap_or(0) as u8;
+            let es_chat = m.get("tipo").and_then(|x| x.as_str()) == Some("chat");
+            let nivel = if ram == 0 {
+                "funcional"
+            } else if ram <= mem_total_mb * 30 / 100 {
+                "muy fluido"
+            } else if ram <= mem_total_mb * 45 / 100 {
+                "fluido"
+            } else if ram <= presupuesto {
+                "justo"
+            } else {
+                "exigente"
+            };
+            let recomendado = es_chat && ram > 0 && ram <= presupuesto && calidad >= 2;
+            if let Some(obj) = m.as_object_mut() {
+                obj.insert("nivel".to_string(), json!(nivel));
+                obj.insert("recomendado".to_string(), json!(recomendado));
+                obj.insert("cabeEnRam".to_string(), json!(ram <= presupuesto));
+            }
+            if recomendado && calidad > mejor_calidad {
+                mejor_calidad = calidad;
+                estrella = m.get("id").and_then(|x| x.as_str()).map(String::from);
+            }
+        }
+        if let Some(id) = estrella.clone() {
+            for m in recomendaciones.iter_mut() {
+                if m.get("id").and_then(|x| x.as_str()) == Some(id.as_str()) {
+                    if let Some(obj) = m.as_object_mut() {
+                        obj.insert("estrella".to_string(), json!(true));
+                    }
+                }
+            }
+        }
+        let perfil = if mem_total_mb >= 7000 {
+            "gama alta"
+        } else if mem_total_mb >= 5000 {
+            "gama media-alta"
+        } else if mem_total_mb >= 3500 {
+            "gama media"
+        } else {
+            "gama básica"
+        };
 
         let mut detectados: Vec<Value> = Vec::new();
         if let Ok(mut st) = e.db.prepare("SELECT id,nombre,formato,tamano,estado FROM modelos ORDER BY id") {
@@ -1473,6 +1612,10 @@ fn op_modelos_recomendados(_payload: &Value) -> Result<Value, String> {
 
         Ok(json!({
             "memTotalMB": mem_total_mb,
+            "memDisponibleMB": mem_disp_mb,
+            "nucleos": nucleos,
+            "presupuestoMB": presupuesto,
+            "perfil": perfil,
             "recomendados": recomendaciones,
             "detectados": detectados
         }))
@@ -2649,7 +2792,7 @@ fn op_sqlite(payload: &Value) -> Result<Value, String> {
     })
 }
 
-/// Consola FABRI-CORE: sólo tareas internas de una lista blanca.
+/// Consola FORGE CORE STOCK: sólo tareas internas de una lista blanca.
 /// NUNCA se ejecuta un comando recibido desde la interfaz.
 fn op_tarea(payload: &Value) -> Result<Value, String> {
     let tarea = campo(payload, "tarea")?;
@@ -2662,7 +2805,7 @@ fn op_tarea(payload: &Value) -> Result<Value, String> {
         })
         .map(|v| (true, v["salida"].as_str().unwrap_or("").to_string()))
         .unwrap_or((false, "sin estado".into())),
-        "version" => (true, format!("FABRI-CORE {} ({})", env!("CARGO_PKG_VERSION"), std::env::consts::ARCH)),
+        "version" => (true, format!("FORGE CORE STOCK {} ({})", env!("CARGO_PKG_VERSION"), std::env::consts::ARCH)),
         "sqlite" => con_estado(|e| {
             let v: String = e
                 .db
@@ -2892,7 +3035,8 @@ fn inv_esquema(db: &Connection) -> rusqlite::Result<()> {
             total    REAL NOT NULL DEFAULT 0,
             pago     TEXT NOT NULL DEFAULT 'efectivo',
             estado   TEXT NOT NULL DEFAULT 'emitida',
-            ts       INTEGER NOT NULL DEFAULT 0
+            ts       INTEGER NOT NULL DEFAULT 0,
+            sync_ts  INTEGER NOT NULL DEFAULT 0
          );",
     )?;
     // Bases creadas antes de la ficha ampliada: se añade la columna una sola
@@ -2900,6 +3044,14 @@ fn inv_esquema(db: &Connection) -> rusqlite::Result<()> {
     if !inv_tiene_columna(db, "inv_productos", "ficha") {
         let _ = db.execute(
             "ALTER TABLE inv_productos ADD COLUMN ficha TEXT NOT NULL DEFAULT '{}'",
+            [],
+        );
+    }
+    // Las ventas también se sincronizan: una boleta emitida en el teléfono
+    // debe poder subir a la nube y marcarse para no reenviarla.
+    if !inv_tiene_columna(db, "inv_boletas", "sync_ts") {
+        let _ = db.execute(
+            "ALTER TABLE inv_boletas ADD COLUMN sync_ts INTEGER NOT NULL DEFAULT 0",
             [],
         );
     }
@@ -3052,6 +3204,14 @@ fn op_perfil(payload: &Value, db: &Connection) -> Result<Value, String> {
                 return Err("el indicativo supera 24 caracteres".into());
             }
 
+            // Quitar la foto es una acción explícita: un `foto` vacío sin esta
+            // bandera significa «conserva la que había» (así el login puede
+            // guardar sólo el nombre sin borrar la imagen).
+            let borrar_foto = payload
+                .get("borrar_foto")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+
             let ahora_ms = ahora();
             // `datos` es opcional: si no viene, se conserva lo que ya había
             // (la página ID guarda su ficha aparte y no debe borrarla al
@@ -3066,27 +3226,42 @@ fn op_perfil(payload: &Value, db: &Connection) -> Result<Value, String> {
                 }
                 _ => None,
             };
+            // El operador vive dentro de `datos`, pero la tabla `usuarios` lo
+            // necesita como columna. Se extrae del JSON mezclado para no
+            // pisarlo con el nombre del negocio (son dos identidades).
+            let operador_datos = datos_nuevos
+                .as_deref()
+                .and_then(|t| serde_json::from_str::<Value>(t).ok())
+                .and_then(|v| {
+                    v.get("operador")
+                        .and_then(|x| x.as_str())
+                        .map(|s| s.trim().to_string())
+                })
+                .filter(|s| !s.is_empty());
             db.execute(
                 "INSERT INTO perfil (id, nombre, indicativo, foto, actualizado, datos)
                  VALUES (1, ?1, ?2, ?3, ?4, COALESCE(?5, '{}'))
                  ON CONFLICT(id) DO UPDATE SET
                      nombre = CASE WHEN ?1 = '' THEN nombre ELSE ?1 END,
                      indicativo = CASE WHEN ?2 = '' THEN indicativo ELSE ?2 END,
-                     foto = CASE WHEN ?3 = '' THEN foto ELSE ?3 END,
+                     foto = CASE WHEN ?6 = 1 THEN '' WHEN ?3 = '' THEN foto ELSE ?3 END,
                      datos = COALESCE(?5, datos),
                      actualizado = ?4",
-                params![nombre, indicativo, foto, ahora_ms, datos_nuevos],
+                params![nombre, indicativo, foto, ahora_ms, datos_nuevos, borrar_foto],
             )
             .map_err(|e| e.to_string())?;
             // La tarjeta del login y la tabla de usuarios muestran lo mismo: el
             // perfil se refleja en el usuario operador sin duplicar la captura.
+            // La tabla `usuarios` es del operador: si la ficha trae su nombre,
+            // ese manda; el nombre del negocio sólo rellena cuando no hay uno.
+            let nombre_usuario = operador_datos.as_deref().unwrap_or(nombre.as_str());
             db.execute(
                 "UPDATE usuarios SET
                         nombre = CASE WHEN ?1 = '' THEN nombre ELSE ?1 END,
                         indicativo = CASE WHEN ?2 = '' THEN indicativo ELSE ?2 END,
-                        foto = CASE WHEN ?3 = '' THEN foto ELSE ?3 END
+                        foto = CASE WHEN ?4 = 1 THEN '' WHEN ?3 = '' THEN foto ELSE ?3 END
                   WHERE usuario = 'operador'",
-                params![nombre, indicativo, foto],
+                params![nombre_usuario, indicativo, foto, borrar_foto],
             )
             .ok();
             Ok(json!({
@@ -3342,19 +3517,28 @@ fn op_usuarios(payload: &Value, db: &Connection) -> Result<Value, String> {
             let indicativo = texto("indicativo");
             let foto = texto("foto");
             let rol = texto("rol");
+            let borrar_foto = payload
+                .get("borrar_foto")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
             let ahora_ms = ahora();
             let filas = db
                 .execute(
                     "UPDATE usuarios SET
                          nombre     = CASE WHEN ?1 = '' THEN nombre     ELSE ?1 END,
                          indicativo = CASE WHEN ?2 = '' THEN indicativo ELSE ?2 END,
-                         foto       = CASE WHEN ?3 = '' THEN foto       ELSE ?3 END,
+                         foto       = CASE WHEN ?6 = 1 THEN '' WHEN ?3 = '' THEN foto ELSE ?3 END,
                          rol        = CASE WHEN ?4 = '' THEN rol        ELSE ?4 END
                       WHERE usuario = ?5",
-                    params![nombre, indicativo, foto, rol, usuario],
+                    params![nombre, indicativo, foto, rol, usuario, borrar_foto],
                 )
                 .map_err(|e| e.to_string())?;
-            Ok(json!({ "ok": true, "filas": filas, "actualizado": ahora_ms }))
+            Ok(json!({
+                "ok": true,
+                "filas": filas,
+                "actualizado": ahora_ms,
+                "borrar_foto": borrar_foto
+            }))
         }
 
         "borrar" => {
@@ -3724,19 +3908,27 @@ fn op_inventario(payload: &Value, db: &Connection) -> Result<Value, String> {
 
         // --------------------------------------------------------------- resumen
         "resumen" => {
-            let (total, valor_costo, valor_venta, bajo, sin_precio) = db
+            let (total, unidades, valor_costo, valor_venta, bajo, agotados, sin_precio) = db
                 .query_row(
                     "SELECT COUNT(*),
+                            COALESCE(SUM(stock),0),
                             COALESCE(SUM(costo*stock),0),
                             COALESCE(SUM(precio*stock),0),
                             COALESCE(SUM(CASE WHEN stock <= stock_minimo THEN 1 ELSE 0 END),0),
+                            COALESCE(SUM(CASE WHEN stock <= 0 THEN 1 ELSE 0 END),0),
                             COALESCE(SUM(CASE WHEN precio <= 0 THEN 1 ELSE 0 END),0)
                      FROM inv_productos",
                     [],
-                    |r| Ok((r.get::<_, i64>(0)?, r.get::<_, f64>(1)?, r.get::<_, f64>(2)?,
-                            r.get::<_, i64>(3)?, r.get::<_, i64>(4)?)),
+                    |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?, r.get::<_, f64>(2)?,
+                            r.get::<_, f64>(3)?, r.get::<_, i64>(4)?, r.get::<_, i64>(5)?,
+                            r.get::<_, i64>(6)?)),
                 )
-                .unwrap_or((0, 0.0, 0.0, 0, 0));
+                .unwrap_or((0, 0, 0.0, 0.0, 0, 0, 0));
+            let margen_promedio = if valor_venta > 0.0 {
+                ((valor_venta - valor_costo) / valor_venta * 1000.0).round() / 10.0
+            } else {
+                0.0
+            };
             let mut stmt = db
                 .prepare("SELECT categoria, COUNT(*) FROM inv_productos GROUP BY categoria ORDER BY 2 DESC")
                 .map_err(|e| e.to_string())?;
@@ -3750,21 +3942,350 @@ fn op_inventario(payload: &Value, db: &Connection) -> Result<Value, String> {
                 .unwrap_or(0);
             Ok(json!({
                 "total": total,
+                "unidades": unidades,
                 "valor_costo": (valor_costo * 100.0).round() / 100.0,
                 "valor_venta": (valor_venta * 100.0).round() / 100.0,
                 "utilidad_potencial": ((valor_venta - valor_costo) * 100.0).round() / 100.0,
+                "margen_promedio": margen_promedio,
                 "stock_bajo": bajo,
+                "agotados": agotados,
                 "sin_precio": sin_precio,
                 "categorias": categorias,
                 "pendientes_sync": pendientes
             }))
         }
 
+        // ---------------------------------------------------------------- panel
+        // Foto completa del negocio en UNA sola llamada: productos, stock,
+        // márgenes, ventas y categorías. La usan el chat, el panel de inicio y
+        // el estado vacío del asistente, para que todos muestren el MISMO
+        // número en el mismo instante (antes cada pantalla consultaba aparte).
+        "panel" => {
+            let (total, unidades, valor_costo, valor_venta, bajo, agotados, sin_precio, sin_costo) = db
+                .query_row(
+                    "SELECT COUNT(*),
+                            COALESCE(SUM(stock),0),
+                            COALESCE(SUM(costo*stock),0),
+                            COALESCE(SUM(precio*stock),0),
+                            COALESCE(SUM(CASE WHEN stock <= stock_minimo THEN 1 ELSE 0 END),0),
+                            COALESCE(SUM(CASE WHEN stock <= 0 THEN 1 ELSE 0 END),0),
+                            COALESCE(SUM(CASE WHEN precio <= 0 THEN 1 ELSE 0 END),0),
+                            COALESCE(SUM(CASE WHEN costo <= 0 THEN 1 ELSE 0 END),0)
+                     FROM inv_productos",
+                    [],
+                    |r| {
+                        Ok((
+                            r.get::<_, i64>(0)?,
+                            r.get::<_, i64>(1)?,
+                            r.get::<_, f64>(2)?,
+                            r.get::<_, f64>(3)?,
+                            r.get::<_, i64>(4)?,
+                            r.get::<_, i64>(5)?,
+                            r.get::<_, i64>(6)?,
+                            r.get::<_, i64>(7)?,
+                        ))
+                    },
+                )
+                .unwrap_or((0, 0, 0.0, 0.0, 0, 0, 0, 0));
+            let utilidad = valor_venta - valor_costo;
+            let margen_promedio = if valor_venta > 0.0 {
+                (utilidad / valor_venta * 1000.0).round() / 10.0
+            } else {
+                0.0
+            };
+
+            let mut stmt = db
+                .prepare(
+                    "SELECT categoria, COUNT(*), COALESCE(SUM(stock),0),
+                            COALESCE(SUM(precio*stock),0), COALESCE(SUM(costo*stock),0)
+                     FROM inv_productos GROUP BY categoria ORDER BY 4 DESC",
+                )
+                .map_err(|e| e.to_string())?;
+            let categorias = stmt
+                .query_map([], |r| {
+                    let venta: f64 = r.get(3)?;
+                    let costo: f64 = r.get(4)?;
+                    let margen = if venta > 0.0 { (venta - costo) / venta * 1000.0 } else { 0.0 };
+                    Ok(json!({
+                        "categoria": r.get::<_, String>(0)?,
+                        "n": r.get::<_, i64>(1)?,
+                        "unidades": r.get::<_, i64>(2)?,
+                        "valor_venta": (venta * 100.0).round() / 100.0,
+                        "valor_costo": (costo * 100.0).round() / 100.0,
+                        "utilidad": ((venta - costo) * 100.0).round() / 100.0,
+                        "margen_pct": (margen.round()) / 10.0
+                    }))
+                })
+                .map_err(|e| e.to_string())?
+                .filter_map(|r| r.ok())
+                .collect::<Vec<Value>>();
+
+            let mut stmt = db
+                .prepare(
+                    "SELECT codigo,nombre,stock,stock_minimo,precio,proveedor,
+                            CASE WHEN stock_minimo > stock THEN stock_minimo - stock ELSE 0 END AS faltante
+                     FROM inv_productos
+                     WHERE stock <= stock_minimo
+                     ORDER BY faltante DESC, stock ASC, nombre COLLATE NOCASE
+                     LIMIT 12",
+                )
+                .map_err(|e| e.to_string())?;
+            let stock_bajo = stmt
+                .query_map([], |r| {
+                    Ok(json!({
+                        "codigo": r.get::<_, String>(0)?,
+                        "nombre": r.get::<_, String>(1)?,
+                        "stock": r.get::<_, i64>(2)?,
+                        "stock_minimo": r.get::<_, i64>(3)?,
+                        "precio": r.get::<_, f64>(4)?,
+                        "proveedor": r.get::<_, String>(5)?,
+                        "faltante": r.get::<_, i64>(6)?
+                    }))
+                })
+                .map_err(|e| e.to_string())?
+                .filter_map(|r| r.ok())
+                .collect::<Vec<Value>>();
+
+            let mut stmt = db
+                .prepare(
+                    "SELECT codigo,nombre,costo,precio,stock,
+                            CASE WHEN precio > 0 THEN ROUND((precio-costo)/precio*100,1) ELSE 0 END AS margen_pct,
+                            ROUND(precio-costo,0) AS ganancia
+                     FROM inv_productos
+                     WHERE precio > 0 AND costo > 0
+                     ORDER BY margen_pct DESC, ganancia DESC
+                     LIMIT 8",
+                )
+                .map_err(|e| e.to_string())?;
+            let top_margen = stmt
+                .query_map([], |r| {
+                    Ok(json!({
+                        "codigo": r.get::<_, String>(0)?,
+                        "nombre": r.get::<_, String>(1)?,
+                        "costo": r.get::<_, f64>(2)?,
+                        "precio": r.get::<_, f64>(3)?,
+                        "stock": r.get::<_, i64>(4)?,
+                        "margen_pct": r.get::<_, f64>(5)?,
+                        "ganancia": r.get::<_, f64>(6)?
+                    }))
+                })
+                .map_err(|e| e.to_string())?
+                .filter_map(|r| r.ok())
+                .collect::<Vec<Value>>();
+
+            let mut stmt = db
+                .prepare(
+                    "SELECT codigo,nombre,stock,precio,ROUND(precio*stock,0) AS valor
+                     FROM inv_productos ORDER BY valor DESC LIMIT 8",
+                )
+                .map_err(|e| e.to_string())?;
+            let top_valor = stmt
+                .query_map([], |r| {
+                    Ok(json!({
+                        "codigo": r.get::<_, String>(0)?,
+                        "nombre": r.get::<_, String>(1)?,
+                        "stock": r.get::<_, i64>(2)?,
+                        "precio": r.get::<_, f64>(3)?,
+                        "valor": r.get::<_, f64>(4)?
+                    }))
+                })
+                .map_err(|e| e.to_string())?
+                .filter_map(|r| r.ok())
+                .collect::<Vec<Value>>();
+
+            // ── ventas ────────────────────────────────────────────────────
+            // Se leen las boletas de los últimos 30 días y se agregan en
+            // memoria. La utilidad usa el costo guardado en cada ítem al
+            // emitir; para boletas viejas cae al costo actual del producto.
+            let ahora_ts = ahora();
+            let desde_24h = ahora_ts - 86_400;
+            let desde_30d = ahora_ts - 30 * 86_400;
+            let mut costos: HashMap<String, f64> = HashMap::new();
+            if let Ok(mut st) = db.prepare("SELECT codigo,costo FROM inv_productos") {
+                if let Ok(rows) = st.query_map([], |r| {
+                    Ok((r.get::<_, String>(0)?, r.get::<_, f64>(1)?))
+                }) {
+                    for (codigo, costo) in rows.flatten() {
+                        costos.insert(codigo, costo);
+                    }
+                }
+            }
+            let mut v24_n = 0i64;
+            let mut v24_total = 0.0f64;
+            let mut v24_util = 0.0f64;
+            let mut v24_unidades = 0i64;
+            let mut v30_n = 0i64;
+            let mut v30_total = 0.0f64;
+            let mut v30_util = 0.0f64;
+            let mut v30_unidades = 0i64;
+            let mut top_ventas: HashMap<String, (String, i64, f64)> = HashMap::new();
+            let mut historial: Vec<Value> = Vec::new();
+            if let Ok(mut st) = db.prepare(
+                "SELECT folio,total,ts,items FROM inv_boletas WHERE ts >= ?1 ORDER BY ts DESC",
+            ) {
+                if let Ok(rows) = st.query_map(params![desde_30d], |r| {
+                    Ok((
+                        r.get::<_, i64>(0)?,
+                        r.get::<_, f64>(1)?,
+                        r.get::<_, i64>(2)?,
+                        r.get::<_, String>(3)?,
+                    ))
+                }) {
+                    for (folio, total, ts, items_json) in rows.flatten() {
+                        if historial.len() < 8 {
+                            historial.push(json!({ "folio": folio, "total": total, "ts": ts }));
+                        }
+                        let items: Value =
+                            serde_json::from_str(&items_json).unwrap_or_else(|_| json!([]));
+                        let mut util = 0.0f64;
+                        let mut uni = 0i64;
+                        if let Some(arr) = items.as_array() {
+                            for it in arr {
+                                let cant = it
+                                    .get("cantidad")
+                                    .and_then(|v| v.as_f64())
+                                    .unwrap_or(1.0)
+                                    .max(1.0);
+                                let precio =
+                                    it.get("precio").and_then(|v| v.as_f64()).unwrap_or(0.0);
+                                let codigo =
+                                    it.get("codigo").and_then(|v| v.as_str()).unwrap_or("");
+                                let costo = it
+                                    .get("costo")
+                                    .and_then(|v| v.as_f64())
+                                    .unwrap_or_else(|| {
+                                        costos.get(codigo).copied().unwrap_or(0.0)
+                                    });
+                                util += (precio - costo) * cant;
+                                uni += cant as i64;
+                                if !codigo.is_empty() {
+                                    let nombre = it
+                                        .get("nombre")
+                                        .and_then(|v| v.as_str())
+                                        .unwrap_or("")
+                                        .to_string();
+                                    let e = top_ventas.entry(codigo.to_string()).or_insert((
+                                        nombre, 0, 0.0,
+                                    ));
+                                    e.1 += cant as i64;
+                                    e.2 += precio * cant;
+                                }
+                            }
+                        }
+                        v30_n += 1;
+                        v30_total += total;
+                        v30_util += util;
+                        v30_unidades += uni;
+                        if ts >= desde_24h {
+                            v24_n += 1;
+                            v24_total += total;
+                            v24_util += util;
+                            v24_unidades += uni;
+                        }
+                    }
+                }
+            }
+            let mut top_productos: Vec<Value> = top_ventas
+                .into_iter()
+                .map(|(codigo, (nombre, unidades, total))| {
+                    json!({
+                        "codigo": codigo,
+                        "nombre": nombre,
+                        "unidades": unidades,
+                        "total": (total * 100.0).round() / 100.0
+                    })
+                })
+                .collect();
+            top_productos.sort_by_key(|v| {
+                std::cmp::Reverse(v.get("unidades").and_then(|x| x.as_i64()).unwrap_or(0))
+            });
+            top_productos.truncate(8);
+
+            let pendientes: i64 = db
+                .query_row("SELECT COUNT(*) FROM inv_productos WHERE sync_ts = 0", [], |r| r.get(0))
+                .unwrap_or(0);
+            let boletas_pendientes: i64 = db
+                .query_row(
+                    "SELECT COUNT(*) FROM inv_boletas WHERE COALESCE(sync_ts,0) = 0",
+                    [],
+                    |r| r.get(0),
+                )
+                .unwrap_or(0);
+            let ultimo_sync: i64 = db
+                .query_row("SELECT COALESCE(MAX(sync_ts),0) FROM inv_productos", [], |r| r.get(0))
+                .unwrap_or(0);
+
+            Ok(json!({
+                "ok": true,
+                "generado": ahora_ts,
+                "resumen": {
+                    "total": total,
+                    "unidades": unidades,
+                    "valor_costo": (valor_costo * 100.0).round() / 100.0,
+                    "valor_venta": (valor_venta * 100.0).round() / 100.0,
+                    "utilidad_potencial": (utilidad * 100.0).round() / 100.0,
+                    "margen_promedio": margen_promedio,
+                    "stock_bajo": bajo,
+                    "agotados": agotados,
+                    "sin_precio": sin_precio,
+                    "sin_costo": sin_costo,
+                    "pendientes_sync": pendientes
+                },
+                "categorias": categorias,
+                "stock_bajo": stock_bajo,
+                "top_margen": top_margen,
+                "top_valor": top_valor,
+                "ventas": {
+                    "ultimas_24h": {
+                        "n": v24_n,
+                        "total": (v24_total * 100.0).round() / 100.0,
+                        "utilidad": (v24_util * 100.0).round() / 100.0,
+                        "unidades": v24_unidades
+                    },
+                    "ultimos_30d": {
+                        "n": v30_n,
+                        "total": (v30_total * 100.0).round() / 100.0,
+                        "utilidad": (v30_util * 100.0).round() / 100.0,
+                        "unidades": v30_unidades
+                    },
+                    "ticket_promedio": if v30_n > 0 {
+                        ((v30_total / v30_n as f64) * 100.0).round() / 100.0
+                    } else { 0.0 },
+                    "top_productos": top_productos,
+                    "historial": historial
+                },
+                "sync": {
+                    "pendientes": pendientes,
+                    "boletas_pendientes": boletas_pendientes,
+                    "ultimo_ts": ultimo_sync
+                }
+            }))
+        }
+
         // ---------------------------------------------------------- boleta_crear
         "boleta_crear" => {
-            let items = payload.get("items").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+            let mut items = payload.get("items").and_then(|v| v.as_array()).cloned().unwrap_or_default();
             if items.is_empty() {
                 return Ok(json!({ "ok": false, "error": "la boleta no tiene ítems" }));
+            }
+            // Guarda el costo unitario dentro de la boleta. Sin esto la
+            // utilidad de una venta sólo se podía estimar con el costo actual
+            // del producto, que cambia con el tiempo y falsea el histórico.
+            for it in items.iter_mut() {
+                let codigo = inv_txt(it, "codigo");
+                if codigo.is_empty() || it.get("costo").is_some() {
+                    continue;
+                }
+                let costo: f64 = db
+                    .query_row(
+                        "SELECT costo FROM inv_productos WHERE codigo = ?1",
+                        params![codigo],
+                        |r| r.get(0),
+                    )
+                    .unwrap_or(0.0);
+                if let Some(obj) = it.as_object_mut() {
+                    obj.insert("costo".to_string(), json!(costo));
+                }
             }
             let iva_pct = {
                 let v = inv_num(payload, "iva");
@@ -3915,12 +4436,45 @@ fn op_inventario(payload: &Value, db: &Connection) -> Result<Value, String> {
                 .map_err(|e| e.to_string())?
                 .filter_map(|r| r.ok())
                 .collect::<Vec<Value>>();
-            Ok(json!({ "ok": true, "productos": filas, "n": filas.len() }))
+            // Las ventas viajan con los productos en el mismo lote lógico:
+            // así el panel puede decir «N productos y M boletas sin subir».
+            let mut boletas: Vec<Value> = Vec::new();
+            if let Ok(mut st) = db.prepare(
+                "SELECT folio,cliente,rut,items,neto,iva,total,pago,estado,ts
+                 FROM inv_boletas WHERE COALESCE(sync_ts,0) = 0 ORDER BY folio ASC LIMIT 200",
+            ) {
+                if let Ok(rows) = st.query_map([], |r| {
+                    let crudos: String = r.get(3)?;
+                    let items: Value = serde_json::from_str(&crudos).unwrap_or_else(|_| json!([]));
+                    Ok(json!({
+                        "folio": r.get::<_, i64>(0)?,
+                        "cliente": r.get::<_, String>(1)?,
+                        "rut": r.get::<_, String>(2)?,
+                        "items": items,
+                        "neto": r.get::<_, f64>(4)?,
+                        "iva": r.get::<_, f64>(5)?,
+                        "total": r.get::<_, f64>(6)?,
+                        "pago": r.get::<_, String>(7)?,
+                        "estado": r.get::<_, String>(8)?,
+                        "ts": r.get::<_, i64>(9)?
+                    }))
+                }) {
+                    boletas = rows.filter_map(|r| r.ok()).collect();
+                }
+            }
+            Ok(json!({
+                "ok": true,
+                "productos": filas,
+                "boletas": boletas,
+                "n": filas.len(),
+                "n_boletas": boletas.len()
+            }))
         }
 
         // ---------------------------------------------------------- sync_marcar
         "sync_marcar" => {
             let codigos = payload.get("codigos").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+            let folios = payload.get("folios").and_then(|v| v.as_array()).cloned().unwrap_or_default();
             let ts = ahora();
             let mut n = 0;
             for c in codigos {
@@ -3933,7 +4487,18 @@ fn op_inventario(payload: &Value, db: &Connection) -> Result<Value, String> {
                     }
                 }
             }
-            Ok(json!({ "ok": true, "marcados": n, "ts": ts }))
+            let mut m = 0;
+            for f in folios {
+                if let Some(folio) = f.as_i64() {
+                    if db
+                        .execute("UPDATE inv_boletas SET sync_ts = ?1 WHERE folio = ?2", params![ts, folio])
+                        .is_ok()
+                    {
+                        m += 1;
+                    }
+                }
+            }
+            Ok(json!({ "ok": true, "marcados": n, "boletas_marcadas": m, "ts": ts }))
         }
 
         otro => Err(format!("acción de inventario desconocida: {}", otro)),

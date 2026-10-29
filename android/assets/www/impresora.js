@@ -1,5 +1,5 @@
 /* ==========================================================================
-   FABRI-CORE · Impresora térmica WiFi (ESC/POS)
+   FORGE CORE STOCK · Impresora térmica WiFi (ESC/POS)
    --------------------------------------------------------------------------
    La Xprinter XP-58LLH y casi todas las térmicas con WiFi escuchan en el
    puerto 9100 y entienden ESC/POS crudo. Este módulo arma el ticket en bytes
@@ -246,7 +246,7 @@
   function normalizarNegocio(n) {
     var x = n || {};
     return {
-      nombre: x.nombre || "FABRI-CORE",
+      nombre: x.nombre || "FORGE CORE STOCK",
       razon: x.razon || "",
       rut: x.rut || "",
       giro: x.giro || "",
@@ -352,7 +352,7 @@
     t.negrita(true);
     t.linea("\u00A1GRACIAS POR SU COMPRA!");
     t.negrita(false);
-    t.linea("Documento generado por FABRI-CORE");
+    t.linea("Documento generado por FORGE CORE STOCK");
     t.linea("no es boleta tributaria electronica");
 
     t.cmd(0x1B, 0x64, 3);          // avanza 3 líneas

@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  FABRI-CORE · manifiesto de la APK
+  FORGE CORE STOCK · manifiesto de la APK
   Fase 3: se añade INTERNET porque la descarga de componentes ocurre dentro de la
   app. Toda descarga pasa por Descargador.java: HTTPS obligatorio, SHA-256 y
   tamaño verificados contra el manifiesto, y nada se instala si no coincide.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="cl.fabrick.core"
-    android:versionCode="50"
-    android:versionName="0.9.35">
+    android:versionCode="52"
+    android:versionName="0.9.37">
 
     <uses-sdk android:minSdkVersion="24" android:targetSdkVersion="34" />
 

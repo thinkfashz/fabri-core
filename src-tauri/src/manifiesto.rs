@@ -1,5 +1,5 @@
 // ============================================================================
-//  FABRI-CORE · validador de manifiestos (Fase 3)
+//  FORGE CORE STOCK · validador de manifiestos (Fase 3)
 //  ---------------------------------------------------------------------------
 //  Un manifiesto es un JSON que declara cómo bajar e instalar un artefacto.
 //  Este módulo NO descarga nada: sólo decide si el manifiesto es seguro y si

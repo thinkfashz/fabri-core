@@ -1,5 +1,5 @@
 /* ==========================================================================
-   FABRI-CORE · Guía de InsForge dentro de la app
+   FORGE CORE STOCK · Guía de InsForge dentro de la app
    --------------------------------------------------------------------------
    No configura la base por sí sola: eso vive en Vercel (fabri-api), porque la
    APK no debe llevar credenciales de Postgres. Aquí se explica el contrato,

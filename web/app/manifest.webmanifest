@@ -1,6 +1,6 @@
 {
-  "name": "FABRI-CORE · consola en la nube",
-  "short_name": "FABRI-CORE",
+  "name": "FORGE CORE STOCK · consola en la nube",
+  "short_name": "FORGE CORE STOCK",
   "description": "Consola autónoma en el navegador: SQLite WASM con FTS5, panel con gráficos, chat con agente, consola SQL, inventario en la nube y planilla. Funciona offline.",
   "lang": "es",
   "dir": "ltr",

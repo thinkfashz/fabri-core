@@ -1,5 +1,5 @@
 /* ==========================================================================
-   FABRI-CORE · conexiones (Criotokey)
+   FORGE CORE STOCK · conexiones (Criotokey)
    --------------------------------------------------------------------------
    Tres caminos, todos reales:
      1. Token pegado por el usuario  → se prueba contra la API del proveedor.

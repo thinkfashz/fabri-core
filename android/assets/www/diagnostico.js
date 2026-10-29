@@ -1,5 +1,5 @@
 /* ==========================================================================
-   FABRI-CORE · escáner global de errores
+   FORGE CORE STOCK · escáner global de errores
    --------------------------------------------------------------------------
    Se carga ANTES que app.js a propósito: así captura también los errores de
    app.js, que son justo los que dejan la pantalla clavada en «Comprobando
@@ -76,7 +76,7 @@
     panel = document.createElement("div");
     panel.id = "diagPanel";
     panel.setAttribute("role", "dialog");
-    panel.setAttribute("aria-label", "Escáner de errores de FABRI-CORE");
+    panel.setAttribute("aria-label", "Escáner de errores de FORGE CORE STOCK");
     panel.style.cssText = [
       "position:fixed", "left:0", "right:0", "bottom:0", "z-index:2147483001",
       "max-height:76vh", "display:none", "flex-direction:column",
@@ -88,7 +88,7 @@
 
     var cab = document.createElement("div");
     cab.style.cssText = "display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid " + C.borde + ";flex:0 0 auto";
-    cab.innerHTML = '<strong style="color:' + C.lima + ';letter-spacing:0.08em;font-size:11px">ESCÁNER · FABRI-CORE</strong>';
+    cab.innerHTML = '<strong style="color:' + C.lima + ';letter-spacing:0.08em;font-size:11px">ESCÁNER · FORGE CORE STOCK</strong>';
 
     var sep = document.createElement("span");
     sep.style.cssText = "flex:1";

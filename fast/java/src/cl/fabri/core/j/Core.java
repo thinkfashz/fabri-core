@@ -346,7 +346,7 @@ public final class Core {
             o.write(msg.getBytes(StandardCharsets.UTF_8));
             o.close();
         } catch (Throwable ignored) { }
-        android.util.Log.i("FABRI-CORE", line);
+        android.util.Log.i("FORGE CORE STOCK", line);
     }
 
     public static String readDiag(Context c) {

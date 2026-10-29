@@ -1,5 +1,5 @@
 /* ============================================================================
-   FABRI-CORE · nube · capa de interfaz
+   FORGE CORE STOCK · nube · capa de interfaz
    ----------------------------------------------------------------------------
    Todo lo que la APK no puede permitirse y aquí sí:
      · gráficos d3 con datos REALES de la SQLite del navegador;

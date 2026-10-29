@@ -1,5 +1,5 @@
 /* ==========================================================================
-   FABRI-CORE · Flujo en tiempo real
+   FORGE CORE STOCK · Flujo en tiempo real
    --------------------------------------------------------------------------
    Esta vista no inventa estados: cada nodo del mapa se pinta con lo que
    responde el núcleo en ese momento (ping, sqlite, inventario, revision,

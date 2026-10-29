@@ -1,0 +1,23 @@
+{
+  "id": "modelo-llama32-3b",
+  "nombre": "Llama 3.2 3B Instruct GGUF (Q4_K_M)",
+  "tipo": "modelo",
+  "version": "q4_k_m-6c1a2b41",
+  "descripcion": "Llama 3.2 3B Instruct, cuantizado Q4_K_M (~1,9 GB). El más inteligente del catálogo para este teléfono: entiende instrucciones largas, mantiene el contexto y razona sobre inventario, precios y ventas. Exige RAM libre y responde más lento que los modelos de 1B.",
+  "origen": "https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF/resolve/main/Llama-3.2-3B-Instruct-Q4_K_M.gguf",
+  "origen_tipo": "huggingface",
+  "sha256": "6c1a2b41161032677be168d354123594c0e6e67d2b9227c84f296ad037c728ff",
+  "tamano": 2019377696,
+  "autorizado": true,
+  "licencia": "llama3.2",
+  "plataforma": "android",
+  "arquitectura": "agnostica-al-runtime",
+  "dependencias": [
+    "runtime-llama"
+  ],
+  "directorio": "filesDir/componentes/modelo-llama32-3b/",
+  "interfaz": "se pasa como -m <ruta> al runtime; nunca se ejecuta solo",
+  "salud": "cargar el modelo y responder un prompt corto sin error de cabecera",
+  "actualizacion": "manual: sólo si Meta o el cuantizador publican un GGUF nuevo con hash verificado",
+  "desinstalacion": "borrar el directorio y dejar el registro en SQLite como histórico"
+}

@@ -171,7 +171,7 @@ final class Conexiones {
                 metodo = "POST";
                 cuerpo = "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{"
                         + "\"protocolVersion\":\"2025-06-18\",\"capabilities\":{},"
-                        + "\"clientInfo\":{\"name\":\"FABRI-CORE\",\"version\":\"0.9.0\"}}}";
+                        + "\"clientInfo\":{\"name\":\"FORGE CORE STOCK\",\"version\":\"0.9.0\"}}}";
             } else {
                 if (url == null || url.trim().isEmpty()) {
                     r.put("ok", false);
@@ -330,10 +330,10 @@ final class Conexiones {
                 extraJs = ",\n    method: \"POST\",\n    body: JSON.stringify({\n"
                         + "      jsonrpc: \"2.0\", id: 1, method: \"initialize\",\n"
                         + "      params: { protocolVersion: \"2025-06-18\", capabilities: {},\n"
-                        + "                clientInfo: { name: \"FABRI-CORE\", version: \"0.9.0\" } }\n"
+                        + "                clientInfo: { name: \"FORGE CORE STOCK\", version: \"0.9.0\" } }\n"
                         + "    })";
             }
-            String js = "// FABRI-CORE · llamada real a " + proveedor + "\n"
+            String js = "// FORGE CORE STOCK · llamada real a " + proveedor + "\n"
                     + "// El token NO se escribe acá: la app lo inyecta al ejecutar.\n"
                     + "const TOKEN = \"<TOKEN_DE_LA_BOVEDA>\";\n\n"
                     + "async function llamar() {\n"
@@ -624,7 +624,7 @@ final class Conexiones {
             con.setConnectTimeout(CONECTAR_MS);
             con.setReadTimeout(LEER_MS);
             con.setRequestProperty("Accept", "application/json");
-            con.setRequestProperty("User-Agent", "FABRI-CORE/0.9.0 (Android)");
+            con.setRequestProperty("User-Agent", "FORGE CORE STOCK/0.9.0 (Android)");
             if (cabeceras != null) {
                 for (Map.Entry<String, String> e : cabeceras.entrySet()) {
                     if (e.getKey() != null && e.getValue() != null) {

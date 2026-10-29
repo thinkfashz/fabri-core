@@ -1,5 +1,5 @@
 /* ============================================================================
-   FABRI-CORE · cargador de Lottie (nube)
+   FORGE CORE STOCK · cargador de Lottie (nube)
    ----------------------------------------------------------------------------
    Un solo montador para la app y para la landing. Resuelve cuatro cosas que
    `lottie.loadAnimation` no resuelve sola:

@@ -1,4 +1,4 @@
-// FABRI-CORE · /api/auth
+// FORGE CORE STOCK · /api/auth
 // Cuentas en la nube con almacenamiento Vercel Blob (store privado).
 //
 // Variables de entorno:

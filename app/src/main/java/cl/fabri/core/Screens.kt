@@ -40,7 +40,7 @@ fun PanelScreen(app: FabriApp) {
         agent = Sys.exec(listOf("sh", "-c", "command -v opencode || echo 'no disponible'")).second.trim()
     }
 
-    ScreenTitle("Panel principal", "Estado real del sistema · FABRI-CORE $1.0.0-spec")
+    ScreenTitle("Panel principal", "Estado real del sistema · FORGE CORE STOCK $1.0.0-spec")
     Spacer(Modifier.height(12.dp))
 
     Section("Recursos", accent)
@@ -120,7 +120,7 @@ fun ChatScreen(app: FabriApp) {
                     // persistencia real del intercambio
                     app.db.writableDatabase.run {
                         execSQL("INSERT OR IGNORE INTO conversations(title, created_at) VALUES(?,?)",
-                            arrayOf("Chat FABRI-CORE", now()))
+                            arrayOf("Chat FORGE CORE STOCK", now()))
                         val cid = rawQuery("SELECT id FROM conversations ORDER BY id DESC LIMIT 1", null).let {
                             if (it.moveToFirst()) it.getInt(0) else 0
                         }

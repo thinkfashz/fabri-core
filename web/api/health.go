@@ -1,4 +1,4 @@
-// FABRI-CORE · /api/health
+// FORGE CORE STOCK · /api/health
 // Salud PÚBLICA y barata de la capa web. Contrato común con fabri-api,
 // fabrick-cloud y fabrick-tg-bot:
 //

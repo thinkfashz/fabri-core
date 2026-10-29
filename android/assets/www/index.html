@@ -3,18 +3,19 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>FABRI-CORE</title>
+  <title>FORGE CORE STOCK</title>
   <link rel="stylesheet" href="app.css" />
   <link rel="stylesheet" href="inventario.css" />
   <link rel="stylesheet" href="flujo.css" />
   <link rel="stylesheet" href="inicio.css" />
+  <link rel="stylesheet" href="identidad.css" />
 </head>
 <body>
   <!-- ===================== ACCESO · HUELLA + PIN ===================== -->
-  <div class="login-fabrick" id="loginFabrick" role="dialog" aria-modal="true" aria-label="Acceso a FABRI-CORE">
+  <div class="login-fabrick" id="loginFabrick" role="dialog" aria-modal="true" aria-label="Acceso a FORGE CORE STOCK">
     <div class="login-malla" aria-hidden="true"></div>
     <div class="login-caja">
-      <p class="login-marca" id="loginMarca">FABRI-CORE PRO</p>
+      <p class="login-marca" id="loginMarca">FORGE CORE STOCK PRO</p>
 
       <article class="id-card login-id" id="loginIdCard">
         <div class="scan-line" aria-hidden="true"></div>
@@ -73,7 +74,7 @@
       </div>
 
       <p class="login-estado" id="loginEstado" role="status">Comprobando acceso…</p>
-      <p class="login-pista">Toca la foto del operador para cambiarla.</p>
+      <p class="login-pista">Toca la foto para cambiarla, o edítala en «Mi identidad».</p>
       <!-- Sin `hidden`: la activación de huella debe ofrecerse desde el
            arranque. app.js la oculta sólo si la huella ya está activada. -->
       <div class="login-pie">
@@ -90,7 +91,7 @@
     <div class="marca">
       <span class="logo"><img src="logo-f.svg" alt="" /></span>
       <div>
-        <h1>FABRI-CORE</h1>
+        <h1>FORGE CORE STOCK</h1>
         <p id="subtitulo">contenedor modular</p>
       </div>
     </div>
@@ -105,7 +106,7 @@
   <aside class="drawer" id="drawer" hidden aria-label="Menú lateral">
     <header class="drawer-cab">
       <div>
-        <p class="etiqueta">FABRI-CORE</p>
+        <p class="etiqueta">FORGE CORE STOCK</p>
         <h2>Menú</h2>
       </div>
       <button class="btn btn-icono" id="drawerCerrar" aria-label="Cerrar menú">✕</button>
@@ -200,10 +201,10 @@
 
       <!-- ===================== QUÉ ES / QUÉ APORTA ===================== -->
       <section class="in-seccion in-quees in-rev">
-        <p class="etiqueta">QUÉ ES FABRI-CORE</p>
+        <p class="etiqueta">QUÉ ES FORGE CORE STOCK</p>
         <h3>Un sistema de gestión completo que funciona dentro de tu teléfono</h3>
         <p>
-          FABRI-CORE junta lo que un almacén, un minimarket o un local de barrio
+          FORGE CORE STOCK junta lo que un almacén, un minimarket o un local de barrio
           necesita para vender y controlar mercadería, sin contratar un sistema
           mensual ni depender de internet. El corazón es un núcleo escrito en
           Rust con una base de datos <strong>SQLite local</strong>: cada producto,
@@ -398,7 +399,7 @@
           </div>
 
           <div class="aviso">
-            <strong>FABRI-CORE · runtime, chat y base de datos local</strong>
+            <strong>FORGE CORE STOCK · runtime, chat y base de datos local</strong>
             <p>A1 carga las bibliotecas de llama.cpp; A2/A3 cargan el GGUF y generan texto.
             La base de datos SQLite es editable desde «Base de datos». El chat remoto usa
             proveedores OpenAI-compatible. Las descargas exigen HTTPS, SHA-256 y tamaño;
@@ -413,41 +414,67 @@
     <!-- ---------- MI IDENTIDAD ---------- -->
     <section class="vista" id="v-id">
       <div class="cab-vista">
-        <p class="etiqueta">IDENTIDAD DEL NEGOCIO</p>
+        <p class="etiqueta">IDENTIDAD Y ACCESO</p>
         <h2>Mi identidad</h2>
-        <p>Estos datos son los que aparecen en el acceso y en la boleta. Se guardan en SQLite, sin nube y sin salir del teléfono.</p>
+        <p>Tu foto, tus datos y tu código viven en este teléfono. Es exactamente lo que ves al abrir FORGE CORE STOCK.</p>
       </div>
 
-      <!-- Tarjeta de presentación -->
-      <div class="id-tarjeta" id="idTarjeta">
-        <div class="id-logo" id="idLogo">
-          <img id="idLogoImg" alt="Logo del negocio" hidden />
-          <span id="idLogoIniciales">FC</span>
-        </div>
-        <div class="id-tarjeta-texto">
-          <p class="id-nombre" id="idTarjetaNombre">Sin nombre configurado</p>
-          <p class="id-linea" id="idTarjetaRazon">Razón social pendiente</p>
-          <div class="id-chips">
-            <span class="id-chip" id="idTarjetaRut">RUT —</span>
-            <span class="id-chip lima" id="idTarjetaCliente">ID —</span>
+      <!-- Credencial del operador: la misma que aparece en el acceso -->
+      <article class="id-cred" id="idCredencial" aria-label="Credencial del operador">
+        <span class="id-cred-halo" aria-hidden="true"></span>
+        <header class="id-cred-cab">
+          <span class="id-cred-marca">FABRI<span>-CORE</span></span>
+          <span class="id-cred-local"><i></i> LOCAL · SQLITE</span>
+        </header>
+
+        <div class="id-cred-cuerpo">
+          <div class="id-cred-foto" id="idFotoCaja" role="button" tabindex="0"
+               aria-label="Foto del operador. Toca para cambiarla."
+               title="Toca para cambiar la foto">
+            <img id="idFotoImg" alt="Foto del operador" hidden />
+            <span id="idFotoIniciales">FC</span>
+            <span class="id-cred-cam" aria-hidden="true">＋</span>
+          </div>
+          <div class="id-cred-datos">
+            <p class="id-cred-et">OPERADOR</p>
+            <p class="id-cred-nombre" id="idCredNombre">Sin nombre configurado</p>
+            <p class="id-cred-ind" id="idCredIndicativo">FC-OPERATOR</p>
+            <div class="id-cred-chips">
+              <span id="idCredRut">RUT —</span>
+              <span class="lima" id="idCredCliente">FAB-0000-0000</span>
+            </div>
           </div>
         </div>
+
+        <div class="id-cred-barras" aria-hidden="true">
+          <svg id="idBarcode" viewBox="0 0 200 34" preserveAspectRatio="none"></svg>
+          <span id="idBarcodeNum">FAB-0000-0000</span>
+        </div>
+      </article>
+
+      <div class="bloque">
+        <h3>Foto del operador</h3>
+        <p class="nota" id="idFotoEstado">Sin foto: se muestran tus iniciales. Puedes subir una de la galería o de Archivos.</p>
+        <div class="fila-botones">
+          <button class="btn btn-primario" id="btnIdFotoElegir" type="button">Subir foto</button>
+          <button class="btn" id="btnIdFotoQuitar" type="button">Quitar foto</button>
+        </div>
+        <input type="file" id="idArchivoFoto" accept="image/*" hidden />
       </div>
 
       <div class="bloque">
-        <h3>Logo o imagen</h3>
-        <p class="nota">La imagen se reduce a 256 px en el teléfono antes de guardarse. Se usa en la tarjeta de acceso y en la boleta.</p>
-        <div class="fila-botones">
-          <button class="btn btn-primario" id="btnIdLogoElegir" type="button">Elegir imagen</button>
-          <button class="btn" id="btnIdLogoQuitar" type="button">Quitar logo</button>
-        </div>
-        <input type="file" id="idArchivoLogo" accept="image/*" hidden />
-        <p class="nota" id="idLogoEstado">Sin logo: se muestran las iniciales del nombre.</p>
+        <h3>Operador</h3>
+        <p class="nota">Es lo que se ve en la credencial de acceso: tu nombre, tu indicativo y tu código de barras.</p>
+        <label class="etiqueta" for="idOperador">Nombre del operador</label>
+        <input class="input" id="idOperador" maxlength="60" placeholder="Tu nombre" autocomplete="off" />
+
+        <label class="etiqueta" for="idIndicativo">Indicativo / CALL SIGN</label>
+        <input class="input" id="idIndicativo" maxlength="24" placeholder="FC-OPERATOR" autocomplete="off" autocapitalize="characters" spellcheck="false" />
       </div>
 
       <div class="bloque">
         <h3>Datos del negocio</h3>
-        <label class="etiqueta" for="idNombre">Nombre comercial</label>
+        <label class="etiqueta" for="idNombre">Nombre del negocio</label>
         <input class="input" id="idNombre" maxlength="60" placeholder="Soluciones Fabrick" autocomplete="off" />
 
         <label class="etiqueta" for="idRazon">Razón social</label>
@@ -470,8 +497,19 @@
       </div>
 
       <div class="bloque">
-        <h3>ID del cliente</h3>
-        <p class="nota">Identifica a este negocio en la nube y en las boletas. Es editable: si lo cambias, las boletas nuevas usan el nuevo.</p>
+        <h3>Logo del negocio</h3>
+        <p class="nota">Se reduce a 256 px antes de guardarse. Se usa en la boleta y, si no tienes foto, en la credencial de acceso.</p>
+        <div class="fila-botones">
+          <button class="btn" id="btnIdLogoElegir" type="button">Elegir imagen</button>
+          <button class="btn" id="btnIdLogoQuitar" type="button">Quitar logo</button>
+        </div>
+        <input type="file" id="idArchivoLogo" accept="image/*" hidden />
+        <p class="nota" id="idLogoEstado">Sin logo: se muestran las iniciales del nombre.</p>
+      </div>
+
+      <div class="bloque">
+        <h3>ID y código de barras</h3>
+        <p class="nota">Code128 real, con dígito verificador: cualquier lector puede leerlo. Identifica a este negocio en la nube y en las boletas.</p>
         <input class="input" id="idCliente" maxlength="32" placeholder="FAB-0000-0000" autocapitalize="characters" autocomplete="off" spellcheck="false" />
         <div class="fila-botones">
           <button class="btn" id="btnIdClienteNuevo" type="button">Generar uno nuevo</button>
@@ -479,7 +517,50 @@
         </div>
       </div>
 
-      <div class="fila-botones">
+      <div class="bloque" id="idSeguridad">
+        <div class="id-bloque-cab">
+          <h3>Seguridad y acceso</h3>
+          <span class="id-seg-chip" id="idSegChip">…</span>
+        </div>
+        <p class="nota">La huella desbloquea una llave AES del Android Keystore. No se guarda ninguna imagen de tu huella; el PIN es el respaldo.</p>
+
+        <div class="id-seg-filas">
+          <div class="id-seg-fila">
+            <span class="id-seg-icono" id="idSegPinIcono">••••</span>
+            <div>
+              <strong>PIN de acceso</strong>
+              <small id="idSegPinTexto">Comprobando…</small>
+            </div>
+          </div>
+          <div class="id-seg-fila">
+            <span class="id-seg-icono" id="idSegHuellaIcono">○</span>
+            <div>
+              <strong>Huella dactilar</strong>
+              <small id="idSegHuellaTexto">Comprobando…</small>
+            </div>
+          </div>
+        </div>
+
+        <div class="id-seg-form" id="idSegFormPin" hidden>
+          <p class="id-seg-titulo" id="idSegFormPinTitulo">Crear el PIN de acceso</p>
+          <input class="input" id="idPinActual" type="password" inputmode="numeric" maxlength="6" placeholder="PIN actual" autocomplete="current-password" hidden />
+          <input class="input" id="idPinNuevo" type="password" inputmode="numeric" maxlength="6" placeholder="PIN nuevo (4 a 6 dígitos)" autocomplete="new-password" />
+          <input class="input" id="idPinNuevo2" type="password" inputmode="numeric" maxlength="6" placeholder="Repite el PIN nuevo" autocomplete="new-password" />
+          <div class="fila-botones">
+            <button class="btn btn-primario" id="btnIdPinGuardar" type="button">Guardar PIN</button>
+            <button class="btn" id="btnIdPinCancelar" type="button">Cancelar</button>
+          </div>
+        </div>
+
+        <div class="fila-botones">
+          <button class="btn btn-primario" id="btnIdActivarHuella" type="button">Activar huella</button>
+          <button class="btn" id="btnIdCambiarPin" type="button">Cambiar PIN</button>
+          <button class="btn btn-peligro" id="btnIdDesactivarHuella" type="button" hidden>Desactivar huella</button>
+        </div>
+        <p class="nota" id="idSegNota"></p>
+      </div>
+
+      <div class="fila-botones id-guardar">
         <button class="btn btn-primario" id="btnIdGuardar" type="button">Guardar identidad</button>
         <button class="btn" id="btnIdRecargar" type="button">Descartar cambios</button>
       </div>
@@ -544,7 +625,7 @@
             <span class="fc-avatar-voz"><i></i><i></i><i></i></span>
           </span>
           <div class="chat-identidad-texto">
-            <h2>FABRI-CORE</h2>
+            <h2>FORGE CORE STOCK</h2>
             <p class="chat-sub" id="chatSubtitulo">Tu asistente, acá en tu teléfono.</p>
           </div>
         </div>
@@ -560,100 +641,154 @@
       </div>
 
       <div class="chat-config" id="chatConfig">
-        <div class="chips" id="chatModo">
-          <button class="chip activo" data-chat-modo="local" type="button">Local · llama.cpp</button>
-          <button class="chip" data-chat-modo="remoto" type="button">Remoto · proveedor</button>
-        </div>
-        <label class="chat-check">
-          <input type="checkbox" id="chatRag" />
-          <span>Usar contexto RAG léxico <small>(sólo si hay textos indexados)</small></span>
-        </label>
-
-        <div id="chatLocalPanel" class="chat-panel">
-          <div class="chat-estado-linea">
-            <span class="punto" id="chatLocalPunto"></span>
-            <span id="chatLocalEstado">Sin modelo cargado.</span>
-          </div>
-          <label class="etiqueta" for="chatModeloLocal">Modelo detectado</label>
-          <select class="input" id="chatModeloLocal"></select>
-          <div class="fila-botones">
-            <button class="btn" id="btnChatEscanear" type="button">Escanear modelos</button>
-            <button class="btn btn-primario" id="btnChatCargar" type="button">Cargar modelo</button>
-            <button class="btn" id="btnChatLiberar" type="button">Liberar</button>
-          </div>
-          <p class="nota" id="chatLocalInfo">A2/A3: carga el GGUF verificado y genera respuestas cortas en el teléfono.</p>
+        <div class="chat-tabs" id="chatTabs" role="tablist" aria-label="Ajustes del chat">
+          <span class="chat-tabs-indicador" aria-hidden="true"></span>
+          <button class="chat-tab activo" data-chat-tab="modelo" type="button" role="tab" aria-selected="true">Modelo</button>
+          <button class="chat-tab" data-chat-tab="ia" type="button" role="tab" aria-selected="false">IA</button>
+          <button class="chat-tab" data-chat-tab="datos" type="button" role="tab" aria-selected="false">Datos</button>
         </div>
 
-        <div id="chatRemotoPanel" class="chat-panel" hidden>
-          <label class="etiqueta" for="chatProveedor">Proveedor</label>
-          <select class="input" id="chatProveedor"></select>
-          <p class="nota" id="chatProveedorNota">OpenAI-compatible: URL, clave y modelo.</p>
-
-          <label class="etiqueta" for="chatUrl">URL base</label>
-          <input class="input" id="chatUrl" placeholder="https://api.openai.com/v1"
-                 autocapitalize="off" autocomplete="off" spellcheck="false" />
-
-          <label class="etiqueta" for="chatModeloRemoto">Modelo</label>
-          <input class="input" id="chatModeloRemoto" placeholder="modelo"
-                 autocapitalize="off" autocomplete="off" spellcheck="false" list="chatModelosLista" />
-          <datalist id="chatModelosLista"></datalist>
-
-          <label class="etiqueta" for="chatClave">API key (vacío = conservar la guardada)</label>
-          <input class="input" id="chatClave" type="password" placeholder="sk-…" autocomplete="off" />
-
-          <div class="fila-botones">
-            <button class="btn btn-primario" id="btnChatGuardar" type="button">Guardar</button>
-            <button class="btn" id="btnChatTraer" type="button">Traer modelos</button>
-            <button class="btn" id="btnChatProbar" type="button">Probar</button>
+        <!-- ── pestaña Modelo ─────────────────────────────────────────────── -->
+        <div class="chat-tab-panel activo" data-chat-panel="modelo">
+          <div class="chips" id="chatModo">
+            <button class="chip activo" data-chat-modo="local" type="button">Local · llama.cpp</button>
+            <button class="chip" data-chat-modo="remoto" type="button">Remoto · proveedor</button>
           </div>
-          <p class="nota" id="chatRemotoEstado">Sin configurar.</p>
+
+          <div id="chatLocalPanel" class="chat-panel">
+            <div class="chat-estado-linea">
+              <span class="punto" id="chatLocalPunto"></span>
+              <span id="chatLocalEstado">Sin modelo cargado.</span>
+            </div>
+            <label class="etiqueta" for="chatModeloLocal">Modelo detectado</label>
+            <select class="input" id="chatModeloLocal"></select>
+            <div class="fila-botones">
+              <button class="btn" id="btnChatEscanear" type="button">Escanear modelos</button>
+              <button class="btn btn-primario" id="btnChatCargar" type="button">Cargar modelo</button>
+              <button class="btn" id="btnChatLiberar" type="button">Liberar</button>
+            </div>
+            <p class="nota" id="chatLocalInfo">Carga un GGUF verificado y responde sin internet.</p>
+
+            <div class="chat-familia" id="chatFamilia">
+              <span class="chat-familia-etq">Plantilla</span>
+              <strong id="chatFamiliaNombre">Qwen 2 · ChatML</strong>
+              <span class="chat-familia-nota" id="chatFamiliaNota">Se ajusta sola al modelo que cargues.</span>
+            </div>
+          </div>
+
+          <div id="chatRemotoPanel" class="chat-panel" hidden>
+            <label class="etiqueta" for="chatProveedor">Proveedor</label>
+            <select class="input" id="chatProveedor"></select>
+            <p class="nota" id="chatProveedorNota">OpenAI-compatible: URL, clave y modelo.</p>
+
+            <label class="etiqueta" for="chatUrl">URL base</label>
+            <input class="input" id="chatUrl" placeholder="https://api.openai.com/v1"
+                   autocapitalize="off" autocomplete="off" spellcheck="false" />
+
+            <label class="etiqueta" for="chatModeloRemoto">Modelo</label>
+            <input class="input" id="chatModeloRemoto" placeholder="modelo"
+                   autocapitalize="off" autocomplete="off" spellcheck="false" list="chatModelosLista" />
+            <datalist id="chatModelosLista"></datalist>
+
+            <label class="etiqueta" for="chatClave">API key (vacío = conservar la guardada)</label>
+            <input class="input" id="chatClave" type="password" placeholder="sk-…" autocomplete="off" />
+
+            <div class="fila-botones">
+              <button class="btn btn-primario" id="btnChatGuardar" type="button">Guardar</button>
+              <button class="btn" id="btnChatTraer" type="button">Traer modelos</button>
+              <button class="btn" id="btnChatProbar" type="button">Probar</button>
+            </div>
+            <p class="nota" id="chatRemotoEstado">Sin configurar.</p>
+          </div>
+
+          <label class="chat-check">
+            <input type="checkbox" id="chatRag" />
+            <span>Usar contexto RAG léxico <small>(sólo si hay textos indexados)</small></span>
+          </label>
         </div>
 
-        <div id="chatAjustesIA" class="chat-panel">
-          <div class="etiqueta">Modelo · ajustes de IA</div>
-          <p class="nota config-subtitulo">Configuración optimizada para <strong>Qwen 2</strong> (modelo local rápido)</p>
+        <!-- ── pestaña IA ─────────────────────────────────────────────────── -->
+        <div class="chat-tab-panel" data-chat-panel="ia">
+          <div id="chatAjustesIA" class="chat-panel">
+            <div class="chat-preset">
+              <div class="chat-preset-cab">
+                <span class="chat-preset-etq">Preset del modelo</span>
+                <strong id="chatPresetNombre">Qwen 2</strong>
+              </div>
+              <p class="nota" id="chatPresetNota">Configuración recomendada por el fabricante para el modelo cargado. Al cargar Llama 3.2 3B se ajusta sola.</p>
+              <div class="fila-botones">
+                <button class="btn btn-mini" id="btnChatPresetRestaurar" type="button">Restaurar preset</button>
+              </div>
+            </div>
 
-          <div class="ajuste-fila">
-            <label>Temperatura <span class="ajuste-info" title="Creatividad: 0 = respuestas iguales siempre, 2 = muy variado. Qwen 2: 0.7">0.7</span></label>
-            <span class="ajuste-valor" id="valTemperatura">0.7</span>
+            <div class="ajuste-fila">
+              <label for="cfgTemperatura">Temperatura
+                <button class="ajuste-info" type="button" aria-label="Qué es la temperatura"
+                        data-tip="Creatividad. 0 = siempre la misma respuesta, 0.7 = natural, 1.5 = impredecible. Para inventario y números conviene 0.3–0.7.">i</button>
+              </label>
+              <span class="ajuste-valor" id="valTemperatura">0.7</span>
+            </div>
+            <input type="range" id="cfgTemperatura" min="0" max="2" step="0.1" value="0.7"
+                   aria-describedby="valTemperatura" />
+
+            <div class="ajuste-fila">
+              <label for="cfgTopP">Top-p
+                <button class="ajuste-info" type="button" aria-label="Qué es top-p"
+                        data-tip="Muestreo nuclear: acumula las palabras más probables hasta el porcentaje indicado. 0.9 = sólo el 90 % más probable. Bajar a 0.5 hace la respuesta más predecible.">i</button>
+              </label>
+              <span class="ajuste-valor" id="valTopP">0.90</span>
+            </div>
+            <input type="range" id="cfgTopP" min="0" max="1" step="0.05" value="0.9" />
+
+            <div class="ajuste-fila">
+              <label for="cfgTopK">Top-k
+                <button class="ajuste-info" type="button" aria-label="Qué es top-k"
+                        data-tip="Limita la elección a las K palabras más probables. 40 es el estándar de Qwen; 20 responde más seco y rápido, 80 más variado.">i</button>
+              </label>
+              <span class="ajuste-valor" id="valTopK">40</span>
+            </div>
+            <input type="number" id="cfgTopK" min="0" max="200" value="40" inputmode="numeric" />
+
+            <div class="ajuste-fila">
+              <label for="cfgRepeticion">Penalización de repetición
+                <button class="ajuste-info" type="button" aria-label="Qué es la penalización de repetición"
+                        data-tip="Cuánto se castiga repetir una palabra. 1.0 = sin castigo, 1.1 = evita bucles suaves, 1.5 = puede volverse telegráfico. Si el modelo se traba, sube a 1.2.">i</button>
+              </label>
+              <span class="ajuste-valor" id="valRepeticion">1.10</span>
+            </div>
+            <input type="range" id="cfgRepeticion" min="1" max="2" step="0.05" value="1.1" />
+
+            <div class="ajuste-fila">
+              <label for="cfgMaxTokens">Máx. tokens de salida
+                <button class="ajuste-info" type="button" aria-label="Qué es el máximo de tokens"
+                        data-tip="Cuánto puede escribir como máximo. Menos tokens = respuesta más rápida. 256 alcanza para 4–6 líneas; 512 para explicaciones largas.">i</button>
+              </label>
+              <span class="ajuste-valor" id="valMaxTokens">256</span>
+            </div>
+            <input type="number" id="cfgMaxTokens" min="16" max="4096" value="256" inputmode="numeric" />
+
+            <div class="fila-botones">
+              <button class="btn btn-primario" id="btnChatAplicarConfig" type="button">Aplicar al modelo</button>
+            </div>
+            <p class="nota" id="chatAjustesPie">Los controles sólo cambian la etiqueta; el modelo recibe los valores cuando pulsas «Aplicar al modelo». Así no se queda pegado al mover un slider.</p>
           </div>
-          <input type="range" id="cfgTemperatura" min="0" max="2" step="0.1" value="0.7" />
+        </div>
 
-          <div class="ajuste-fila">
-            <label>Top-p <span class="ajuste-info" title="Muestreo nuclear: 0.9 = considera solo el 90% de tokens más probables. Qwen 2: 0.9">0.9</span></label>
-            <span class="ajuste-valor" id="valTopP">0.9</span>
+        <!-- ── pestaña Datos ──────────────────────────────────────────────── -->
+        <div class="chat-tab-panel" data-chat-panel="datos">
+          <div class="chat-datos" id="chatDatos">
+            <div class="chat-datos-vacio">Toca «Actualizar» para leer tu inventario.</div>
           </div>
-          <input type="range" id="cfgTopP" min="0" max="1" step="0.05" value="0.9" />
-
-          <div class="ajuste-fila">
-            <label>Top-k <span class="ajuste-info" title="Solo los K mejores tokens candidatos. Qwen 2: 40">40</span></label>
-            <span class="ajuste-valor" id="valTopK">40</span>
-          </div>
-          <input type="number" id="cfgTopK" min="0" max="200" value="40" />
-
-          <div class="ajuste-fila">
-            <label>Penalización repetición <span class="ajuste-info" title="Evita que el modelo repita palabras. 1.0 = sin penalizar, 2.0 = muy estricto. Qwen 2: 1.1">1.1</span></label>
-            <span class="ajuste-valor" id="valRepeticion">1.1</span>
-          </div>
-          <input type="range" id="cfgRepeticion" min="1" max="2" step="0.1" value="1.1" />
-
-          <div class="ajuste-fila">
-            <label>Máx. tokens salida <span class="ajuste-info" title="Límite de palabras que genera el modelo. Menos = más rápido. Qwen 2: 256">256</span></label>
-            <span class="ajuste-valor" id="valMaxTokens">256</span>
-          </div>
-          <input type="number" id="cfgMaxTokens" min="16" max="4096" value="256" />
-
           <div class="fila-botones">
-            <button class="btn btn-primario" id="btnChatAplicarConfig" type="button">Aplicar a Qwen 2</button>
+            <button class="btn btn-mini" id="btnChatDatosRefrescar" type="button">Actualizar datos</button>
           </div>
-          <p class="nota">Configuración predeterminada para Qwen 2: Temperatura 0.7 · Top-p 0.9 · Top-k 40 · Repetición 1.1 · Tokens 256. Cambia solo si necesitas respuestas más creativas o más largas.</p>
         </div>
       </div>
 
       <div class="chat-hilo" id="chatHilo" aria-live="polite">
         <div class="chat-vacio" id="chatVacio">
           <span class="chat-vacio-icono">✦</span>
-          <strong>Hola, soy FABRI-CORE</strong>
+          <strong>Hola, soy FORGE CORE STOCK</strong>
           <p>Pregúntame lo que quieras. Respondo corto y claro, y si quieres te lo leo en voz alta.</p>
           <div class="chat-sugerencias">
             <button type="button" data-sugerencia="¿Qué productos tengo con poco stock?">Poco stock</button>
@@ -907,7 +1042,7 @@ npx -y omniroute@latest
         <h3>Actualización nativa (APK firmada)</h3>
         <p class="nota">El código nativo no se descarga como <code>.so</code>: Android 10+ bloquea ejecutar archivos descargados. La vía segura es descargar una APK firmada, verificar SHA-256 y tamaño, y abrir el instalador del sistema. La firma la valida Android; la app no instala en silencio.</p>
         <label class="etiqueta" for="apkUrl">URL HTTPS de la APK</label>
-        <input class="input" id="apkUrl" placeholder="https://…/FABRI-CORE-0.7.0.apk" autocapitalize="off" autocomplete="off" spellcheck="false" />
+        <input class="input" id="apkUrl" placeholder="https://…/FORGE CORE STOCK-0.7.0.apk" autocapitalize="off" autocomplete="off" spellcheck="false" />
         <label class="etiqueta" for="apkSha">SHA-256 (64 hex)</label>
         <input class="input" id="apkSha" placeholder="…" autocapitalize="off" autocomplete="off" spellcheck="false" />
         <label class="etiqueta" for="apkTamano">Tamaño exacto en bytes</label>
@@ -1099,7 +1234,7 @@ npx -y omniroute@latest
 
     <section class="vista" id="v-consola">
       <div class="cab-vista">
-        <h2>Consola FABRI-CORE</h2>
+        <h2>Consola FORGE CORE STOCK</h2>
         <p>Sólo tareas autorizadas. La interfaz no puede ejecutar comandos de shell.</p>
       </div>
 
@@ -1217,7 +1352,7 @@ npx -y omniroute@latest
         </div>
 
         <label class="etiqueta" for="omniPrompt">Chat de prueba</label>
-        <input class="input" id="omniPrompt" placeholder="Responde en español: ¿qué es FABRI-CORE?" />
+        <input class="input" id="omniPrompt" placeholder="Responde en español: ¿qué es FORGE CORE STOCK?" />
         <div class="fila-botones">
           <button class="btn" id="btnOmniChat">Enviar al gateway</button>
         </div>
@@ -1388,6 +1523,10 @@ npx -y omniroute@latest
         <div class="inv-kpis" id="invKpis"></div>
       </div>
 
+      <div class="inv-negocio" id="invPanelNegocio">
+        <div class="inv-negocio-vacio">Leyendo el negocio…</div>
+      </div>
+
       <ol class="inv-pasos" id="invPasos">
         <li><button class="inv-paso activo" data-inv-paso="1" type="button"><b>1</b><span>Escanear</span></button></li>
         <li><button class="inv-paso" data-inv-paso="2" type="button"><b>2</b><span>Productos</span></button></li>
@@ -1410,8 +1549,7 @@ npx -y omniroute@latest
               <button class="btn btn-mini btn-primario" id="btnInvModoNormal" type="button"><span data-ico="scan"></span> Modo individual</button>
               <button class="btn btn-mini" id="btnInvModoApilador" type="button"><span data-ico="apilar"></span> Apilador continuo</button>
             </div>
-            <button class="btn btn-primario" id="btnInvCamara" type="button"><span data-ico="camara"></span> Abrir cámara</button>
-            <button class="btn" id="btnInvCamaraParar" type="button" hidden>Detener</button>
+            <button class="btn btn-primario" id="btnInvCamara" type="button" aria-pressed="false"><span data-ico="camara"></span> <span id="invCamaraEtq">Abrir cámara</span></button>
             <button class="btn" id="btnInvOcr" type="button" hidden><span data-ico="texto"></span> Leer texto de una foto</button>
             <label class="campo">
               <span>Código de barras</span>
@@ -2148,9 +2286,9 @@ CREATE INDEX IF NOT EXISTS idx_inv_productos_actualizado
   </div>
 
   <div class="loader-industrial" id="loaderArranque">
-    <p class="loader-marca">FABRI-CORE PRO</p>
+    <p class="loader-marca">FORGE CORE STOCK PRO</p>
     <div class="loader-centro">
-      <img class="loader-logo" src="logo-loader.svg" alt="FABRI-CORE PRO" />
+      <img class="loader-logo" src="logo-loader.svg" alt="FORGE CORE STOCK PRO" />
     </div>
     <div class="loader-pie">
       <div class="loader-barra"><div class="loader-barra-lleno" id="loaderBarraLleno"></div></div>
@@ -2273,7 +2411,7 @@ CREATE INDEX IF NOT EXISTS idx_inv_productos_actualizado
       di("Confirma tu huella en el lector…", "aviso");
     });
     respaldo("btnLoginBorrar", function () {
-      if (!window.confirm("Esto borra el PIN y la huella de FABRI-CORE.\n\n"
+      if (!window.confirm("Esto borra el PIN y la huella de FORGE CORE STOCK.\n\n"
           + "Después tendrás que crear un PIN nuevo. No borra datos, ni modelos, ni la base.")) return;
       var r = llamar("huellaBorrar");
       if (r.ok) {

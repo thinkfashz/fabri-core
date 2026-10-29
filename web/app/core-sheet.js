@@ -1,4 +1,4 @@
-/* FABRI-CORE · planilla con cálculo real.
+/* FORGE CORE STOCK · planilla con cálculo real.
  *
  * - Rejilla editable con barra de fórmulas, varias hojas y persistencia en SQLite.
  * - Motor de fórmulas propio: + - * / ^ % & comparaciones, referencias A1,

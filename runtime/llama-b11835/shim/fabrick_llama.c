@@ -276,8 +276,15 @@ int fc_info(void *handle, char *buf, int buflen) {
 
 /* Devuelve el largo del marcador de fin que cierra el texto, o 0. */
 static int fc_marcador_final(const char *out, int usados) {
+    /* Marcadores de fin de turno de las familias que usamos:
+     *   ChatML (Qwen, SmolLM2) → <|im_end|>
+     *   Llama 3.2              → <|eot_id|>
+     *   Gemma                  → <end_of_turn> (sin barras)
+     *   Phi-3                  → <|end|>
+     *   Genérico               → <|endoftext|>
+     * Si falta uno, el modelo sigue hablando solo y la respuesta se corta mal. */
     static const char *marcadores[] = {
-        "<|im_end|>", "<|endoftext|>", "<|eot_id|>", "<|end|>"
+        "<|im_end|>", "<|endoftext|>", "<|eot_id|>", "<|end|>", "<end_of_turn>"
     };
     for (size_t m = 0; m < sizeof(marcadores) / sizeof(marcadores[0]); m++) {
         int largo = (int) strlen(marcadores[m]);

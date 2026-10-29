@@ -13,7 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * FABRI-CORE · lector de códigos por red.
+ * FORGE CORE STOCK · lector de códigos por red.
  *
  * <p>Los lectores 2D de escritorio (HBAPO y similares) no tienen un protocolo
  * único: algunos se conectan al host y le mandan la lectura por TCP, otros

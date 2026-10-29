@@ -6,7 +6,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
- * FABRI-CORE · runtime nativo llama.cpp (A1 + A2 + A3).
+ * FORGE CORE STOCK · runtime nativo llama.cpp (A1 + A2 + A3).
  *
  * Android 10+ bloquea `execve()` sobre el directorio privado de la app (W^X),
  * pero sí permite cargar bibliotecas `.so` empaquetadas en la APK. Esta clase:

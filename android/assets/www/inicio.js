@@ -1,5 +1,5 @@
 /* ==========================================================================
-   FABRI-CORE · pantalla de inicio
+   FORGE CORE STOCK · pantalla de inicio
    --------------------------------------------------------------------------
    Portada del producto. Todo lo que muestra sale de datos REALES guardados en
    el SQLite del teléfono:

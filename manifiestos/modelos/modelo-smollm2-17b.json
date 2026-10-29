@@ -1,0 +1,23 @@
+{
+  "id": "modelo-smollm2-17b",
+  "nombre": "SmolLM2 1.7B Instruct GGUF (Q4_K_M)",
+  "tipo": "modelo",
+  "version": "q4_k_m-decd2598",
+  "descripcion": "SmolLM2 1.7B Instruct, cuantizado Q4_K_M (~1,01 GB). Modelo compacto y rápido, pensado para dispositivos móviles. Buena opción intermedia entre Llama 1B y los 3B, con licencia Apache-2.0.",
+  "origen": "https://huggingface.co/HuggingFaceTB/SmolLM2-1.7B-Instruct-GGUF/resolve/main/smollm2-1.7b-instruct-q4_k_m.gguf",
+  "origen_tipo": "huggingface",
+  "sha256": "decd2598bc2c8ed08c19adc3c8fdd461ee19ed5708679d1c54ef54a5a30d4f33",
+  "tamano": 1055609536,
+  "autorizado": true,
+  "licencia": "apache-2.0",
+  "plataforma": "android",
+  "arquitectura": "agnostica-al-runtime",
+  "dependencias": [
+    "runtime-llama"
+  ],
+  "directorio": "filesDir/componentes/modelo-smollm2-17b/",
+  "interfaz": "se pasa como -m <ruta> al runtime; nunca se ejecuta solo",
+  "salud": "cargar el modelo y responder un prompt corto sin error de cabecera",
+  "actualizacion": "manual: sólo si Hugging Face publica un GGUF nuevo con hash verificado",
+  "desinstalacion": "borrar el directorio y dejar el registro en SQLite como histórico"
+}

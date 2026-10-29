@@ -1,0 +1,23 @@
+{
+  "id": "modelo-llama32-1b",
+  "nombre": "Llama 3.2 1B Instruct GGUF (Q4_K_M)",
+  "tipo": "modelo",
+  "version": "q4_k_m-6f85a640",
+  "descripcion": "Llama 3.2 1B Instruct, cuantizado Q4_K_M (~770 MB). Equilibrio entre velocidad y comprensión: sigue instrucciones mejor que un 0.5B y deja RAM para el resto de la app. Recomendado para uso diario en el teléfono.",
+  "origen": "https://huggingface.co/bartowski/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q4_K_M.gguf",
+  "origen_tipo": "huggingface",
+  "sha256": "6f85a640a97cf2bf5b8e764087b1e83da0fdb51d7c9fab7d0fece9385611df83",
+  "tamano": 807694464,
+  "autorizado": true,
+  "licencia": "llama3.2",
+  "plataforma": "android",
+  "arquitectura": "agnostica-al-runtime",
+  "dependencias": [
+    "runtime-llama"
+  ],
+  "directorio": "filesDir/componentes/modelo-llama32-1b/",
+  "interfaz": "se pasa como -m <ruta> al runtime; nunca se ejecuta solo",
+  "salud": "cargar el modelo y responder un prompt corto sin error de cabecera",
+  "actualizacion": "manual: sólo si Meta o el cuantizador publican un GGUF nuevo con hash verificado",
+  "desinstalacion": "borrar el directorio y dejar el registro en SQLite como histórico"
+}

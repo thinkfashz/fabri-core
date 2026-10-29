@@ -150,7 +150,7 @@ object Agent {
     }
 
     private const val SYSTEM =
-        "Eres FABRI-CORE, consola que corre en el dispositivo del usuario. Respondes en español, breve y concreto. " +
+        "Eres FORGE CORE STOCK, consola que corre en el dispositivo del usuario. Respondes en español, breve y concreto. " +
         "No inventas datos: si algo requiere la base local, dices qué consulta SQL haría falta. No pides credenciales."
 }
 
@@ -191,7 +191,7 @@ object Term {
         val db = Db.get(ctx)
         return when (head) {
             "help" -> """
-                Comandos propios de FABRI-CORE:
+                Comandos propios de FORGE CORE STOCK:
                   help                  esta ayuda
                   tables                tablas con filas y tamaño
                   sql <consulta>        ejecuta SQL real sobre fabri_core.db

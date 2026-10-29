@@ -1,5 +1,5 @@
 /* ==========================================================================
-   FABRI-CORE · Importación desde la SD (SQLite / Excel / texto)
+   FORGE CORE STOCK · Importación desde la SD (SQLite / Excel / texto)
    --------------------------------------------------------------------------
    El selector nativo de Android (SAF) entrega una URI, no una ruta. El puente
    copia el archivo a la caché de la app y devuelve qué contiene:

@@ -360,7 +360,7 @@ object Export {
             val values = ContentValues().apply {
                 put(MediaStore.Downloads.DISPLAY_NAME, name)
                 put(MediaStore.Downloads.MIME_TYPE, mime)
-                put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/FABRI-CORE")
+                put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/FORGE CORE STOCK")
                 put(MediaStore.Downloads.IS_PENDING, 1)
             }
             val uri = ctx.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
@@ -369,10 +369,10 @@ object Export {
                 ctx.contentResolver.openOutputStream(uri)?.use { it.write(bytes) }
                 values.clear(); values.put(MediaStore.Downloads.IS_PENDING, 0)
                 ctx.contentResolver.update(uri, values, null, null)
-                "Descargas/FABRI-CORE/$name"
+                "Descargas/FORGE CORE STOCK/$name"
             }
         } else {
-            val dir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "FABRI-CORE")
+            val dir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "FORGE CORE STOCK")
             if (!dir.exists()) dir.mkdirs()
             val f = File(dir, name)
             f.writeBytes(bytes)

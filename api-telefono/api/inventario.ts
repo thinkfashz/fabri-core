@@ -15,6 +15,7 @@
 //   POST { accion: "bajar",  limite?, offset? }       → lista desde la nube
 //   POST { accion: "buscar", codigo, q? }             → un producto o una búsqueda
 //   POST { accion: "borrar", codigos: [ ... ] }       → elimina por código
+//   POST { accion: "subir_boletas", boletas: [...] }  → upsert de ventas por folio
 //   POST { accion: "resumen" }                        → totales y stock bajo
 //   GET  /api/inventario                              → estado del puente
 //
@@ -388,6 +389,63 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         `DELETE FROM ${TABLA} WHERE codigo = ANY($1::text[])`, [codigos]
       );
       return json(res, { ok: true, accion, borrados: r.rowCount, codigos });
+    }
+
+    if (accion === 'subir_boletas') {
+      // Las ventas viajan con la misma autenticación que los productos. Tabla
+      // propia, upsert por folio: reenviar una boleta no la duplica y el
+      // histórico de utilidad se conserva con el costo guardado en cada ítem.
+      const lista = Array.isArray(cuerpo.boletas) ? cuerpo.boletas : [];
+      if (!lista.length) {
+        return json(res, { ok: false, error: 'no hay boletas para subir' }, 400);
+      }
+      if (lista.length > 200) {
+        return json(res, { ok: false, error: 'máximo 200 boletas por lote' }, 413);
+      }
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS inv_boletas (
+          folio    BIGINT PRIMARY KEY,
+          cliente  TEXT NOT NULL DEFAULT '',
+          rut      TEXT NOT NULL DEFAULT '',
+          items    JSONB NOT NULL DEFAULT '[]'::jsonb,
+          neto     NUMERIC NOT NULL DEFAULT 0,
+          iva      NUMERIC NOT NULL DEFAULT 0,
+          total    NUMERIC NOT NULL DEFAULT 0,
+          pago     TEXT NOT NULL DEFAULT 'efectivo',
+          estado   TEXT NOT NULL DEFAULT 'emitida',
+          ts       BIGINT NOT NULL DEFAULT 0,
+          nube_ts  TIMESTAMPTZ NOT NULL DEFAULT now()
+        )`);
+      let subidas = 0;
+      const omitidas: number[] = [];
+      for (const crudo of lista) {
+        if (!crudo || typeof crudo !== 'object') continue;
+        const b = crudo as Fila;
+        const folio = entero(b.folio);
+        if (!folio) { omitidas.push(0); continue; }
+        const items = Array.isArray(b.items) ? b.items.slice(0, 200) : [];
+        await pool.query(`
+          INSERT INTO inv_boletas (folio,cliente,rut,items,neto,iva,total,pago,estado,ts)
+          VALUES ($1,$2,$3,$4::jsonb,$5,$6,$7,$8,$9,$10)
+          ON CONFLICT (folio) DO UPDATE SET
+            cliente = EXCLUDED.cliente, rut = EXCLUDED.rut, items = EXCLUDED.items,
+            neto = EXCLUDED.neto, iva = EXCLUDED.iva, total = EXCLUDED.total,
+            pago = EXCLUDED.pago, estado = EXCLUDED.estado, ts = EXCLUDED.ts,
+            nube_ts = now()`,
+          [
+            folio,
+            texto(b.cliente, 120).trim(),
+            texto(b.rut, 20).trim(),
+            JSON.stringify(items),
+            numero(b.neto), numero(b.iva), numero(b.total),
+            texto(b.pago, 40).trim() || 'efectivo',
+            texto(b.estado, 40).trim() || 'emitida',
+            entero(b.ts),
+          ]
+        );
+        subidas++;
+      }
+      return json(res, { ok: true, accion, subidas, omitidas });
     }
 
     if (accion === 'resumen') {

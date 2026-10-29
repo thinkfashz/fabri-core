@@ -1,0 +1,373 @@
+/* ==========================================================================
+   MI IDENTIDAD · credencial premium, foto, barcode y seguridad
+   --------------------------------------------------------------------------
+   Se apoya en los tokens de app.css (lima #C8FF00 sobre negro). La credencial
+   imita la tarjeta del acceso para que lo que se edita acá sea exactamente lo
+   que se ve al abrir la app. Sin imágenes externas.
+   ========================================================================== */
+
+#v-id { padding-bottom: 10px; }
+
+/* ── Credencial ─────────────────────────────────────────────────────────── */
+.id-cred {
+  position: relative;
+  overflow: hidden;
+  margin: 0 0 16px;
+  padding: 16px;
+  border-radius: 22px;
+  border: 1px solid rgba(200, 255, 0, 0.18);
+  background:
+    radial-gradient(120% 90% at 8% 0%, rgba(200, 255, 0, 0.14), transparent 55%),
+    radial-gradient(90% 80% at 100% 100%, rgba(200, 255, 0, 0.06), transparent 60%),
+    linear-gradient(165deg, #11150A 0%, #0A0B08 45%, #050505 100%);
+  box-shadow:
+    0 22px 50px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+/* Malla técnica muy tenue: da profundidad sin competir con los datos. */
+.id-cred::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, rgba(200, 255, 0, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(200, 255, 0, 0.05) 1px, transparent 1px);
+  background-size: 11px 11px;
+  mask-image: radial-gradient(circle at 30% 20%, #000 0%, transparent 75%);
+  -webkit-mask-image: radial-gradient(circle at 30% 20%, #000 0%, transparent 75%);
+}
+
+.id-cred-halo {
+  position: absolute;
+  top: -70px;
+  right: -50px;
+  width: 190px;
+  height: 190px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(200, 255, 0, 0.22), transparent 68%);
+  filter: blur(18px);
+  pointer-events: none;
+}
+
+.id-cred-cab {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.id-cred-marca {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  color: #FFFFFF;
+}
+
+.id-cred-marca span { color: var(--acento); }
+
+.id-cred-local {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: var(--texto-3);
+  white-space: nowrap;
+}
+
+.id-cred-local i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--acento);
+  box-shadow: 0 0 10px rgba(200, 255, 0, 0.9);
+}
+
+.id-cred-cuerpo {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+  margin-top: 16px;
+}
+
+/* Foto: el mismo gesto que en el login (tocar para cambiar). */
+.id-cred-foto {
+  position: relative;
+  width: 92px;
+  height: 108px;
+  border-radius: 16px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(160deg, #1B2110 0%, #0B0D07 100%);
+  border: 1px solid rgba(200, 255, 0, 0.28);
+  cursor: pointer;
+  transition: transform 0.16s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.16s ease;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+.id-cred-foto:active { transform: scale(0.97); }
+
+.id-cred-foto:focus-visible {
+  outline: 2px solid var(--acento);
+  outline-offset: 2px;
+}
+
+.id-cred-foto img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+#idFotoIniciales {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--acento);
+}
+
+.id-cred-cam {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--acento);
+  color: #050505;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.55);
+}
+
+.id-cred-datos { min-width: 0; }
+
+.id-cred-et {
+  margin: 0;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  color: var(--texto-3);
+}
+
+.id-cred-nombre {
+  margin: 2px 0 0;
+  font-size: 19px;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+  font-weight: 750;
+  color: #FFFFFF;
+  /* Dos líneas como máximo: un nombre largo se lee completo sin empujar el
+     resto de la credencial ni convertirse en «Fabricio Edmu…». */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: normal;
+}
+
+.id-cred-ind {
+  margin: 4px 0 10px;
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: var(--acento);
+  text-transform: uppercase;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.id-cred-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.id-cred-chips span {
+  font-family: ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--texto-2);
+  background: rgba(255, 255, 255, 0.03);
+  white-space: nowrap;
+}
+
+.id-cred-chips span.lima {
+  color: var(--acento);
+  border-color: rgba(200, 255, 0, 0.32);
+  background: rgba(200, 255, 0, 0.08);
+}
+
+.id-cred-barras {
+  position: relative;
+  z-index: 1;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  color: var(--acento);
+}
+
+.id-cred-barras svg {
+  display: block;
+  width: 100%;
+  height: 42px;
+}
+
+.id-cred-barras span {
+  display: block;
+  margin-top: 4px;
+  font-family: ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.24em;
+  color: var(--texto-3);
+  text-align: center;
+}
+
+/* ── Bloques ────────────────────────────────────────────────────────────── */
+#v-id .bloque { padding: 16px; }
+
+#v-id .bloque h3 { margin-bottom: 6px; }
+
+#v-id .bloque > .nota:first-of-type { margin-top: 0; }
+
+/* Los campos de esta vista van uno debajo del otro. Sin esto, el <label>
+   (inline) y el <input> (inline-block) se mezclaban en la misma línea y la
+   ficha se veía como un formulario roto. */
+#v-id .etiqueta { display: block; }
+
+#v-id .bloque > .input,
+#v-id .id-seg-form .input {
+  display: block;
+  width: 100%;
+}
+
+/* Después de una nota explicativa, la siguiente etiqueta necesita aire: sin
+   esto el texto y el campo se leen como un solo párrafo. */
+#v-id .bloque .nota + .etiqueta { margin-top: 14px; }
+
+.id-bloque-cab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.id-bloque-cab h3 { margin: 0; }
+
+/* La nota va debajo del encabezado, a todo el ancho: junto al chip quedaba
+   comprimida en una columna de tres palabras por línea. */
+#idSeguridad > .nota { margin-top: 8px; }
+
+/* ── Seguridad ──────────────────────────────────────────────────────────── */
+.id-seg-chip {
+  flex: 0 0 auto;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  padding: 5px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--texto-3);
+  background: rgba(255, 255, 255, 0.03);
+  white-space: nowrap;
+}
+
+.id-seg-chip.activo {
+  color: var(--acento);
+  border-color: rgba(200, 255, 0, 0.35);
+  background: rgba(200, 255, 0, 0.1);
+}
+
+.id-seg-chip.apagado {
+  color: var(--alerta);
+  border-color: rgba(251, 191, 36, 0.3);
+  background: rgba(251, 191, 36, 0.08);
+}
+
+.id-seg-filas {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.id-seg-fila {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.id-seg-icono {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: rgba(200, 255, 0, 0.08);
+  border: 1px solid rgba(200, 255, 0, 0.2);
+  color: var(--acento);
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.id-seg-fila strong { display: block; font-size: 13px; }
+
+.id-seg-fila small {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--texto-3);
+}
+
+.id-seg-form {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(200, 255, 0, 0.18);
+  background: rgba(200, 255, 0, 0.035);
+}
+
+.id-seg-titulo {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--texto);
+}
+
+.id-seg-form .input {
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+/* ── Guardar ────────────────────────────────────────────────────────────── */
+.id-guardar { margin-top: 4px; }
+
+.id-guardar .btn-primario { flex: 1 1 100%; }
+
+#idEstadoGuardado { margin: 8px 0 0; }
+
+@media (max-width: 360px) {
+  .id-cred { padding: 14px; }
+  .id-cred-cuerpo { grid-template-columns: 78px minmax(0, 1fr); gap: 12px; }
+  .id-cred-foto { width: 78px; height: 96px; }
+  .id-cred-nombre { font-size: 18px; }
+}

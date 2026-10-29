@@ -12,7 +12,7 @@ import java.util.concurrent.Executor;
 import javax.crypto.Cipher;
 
 /**
- * FABRI-CORE · diálogo biométrico del sistema (Android 9+).
+ * FORGE CORE STOCK · diálogo biométrico del sistema (Android 9+).
  *
  * Vive en su propia clase a propósito: `android.hardware.biometrics.BiometricPrompt`
  * existe desde API 28. Al aislarlo, un teléfono con Android 7/8 puede cargar

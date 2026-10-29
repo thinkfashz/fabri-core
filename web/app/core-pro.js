@@ -1,4 +1,4 @@
-/* FABRI-CORE · pantallas profesionales: Datos, IA, Cuenta.
+/* FORGE CORE STOCK · pantallas profesionales: Datos, IA, Cuenta.
  * Todo se calcula con la base real del navegador; nada simulado.
  */
 (function () {
@@ -433,9 +433,9 @@
       <div class="login-box">
         <div class="login-head">
           <div class="mark" aria-hidden="true"></div>
-          <b>FABRI-CORE</b>
+          <b>FORGE CORE STOCK</b>
         </div>
-        <h2>${first ? 'Crea la cuenta del dispositivo' : 'Entra a FABRI-CORE'}</h2>
+        <h2>${first ? 'Crea la cuenta del dispositivo' : 'Entra a FORGE CORE STOCK'}</h2>
         <p class="hint">${first
           ? 'La cuenta y sus sesiones viven en esta base SQLite, no en un servidor.'
           : 'La sesión se guarda como token en tu navegador.'}</p>
@@ -678,7 +678,7 @@
         .total { font-size: ${base + 4}px; font-weight: 700; }
         .pie { text-align: center; font-size: ${base - 2}px; margin-top: 2mm; }
       </style></head><body>
-      <h1>FABRI-CORE</h1>
+      <h1>FORGE CORE STOCK</h1>
       <h2>Boleta ${esc(folio)}</h2>
       <div class="nota">${esc(fecha)}</div>
       <div class="nota">Consumidor final</div>
@@ -690,7 +690,7 @@
       <div class="linea"><span>IVA 19%</span><span>${clp(b.iva)}</span></div>
       <div class="linea total"><span>Total</span><span>${clp(b.total)}</span></div>
       <hr />
-      <div class="pie">Documento generado por FABRI-CORE<br />no es boleta tributaria electrónica</div>
+      <div class="pie">Documento generado por FORGE CORE STOCK<br />no es boleta tributaria electrónica</div>
       </body></html>`;
   }
 

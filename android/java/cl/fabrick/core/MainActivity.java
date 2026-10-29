@@ -17,7 +17,7 @@ import android.webkit.WebViewClient;
 import android.widget.Toast;
 
 /**
- * Contenedor nativo mínimo de FABRI-CORE.
+ * Contenedor nativo mínimo de FORGE CORE STOCK.
  *
  * Responsabilidad única: hospedar la WebView, cargar la interfaz desde los
  * assets internos y conectar el puente JNI. Toda la lógica vive en Rust.

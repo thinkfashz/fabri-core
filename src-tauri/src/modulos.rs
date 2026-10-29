@@ -1,5 +1,5 @@
 // ============================================================================
-//  Módulos (plugins declarativos) de FABRI-CORE
+//  Módulos (plugins declarativos) de FORGE CORE STOCK
 //  ---------------------------------------------------------------------------
 //  Un módulo NO es código ejecutable descargado: es un manifiesto JSON que
 //  declara capacidades y parámetros. El núcleo Rust implementa las capacidades

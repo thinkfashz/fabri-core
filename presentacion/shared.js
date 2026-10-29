@@ -1,5 +1,5 @@
 /* ============================================================
-   FABRI-CORE · shared.js
+   FORGE CORE STOCK · shared.js
    Barra de progreso de scroll + spotlight de tarjetas.
    Sin dependencias. Si GSAP no carga, revela el contenido.
    ============================================================ */

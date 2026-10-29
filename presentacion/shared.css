@@ -1,5 +1,5 @@
 /* ============================================================
-   FABRI-CORE PRESENTACIÓN v3 — Scroll Infinito
+   FORGE CORE STOCK PRESENTACIÓN v3 — Scroll Infinito
    CSS compartido para páginas web scrollables
    Tema: Negro profundo + Lima #C8FF00
    Tipografía: Inter (Google Fonts)
@@ -2115,3 +2115,77 @@ html.no-gsap [style*="opacity: 0"] {
 
 /* sprite de capítulos (se inyecta en cada página) */
 #ci-sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+
+/* ============================================================
+   v5 · MEJORAS DE DISEÑO (apple-design / impeccable / gpt-taste)
+   Feedback táctil, glassmorphism, tipografía óptima
+   ============================================================ */
+
+/* Tipografía: tracking óptimo por tamaño */
+.h1 { letter-spacing: -0.02em; }
+.label { letter-spacing: 0.08em; text-transform: uppercase; font-size: 11px; font-weight: 700; }
+.lead { line-height: 1.7; letter-spacing: 0.01em; }
+.mono { font-family: var(--mono); }
+
+/* Feedback táctil: responder en pointer-down, no en release (apple-design) */
+.cta-btn:active,
+.btn:active,
+.card:active,
+.nav-link:active,
+.launcher-card:active {
+  transform: scale(0.96) !important;
+  transition-duration: 80ms !important;
+}
+
+/* Glassmorphism mejorado para tarjetas y paneles */
+.card {
+  background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0) 60%),
+              var(--card);
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.06);
+  backdrop-filter: blur(12px) saturate(120%);
+  -webkit-backdrop-filter: blur(12px) saturate(120%);
+}
+.card::before {
+  content: "";
+  position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+  border-radius: 999px;
+  background: var(--lime);
+  opacity: 0; transition: opacity 0.18s ease;
+}
+.card:hover::before { opacity: 1; }
+.card-lime::before { opacity: 1; background: var(--lime); }
+
+/* Botones CTA con feedback inmediato */
+.cta-btn {
+  position: relative; overflow: hidden;
+}
+.cta-btn::before {
+  content: "";
+  position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+  transform: translateX(-100%); transition: transform 0.3s ease;
+}
+.cta-btn:active::before { transform: translateX(100%); }
+
+/* Separador visual entre secciones */
+.section-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border-2), transparent);
+  margin: 60px 0;
+}
+
+/* Ajuste-info tooltips en la configuración de IA */
+.ajuste-info {
+  font-size: 10px;
+  color: var(--muted-2);
+  margin-left: 6px;
+  cursor: help;
+  border-bottom: 1px dotted var(--muted-2);
+}
+
+/* Reducido de movimiento */
+@media (prefers-reduced-motion: reduce) {
+  .cta-btn::before, .card::before { display: none !important; }
+  .cta-btn:active, .card:active { transform: none !important; }
+}

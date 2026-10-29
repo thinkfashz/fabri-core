@@ -12,7 +12,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 
 /**
- * FABRI-CORE · proveedor mínimo para entregar una APK verificada al instalador
+ * FORGE CORE STOCK · proveedor mínimo para entregar una APK verificada al instalador
  * del sistema.
  *
  * Android 7+ prohíbe `file://` en Intents. En vez de descargar AndroidX

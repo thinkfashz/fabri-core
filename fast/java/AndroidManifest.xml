@@ -13,7 +13,7 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
 
     <application
-        android:label="FABRI-CORE"
+        android:label="FORGE CORE STOCK"
         android:icon="@android:drawable/sym_def_app_icon"
         android:theme="@android:style/Theme.Material.NoActionBar"
         android:allowBackup="true"
@@ -24,7 +24,7 @@
         <activity
             android:name="cl.fabri.core.j.MainActivity"
             android:exported="true"
-            android:label="FABRI-CORE"
+            android:label="FORGE CORE STOCK"
             android:configChanges="orientation|screenSize|keyboardHidden|uiMode">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

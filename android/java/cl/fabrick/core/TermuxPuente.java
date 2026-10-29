@@ -14,14 +14,14 @@ import java.net.URL;
 import java.nio.charset.Charset;
 
 /**
- * FABRI-CORE · puente indirecto hacia Termux.
+ * FORGE CORE STOCK · puente indirecto hacia Termux.
  *
  * Por qué NO se usa `com.termux.RUN_COMMAND`:
  *   Termux 0.119 declara `com.termux.permission.RUN_COMMAND` con
  *   protectionLevel="signature". Sólo las apps firmadas con la clave de Termux
  *   (Termux:Tasker, Termux:Widget) pueden obtenerlo. Esta APK va firmada con
  *   otra clave, así que Android jamás le concede ese permiso: el Intent falla
- *   en silencio. No es un bug de FABRI-CORE, es el modelo de seguridad de Termux.
+ *   en silencio. No es un bug de FORGE CORE STOCK, es el modelo de seguridad de Termux.
  *
  * La vía que sí funciona es loopback: un proceso Python en Termux escucha en
  * 127.0.0.1:8787 y ejecuta SÓLO una lista blanca de comandos. La APK no manda
@@ -267,7 +267,7 @@ final class TermuxPuente {
             if (cm == null) {
                 return false;
             }
-            cm.setPrimaryClip(android.content.ClipData.newPlainText("FABRI-CORE · puente Termux", texto));
+            cm.setPrimaryClip(android.content.ClipData.newPlainText("FORGE CORE STOCK · puente Termux", texto));
             return true;
         } catch (Throwable t) {
             return false;
@@ -322,7 +322,7 @@ final class TermuxPuente {
                 {"modelos", "Modelos GGUF en ~/modelos"},
                 {"servicios", "Procesos por RAM"},
                 {"pesados", "Carpetas más pesadas"},
-                {"fabrick", "Estado de FABRI-CORE en Termux"},
+                {"fabrick", "Estado de FORGE CORE STOCK en Termux"},
                 {"probar-llm", "Runtime llama.cpp"},
         };
         for (String[] f : filas) {

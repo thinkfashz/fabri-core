@@ -9,7 +9,7 @@ import java.net.URL;
 import java.security.MessageDigest;
 
 /**
- * FABRI-CORE · descargador verificable (Fase 3).
+ * FORGE CORE STOCK · descargador verificable (Fase 3).
  *
  * Reglas que implementa:
  *   · sólo HTTPS, salvo http:// en 127.0.0.1/localhost para pruebas locales;
@@ -149,7 +149,7 @@ public final class Descargador {
                 conexion.setInstanceFollowRedirects(true);
                 conexion.setConnectTimeout(20000);
                 conexion.setReadTimeout(60000);
-                conexion.setRequestProperty("User-Agent", "FABRI-CORE/0.2 (+verificacion-sha256)");
+                conexion.setRequestProperty("User-Agent", "FORGE CORE STOCK/0.2 (+verificacion-sha256)");
 
                 int codigo = conexion.getResponseCode();
                 if (codigo != HttpURLConnection.HTTP_OK) {

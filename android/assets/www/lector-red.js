@@ -1,5 +1,5 @@
 /* ==========================================================================
-   FABRI-CORE · Lector de códigos por red (HBAPO y compatibles)
+   FORGE CORE STOCK · Lector de códigos por red (HBAPO y compatibles)
    --------------------------------------------------------------------------
    Los lectores 2D de escritorio no comparten un protocolo. Este módulo cubre
    los tres caminos reales:

@@ -1,4 +1,4 @@
-// FABRI-CORE · /api/agent
+// FORGE CORE STOCK · /api/agent
 // Proxy mínimo a un LLM compatible con la API de chat completions.
 //
 // Variables de entorno (Vercel → Settings → Environment Variables):
@@ -45,7 +45,7 @@ type chatResp struct {
 	Model string `json:"model"`
 }
 
-const systemPrompt = `Eres FABRI-CORE, una consola autónoma que corre en el dispositivo del usuario.
+const systemPrompt = `Eres FORGE CORE STOCK, una consola autónoma que corre en el dispositivo del usuario.
 Respondes en español, breve y concreto (máximo 8 líneas salvo que pidan detalle).
 Reglas: no inventes datos; si no sabes algo, dilo. No pidas credenciales.
 Si te piden algo que requiere la base local, explica qué consulta SQL haría falta.`

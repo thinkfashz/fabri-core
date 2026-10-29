@@ -1,5 +1,5 @@
 /* ==========================================================================
-   FABRI-CORE · Inventario
+   FORGE CORE STOCK · Inventario
    --------------------------------------------------------------------------
    Flujo guiado en 5 pasos sobre la SQLite local (op `inventario` del núcleo):
      1 Escanear   → cámara / código manual → Open Food Facts / Beauty / Products
@@ -64,6 +64,8 @@ const INV = {
   carrito: [],
   boleta: null,         // última boleta emitida
   camara: null,         // MediaStream
+  camAbriendo: false,   // getUserMedia en vuelo (evita abrir dos veces)
+  camGen: 0,            // generación: invalida aperturas viejas al apagar
   detector: null,       // BarcodeDetector (si el WebView lo trae)
   lienzo: null,         // canvas reutilizado por el lector propio
   timerScan: null,
@@ -94,7 +96,9 @@ const INV = {
     timer: null,    // temporizador del bucle de frames
     pasoActivo: null,
     ultimo: "",     // último código leído (freno de repetición)
-    ultimoT: 0
+    ultimoT: 0,
+    gen: 0,         // invalida aperturas viejas cuando se toca OFF
+    encendiendo: false
   }
 };
 // Copia accesible desde la consola del teléfono (diagnóstico) y las pruebas.
@@ -300,7 +304,7 @@ function invConectarEventos() {
     });
   });
 
-  if ($("btnInvCamara")) $("btnInvCamara").addEventListener("click", invCamaraAbrir);
+  if ($("btnInvCamara")) $("btnInvCamara").addEventListener("click", invCamaraAlternar);
   if ($("btnInvCamaraParar")) $("btnInvCamaraParar").addEventListener("click", invCamaraParar);
   if ($("btnInvModoNormal")) $("btnInvModoNormal").addEventListener("click", function () { invModoApilador(false); });
   if ($("btnInvModoApilador")) $("btnInvModoApilador").addEventListener("click", function () { invModoApilador(true); });
@@ -447,8 +451,8 @@ function invEquiposIniciar() {
 
 function invPaso(n) {
   INV.paso = n;
+  // La cámara no se abre sola: el botón es un ON/OFF real y el usuario decide.
   if (n !== 1) invCamaraParar();
-  else if (!INV.modoApilador) invModoApilador(true);
   // El lector fijo solo está activo en los pasos 1 a 4; en la boleta (paso 5)
   // nunca se enciende su cámara. Al cambiar de paso se apaga el anterior.
   invLectorParar();
@@ -470,28 +474,68 @@ function invPaso(n) {
 /* ── carga y resumen ────────────────────────────────────────────────────── */
 
 /**
- * Lee productos y resumen. Antes eran dos llamadas BLOQUEANTES seguidas (hasta
- * 1,8 s con el hilo de la interfaz parado) y se repetían en cada refresco.
- * Ahora van encadenadas en segundo plano y sin solaparse.
+ * Lee productos y el panel completo del negocio. Antes eran dos llamadas
+ * BLOQUEANTES seguidas (hasta 1,8 s con el hilo de la interfaz parado) y se
+ * repetían en cada refresco. Ahora `panel` trae productos, resumen, categorías,
+ * márgenes, ventas y estado de sincronización en UNA sola foto: todos los
+ * números de la pantalla son del mismo instante.
  */
 function invRefrescar() {
   if (INV.cargando) return;
   INV.cargando = true;
-  invApiTarde("listar", { limite: 500 }).then(function (r) {
+  invApiTarde("panel").then(function (r) {
     INV.cargando = false;
-    if (r.ok) {
-      INV.productos = (r.data && r.data.productos) || [];
-      invPintarProductos();
-      invPintarSelectores();
-      invPintarMargenes();
-      invPoblarDatalist();
-    } else if (!INV.productos.length) {
-      invAviso("No pude leer el inventario: " + (r.error || "error"), "error");
+    if (!r.ok || !r.data || !r.data.ok) {
+      if (!INV.productos.length) {
+        invAviso("No pude leer el inventario: " + (r.error || "error"), "error");
+      }
+      return;
     }
-    return invApiTarde("resumen").then(function (rr) {
-      if (rr.ok) { INV.resumen = rr.data; invPintarResumen(rr.data); }
+    const d = r.data;
+    INV.panel = d;
+    INV.resumen = d.resumen || INV.resumen;
+    // El panel no trae la ficha completa de cada producto; se pide la lista
+    // en paralelo para no perder el editor ni las miniaturas.
+    invApiTarde("listar", { limite: 500 }).then(function (rl) {
+      if (rl.ok) {
+        INV.productos = (rl.data && rl.data.productos) || [];
+        invPintarProductos();
+        invPintarSelectores();
+        invPintarMargenes();
+        invPoblarDatalist();
+      }
     });
+    invPintarResumen(INV.resumen);
+    invPintarPanel(d);
   });
+}
+
+/** KPIs ampliados del panel: unidades, margen promedio, ventas y categorías. */
+function invPintarPanel(d) {
+  const caja = document.getElementById("invPanelNegocio");
+  if (!caja || !d) return;
+  const r = d.resumen || {};
+  const v = d.ventas || {};
+  const v24 = v.ultimas_24h || {};
+  const v30 = v.ultimos_30d || {};
+  const cats = (d.categorias || []).slice(0, 6);
+  const margen = (d.top_margen || []).slice(0, 5);
+  caja.innerHTML = `
+    <div class="inv-negocio-grid">
+      <div class="inv-negocio-dato"><span>Unidades</span><strong>${r.unidades || 0}</strong><small>${r.total || 0} productos</small></div>
+      <div class="inv-negocio-dato"><span>Margen promedio</span><strong>${r.margen_promedio || 0}%</strong><small>${invClp(r.utilidad_potencial)} potencial</small></div>
+      <div class="inv-negocio-dato"><span>Ventas 24 h</span><strong>${invClp(v24.total)}</strong><small>${v24.n || 0} boletas · ${v24.unidades || 0} u.</small></div>
+      <div class="inv-negocio-dato"><span>Ventas 30 días</span><strong>${invClp(v30.total)}</strong><small>utilidad ${invClp(v30.utilidad)}</small></div>
+    </div>
+    ${cats.length ? `<p class="inv-negocio-titulo">Categorías por valor</p>
+      <div class="inv-negocio-lista">${cats.map(function (c) {
+        return `<div class="inv-negocio-fila"><b>${esc(c.categoria)}</b><span>${c.n} · ${invClp(c.valor_venta)}</span></div>`;
+      }).join("")}</div>` : ""}
+    ${margen.length ? `<p class="inv-negocio-titulo">Mejor margen</p>
+      <div class="inv-negocio-lista">${margen.map(function (p) {
+        return `<div class="inv-negocio-fila"><b>${esc(p.nombre)}</b><span>${p.margen_pct}%</span></div>`;
+      }).join("")}</div>` : ""}
+  `;
 }
 
 /** Rellena el autocompletado de códigos con los productos ya guardados.
@@ -521,33 +565,62 @@ function invPintarResumen(datos) {
   if (!caja) return;
   caja.innerHTML = [
     `<div class="inv-kpi"><span>Productos</span><strong>${d.total || 0}</strong></div>`,
+    `<div class="inv-kpi"><span>Unidades</span><strong>${d.unidades || 0}</strong></div>`,
     `<div class="inv-kpi ok"><span>Valor venta</span><strong>${invClp(d.valor_venta)}</strong></div>`,
-    `<div class="inv-kpi"><span>Utilidad</span><strong>${invClp(d.utilidad_potencial)}</strong></div>`,
+    `<div class="inv-kpi"><span>Margen prom.</span><strong>${d.margen_promedio || 0}%</strong></div>`,
     `<div class="inv-kpi ${d.stock_bajo > 0 ? "alerta" : ""}"><span>Stock bajo</span><strong>${d.stock_bajo || 0}</strong></div>`,
+    `<div class="inv-kpi ${d.agotados > 0 ? "alerta" : ""}"><span>Agotados</span><strong>${d.agotados || 0}</strong></div>`,
     `<div class="inv-kpi ${d.pendientes_sync > 0 ? "alerta" : "ok"}"><span>Sin sincronizar</span><strong>${d.pendientes_sync || 0}</strong></div>`
   ].join("");
 }
 
 /* ── paso 1 · escanear ──────────────────────────────────────────────────── */
 
+/** Etiqueta y estado del botón principal de la cámara (ON/OFF real). */
+function invCamaraPintar(encendida) {
+  const btn = document.getElementById("btnInvCamara");
+  if (!btn) return;
+  btn.setAttribute("aria-pressed", encendida ? "true" : "false");
+  btn.classList.toggle("btn-primario", !encendida);
+  const etq = document.getElementById("invCamaraEtq");
+  if (etq) etq.textContent = encendida ? "Detener cámara" : "Abrir cámara";
+  const btnParar = document.getElementById("btnInvCamaraParar");
+  if (btnParar) btnParar.hidden = !encendida;
+}
+
+/** Enciende o apaga la cámara del paso 1 con un solo botón. */
+function invCamaraAlternar() {
+  if (INV.camara || INV.camAbriendo) invCamaraParar();
+  else invCamaraAbrir();
+}
+
 async function invCamaraAbrir() {
+  if (INV.camara || INV.camAbriendo) return; // ya encendida o abriéndose
   const caja = document.getElementById("invCamaraCaja");
   const video = document.getElementById("invVideo");
   const nota = document.getElementById("invCamaraNota");
-  const btnParar = document.getElementById("btnInvCamaraParar");
+  INV.camAbriendo = true;
+  const gen = ++INV.camGen;
   try {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       throw new Error("este WebView no expone la cámara");
     }
-    INV.camara = await navigator.mediaDevices.getUserMedia({
+    const stream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 } },
       audio: false
     });
-    video.srcObject = INV.camara;
+    // Si mientras abría se tocó «Detener», este stream ya no sirve: se apaga.
+    if (gen !== INV.camGen) {
+      stream.getTracks().forEach(function (t) { try { t.stop(); } catch (e) {} });
+      return;
+    }
+    INV.camara = stream;
+    video.srcObject = stream;
     await video.play();
+    if (gen !== INV.camGen) return;
     caja.classList.add("activa");
     caja.classList.add("mira");
-    if (btnParar) btnParar.hidden = false;
+    invCamaraPintar(true);
     invMallaIniciar();
 
     if (typeof window.BarcodeDetector === "function") {
@@ -566,15 +639,20 @@ async function invCamaraAbrir() {
     invBucleEscaneo();
     revision("inventario", "info", "cámara del inventario abierta");
   } catch (e) {
-    invCamaraParar();
     const msg = e && e.message ? e.message : String(e);
+    invCamaraParar();
     revision("inventario", "error", "no se pudo abrir la cámara", msg, 0, "camara");
     toast("Cámara: " + msg, "error");
     if (nota) nota.textContent = "Sin acceso a la cámara. Usa el código manual.";
+  } finally {
+    INV.camAbriendo = false;
   }
 }
 
 function invCamaraParar() {
+  // Sube la generación: cualquier getUserMedia en vuelo se descarta al volver.
+  INV.camGen++;
+  INV.camAbriendo = false;
   if (INV.timerScan) { clearTimeout(INV.timerScan); INV.timerScan = null; }
   invMallaParar();
   if (INV.camara) {
@@ -585,8 +663,9 @@ function invCamaraParar() {
   if (video) video.srcObject = null;
   const caja = document.getElementById("invCamaraCaja");
   if (caja) caja.classList.remove("activa", "mira", "leyo");
-  const btnParar = document.getElementById("btnInvCamaraParar");
-  if (btnParar) btnParar.hidden = true;
+  const nota = document.getElementById("invCamaraNota");
+  if (nota) nota.textContent = "La imagen nunca sale del teléfono.";
+  invCamaraPintar(false);
   INV.detector = null;
 }
 
@@ -794,10 +873,19 @@ function invLecToggle(paso) {
   }
 }
 
+/** Pinta el botón del lector como ON/OFF sin depender del stream. */
+function invLecPintar(paso, encendido) {
+  const btn = document.getElementById("btnInvLec" + paso);
+  if (!btn) return;
+  btn.setAttribute("aria-pressed", encendido ? "true" : "false");
+  const b = btn.querySelector("b");
+  if (b) b.textContent = encendido ? "ON" : "OFF";
+}
+
 function invLecEncender(paso) {
+  if (INV.lec.encendiendo) return;
   const video = document.getElementById("invLecVideo" + paso);
   const videoCaja = document.getElementById("invLecVideoCaja" + paso);
-  const btn = document.getElementById("btnInvLec" + paso);
   const nota = document.getElementById("invLecNota" + paso);
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
     if (nota) nota.textContent = "este WebView no expone la cámara";
@@ -805,19 +893,28 @@ function invLecEncender(paso) {
     return;
   }
   invLectorParar(); // una sola cámara a la vez
+  // Se marca ON al instante: si el usuario toca otra vez mientras el permiso
+  // está en vuelo, el toggle ve «encendido» y apaga en vez de abrir otra.
+  invLecPintar(paso, true);
+  INV.lec.encendiendo = true;
+  const gen = ++INV.lec.gen;
   navigator.mediaDevices.getUserMedia({
     video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 } },
     audio: false
   }).then(function (stream) {
+    // Llegó tarde: se apagó mientras se pedía el permiso.
+    if (gen !== INV.lec.gen) {
+      stream.getTracks().forEach(function (t) { try { t.stop(); } catch (e) {} });
+      return;
+    }
     INV.lec.camara = stream;
     video.srcObject = stream;
     return video.play();
   }).then(function () {
+    if (gen !== INV.lec.gen) return;
     INV.lec.pasoActivo = paso;
     videoCaja.hidden = false;
-    btn.setAttribute("aria-pressed", "true");
-    const bOn = btn.querySelector("b");
-    if (bOn) bOn.textContent = "ON";
+    invLecPintar(paso, true);
     if (typeof window.BarcodeDetector === "function" && !INV.lec.detector) {
       INV.lec.detector = new window.BarcodeDetector({
         formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "code_39", "itf", "qr_code"]
@@ -826,29 +923,32 @@ function invLecEncender(paso) {
     if (nota) nota.textContent = "Lector activo · apunta al código";
     invLecBucle(paso);
   }).catch(function (e) {
+    if (gen !== INV.lec.gen) return;
     INV.lec.camara = null;
+    invLecPintar(paso, false);
     const msg = e && e.message ? e.message : String(e);
     revision("inventario", "error", "lector fijo: no se pudo abrir la cámara", msg, 0, "camara");
     if (nota) nota.textContent = "Sin cámara. Usa el código manual.";
     toast("Cámara: " + msg, "error");
+  }).finally(function () {
+    if (gen === INV.lec.gen) INV.lec.encendiendo = false;
   });
 }
 
 function invLecApagarPaso(paso) {
+  // Invalida cualquier apertura en vuelo de este paso.
+  INV.lec.gen++;
+  INV.lec.encendiendo = false;
   const video = document.getElementById("invLecVideo" + paso);
   const videoCaja = document.getElementById("invLecVideoCaja" + paso);
-  const btn = document.getElementById("btnInvLec" + paso);
   const nota = document.getElementById("invLecNota" + paso);
   if (video) video.srcObject = null;
   if (videoCaja) videoCaja.hidden = true;
-  if (btn) {
-    btn.setAttribute("aria-pressed", "false");
-    const b = btn.querySelector("b");
-    if (b) b.textContent = "OFF";
-  }
+  invLecPintar(paso, false);
   if (nota) nota.textContent = "Apunta al código de barras";
   if (INV.lec.pasoActivo === paso) INV.lec.pasoActivo = null;
   if (!INV.lec.pasoActivo) {
+    if (INV.lec.timer) { clearTimeout(INV.lec.timer); INV.lec.timer = null; }
     if (INV.lec.camara) {
       INV.lec.camara.getTracks().forEach(function (t) { try { t.stop(); } catch (e) {} });
       INV.lec.camara = null;
@@ -859,19 +959,16 @@ function invLecApagarPaso(paso) {
 
 /** Apaga el lector fijo (cámara y bucle) de todos los pasos. */
 function invLectorParar() {
+  INV.lec.gen++;
+  INV.lec.encendiendo = false;
   if (INV.lec.timer) { clearTimeout(INV.lec.timer); INV.lec.timer = null; }
   for (let p = 1; p <= 4; p++) {
     const video = document.getElementById("invLecVideo" + p);
     const videoCaja = document.getElementById("invLecVideoCaja" + p);
-    const btn = document.getElementById("btnInvLec" + p);
     const nota = document.getElementById("invLecNota" + p);
     if (video) video.srcObject = null;
     if (videoCaja) videoCaja.hidden = true;
-    if (btn) {
-      btn.setAttribute("aria-pressed", "false");
-      const b = btn.querySelector("b");
-      if (b) b.textContent = "OFF";
-    }
+    invLecPintar(p, false);
     if (nota) nota.textContent = "Apunta al código de barras";
   }
   if (INV.lec.camara) {
@@ -971,9 +1068,10 @@ function invModoApilador(activar) {
   if (bApila) bApila.classList.toggle("btn-primario", INV.modoApilador);
   const help = document.getElementById("invCamaraNota");
   if (INV.modoApilador) {
-    if (help) help.textContent = "Apilador activo · apunta a cada producto sin parar";
+    if (help) help.textContent = INV.camara
+      ? "Apilador activo · apunta a cada producto sin parar"
+      : "Apilador activo · abre la cámara para empezar";
     invApiladorPintar();
-    if (!INV.camara) invCamaraAbrir();
   }
 }
 
@@ -3395,7 +3493,7 @@ function invTicketCuerpo(b, opts) {
     <div class="tk-barras">${invBarrasSvg(o.vista ? "PREVIA" : b.folio, 34)}</div>
     <p class="tk-folio">${o.vista ? "vista previa · sin emitir" : "Folio " + esc(b.folio)}</p>
     <div class="tk-gracias">¡GRACIAS POR SU COMPRA!</div>
-    <p class="tk-pie">Documento generado por FABRI-CORE<br />no es boleta tributaria electrónica</p>
+    <p class="tk-pie">Documento generado por FORGE CORE STOCK<br />no es boleta tributaria electrónica</p>
   </div>`;
 }
 
@@ -3431,7 +3529,7 @@ function invEmitirBoleta() {
 
 /**
  * Identidad del negocio para la boleta. Sale de la caché que mantiene la
- * página «Mi identidad»; si todavía no hay ficha, cae a FABRI-CORE para que
+ * página «Mi identidad»; si todavía no hay ficha, cae a FORGE CORE STOCK para que
  * la boleta nunca salga en blanco.
  */
 function invNegocio() {
@@ -3441,7 +3539,7 @@ function invNegocio() {
   } catch (e) { c = {}; }
   const d = c.datos || {};
   return {
-    nombre: c.nombre || "FABRI-CORE",
+    nombre: c.nombre || "FORGE CORE STOCK",
     razon: d.razon_social || "",
     rut: d.rut || "",
     giro: d.giro || "",
@@ -3652,7 +3750,8 @@ async function invSyncCorrer(silencioso) {
     return { ok: false, enviados: 0, motivo: q.error || "error" };
   }
   const pendientes = (q.data && q.data.productos) || [];
-  if (!pendientes.length) {
+  const boletas = (q.data && q.data.boletas) || [];
+  if (!pendientes.length && !boletas.length) {
     if (!silencioso) toast("Todo sincronizado: no hay cambios pendientes");
     return { ok: true, enviados: 0, motivo: "sin pendientes" };
   }
@@ -3662,44 +3761,87 @@ async function invSyncCorrer(silencioso) {
     const nombre = "inventario-pendientes-" + new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-") + ".json";
     let ruta = "";
     try {
-      const g = JSON.parse(window.FabrickNative.guardarArchivo(nombre, JSON.stringify({ tabla: "inv_productos", productos: pendientes }, null, 2)));
+      const g = JSON.parse(window.FabrickNative.guardarArchivo(nombre, JSON.stringify({
+        tabla: "inv_productos",
+        productos: pendientes,
+        boletas: boletas
+      }, null, 2)));
       if (g && g.ok) ruta = g.ruta || g.rutaCompleta || "";
     } catch (e) { /* queda el aviso de abajo */ }
-    toast(pendientes.length + " pendientes exportados" + (ruta ? ": " + ruta : "") + ". Configura la nube en Integración.");
-    revision("inventario", "aviso", "sincronización sin nube: lote exportado", pendientes.length + " productos · " + ruta);
+    toast((pendientes.length + boletas.length) + " pendientes exportados" + (ruta ? ": " + ruta : "") + ". Configura la nube en Integración.");
+    revision("inventario", "aviso", "sincronización sin nube: lote exportado",
+      pendientes.length + " productos · " + boletas.length + " boletas · " + ruta);
     return { ok: false, enviados: 0, motivo: "sin nube" };
   }
+  const base = INV.nube.url.replace(/\/+$/, "");
+  const destino = /\/api\/inventario$/.test(base) ? base : base + "/api/inventario";
+  const cabeceras = Object.assign(
+    { "Content-Type": "application/json" },
+    INV.nube.token ? { "Authorization": "Bearer " + INV.nube.token } : {}
+  );
+  let enviados = 0;
+  let boletasEnviadas = 0;
+  let avisoBoletas = "";
   try {
     // Contrato real de la nube: /api/inventario con `accion: "subir"` y
     // upsert por código. El endpoint viejo (`/inventario`) insertaba sin
     // actualizar y fallaba con la clave duplicada al reenviar.
-    const base = INV.nube.url.replace(/\/+$/, "");
-    const destino = /\/api\/inventario$/.test(base) ? base : base + "/api/inventario";
-    const resp = await fetch(destino, {
-      method: "POST",
-      headers: Object.assign(
-        { "Content-Type": "application/json" },
-        INV.nube.token ? { "Authorization": "Bearer " + INV.nube.token } : {}
-      ),
-      body: JSON.stringify({ accion: "subir", productos: pendientes })
-    });
-    if (resp.status === 401) {
-      throw new Error("el token de la nube fue rechazado (revisa Integración)");
+    if (pendientes.length) {
+      const resp = await fetch(destino, {
+        method: "POST",
+        headers: cabeceras,
+        body: JSON.stringify({ accion: "subir", productos: pendientes })
+      });
+      if (resp.status === 401) {
+        throw new Error("el token de la nube fue rechazado (revisa Integración)");
+      }
+      if (!resp.ok) throw new Error("HTTP " + resp.status);
+      const salida = await resp.json().catch(function () { return {}; });
+      if (salida && salida.ok === false) {
+        throw new Error(salida.error || "la nube rechazó el lote");
+      }
+      const codigos = pendientes.map(function (p) { return p.codigo; });
+      const m = invCore("sync_marcar", { codigos: codigos }, !silencioso);
+      if (!m.ok) throw new Error("no se pudieron marcar como sincronizados: " + (m.error || "error"));
+      enviados = pendientes.length;
     }
-    if (!resp.ok) throw new Error("HTTP " + resp.status);
-    const salida = await resp.json().catch(function () { return {}; });
-    if (salida && salida.ok === false) {
-      throw new Error(salida.error || "la nube rechazó el lote");
+
+    // Las boletas son opcionales para la nube: si el endpoint todavía no las
+    // conoce (400/404) se dejan pendientes en vez de marcarlas como subidas.
+    if (boletas.length) {
+      try {
+        const rb = await fetch(destino, {
+          method: "POST",
+          headers: cabeceras,
+          body: JSON.stringify({ accion: "subir_boletas", boletas: boletas })
+        });
+        if (rb.ok) {
+          const sb = await rb.json().catch(function () { return {}; });
+          if (!sb || sb.ok !== false) {
+            const folios = boletas.map(function (b) { return b.folio; });
+            const mb = invCore("sync_marcar", { folios: folios }, !silencioso);
+            if (mb.ok) boletasEnviadas = boletas.length;
+          } else {
+            avisoBoletas = "la nube aún no acepta boletas";
+          }
+        } else {
+          avisoBoletas = "la nube aún no acepta boletas (HTTP " + rb.status + ")";
+        }
+      } catch (e) {
+        avisoBoletas = "boletas en cola: " + (e && e.message ? e.message : String(e));
+      }
     }
-    const codigos = pendientes.map(function (p) { return p.codigo; });
-    const m = invCore("sync_marcar", { codigos: codigos }, !silencioso);
-    if (!m.ok) throw new Error("no se pudieron marcar como sincronizados: " + (m.error || "error"));
+
     if (!silencioso) {
-      toast(pendientes.length + " productos sincronizados");
-      revision("inventario", "info", "sincronización con la nube", pendientes.length + " productos");
+      const partes = [];
+      if (enviados) partes.push(enviados + " productos");
+      if (boletasEnviadas) partes.push(boletasEnviadas + " boletas");
+      toast(partes.length ? partes.join(" y ") + " sincronizados" : "Sin cambios que subir");
+      revision("inventario", "info", "sincronización con la nube",
+        (enviados + " productos · " + boletasEnviadas + " boletas") + (avisoBoletas ? " · " + avisoBoletas : ""));
       invRefrescar();
     }
-    return { ok: true, enviados: pendientes.length, motivo: "enviado" };
+    return { ok: true, enviados: enviados, boletas: boletasEnviadas, motivo: avisoBoletas || "enviado" };
   } catch (e) {
     const msg = e && e.message ? e.message : String(e);
     if (!silencioso) {

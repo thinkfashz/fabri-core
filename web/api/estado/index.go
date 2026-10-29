@@ -1,4 +1,4 @@
-// FABRI-CORE · /api/estado
+// FORGE CORE STOCK · /api/estado
 // Malla del ecosistema vista desde la capa web.
 //
 // Sondea el /api/health de las cuatro capas en paralelo, con tope de 5 s por
