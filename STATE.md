@@ -1624,3 +1624,12 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
 - Se conserva el copy diferenciador: «Sin nube / Local / Local-first / 100% Offline».
 - Commit `8f23efc` pusheado a `origin/master` (`thinkfashz/fabri-core`).
 - El deploy de Vercel no se tocó; el dominio `fabri-core-web.vercel.app` sigue activo.
+
+## Sesión 2026-10-30 · APK 0.9.38 (53) — rebrand FORGE CORE STOCK
+
+- Rebrand aplicado a la APK: `FABRI-CORE` → `FORGE CORE STOCK` y `FABRI-CORE PRO` → `FORGE CORE STOCK PRO` en `android/assets/www/*` (HTML/JS/CSS/SVG), Java y `strings.xml`.
+- `NOMBRE` del build ahora es `FORGE-CORE-STOCK-0.9.38`.
+- Package Android se mantiene `cl.fabrick.core` (instalación encima sin borrar datos).
+- APK: versionCode 53 / versionName 0.9.38, zipalign 4 ✔, apksigner V2+V3 ✔, assets con marca FORGE dentro (17×, 0 FABRI) ✔.
+- SHA-256: `f36cbaeb8c277aab8610b18bea1315c4c3768dbd78436e64ae23770c2aff00df` · 4.329.267 B.
+- Copiada a `/tmp/opencode/FORGE-CORE-STOCK-0.9.38.apk` y `/storage/emulated/0/Download/FORGE-CORE-STOCK-0.9.38.apk`.
