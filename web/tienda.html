@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>FORGE CORE STOCK · Tienda</title>
+<meta name="description" content="Tienda pública de FORGE CORE STOCK: catálogo de productos, carrito y compra con pago por tarjeta o efectivo, confirmado por WhatsApp.">
+<meta name="theme-color" content="#070a14">
+<link rel="stylesheet" href="./tienda.css">
+</head>
+<body>
+
+<!-- Barras de ambiente -->
+<div class="aurora" aria-hidden="true"></div>
+<div class="grain" aria-hidden="true"></div>
+
+<header class="ti-top">
+  <div class="ti-top-in">
+    <a class="ti-marca" href="#" data-ir="catalogo">
+      <span class="ti-mark" aria-hidden="true"></span>
+      <span>FORGE<em>CORE</em> STOCK</span>
+    </a>
+    <div class="ti-top-acciones">
+      <button class="ti-pill" id="tiBack" hidden type="button">← Volver</button>
+      <button class="ti-carrito" id="tiCarBtn" type="button" aria-label="Abrir carrito">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16l-1.5 12h-13L4 7Z"/><path d="M9 10V6a3 3 0 0 1 6 0v4"/></svg>
+        <span>Carrito</span><b id="tiCarBadge" hidden>0</b>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main class="ti-main">
+
+  <!-- Catalogado de catálogo -->
+  <section class="ti-vista" id="v-catalogo">
+    <div class="ti-hero">
+      <p class="ti-eyebrow">Marketplace · en la nube</p>
+      <h1>La tienda de tu negocio</h1>
+      <p class="ti-sub">Catálogo en vivo desde fabri-api. Elige, arma tu pedido y paga — o confirma directo por WhatsApp.</p>
+    </div>
+
+    <div class="ti-filtros">
+      <input class="ti-campo" id="fiQ" type="search" placeholder="Buscar producto o descripción…" autocomplete="off">
+      <div class="ti-chips" id="fiCats"></div>
+      <div class="ti-rango">
+        <span>Precio máx</span>
+        <input type="range" id="fiMax" min="0" max="500000" step="10000" value="500000">
+        <output id="fiMaxVal">$500.000</output>
+      </div>
+    </div>
+
+    <div class="ti-grid" id="tiGrid"></div>
+  </section>
+
+  <!-- Detalle de producto -->
+  <section class="ti-vista" id="v-detalle" hidden>
+    <div class="ti-detalle" id="tiDetalle"></div>
+  </section>
+
+  <!-- Carrito -->
+  <section class="ti-vista" id="v-carrito" hidden>
+    <div class="ti-lienzo">
+      <h2>Tu carrito</h2>
+      <div id="tiCarrito"></div>
+      <div class="ti-footer-op" id="tiCarritoPie"></div>
+    </div>
+  </section>
+
+  <!-- Checkout: datos + pago -->
+  <section class="ti-vista" id="v-checkout" hidden>
+    <div class="ti-lienzo ti-checkout">
+      <h2>Finalizar compra</h2>
+
+      <div class="ti-bloque">
+        <p class="ti-eyebrow">1 · Datos de contacto</p>
+        <input class="ti-campo" id="coNombre" type="text" placeholder="Nombre y apellido" autocomplete="name">
+        <input class="ti-campo" id="coEmail" type="email" placeholder="Correo" autocomplete="email">
+        <input class="ti-campo" id="coTel" type="tel" placeholder="Teléfono (WhatsApp)" autocomplete="tel">
+        <input class="ti-campo" id="coDir" type="text" placeholder="Dirección de entrega" autocomplete="street-address">
+      </div>
+
+      <div class="ti-bloque">
+        <p class="ti-eyebrow">2 · Forma de pago</p>
+        <div class="ti-tabs" id="coMetodo">
+          <button type="button" data-m="tarjeta" class="on">Tarjeta</button>
+          <button type="button" data-m="efectivo">Efectivo</button>
+        </div>
+
+        <div id="coTarjeta">
+          <input class="ti-campo ti-tarjeta" id="coCardNum" type="text" inputmode="numeric" placeholder="Número de tarjeta" maxlength="19" autocomplete="cc-number">
+          <div class="ti-fila">
+            <input class="ti-campo" id="coCardExp" type="text" inputmode="numeric" placeholder="MM/AA" maxlength="5" autocomplete="cc-exp">
+            <input class="ti-campo" id="coCardCvv" type="password" inputmode="numeric" placeholder="CVV" maxlength="4" autocomplete="cc-csc">
+          </div>
+          <p class="ti-nota">Demo: usa <b>4242 4242 4242 4242</b> (cualquier fecha futura y CVV) para aprobar; un número inválido rechaza el pago.</p>
+        </div>
+
+        <div id="coEfectivo" hidden>
+          <p class="ti-nota">Pagas en efectivo al recibir. Prepara el monto exacto; el pedido se confirma por WhatsApp.</p>
+        </div>
+      </div>
+
+      <div class="ti-resumen" id="coResumen"></div>
+
+      <button class="ti-btn ti-btn-grande" id="coPagar" type="button">Pagar</button>
+      <p class="ti-pasarela" id="coEstado"></p>
+    </div>
+  </section>
+
+  <!-- Estado final: aprobado / rechazado -->
+  <section class="ti-vista" id="v-estado" hidden>
+    <div class="ti-lienzo ti-estado" id="tiEstado"></div>
+  </section>
+
+</main>
+
+<footer class="ti-pie">
+  <span>FORGE CORE STOCK</span>
+  <span>Pago de demostración · sin movimiento de dinero real</span>
+</footer>
+
+<div class="ti-toast" id="tiToast"></div>
+
+<script src="./tienda.js"></script>
+</body>
+</html>

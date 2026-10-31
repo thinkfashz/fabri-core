@@ -1648,3 +1648,11 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
 - Se retiró el handler Go equivalente de `web/api/catalogo/` y su entrada en `web/vercel.json` para evitar dos fuentes de verdad.
 - Desplegado con `vercel --prod` (CLI autenticado): deployment `dpl_EjzLsy2fza2zAsctB8aZBHUmXBag` → aliased `https://fabri-api.vercel.app`.
 - Verificado en vivo: `GET /api/catalogo` → `{ok:true,total:12}`, filtros OK, `/api/health` sigue 200. La PWA (mercado.js) ahora carga desde la nube (origen "nube").
+
+## Sesión 2026-10-31 · Tienda pública (web/tienda.html) con pago de demostración
+
+- Nueva página pública `web/tienda.html` (+ `tienda.css` + `tienda.js`), consumiendo `/api/catalogo` en vivo (con seed de respaldo offline).
+- Flujo: catálogo con filtros (búsqueda, chips de categoría, rango de precio) → detalle de producto → carrito → checkout con formulario (nombre, email, teléfono, dirección) → forma de pago **Tarjeta / Efectivo** → pasarela **simulada** (valida tarjeta con Luhn + expiración + CVV; `4242 4242 4242 4242` aprueba) → estados **aprobado** (pantalla de éxito + botón) y **rechazado** (pantalla de error con motivo) → confirmación por **WhatsApp** con pedido preconfigurado (productos, total, pago, nombre, teléfono, ref).
+- Número de WhatsApp configurable en `tienda.js` → `WA_NUMERO` (default `56912345678`, placeholder) o `window.FORGE_WA`.
+- Verificado con Chromium headless: catálogo (12 productos, 5 chips), detalle, carrito, checkout, pago aprobado (WhatsApp presente) y rechazado (tarjeta inválida). `node --check` OK.
+- Pago de DEMOSTRACIÓN: no mueve dinero real.
