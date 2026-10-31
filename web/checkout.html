@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>FORGE CORE STOCK · Pago</title>
+<meta name="description" content="Finaliza tu compra en FORGE CORE STOCK: datos de contacto, tarjeta o efectivo y confirmación por WhatsApp.">
+<meta name="theme-color" content="#08090A">
+<link rel="stylesheet" href="./components.css">
+<link rel="stylesheet" href="./tienda.css">
+</head>
+<body data-pg="checkout">
+
+<div class="aurora" aria-hidden="true"></div>
+<div class="grain" aria-hidden="true"></div>
+<div id="fcs-nav"></div>
+
+<main class="ti-main ti-entrada">
+
+  <section class="ti-hero">
+    <div class="ti-hero-txt">
+      <p class="ti-eyebrow">Paso 5 · cierre</p>
+      <h1>Finalizar compra</h1>
+      <p class="ti-sub">Pago de <b>demostración</b>: valida el formato de la tarjeta, no mueve dinero real.</p>
+    </div>
+  </section>
+
+  <div class="ti-checkout">
+
+    <!-- formulario -->
+    <section class="ti-checkout-form">
+      <div class="ds-card">
+        <p class="ti-eyebrow">1 · Datos de contacto</p>
+        <div class="ds-form">
+          <label class="ds-field">
+            <span class="ds-field__label">Nombre y apellido</span>
+            <input class="ds-input" id="coNombre" type="text" placeholder="Quién recibe el pedido" autocomplete="name">
+          </label>
+          <div class="ti-dos-col">
+            <label class="ds-field">
+              <span class="ds-field__label">Correo</span>
+              <input class="ds-input" id="coEmail" type="email" placeholder="tu@correo.cl" autocomplete="email">
+            </label>
+            <label class="ds-field">
+              <span class="ds-field__label">Teléfono (WhatsApp)</span>
+              <input class="ds-input" id="coTel" type="tel" placeholder="+56 9 …" autocomplete="tel">
+            </label>
+          </div>
+          <label class="ds-field">
+            <span class="ds-field__label">Dirección de entrega</span>
+            <input class="ds-input" id="coDir" type="text" placeholder="Calle, número y comuna" autocomplete="street-address">
+          </label>
+        </div>
+      </div>
+
+      <div class="ds-card">
+        <p class="ti-eyebrow">2 · Forma de pago</p>
+        <div class="ti-metodo" id="coMetodo" role="group" aria-label="Forma de pago">
+          <button class="ds-chip ds-chip--accent" type="button" data-m="tarjeta" aria-pressed="true">Tarjeta</button>
+          <button class="ds-chip" type="button" data-m="efectivo" aria-pressed="false">Efectivo</button>
+        </div>
+
+        <div id="coTarjeta" style="margin-top:14px">
+          <label class="ds-field">
+            <span class="ds-field__label">Número de tarjeta</span>
+            <input class="ds-input" id="coCardNum" type="text" inputmode="numeric" placeholder="0000 0000 0000 0000" maxlength="19" autocomplete="cc-number">
+          </label>
+          <div class="ti-dos-col">
+            <label class="ds-field">
+              <span class="ds-field__label">Vencimiento</span>
+              <input class="ds-input" id="coCardExp" type="text" inputmode="numeric" placeholder="MM/AA" maxlength="5" autocomplete="cc-exp">
+            </label>
+            <label class="ds-field">
+              <span class="ds-field__label">CVV</span>
+              <input class="ds-input" id="coCardCvv" type="password" inputmode="numeric" placeholder="•••" maxlength="4" autocomplete="cc-csc">
+            </label>
+          </div>
+          <p class="ti-nota">Demo: usa <b>4242 4242 4242 4242</b> con fecha futura y CVV para aprobar; un número inválido rechaza el pago.</p>
+        </div>
+
+        <div id="coEfectivo" hidden style="margin-top:14px">
+          <p class="ti-nota">Pagas en efectivo al recibir. Prepara el monto exacto: el pedido se confirma por WhatsApp con el total ya calculado.</p>
+        </div>
+      </div>
+
+      <p class="ti-pasarela" id="coEstado" role="status" aria-live="polite"></p>
+    </section>
+
+    <!-- resumen -->
+    <aside class="ds-card ds-card--elevated" aria-label="Resumen del pedido">
+      <p class="ti-eyebrow">3 · Tu pedido</p>
+      <div class="ti-resumen" id="coResumen"></div>
+      <div class="ti-total"><span>Total</span><b id="coTotal">$0</b></div>
+      <button class="ds-btn ds-btn--block" id="coPagar" type="button" style="margin-top:16px">Pagar</button>
+      <p class="ti-nota" style="margin-top:10px;text-align:center">Al pagar se genera un pedido que confirmas por WhatsApp.</p>
+      <a class="ds-btn ds-btn--ghost ds-btn--block ds-btn--sm" href="carrito.html" style="margin-top:6px">Volver al carrito</a>
+    </aside>
+
+  </div>
+</main>
+
+<footer class="ti-pie">
+  <span>FORGE CORE STOCK · pago de demostración</span>
+  <span>No se procesa dinero real</span>
+</footer>
+
+<div class="ti-toast" id="tiToast"></div>
+
+<script src="./tienda-nucleo.js"></script>
+<script src="./tienda-checkout.js"></script>
+</body>
+</html>

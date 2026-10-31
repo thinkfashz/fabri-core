@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>FORGE CORE STOCK · Producto</title>
+<meta name="description" content="Detalle del producto: especificaciones, precio con oferta, código QR y compra directa por WhatsApp.">
+<meta name="theme-color" content="#08090A">
+<link rel="stylesheet" href="./components.css">
+<link rel="stylesheet" href="./tienda.css">
+</head>
+<body data-pg="producto">
+
+<div class="aurora" aria-hidden="true"></div>
+<div class="grain" aria-hidden="true"></div>
+<div id="fcs-nav"></div>
+
+<main class="ti-main ti-entrada">
+  <section id="tiDetalle" aria-live="polite">
+    <div class="ds-skeleton ds-skeleton--card" style="height:320px"></div>
+  </section>
+
+  <section class="ti-seccion" id="tiRelacionados" hidden>
+    <div class="ti-seccion-cabeza">
+      <h2 class="ds-section-title">También te puede interesar</h2>
+      <a class="ds-btn ds-btn--ghost ds-btn--sm" href="tienda.html">Volver al catálogo</a>
+    </div>
+    <div class="ti-grid" id="gridRel"></div>
+  </section>
+</main>
+
+<footer class="ti-pie">
+  <span>FORGE CORE STOCK · detalle de producto</span>
+  <span>Pago de demostración · sin movimiento de dinero real</span>
+</footer>
+
+<div class="ti-toast" id="tiToast"></div>
+
+<script src="./tienda-nucleo.js"></script>
+<script src="./app/vendor/zxing.min.js"></script>
+<script src="./tienda-producto.js"></script>
+</body>
+</html>

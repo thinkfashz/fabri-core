@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>FORGE CORE STOCK · Escáner QR</title>
+<meta name="description" content="Escanea el QR o el código de barras de un producto: lo busca en la base de datos de FORGE CORE STOCK y lo agrega al carrito.">
+<meta name="theme-color" content="#08090A">
+<link rel="stylesheet" href="./components.css">
+<link rel="stylesheet" href="./tienda.css">
+</head>
+<body data-pg="escaner">
+
+<div class="aurora" aria-hidden="true"></div>
+<div class="grain" aria-hidden="true"></div>
+<div id="fcs-nav"></div>
+
+<main class="ti-main ti-entrada">
+
+  <section class="ti-hero">
+    <div class="ti-hero-txt">
+      <p class="ti-eyebrow">Paso 2 · lector de códigos</p>
+      <h1>Escanea y agrega</h1>
+      <p class="ti-sub">Apunta la cámara al QR de un producto (o al de su ficha) y el código se busca en el catálogo de la nube. Si no hay cámara, escríbelo o sube una foto.</p>
+    </div>
+  </section>
+
+  <section class="ds-kpi-grid" aria-label="Estado del escáner">
+    <div class="ds-stat">
+      <span class="ds-stat__label">Escaneos</span>
+      <span class="ds-stat__value" id="kpScan">0</span>
+      <span class="ds-stat__meta">guardados en este dispositivo</span>
+    </div>
+    <div class="ds-stat">
+      <span class="ds-stat__label">En tu carrito</span>
+      <span class="ds-stat__value" id="kpCarrito">0</span>
+      <span class="ds-stat__meta">unidades</span>
+    </div>
+  </section>
+
+  <div class="ti-escaner">
+
+    <!-- cámara -->
+    <section>
+      <div class="ti-video-caja">
+        <video id="scVideo" playsinline muted autoplay></video>
+        <span class="ti-marco" aria-hidden="true"></span>
+        <div class="ti-escaner-vacio" id="scVacio">
+          <span aria-hidden="true" style="display:grid;place-items:center"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:40px;height:40px"><path d="M4 8.5h3l1.5-2.2h7L17 8.5h3a1.5 1.5 0 0 1 1.5 1.5v7.5A1.5 1.5 0 0 1 20 19H4a1.5 1.5 0 0 1-1.5-1.5V10A1.5 1.5 0 0 1 4 8.5Z"/><circle cx="12" cy="13.5" r="3.4"/></svg></span>
+          <b>Cámara apagada</b>
+          <span>Actívala para escanear; sin permiso, usa el código manual.</span>
+        </div>
+      </div>
+      <div class="ds-cluster" style="margin-top:12px">
+        <button class="ds-btn" type="button" id="scCam">Activar cámara</button>
+        <button class="ds-btn ds-btn--secondary" type="button" id="scStop" hidden>Detener</button>
+      </div>
+      <p class="ti-nota" id="scCamNota" style="margin-top:8px">Formatos admitidos: QR, EAN-13, Code128 y el resto que reconozca tu dispositivo.</p>
+    </section>
+
+    <!-- resultado y entradas alternativas -->
+    <section class="ti-escaner-panel">
+
+      <div class="ds-card">
+        <p class="ti-eyebrow">Código manual</p>
+        <div class="ds-cluster">
+          <input class="ds-input ds-grow" id="scTexto" type="text" placeholder="FORGE:eq-001, eq-002 o nombre…" autocomplete="off">
+          <button class="ds-btn" type="button" id="scBuscar">Buscar</button>
+        </div>
+        <div class="ds-field" style="margin-top:12px">
+          <span class="ds-field__label">…o sube una foto del código</span>
+          <span class="ti-file">
+            <span class="ds-btn ds-btn--secondary" aria-hidden="true">Elegir imagen</span>
+            <input id="scArchivo" type="file" accept="image/*" aria-label="Subir una foto del código">
+          </span>
+          <span class="ti-file-nombre" id="scArchivoNombre">Ningún archivo elegido</span>
+        </div>
+      </div>
+
+      <div class="ds-card" id="scResultado" aria-live="polite">
+        <p class="ti-eyebrow">Resultado</p>
+        <p class="ti-nota">Todavía no has escaneado nada. El producto aparecerá aquí con su precio y el botón para agregarlo al carrito.</p>
+      </div>
+
+      <div class="ds-card">
+        <p class="ti-eyebrow">Historial</p>
+        <div class="ti-historial" id="scHist">
+          <span class="ds-muted" style="font-size:var(--ds-text-sm)">Sin escaneos todavía.</span>
+        </div>
+      </div>
+
+    </section>
+  </div>
+</main>
+
+<footer class="ti-pie">
+  <span>FORGE CORE STOCK · escáner de productos</span>
+  <span>Busca en el catálogo público de fabri-api</span>
+</footer>
+
+<div class="ti-toast" id="tiToast"></div>
+
+<script src="./tienda-nucleo.js"></script>
+<script src="./app/vendor/zxing.min.js"></script>
+<script src="./tienda-escaner.js"></script>
+</body>
+</html>

@@ -1,0 +1,1783 @@
+/* =========================================================================
+   Fabrick Design System — components.css
+   Sistema de diseño para dashboards de agente (mobile-first, oscuro, neon lime)
+   -------------------------------------------------------------------------
+   Origen de verdad: ./tokens.json  ·  Norma de composición: ./order.md
+
+   Reglas de este archivo:
+   · Mobile-first. Sin scroll horizontal. Respeta safe-area-inset.
+   · Cero dependencias externas: ni fuentes remotas, ni JS, ni librerías.
+   · Todo color sale de una custom property. Si necesitas un color nuevo,
+     agrégalo primero a tokens.json.
+   · Respeta prefers-reduced-motion.
+   ========================================================================= */
+
+/* =========================================================================
+   1. TOKENS (espejo de tokens.json)
+   ========================================================================= */
+
+:root {
+  /* --- color: fondos --- */
+  --ds-bg-app: #08090A;
+  --ds-bg-app-alt: #0B0D0F;
+  --ds-bg-card: #101215;
+  --ds-bg-elevated: #171A1E;
+  --ds-bg-sunken: #1D2126;
+  --ds-bg-overlay: rgba(8, 9, 10, 0.72);
+
+  /* --- color: bordes --- */
+  --ds-border: #22262C;
+  --ds-border-strong: #313740;
+  --ds-border-focus: #C8F542;
+
+  /* --- color: texto --- */
+  --ds-text-primary: #F2F5F0;
+  --ds-text-secondary: #A9B2AA;
+  --ds-text-tertiary: #828C84;
+  --ds-text-disabled: #6B736C;
+  --ds-text-on-accent: #08090A;
+
+  /* --- color: acentos --- */
+  --ds-accent: #C8F542;
+  --ds-accent-soft: #2A321B;
+  --ds-accent-2: #5AD9E8;
+  --ds-accent-2-soft: #1A2E33;
+  --ds-accent-3: #B48CFF;
+  --ds-accent-3-soft: #272336;
+
+  /* --- color: semánticos --- */
+  --ds-ok: #3DDC84;
+  --ds-ok-soft: #162E25;
+  --ds-ok-border: #2C5A44;
+  --ds-warn: #FFB020;
+  --ds-warn-soft: #312817;
+  --ds-warn-border: #5C4A20;
+  --ds-err: #FF6B6B;
+  --ds-err-soft: #311E21;
+  --ds-err-border: #6B3436;
+  --ds-info: #5AA9FF;
+  --ds-info-soft: #1A2736;
+  --ds-info-border: #2E4A6B;
+
+  /* --- color: gráficos --- */
+  --ds-chart-grid: #252A31;
+  --ds-chart-axis: #828C84;
+  --ds-chart-track: #1D2126;
+  /* Relleno atenuado para barras de ranking/distribución. El lime queda
+     reservado para el dato protagonista y para el líder de la lista. */
+  --ds-chart-bar-dim: #39412F;
+  --ds-series-1: #C8F542;
+  --ds-series-2: #5AD9E8;
+  --ds-series-3: #B48CFF;
+  --ds-series-4: #FFB020;
+  --ds-series-5: #FF7AA8;
+  --ds-series-6: #3DDC84;
+
+  /* --- tipografía --- */
+  --ds-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", Arial, sans-serif;
+  --ds-font-condensed: "Arial Narrow", "Roboto Condensed", "DejaVu Sans Condensed", "Liberation Sans Narrow", "Helvetica Neue Condensed", system-ui, sans-serif;
+  --ds-font-mono: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace;
+
+  --ds-text-xs: 11px;
+  --ds-text-sm: 12.5px;
+  --ds-text-base: 15px;
+  --ds-text-lg: 17px;
+  --ds-text-xl: 20px;
+  --ds-text-2xl: 26px;
+  --ds-text-3xl: 34px;
+  --ds-text-4xl: 44px;
+
+  --ds-lh-tight: 1.1;
+  --ds-lh-snug: 1.35;
+  --ds-lh-normal: 1.5;
+  --ds-lh-relaxed: 1.6;
+
+  /* --- espaciado (escala de 4) --- */
+  --ds-space-0: 0px;
+  --ds-space-1: 4px;
+  --ds-space-2: 8px;
+  --ds-space-3: 12px;
+  --ds-space-4: 16px;
+  --ds-space-5: 20px;
+  --ds-space-6: 24px;
+  --ds-space-7: 28px;
+  --ds-space-8: 32px;
+  --ds-space-10: 40px;
+  --ds-space-12: 48px;
+  --ds-space-16: 64px;
+
+  /* --- radios --- */
+  --ds-radius-xs: 6px;
+  --ds-radius-sm: 10px;
+  --ds-radius-md: 14px;
+  --ds-radius-lg: 18px;
+  --ds-radius-xl: 24px;
+  --ds-radius-2xl: 32px;
+  --ds-radius-pill: 999px;
+  --ds-radius-circle: 50%;
+
+  /* --- sombras --- */
+  --ds-shadow-none: none;
+  --ds-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --ds-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.45);
+  --ds-shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.55);
+  --ds-shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  --ds-shadow-glow-accent: 0 0 0 1px rgba(200, 245, 66, 0.35), 0 6px 24px rgba(200, 245, 66, 0.18);
+  --ds-shadow-glow-danger: 0 0 0 1px rgba(255, 107, 107, 0.35), 0 6px 24px rgba(255, 107, 107, 0.16);
+
+  /* --- movimiento --- */
+  --ds-dur-instant: 0ms;
+  --ds-dur-fast: 120ms;
+  --ds-dur-base: 180ms;
+  --ds-dur-slow: 260ms;
+  --ds-dur-slower: 380ms;
+  --ds-ease-standard: cubic-bezier(0.2, 0, 0.2, 1);
+  --ds-ease-decelerate: cubic-bezier(0, 0, 0.2, 1);
+  --ds-ease-accelerate: cubic-bezier(0.4, 0, 1, 1);
+  --ds-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ds-ease-linear: linear;
+
+  /* --- medidas de componentes --- */
+  --ds-touch: 44px;
+  --ds-gutter: 16px;
+  --ds-maxw: 760px;
+  --ds-nav-h: 64px;
+  --ds-fab-size: 56px;
+}
+
+/* =========================================================================
+   2. SHELL DE LA APP
+   ========================================================================= */
+
+.ds-app {
+  box-sizing: border-box;
+  margin: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--ds-bg-app);
+  color: var(--ds-text-primary);
+  font-family: var(--ds-font-sans);
+  font-size: var(--ds-text-base);
+  line-height: var(--ds-lh-normal);
+  letter-spacing: 0;
+  -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden; /* nunca hay scroll horizontal */
+  padding-bottom: calc(env(safe-area-inset-bottom) + var(--ds-space-6));
+}
+
+.ds-app *,
+.ds-app *::before,
+.ds-app *::after {
+  box-sizing: border-box;
+}
+
+.ds-app h1,
+.ds-app h2,
+.ds-app h3,
+.ds-app h4,
+.ds-app p,
+.ds-app figure {
+  margin: 0;
+}
+
+.ds-app img,
+.ds-app svg,
+.ds-app canvas {
+  max-width: 100%;
+  display: block;
+}
+
+.ds-app a {
+  color: var(--ds-accent);
+  text-decoration: none;
+}
+
+.ds-app a:hover {
+  text-decoration: underline;
+}
+
+/* Foco visible y consistente en toda la app. */
+.ds-app :focus-visible {
+  outline: 2px solid var(--ds-border-focus);
+  outline-offset: 2px;
+  border-radius: var(--ds-radius-xs);
+}
+
+/* Contenedor principal del cuerpo. */
+.ds-main {
+  padding: var(--ds-space-4) var(--ds-gutter);
+  max-width: var(--ds-maxw);
+  margin-inline: auto;
+  width: 100%;
+}
+
+/* Título de sección (patrón "display"). */
+.ds-section-title {
+  font-family: var(--ds-font-condensed);
+  font-size: var(--ds-text-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ds-text-tertiary);
+  margin-bottom: var(--ds-space-2);
+}
+
+/* =========================================================================
+   3. TOPBAR (cabecera fija con estado vivo)
+   ========================================================================= */
+
+.ds-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  padding: calc(env(safe-area-inset-top) + var(--ds-space-3)) var(--ds-gutter) 0;
+  background: linear-gradient(180deg, rgba(8, 9, 10, 0.97), rgba(8, 9, 10, 0.9));
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--ds-border);
+}
+
+.ds-topbar__row {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+  padding-bottom: var(--ds-space-3);
+}
+
+.ds-topbar__logo {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  border-radius: var(--ds-radius-sm);
+  background: linear-gradient(135deg, var(--ds-accent), #9FD41F);
+  color: var(--ds-text-on-accent);
+  display: grid;
+  place-items: center;
+  font-size: var(--ds-text-sm);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.ds-topbar__id {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.ds-topbar__title {
+  font-size: var(--ds-text-base);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--ds-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ds-topbar__subtitle {
+  font-size: var(--ds-text-xs);
+  color: var(--ds-text-secondary);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Bloque de estado a la derecha (timestamp + "en vivo"). */
+.ds-topbar__stamp {
+  flex: 0 0 auto;
+  text-align: right;
+  font-size: var(--ds-text-xs);
+  color: var(--ds-text-tertiary);
+  line-height: var(--ds-lh-snug);
+  white-space: nowrap;
+}
+
+/* Indicador "en vivo": punto + texto. Nunca solo color (ver order.md). */
+.ds-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 700;
+  color: var(--ds-ok);
+}
+
+.ds-live__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--ds-radius-circle);
+  background: currentColor;
+  animation: ds-pulse 2s var(--ds-ease-standard) infinite;
+}
+
+@keyframes ds-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+/* Fila de filtros de contexto dentro de la cabecera (selector de Page). */
+.ds-topbar__pages {
+  display: flex;
+  gap: var(--ds-space-2);
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: var(--ds-space-3);
+}
+
+.ds-topbar__pages::-webkit-scrollbar { display: none; }
+
+/* Estado "dato viejo": el punto deja de latir y cambia de color. */
+.ds-live--stale {
+  color: var(--ds-warn);
+}
+
+.ds-live--stale .ds-live__dot {
+  animation: none;
+}
+
+/* =========================================================================
+   4. TABS / CHIPS SEGMENTADOS
+   ========================================================================= */
+
+/* Control segmentado (Día / Semana / Mes). */
+.ds-tabs {
+  display: flex;
+  gap: var(--ds-space-1);
+  padding: var(--ds-space-1);
+  margin: 0 calc(-1 * var(--ds-gutter)) var(--ds-space-1);
+  padding-inline: var(--ds-gutter);
+  background: var(--ds-bg-card);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-pill);
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.ds-tabs::-webkit-scrollbar { display: none; }
+
+.ds-tab {
+  flex: 1 1 auto;
+  min-height: 44px;
+  padding: 0 var(--ds-space-3);
+  border: 0;
+  border-radius: var(--ds-radius-pill);
+  background: transparent;
+  color: var(--ds-text-secondary);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--ds-dur-fast) var(--ds-ease-standard),
+              color var(--ds-dur-fast) var(--ds-ease-standard);
+}
+
+.ds-tab[aria-selected="true"],
+.ds-tab.is-active {
+  background: var(--ds-accent);
+  color: var(--ds-text-on-accent);
+}
+
+.ds-tab:disabled {
+  color: var(--ds-text-disabled);
+  cursor: not-allowed;
+}
+
+/* =========================================================================
+   5. CARD
+   ========================================================================= */
+
+.ds-card {
+  background: var(--ds-bg-card);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-lg);
+  padding: var(--ds-space-4);
+  box-shadow: var(--ds-shadow-md);
+  margin-bottom: var(--ds-space-3);
+}
+
+.ds-card--elevated {
+  background: var(--ds-bg-elevated);
+  box-shadow: var(--ds-shadow-lg);
+  border-color: var(--ds-border-strong);
+}
+
+.ds-card--flush { padding: 0; overflow: hidden; }
+
+.ds-card--accent {
+  border-color: rgba(200, 245, 66, 0.28);
+  box-shadow: var(--ds-shadow-glow-accent);
+}
+
+.ds-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--ds-space-3);
+  margin-bottom: var(--ds-space-3);
+}
+
+.ds-card__title {
+  font-size: var(--ds-text-lg);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--ds-text-primary);
+}
+
+.ds-card__hint {
+  font-size: var(--ds-text-sm);
+  color: var(--ds-text-tertiary);
+  margin-top: 2px;
+}
+
+/* =========================================================================
+   6. KPIs / STAT TILES
+   ========================================================================= */
+
+.ds-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ds-space-3);
+  margin-bottom: var(--ds-space-4);
+}
+
+@media (min-width: 560px) {
+  .ds-kpi-grid {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  }
+}
+
+.ds-stat {
+  background: var(--ds-bg-card);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-lg);
+  padding: var(--ds-space-3);
+  min-height: 92px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: var(--ds-space-2);
+  min-width: 0;
+}
+
+.ds-stat__label {
+  font-size: var(--ds-text-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ds-text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Valor numérico grande: SIEMPRE tabular-nums. */
+.ds-stat__value,
+.ds-stat-value {
+  font-size: var(--ds-text-2xl);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: var(--ds-lh-tight);
+  color: var(--ds-text-primary);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1, "lnum" 1;
+  overflow-wrap: anywhere;
+}
+
+.ds-stat__value--sm { font-size: var(--ds-text-xl); }
+.ds-stat__value--lg { font-size: var(--ds-text-3xl); }
+.ds-stat__value--accent { color: var(--ds-accent); }
+.ds-stat__value--ok { color: var(--ds-ok); }
+.ds-stat__value--warn { color: var(--ds-warn); }
+.ds-stat__value--err { color: var(--ds-err); }
+
+.ds-stat__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+  font-size: var(--ds-text-xs);
+  color: var(--ds-text-tertiary);
+}
+
+/* =========================================================================
+   7. RING (anillo de progreso SVG)
+   Uso:
+     <div class="ds-ring" style="--ds-ring-value:0.72">
+       <svg class="ds-ring__svg" viewBox="0 0 100 100">
+         <circle class="ds-ring__track" cx="50" cy="50" r="44" pathLength="100"></circle>
+         <circle class="ds-ring__bar"   cx="50" cy="50" r="44" pathLength="100"></circle>
+       </svg>
+       <div class="ds-ring__value">72<span>%</span></div>
+     </div>
+   ========================================================================= */
+
+.ds-ring {
+  --ds-ring-size: 92px;
+  --ds-ring-thickness: 10px;
+  --ds-ring-value: 0;
+  --ds-ring-color: var(--ds-accent);
+  --ds-ring-track: var(--ds-chart-track);
+  position: relative;
+  inline-size: var(--ds-ring-size);
+  block-size: var(--ds-ring-size);
+  flex: 0 0 auto;
+}
+
+.ds-ring--sm { --ds-ring-size: 56px; --ds-ring-thickness: 7px; }
+.ds-ring--lg { --ds-ring-size: 128px; --ds-ring-thickness: 13px; }
+
+.ds-ring__svg {
+  inline-size: 100%;
+  block-size: 100%;
+  transform: rotate(-90deg);
+  overflow: visible;
+}
+
+.ds-ring__track {
+  fill: none;
+  stroke: var(--ds-ring-track);
+  stroke-width: var(--ds-ring-thickness);
+}
+
+.ds-ring__bar {
+  fill: none;
+  stroke: var(--ds-ring-color);
+  stroke-width: var(--ds-ring-thickness);
+  stroke-linecap: round;
+  stroke-dasharray: 100;
+  stroke-dashoffset: calc((100 - var(--ds-ring-value) * 100) * 1px);
+  transition: stroke-dashoffset var(--ds-dur-slower) var(--ds-ease-standard);
+}
+
+.ds-ring__value {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  line-height: var(--ds-lh-tight);
+  font-size: var(--ds-text-lg);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  color: var(--ds-text-primary);
+}
+
+.ds-ring__value small {
+  display: block;
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ds-text-tertiary);
+  margin-top: 2px;
+}
+
+.ds-ring--ok { --ds-ring-color: var(--ds-ok); }
+.ds-ring--warn { --ds-ring-color: var(--ds-warn); }
+.ds-ring--err { --ds-ring-color: var(--ds-err); }
+.ds-ring--info { --ds-ring-color: var(--ds-info); }
+
+/* =========================================================================
+   8. PROGRESS BAR (barra de progreso horizontal)
+   Uso: <div class="ds-progress" style="--ds-progress:0.64"><i></i></div>
+   ========================================================================= */
+
+.ds-progress {
+  --ds-progress: 0;
+  --ds-progress-height: 8px;
+  --ds-progress-color: var(--ds-accent);
+  --ds-progress-track: var(--ds-chart-track);
+  height: var(--ds-progress-height);
+  width: 100%;
+  background: var(--ds-progress-track);
+  border-radius: var(--ds-radius-pill);
+  overflow: hidden;
+}
+
+.ds-progress--thin { --ds-progress-height: 4px; }
+.ds-progress--thick { --ds-progress-height: 12px; }
+
+.ds-progress > i {
+  display: block;
+  height: 100%;
+  width: calc(var(--ds-progress) * 100%);
+  min-width: 0;
+  background: var(--ds-progress-color);
+  border-radius: inherit;
+  transition: width var(--ds-dur-slower) var(--ds-ease-standard);
+}
+
+.ds-progress--ok { --ds-progress-color: var(--ds-ok); }
+.ds-progress--warn { --ds-progress-color: var(--ds-warn); }
+.ds-progress--err { --ds-progress-color: var(--ds-err); }
+.ds-progress--info { --ds-progress-color: var(--ds-info); }
+
+/* =========================================================================
+   9. GRÁFICOS
+   ========================================================================= */
+
+/* --- 9.1 Barras verticales (column chart) ---
+   Uso:
+     <div class="ds-chart-bar">
+       <div class="ds-chart-bar__col" style="--ds-bar:0.62"><i></i><span>Lun</span></div>
+       ...
+     </div> */
+.ds-chart-bar {
+  --ds-bar-height: 132px;
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  width: 100%;
+  height: var(--ds-bar-height);
+  padding-top: var(--ds-space-2);
+  overflow: hidden;
+}
+
+.ds-chart-bar__col {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.ds-chart-bar__col > i {
+  display: block;
+  width: 100%;
+  height: calc(var(--ds-bar, 0) * 100%);
+  min-height: 3px;
+  background-color: var(--ds-bar-color, var(--ds-accent));
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0) 62%);
+  border-radius: 6px 6px 2px 2px;
+  transition: height var(--ds-dur-slower) var(--ds-ease-decelerate);
+}
+
+.ds-chart-bar__col > span {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--ds-text-tertiary);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Variante horizontal (barras de ranking). */
+.ds-chart-bar--h {
+  flex-direction: column;
+  align-items: stretch;
+  height: auto;
+  gap: var(--ds-space-2);
+}
+
+.ds-chart-bar--h .ds-chart-bar__col {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--ds-space-2);
+  height: auto;
+}
+
+.ds-chart-bar--h .ds-chart-bar__col > i {
+  height: 8px;
+  width: calc(var(--ds-bar, 0) * 100%);
+  border-radius: var(--ds-radius-pill);
+  background: var(--ds-bar-color, var(--ds-accent));
+}
+
+/* Colores de serie: asigna --ds-bar-color en la columna. */
+.ds-chart-bar__col:nth-child(6n+1) { --ds-bar-color: var(--ds-series-1); }
+.ds-chart-bar__col:nth-child(6n+2) { --ds-bar-color: var(--ds-series-2); }
+.ds-chart-bar__col:nth-child(6n+3) { --ds-bar-color: var(--ds-series-3); }
+.ds-chart-bar__col:nth-child(6n+4) { --ds-bar-color: var(--ds-series-4); }
+.ds-chart-bar__col:nth-child(6n+5) { --ds-bar-color: var(--ds-series-5); }
+.ds-chart-bar__col:nth-child(6n+6) { --ds-bar-color: var(--ds-series-6); }
+
+/* --- 9.2 Gráfico de línea ---
+   Uso:
+     <svg class="ds-chart-line" viewBox="0 0 320 140" preserveAspectRatio="none">
+       <path class="ds-chart-line__area" d="..."></path>
+       <path class="ds-chart-line__stroke" d="..."></path>
+     </svg> */
+.ds-chart-line {
+  --ds-line-color: var(--ds-accent);
+  width: 100%;
+  height: 140px;
+  display: block;
+  overflow: visible;
+}
+
+.ds-chart-line__stroke {
+  fill: none;
+  stroke: var(--ds-line-color, var(--ds-accent));
+  stroke-width: 2.5px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.ds-chart-line__area {
+  fill: var(--ds-line-color, var(--ds-accent));
+  fill-opacity: 0.14;
+  stroke: none;
+}
+
+.ds-chart-line__dot {
+  fill: var(--ds-bg-app);
+  stroke: var(--ds-line-color, var(--ds-accent));
+  stroke-width: 2px;
+  vector-effect: non-scaling-stroke;
+}
+
+/* --- 9.3 Donut ---
+   Uso: cada segmento con --ds-donut-len (0-100) y --ds-donut-off (offset 0-100) */
+.ds-donut {
+  --ds-donut-size: 128px;
+  --ds-donut-thickness: 14px;
+  position: relative;
+  inline-size: var(--ds-donut-size);
+  block-size: var(--ds-donut-size);
+  flex: 0 0 auto;
+}
+
+.ds-donut__svg {
+  inline-size: 100%;
+  block-size: 100%;
+  transform: rotate(-90deg);
+}
+
+.ds-donut__seg {
+  --ds-donut-len: 0;
+  --ds-donut-off: 0;
+  fill: none;
+  stroke-width: var(--ds-donut-thickness);
+  stroke-dasharray: calc(var(--ds-donut-len, 0) * 1px) 100px;
+  stroke-dashoffset: calc(var(--ds-donut-off, 0) * -1px);
+  stroke-linecap: butt;
+}
+
+.ds-donut__seg--1 { stroke: var(--ds-series-1); }
+.ds-donut__seg--2 { stroke: var(--ds-series-2); }
+.ds-donut__seg--3 { stroke: var(--ds-series-3); }
+.ds-donut__seg--4 { stroke: var(--ds-series-4); }
+.ds-donut__seg--5 { stroke: var(--ds-series-5); }
+.ds-donut__seg--6 { stroke: var(--ds-series-6); }
+
+.ds-donut__center {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  line-height: var(--ds-lh-tight);
+  pointer-events: none;
+}
+
+.ds-donut__value {
+  font-size: var(--ds-text-2xl);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.ds-donut__label {
+  display: block;
+  font-size: var(--ds-text-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ds-text-tertiary);
+  margin-top: 2px;
+}
+
+/* Leyenda del donut / gráficos. */
+.ds-legend {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-2);
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.ds-legend__item {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+  font-size: var(--ds-text-sm);
+  color: var(--ds-text-secondary);
+  min-width: 0;
+}
+
+.ds-legend__swatch {
+  --ds-swatch: var(--ds-series-1);
+  width: 10px;
+  height: 10px;
+  flex: 0 0 auto;
+  border-radius: 3px;
+  background: var(--ds-swatch, var(--ds-series-1));
+}
+
+.ds-legend__value {
+  margin-left: auto;
+  font-weight: 700;
+  color: var(--ds-text-primary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* =========================================================================
+   10. FILAS DE LISTA
+   ========================================================================= */
+
+.ds-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-3);
+  padding: var(--ds-space-3) 0;
+  min-height: 52px;
+  border-bottom: 1px solid var(--ds-border);
+  min-width: 0;
+}
+
+.ds-row:last-child { border-bottom: 0; }
+.ds-row--flush { padding-inline: 0; }
+.ds-row--tight { min-height: 40px; padding-block: var(--ds-space-2); }
+
+.ds-row__key {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--ds-text-base);
+  color: var(--ds-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ds-row__value {
+  flex: 0 0 auto;
+  max-width: 58%;
+  text-align: right;
+  font-size: var(--ds-text-base);
+  font-weight: 600;
+  color: var(--ds-text-primary);
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+
+.ds-row__value--mono {
+  font-family: var(--ds-font-mono);
+  font-size: var(--ds-text-sm);
+  font-weight: 500;
+}
+
+.ds-row__value--muted { color: var(--ds-text-tertiary); font-weight: 500; }
+.ds-row__value--ok { color: var(--ds-ok); }
+.ds-row__value--warn { color: var(--ds-warn); }
+.ds-row__value--err { color: var(--ds-err); }
+.ds-row__value--accent { color: var(--ds-accent); }
+
+/* =========================================================================
+   11. BADGES Y CHIPS
+   ========================================================================= */
+
+.ds-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: var(--ds-radius-pill);
+  background: var(--ds-bg-elevated);
+  border: 1px solid var(--ds-border);
+  color: var(--ds-text-secondary);
+  font-size: var(--ds-text-xs);
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.ds-badge--accent { background: var(--ds-accent-soft); border-color: rgba(200, 245, 66, 0.35); color: var(--ds-accent); }
+.ds-badge--ok { background: var(--ds-ok-soft); border-color: var(--ds-ok-border); color: var(--ds-ok); }
+.ds-badge--warn { background: var(--ds-warn-soft); border-color: var(--ds-warn-border); color: var(--ds-warn); }
+.ds-badge--err { background: var(--ds-err-soft); border-color: var(--ds-err-border); color: var(--ds-err); }
+.ds-badge--info { background: var(--ds-info-soft); border-color: var(--ds-info-border); color: var(--ds-info); }
+.ds-badge--solid { background: var(--ds-accent); border-color: var(--ds-accent); color: var(--ds-text-on-accent); }
+
+.ds-badge__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--ds-radius-circle);
+  background: currentColor;
+  flex: 0 0 auto;
+}
+
+/* Chip filtrable (no segmentado). */
+.ds-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+  min-height: 44px;
+  padding: 0 var(--ds-space-3);
+  border-radius: var(--ds-radius-pill);
+  background: var(--ds-bg-elevated);
+  border: 1px solid var(--ds-border);
+  color: var(--ds-text-secondary);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--ds-dur-fast) var(--ds-ease-standard),
+              color var(--ds-dur-fast) var(--ds-ease-standard),
+              border-color var(--ds-dur-fast) var(--ds-ease-standard);
+}
+
+.ds-chip[aria-pressed="true"],
+.ds-chip.is-active {
+  background: var(--ds-accent);
+  border-color: var(--ds-accent);
+  color: var(--ds-text-on-accent);
+}
+
+.ds-chip--accent { border-color: rgba(200, 245, 66, 0.35); color: var(--ds-accent); }
+.ds-chip--ok { border-color: var(--ds-ok-border); color: var(--ds-ok); }
+.ds-chip--warn { border-color: var(--ds-warn-border); color: var(--ds-warn); }
+.ds-chip--err { border-color: var(--ds-err-border); color: var(--ds-err); }
+.ds-chip--static { cursor: default; }
+
+/* =========================================================================
+   12. BOTTOM NAV
+   ========================================================================= */
+
+.ds-bottom-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  display: flex;
+  align-items: stretch;
+  justify-content: space-around;
+  gap: var(--ds-space-1);
+  height: calc(var(--ds-nav-h) + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
+  background: rgba(11, 13, 15, 0.94);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  border-top: 1px solid var(--ds-border);
+}
+
+.ds-bottom-nav__item {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: var(--ds-touch);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: var(--ds-space-1) 2px;
+  border: 0;
+  background: none;
+  color: var(--ds-text-tertiary);
+  font-family: inherit;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: color var(--ds-dur-fast) var(--ds-ease-standard);
+}
+
+.ds-bottom-nav__item[aria-current="page"],
+.ds-bottom-nav__item.is-active {
+  color: var(--ds-accent);
+}
+
+.ds-bottom-nav__icon {
+  inline-size: 22px;
+  block-size: 22px;
+  display: grid;
+  place-items: center;
+}
+
+.ds-bottom-nav__icon svg {
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+.ds-bottom-nav__label {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Hueco en la nav para alojar un FAB central. */
+.ds-bottom-nav__gap {
+  flex: 0 0 var(--ds-fab-size);
+  min-width: var(--ds-fab-size);
+}
+
+.ds-bottom-nav--fab { justify-content: space-between; }
+
+/* Cuando hay bottom nav, el cuerpo necesita aire abajo. */
+.ds-app--has-nav { padding-bottom: calc(var(--ds-nav-h) + env(safe-area-inset-bottom) + var(--ds-space-4)); }
+
+/* =========================================================================
+   13. FAB (botón de acción flotante)
+   ========================================================================= */
+
+.ds-fab {
+  position: fixed;
+  right: var(--ds-space-4);
+  bottom: calc(env(safe-area-inset-bottom) + var(--ds-space-5));
+  z-index: 45;
+  inline-size: var(--ds-fab-size);
+  block-size: var(--ds-fab-size);
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--ds-radius-circle);
+  background: var(--ds-accent);
+  color: var(--ds-text-on-accent);
+  box-shadow: var(--ds-shadow-glow-accent);
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform var(--ds-dur-fast) var(--ds-ease-standard);
+}
+
+.ds-fab:active { transform: scale(0.94); }
+
+.ds-fab--lg { --ds-fab-size: 64px; }
+.ds-fab--secondary { background: var(--ds-bg-elevated); color: var(--ds-text-primary); border: 1px solid var(--ds-border-strong); box-shadow: var(--ds-shadow-lg); }
+.ds-fab--danger { background: var(--ds-err); color: var(--ds-text-on-accent); box-shadow: var(--ds-shadow-glow-danger); }
+
+.ds-fab svg { inline-size: 24px; block-size: 24px; }
+
+/* FAB central (centro de la bottom nav). */
+.ds-fab--center {
+  right: 50%;
+  transform: translateX(50%);
+  bottom: calc(env(safe-area-inset-bottom) + var(--ds-space-2));
+}
+
+.ds-fab--center:active { transform: translateX(50%) scale(0.94); }
+
+/* Con bottom nav, el FAB despegado se sube para no tapar los ítems. */
+.ds-app--has-nav .ds-fab {
+  bottom: calc(env(safe-area-inset-bottom) + var(--ds-nav-h) + var(--ds-space-4));
+}
+
+.ds-app--has-nav .ds-fab--center {
+  bottom: calc(env(safe-area-inset-bottom) + var(--ds-space-2));
+}
+
+/* =========================================================================
+   14. AVATAR
+   ========================================================================= */
+
+.ds-avatar {
+  inline-size: 36px;
+  block-size: 36px;
+  flex: 0 0 auto;
+  border-radius: var(--ds-radius-circle);
+  background: var(--ds-bg-elevated);
+  border: 1px solid var(--ds-border);
+  color: var(--ds-accent);
+  display: grid;
+  place-items: center;
+  font-size: var(--ds-text-sm);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  user-select: none;
+}
+
+.ds-avatar--sm { inline-size: 28px; block-size: 28px; font-size: var(--ds-text-xs); }
+.ds-avatar--lg { inline-size: 48px; block-size: 48px; font-size: var(--ds-text-base); }
+.ds-avatar img { inline-size: 100%; block-size: 100%; object-fit: cover; }
+
+/* =========================================================================
+   15. BOTONES
+   ========================================================================= */
+
+.ds-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ds-space-2);
+  min-height: var(--ds-touch);
+  min-width: var(--ds-touch);
+  padding: 0 var(--ds-space-4);
+  border-radius: var(--ds-radius-pill);
+  border: 1px solid var(--ds-accent);
+  background: var(--ds-accent);
+  color: var(--ds-text-on-accent);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.005em;
+  text-decoration: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform var(--ds-dur-fast) var(--ds-ease-standard),
+              opacity var(--ds-dur-fast) var(--ds-ease-standard);
+}
+
+.ds-btn:active { transform: translateY(1px); }
+.ds-btn:disabled,
+.ds-btn[aria-disabled="true"] { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+.ds-btn--secondary {
+  background: var(--ds-bg-elevated);
+  color: var(--ds-text-primary);
+  border-color: var(--ds-border-strong);
+}
+
+.ds-btn--ghost {
+  background: transparent;
+  color: var(--ds-text-secondary);
+  border-color: transparent;
+}
+
+.ds-btn--danger {
+  background: transparent;
+  color: var(--ds-err);
+  border-color: var(--ds-err-border);
+}
+
+.ds-btn--sm { min-height: 36px; font-size: 13px; padding: 0 var(--ds-space-3); }
+.ds-btn--lg { min-height: 52px; font-size: 15px; padding: 0 var(--ds-space-5); }
+.ds-btn--block { display: flex; width: 100%; }
+.ds-btn--icon { padding: 0; inline-size: var(--ds-touch); block-size: var(--ds-touch); }
+
+.ds-btn svg { inline-size: 18px; block-size: 18px; flex: 0 0 auto; }
+
+/* =========================================================================
+   16. ESTADOS: VACÍO / ERROR / CARGANDO
+   ========================================================================= */
+
+/* Sin datos: nunca parece un error. */
+.ds-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--ds-space-2);
+  padding: 28px var(--ds-space-4);
+  text-align: center;
+  color: var(--ds-text-tertiary);
+}
+
+.ds-empty__icon {
+  inline-size: 40px;
+  block-size: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-bg-elevated);
+  border: 1px solid var(--ds-border);
+  color: var(--ds-text-tertiary);
+}
+
+.ds-empty__icon svg { inline-size: 20px; block-size: 20px; }
+
+.ds-empty__title {
+  font-size: var(--ds-text-lg);
+  font-weight: 700;
+  color: var(--ds-text-secondary);
+}
+
+.ds-empty__text {
+  font-size: var(--ds-text-sm);
+  color: var(--ds-text-tertiary);
+  max-width: 34ch;
+}
+
+/* Error: mensaje + qué hacer. */
+.ds-error {
+  background: var(--ds-err-soft);
+  border: 1px solid var(--ds-err-border);
+  border-radius: var(--ds-radius-lg);
+  padding: var(--ds-space-3);
+  margin-bottom: var(--ds-space-3);
+}
+
+.ds-error__title {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+  font-size: var(--ds-text-base);
+  font-weight: 700;
+  color: var(--ds-err);
+  margin-bottom: var(--ds-space-1);
+}
+
+.ds-error__title svg { inline-size: 18px; block-size: 18px; flex: 0 0 auto; }
+
+.ds-error__text {
+  font-size: var(--ds-text-sm);
+  color: #F0C9C9;
+  line-height: var(--ds-lh-relaxed);
+}
+
+.ds-error__action { margin-top: var(--ds-space-3); }
+
+/* Skeleton: se usa mientras carga; nunca como "sin datos". */
+.ds-skeleton {
+  background: var(--ds-bg-elevated);
+  border-radius: var(--ds-radius-sm);
+  position: relative;
+  overflow: hidden;
+}
+
+.ds-skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, var(--ds-border-strong), transparent);
+  animation: ds-shimmer 1200ms var(--ds-ease-linear) infinite;
+}
+
+@keyframes ds-shimmer {
+  100% { transform: translateX(100%); }
+}
+
+.ds-skeleton--text { height: 12px; }
+.ds-skeleton--title { height: 20px; width: 55%; }
+.ds-skeleton--value { height: 30px; width: 40%; }
+.ds-skeleton--card { height: 92px; border-radius: var(--ds-radius-lg); }
+.ds-skeleton--line { height: 40px; }
+
+/* =========================================================================
+   17. TABLA
+   ========================================================================= */
+
+.ds-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--ds-text-sm);
+}
+
+.ds-table caption {
+  text-align: left;
+  font-size: var(--ds-text-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ds-text-tertiary);
+  padding-bottom: var(--ds-space-2);
+}
+
+.ds-table th {
+  text-align: left;
+  font-size: var(--ds-text-xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ds-text-tertiary);
+  padding: var(--ds-space-2) var(--ds-space-2);
+  border-bottom: 1px solid var(--ds-border);
+  white-space: nowrap;
+}
+
+.ds-table td {
+  padding: var(--ds-space-3) var(--ds-space-2);
+  border-bottom: 1px solid var(--ds-border);
+  color: var(--ds-text-primary);
+  vertical-align: middle;
+  overflow-wrap: anywhere;
+}
+
+.ds-table tbody tr:last-child td { border-bottom: 0; }
+.ds-table tbody tr:nth-child(even) { background: rgba(255, 255, 255, 0.015); }
+
+.ds-table .ds-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+.ds-table .ds-mono { font-family: var(--ds-font-mono); }
+
+/* Modo móvil: cada fila se apila en mini-card. Nunca hay scroll horizontal. */
+@media (max-width: 559px) {
+  .ds-table--stack thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .ds-table--stack tbody tr {
+    display: block;
+    background: var(--ds-bg-card);
+    border: 1px solid var(--ds-border);
+    border-radius: var(--ds-radius-md);
+    padding: var(--ds-space-2) var(--ds-space-3);
+    margin-bottom: var(--ds-space-2);
+  }
+
+  .ds-table--stack tbody tr:nth-child(even) { background: var(--ds-bg-card); }
+
+  .ds-table--stack td {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--ds-space-3);
+    padding: 5px 0;
+    border-bottom: 0;
+    text-align: right;
+  }
+
+  .ds-table--stack td::before {
+    content: attr(data-label);
+    flex: 0 0 auto;
+    font-size: var(--ds-text-xs);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ds-text-tertiary);
+    text-align: left;
+  }
+}
+
+/* =========================================================================
+   18. FORMULARIOS
+   ========================================================================= */
+
+/* Pila de campos. */
+.ds-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-4);
+}
+
+/* Campo: rótulo + control + ayuda. */
+.ds-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-2);
+  min-width: 0;
+}
+
+.ds-field__label {
+  font-size: var(--ds-text-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ds-text-tertiary);
+}
+
+.ds-field__hint {
+  font-size: var(--ds-text-sm);
+  color: var(--ds-text-tertiary);
+  line-height: var(--ds-lh-snug);
+}
+
+.ds-input,
+.ds-textarea {
+  display: block;
+  width: 100%;
+  min-height: 46px;
+  padding: var(--ds-space-3);
+  background: var(--ds-bg-app-alt);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-md);
+  color: var(--ds-text-primary);
+  font-family: inherit;
+  font-size: var(--ds-text-base);
+  line-height: var(--ds-lh-normal);
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.ds-textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+
+.ds-input::placeholder,
+.ds-textarea::placeholder {
+  color: var(--ds-text-tertiary);
+}
+
+.ds-input:focus,
+.ds-textarea:focus {
+  border-color: var(--ds-accent);
+  box-shadow: var(--ds-shadow-glow-accent);
+}
+
+.ds-input:disabled,
+.ds-textarea:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* =========================================================================
+   19. UTILIDADES
+   ========================================================================= */
+
+.ds-stack { display: flex; flex-direction: column; gap: var(--ds-space-3); }
+.ds-stack--sm { gap: var(--ds-space-2); }
+.ds-stack--lg { gap: var(--ds-space-4); }
+.ds-cluster { display: flex; align-items: center; gap: var(--ds-space-2); flex-wrap: wrap; }
+.ds-cluster--between { justify-content: space-between; }
+.ds-grow { flex: 1 1 auto; min-width: 0; }
+.ds-divider { height: 1px; background: var(--ds-border); border: 0; margin: var(--ds-space-3) 0; }
+.ds-muted { color: var(--ds-text-tertiary); }
+.ds-mono { font-family: var(--ds-font-mono); }
+.ds-tabular { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
+.ds-truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.ds-display {
+  font-family: var(--ds-font-condensed);
+  font-size: var(--ds-text-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ds-text-tertiary);
+}
+.ds-numeric {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1, "lnum" 1;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.ds-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* =========================================================================
+   20. MOVIMIENTO REDUCIDO
+   ========================================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  .ds-app *,
+  .ds-app *::before,
+  .ds-app *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .ds-live__dot { animation: none; opacity: 1; }
+  .ds-skeleton::after { animation: none; opacity: 0.25; transform: none; }
+  .ds-ring__bar,
+  .ds-progress > i,
+  .ds-chart-bar__col > i { transition: none; }
+}
+
+/* =========================================================================
+   23. SEGMENTED CONTROL EN LÍNEA (`.ds-segment`)
+   =========================================================================
+   Para cambiar entre pocas vistas (3D/2D, lista/mapa, día/semana/mes) cuando
+   el filtro NO va a sangre.
+
+   `.ds-tabs` (sección 4) está pensado para los filtros de periodo: va a
+   sangre, tiene márgenes negativos y `flex: 1 1 auto` en sus hijos, así que
+   dentro de un flex row se colapsa. Este es el equivalente inline:
+   sin márgenes negativos, ancho según contenido, mismos tokens.
+   ========================================================================= */
+
+.ds-segment {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  background: var(--ds-bg-card);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-pill);
+  flex: 0 0 auto;
+}
+
+.ds-segment__btn {
+  flex: 0 0 auto;
+  min-height: 38px;
+  min-width: 44px;
+  padding: 0 var(--ds-space-3);
+  border: 0;
+  border-radius: var(--ds-radius-pill);
+  background: transparent;
+  color: var(--ds-text-secondary);
+  font-family: inherit;
+  font-size: var(--ds-text-sm);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--ds-dur-fast) var(--ds-ease-standard),
+              color var(--ds-dur-fast) var(--ds-ease-standard);
+}
+
+.ds-segment__btn[aria-selected="true"],
+.ds-segment__btn.is-active {
+  background: var(--ds-accent);
+  color: var(--ds-text-on-accent);
+}
+
+.ds-segment__btn:disabled {
+  color: var(--ds-text-disabled);
+  cursor: not-allowed;
+}
+
+.ds-segment__btn:focus-visible {
+  outline: 2px solid var(--ds-accent);
+  outline-offset: 2px;
+}
+
+/* =========================================================================
+   24. SHELL "APP" (`.ds-app--sheet`) — sin bordes, estilo aplicación móvil
+   =========================================================================
+   Variante para las consolas (Meta, LinkedIn): en vez de "tarjetas con
+   borde" sobre fondo, el contenido va a sangre y las cards se separan por
+   sombra y espacio, como en una app nativa. El borde desaparece; la
+   jerarquía la hace la elevación.
+
+   Se usa con `.ds-app--sheet` en el shell y `.ds-bigtitle` en la cabecera.
+   ========================================================================= */
+
+.ds-app--sheet .ds-main {
+  padding-inline: 0;
+}
+
+.ds-app--sheet .ds-topbar {
+  border-bottom: 0;
+  background:
+    linear-gradient(180deg, var(--ds-bg-elevated) 0%, rgba(8, 9, 10, 0) 100%);
+}
+
+.ds-app--sheet .ds-card {
+  border: 0;
+  background: var(--ds-bg-card);
+  box-shadow: 0 1px 0 var(--ds-border), 0 12px 28px rgba(0, 0, 0, .32);
+}
+
+.ds-app--sheet .ds-card + .ds-card { margin-top: var(--ds-space-2); }
+
+.ds-app--sheet .ds-stat {
+  border: 0;
+  background: var(--ds-bg-card);
+  box-shadow: 0 1px 0 var(--ds-border), 0 10px 22px rgba(0, 0, 0, .28);
+}
+
+.ds-app--sheet .ds-tabs {
+  border: 0;
+  background: var(--ds-bg-card);
+  box-shadow: 0 1px 0 var(--ds-border);
+  border-radius: 0;
+  margin-inline: 0;
+  padding-inline: var(--ds-gutter);
+}
+
+.ds-app--sheet .ds-bottom-nav {
+  border-top: 0;
+  box-shadow: 0 -1px 0 var(--ds-border), 0 -14px 30px rgba(0, 0, 0, .35);
+}
+
+/* Título grande de cabecera: se comporta como el título de una app nativa */
+.ds-bigtitle {
+  display: block;
+  font-size: var(--ds-text-2xl);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--ds-text-primary);
+  margin: 0;
+}
+
+.ds-bigtitle__sub {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--ds-text-sm);
+  font-weight: 500;
+  color: var(--ds-text-tertiary);
+  letter-spacing: 0;
+}
+
+/* Rejilla de canales (Facebook, Instagram, WhatsApp, LinkedIn…) */
+.ds-channels {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--ds-space-2);
+}
+
+.ds-channel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-1);
+  padding: var(--ds-space-3);
+  border-radius: var(--ds-radius-lg);
+  background: var(--ds-bg-card);
+  box-shadow: 0 1px 0 var(--ds-border), 0 10px 22px rgba(0, 0, 0, .28);
+}
+
+.ds-channel__head {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+}
+
+.ds-channel__icon {
+  inline-size: 34px;
+  block-size: 34px;
+  border-radius: var(--ds-radius-md);
+  display: grid;
+  place-items: center;
+  background: var(--ds-bg-elevated);
+  color: var(--ds-text-primary);
+  flex: 0 0 auto;
+}
+
+.ds-channel__icon svg { inline-size: 20px; block-size: 20px; }
+
+.ds-channel__name {
+  font-size: var(--ds-text-sm);
+  font-weight: 700;
+  color: var(--ds-text-primary);
+  line-height: 1.2;
+}
+
+.ds-channel__state {
+  font-size: var(--ds-text-xs);
+  color: var(--ds-text-tertiary);
+  line-height: 1.2;
+}
+
+.ds-channel__tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: var(--ds-space-1);
+}
+
+.ds-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 34px;
+  padding: 0 10px;
+  border-radius: var(--ds-radius-pill);
+  border: 1px solid var(--ds-border);
+  background: var(--ds-bg-elevated);
+  color: var(--ds-text-secondary);
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.ds-tool svg { inline-size: 14px; block-size: 14px; }
+.ds-tool--on { border-color: var(--ds-ok); color: var(--ds-ok); }
+.ds-tool--off { opacity: .5; }
+
+/* =========================================================================
+   25. OVERLAY A PANTALLA COMPLETA (`.ds-overlay`)
+   =========================================================================
+   Para ampliar un diagrama o un documento sin salir de la página. Se abre
+   con un botón, se cierra con Escape o tocando fuera. El contenido se
+   inyecta desde JS (iframe o HTML), así que el overlay es genérico.
+   ========================================================================= */
+
+.ds-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: none;
+  background: rgba(4, 5, 6, .88);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+           env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+.ds-overlay.is-on { display: grid; place-items: stretch; }
+
+.ds-overlay__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+  padding: var(--ds-space-2) var(--ds-space-3);
+  border-bottom: 1px solid var(--ds-border);
+  background: var(--ds-bg-app);
+}
+
+.ds-overlay__title {
+  font-size: var(--ds-text-sm);
+  font-weight: 700;
+  color: var(--ds-text-primary);
+  margin-right: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ds-overlay__body {
+  position: relative;
+  overflow: hidden;
+  background: var(--ds-bg-app);
+}
+
+.ds-overlay__body > iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+/* Miniatura del flujo: el mismo grafo, en versión compacta */
+.ds-minimap {
+  width: 100%;
+  aspect-ratio: 62 / 13;
+  display: block;
+  border-radius: var(--ds-radius-md);
+  background:
+    radial-gradient(120% 100% at 50% 0%, #12171d 0%, #08090a 70%);
+  border: 1px solid var(--ds-border);
+}
+
+.ds-minimap .mm-node { fill: #171a1e; stroke: #313740; }
+.ds-minimap .mm-node--live { stroke: var(--ds-accent); }
+.ds-minimap .mm-link { stroke: #313740; fill: none; }
+.ds-minimap .mm-link--live { stroke: var(--ds-accent); }
+.ds-minimap .mm-pulse { fill: var(--ds-accent); }
+
+/* =========================================================================
+   26. UTILIDADES DE MOVIMIENTO (`.shake`, `.flicker`)
+   ========================================================================= */
+
+/* Sacudida de cámara: el arranque de una pantalla o de una tarjeta. */
+.shake { animation: ds-shake .55s cubic-bezier(.36,.07,.19,.97) both; }
+@keyframes ds-shake {
+  10%, 90% { transform: translate3d(-2px, 1px, 0) rotate(-.4deg); }
+  20%, 80% { transform: translate3d(3px, -2px, 0) rotate(.5deg); }
+  30%, 50%, 70% { transform: translate3d(-4px, 2px, 0) rotate(-.6deg); }
+  40%, 60% { transform: translate3d(4px, -1px, 0) rotate(.4deg); }
+}
+
+/* Fin del sistema. Ver ./order.md para las reglas de composición. */

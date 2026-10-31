@@ -3,154 +3,135 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>FORGE CORE STOCK · Tienda</title>
-<meta name="description" content="Tienda pública de FORGE CORE STOCK: catálogo de productos, carrito y compra con pago por tarjeta o efectivo, confirmado por WhatsApp.">
-<meta name="theme-color" content="#070a14">
+<title>FORGE CORE STOCK · Catálogo</title>
+<meta name="description" content="Catálogo en vivo de FORGE CORE STOCK: equipos, insumos, accesorios, audio y protección con oferta activa, carrito y pago por WhatsApp.">
+<meta name="theme-color" content="#08090A">
+<link rel="stylesheet" href="./components.css">
 <link rel="stylesheet" href="./tienda.css">
 </head>
-<body>
+<body data-pg="catalogo">
 
-<!-- Barras de ambiente -->
 <div class="aurora" aria-hidden="true"></div>
 <div class="grain" aria-hidden="true"></div>
+<div id="fcs-nav"></div>
 
-<header class="ti-top">
-  <div class="ti-top-in">
-    <a class="ti-marca" href="#" data-ir="catalogo">
-      <span class="ti-mark" aria-hidden="true"></span>
-      <span>FORGE<em>CORE</em> STOCK</span>
-    </a>
-    <div class="ti-top-acciones">
-      <button class="ti-pill" id="tiBack" hidden type="button">← Volver</button>
-      <button class="ti-carrito" id="tiCarBtn" type="button" aria-label="Abrir carrito">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16l-1.5 12h-13L4 7Z"/><path d="M9 10V6a3 3 0 0 1 6 0v4"/></svg>
-        <span>Carrito</span><b id="tiCarBadge" hidden>0</b>
-      </button>
+<main class="ti-main ti-entrada">
+
+  <!-- 1 · cabecera + estado vivo -->
+  <section class="ti-hero">
+    <div class="ti-hero-txt">
+      <p class="ti-eyebrow">Marketplace · en la nube</p>
+      <h1>La tienda de tu negocio</h1>
+      <p class="ti-sub">Catálogo en vivo desde <b>fabri-api</b>. Elige, arma tu pedido y paga — o confirma directo por WhatsApp. Funciona también sin conexión, con el catálogo local de respaldo.</p>
+      <p class="ti-sub"><span class="ds-live js-live">Cargando catálogo…</span></p>
     </div>
-  </div>
-</header>
-
-<main class="ti-main">
-
-  <!-- Catalogado de catálogo -->
-  <section class="ti-vista" id="v-catalogo">
-    <div class="ti-hero">
-      <div class="ti-hero-txt">
-        <p class="ti-eyebrow">Marketplace · en la nube</p>
-        <h1>La tienda de tu negocio</h1>
-        <p class="ti-sub">Catálogo en vivo desde fabri-api. Elige, arma tu pedido y paga — o confirma directo por WhatsApp.</p>
-      </div>
-      <div class="ti-reloj-wrap" title="Hora local">
-        <canvas id="tiReloj" width="120" height="120" aria-hidden="true"></canvas>
-        <span class="ti-reloj-fecha" id="tiFecha"></span>
-      </div>
-    </div>
-
-    <!-- Anuncio d3: promoción por tiempo limitado + temporizador -->
-    <div class="ti-promo" id="tiPromo">
-      <div class="ti-promo-txt">
-        <p class="ti-eyebrow">Oferta por tiempo limitado</p>
-        <h2 id="tiPromoTitulo">20% OFF en Equipos</h2>
-        <p class="ti-sub" id="tiPromoSub">Se aplica automáticamente al agregar productos de la categoría Equipos.</p>
-        <div class="ti-cuenta" aria-label="Tiempo restante de la oferta">
-          <div><b id="cdD">00</b><span>días</span></div>
-          <div><b id="cdH">00</b><span>h</span></div>
-          <div><b id="cdM">00</b><span>min</span></div>
-          <div><b id="cdS">00</b><span>s</span></div>
-        </div>
-      </div>
-      <div class="ti-promo-d3">
-        <svg id="promoGauge" width="150" height="150" viewBox="0 0 150 150" aria-hidden="true"></svg>
-        <div class="ti-promo-pct">
-          <b id="tiPromoPct">20%</b>
-          <span>OFF</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="ti-filtros">
-      <input class="ti-campo" id="fiQ" type="search" placeholder="Buscar producto o descripción…" autocomplete="off">
-      <div class="ti-chips" id="fiCats"></div>
-      <div class="ti-rango">
-        <span>Precio máx</span>
-        <input type="range" id="fiMax" min="0" max="500000" step="10000" value="500000">
-        <output id="fiMaxVal">$500.000</output>
-      </div>
-    </div>
-
-    <div class="ti-grid" id="tiGrid"></div>
-  </section>
-
-  <!-- Detalle de producto -->
-  <section class="ti-vista" id="v-detalle" hidden>
-    <div class="ti-detalle" id="tiDetalle"></div>
-  </section>
-
-  <!-- Carrito -->
-  <section class="ti-vista" id="v-carrito" hidden>
-    <div class="ti-lienzo">
-      <h2>Tu carrito</h2>
-      <div id="tiCarrito"></div>
-      <div class="ti-footer-op" id="tiCarritoPie"></div>
+    <div class="ti-reloj">
+      <canvas id="tiReloj" width="120" height="120" aria-hidden="true"></canvas>
+      <span class="ti-reloj-fecha" id="tiFecha">—</span>
     </div>
   </section>
 
-  <!-- Checkout: datos + pago -->
-  <section class="ti-vista" id="v-checkout" hidden>
-    <div class="ti-lienzo ti-checkout">
-      <h2>Finalizar compra</h2>
-
-      <div class="ti-bloque">
-        <p class="ti-eyebrow">1 · Datos de contacto</p>
-        <input class="ti-campo" id="coNombre" type="text" placeholder="Nombre y apellido" autocomplete="name">
-        <input class="ti-campo" id="coEmail" type="email" placeholder="Correo" autocomplete="email">
-        <input class="ti-campo" id="coTel" type="tel" placeholder="Teléfono (WhatsApp)" autocomplete="tel">
-        <input class="ti-campo" id="coDir" type="text" placeholder="Dirección de entrega" autocomplete="street-address">
-      </div>
-
-      <div class="ti-bloque">
-        <p class="ti-eyebrow">2 · Forma de pago</p>
-        <div class="ti-tabs" id="coMetodo">
-          <button type="button" data-m="tarjeta" class="on">Tarjeta</button>
-          <button type="button" data-m="efectivo">Efectivo</button>
-        </div>
-
-        <div id="coTarjeta">
-          <input class="ti-campo ti-tarjeta" id="coCardNum" type="text" inputmode="numeric" placeholder="Número de tarjeta" maxlength="19" autocomplete="cc-number">
-          <div class="ti-fila">
-            <input class="ti-campo" id="coCardExp" type="text" inputmode="numeric" placeholder="MM/AA" maxlength="5" autocomplete="cc-exp">
-            <input class="ti-campo" id="coCardCvv" type="password" inputmode="numeric" placeholder="CVV" maxlength="4" autocomplete="cc-csc">
-          </div>
-          <p class="ti-nota">Demo: usa <b>4242 4242 4242 4242</b> (cualquier fecha futura y CVV) para aprobar; un número inválido rechaza el pago.</p>
-        </div>
-
-        <div id="coEfectivo" hidden>
-          <p class="ti-nota">Pagas en efectivo al recibir. Prepara el monto exacto; el pedido se confirma por WhatsApp.</p>
-        </div>
-      </div>
-
-      <div class="ti-resumen" id="coResumen"></div>
-
-      <button class="ti-btn ti-btn-grande" id="coPagar" type="button">Pagar</button>
-      <p class="ti-pasarela" id="coEstado"></p>
+  <!-- 2 · KPIs de la tienda -->
+  <section class="ds-kpi-grid" aria-label="Resumen del catálogo">
+    <div class="ds-stat">
+      <span class="ds-stat__label">Productos</span>
+      <span class="ds-stat__value" id="kpProd">—</span>
+      <span class="ds-stat__meta js-live">Cargando…</span>
+    </div>
+    <div class="ds-stat">
+      <span class="ds-stat__label">Categorías</span>
+      <span class="ds-stat__value" id="kpCats">—</span>
+      <span class="ds-stat__meta">con stock informado</span>
+    </div>
+    <div class="ds-stat">
+      <span class="ds-stat__label">Oferta activa</span>
+      <span class="ds-stat__value ds-stat__value--warn" id="kpOferta">—</span>
+      <span class="ds-stat__meta" id="kpOfertaMeta">hasta medianoche</span>
+    </div>
+    <div class="ds-stat">
+      <span class="ds-stat__label">En tu carrito</span>
+      <span class="ds-stat__value" id="kpCarrito">0</span>
+      <span class="ds-stat__meta">unidades reservadas</span>
     </div>
   </section>
 
-  <!-- Estado final: aprobado / rechazado -->
-  <section class="ti-vista" id="v-estado" hidden>
-    <div class="ti-lienzo ti-estado" id="tiEstado"></div>
+  <!-- 3 · promoción con d3 y temporizador -->
+  <section class="ti-promo" id="tiPromo" aria-label="Oferta por tiempo limitado">
+    <div class="ti-promo-txt">
+      <p class="ti-eyebrow">Oferta por tiempo limitado</p>
+      <h2 id="tiPromoTitulo">20% OFF en Equipos</h2>
+      <p class="ti-sub" id="tiPromoSub">Se aplica automáticamente en el carrito a los productos de la categoría <b>Equipos</b>.</p>
+      <div class="ti-cuenta" aria-label="Tiempo restante de la oferta">
+        <div><b id="cdD">00</b><span>días</span></div>
+        <div><b id="cdH">00</b><span>h</span></div>
+        <div><b id="cdM">00</b><span>min</span></div>
+        <div><b id="cdS">00</b><span>s</span></div>
+      </div>
+      <div class="ti-promo-cta">
+        <a class="ds-btn ds-btn--sm" href="promociones.html">Ver promociones</a>
+        <a class="ds-btn ds-btn--secondary ds-btn--sm" href="producto.html?id=eq-001">Ver producto destacado</a>
+      </div>
+    </div>
+    <div class="ti-promo-d3">
+      <svg id="promoGauge" width="150" height="150" viewBox="0 0 150 150" aria-hidden="true"></svg>
+      <div class="ti-promo-pct"><b id="tiPromoPct">20%</b><span>OFF</span></div>
+    </div>
+  </section>
+
+  <!-- 4 · filtros -->
+  <section class="ti-filtros" aria-label="Filtros del catálogo">
+    <div class="ti-filtros-cabeza">
+      <h2 class="ds-section-title">Filtrar</h2>
+      <span class="ds-muted" id="fiCuenta">—</span>
+    </div>
+    <div class="ti-busca">
+      <span aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-3.5-3.5"/></svg></span>
+      <input class="ds-input" id="fiQ" type="search" placeholder="Buscar por nombre, descripción o código…" autocomplete="off">
+    </div>
+    <div class="ti-chips ds-cluster" id="fiCats" role="group" aria-label="Filtrar por categoría"></div>
+    <div class="ti-chips ds-cluster" id="fiClas" role="group" aria-label="Filtrar por clasificación"></div>
+    <label class="ti-rango" for="fiMax">
+      <span>Precio máximo</span>
+      <input type="range" id="fiMax" min="0" max="500000" step="10000" value="500000">
+      <output id="fiMaxVal">$500.000</output>
+    </label>
+  </section>
+
+  <!-- 5 · grilla -->
+  <section class="ti-seccion">
+    <div class="ti-seccion-cabeza">
+      <h2 class="ds-section-title">Catálogo completo</h2>
+      <a class="ds-btn ds-btn--ghost ds-btn--sm" href="escaner.html">Escanea un QR</a>
+    </div>
+    <div class="ti-grid" id="tiGrid" aria-live="polite">
+      <div class="ds-skeleton ds-skeleton--card"></div>
+      <div class="ds-skeleton ds-skeleton--card"></div>
+      <div class="ds-skeleton ds-skeleton--card"></div>
+    </div>
+  </section>
+
+  <!-- 6 · acciones -->
+  <section class="ti-seccion ds-card ds-card--accent">
+    <p class="ti-eyebrow">Recorre la tienda</p>
+    <h2 style="margin:0 0 8px;font-size:var(--ds-text-xl);letter-spacing:-.02em">Cinco pasos, de la vitrina al WhatsApp</h2>
+    <p class="ti-sub" style="margin-top:0">Catálogo → escáner → promociones → carrito → pago. El botón <b>Recorrido</b> del arriba te lleva por cada uno.</p>
+    <div class="ti-detalle-acciones">
+      <a class="ds-btn" href="escaner.html">Escanear producto</a>
+      <a class="ds-btn ds-btn--secondary" href="promociones.html">Ver ofertas</a>
+    </div>
   </section>
 
 </main>
 
 <footer class="ti-pie">
-  <span>FORGE CORE STOCK</span>
+  <span>FORGE CORE STOCK · catálogo público</span>
   <span>Pago de demostración · sin movimiento de dinero real</span>
 </footer>
 
 <div class="ti-toast" id="tiToast"></div>
 
 <script src="./app/vendor/d3-mini.js"></script>
-<script src="./tienda.js"></script>
+<script src="./tienda-nucleo.js"></script>
+<script src="./tienda-inicio.js"></script>
 </body>
 </html>

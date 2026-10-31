@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>FORGE CORE STOCK · Confirmación</title>
+<meta name="description" content="Estado de tu pago en FORGE CORE STOCK: aprobado o rechazado y confirmación del pedido por WhatsApp.">
+<meta name="theme-color" content="#08090A">
+<link rel="stylesheet" href="./components.css">
+<link rel="stylesheet" href="./tienda.css">
+</head>
+<body data-pg="pago">
+
+<div class="aurora" aria-hidden="true"></div>
+<div class="grain" aria-hidden="true"></div>
+<div id="fcs-nav"></div>
+
+<main class="ti-main ti-main--estrecho ti-entrada">
+  <section class="ds-card ti-estado" id="pgEstado" aria-live="polite">
+    <div class="ds-skeleton ds-skeleton--title" style="width:60%;margin:0 auto"></div>
+    <div class="ds-skeleton ds-skeleton--text" style="width:80%;margin:12px auto 0"></div>
+  </section>
+</main>
+
+<footer class="ti-pie">
+  <span>FORGE CORE STOCK · confirmación de pedido</span>
+  <span>Pago de demostración · sin movimiento de dinero real</span>
+</footer>
+
+<div class="ti-toast" id="tiToast"></div>
+
+<script src="./tienda-nucleo.js"></script>
+<script src="./tienda-pago.js"></script>
+</body>
+</html>
