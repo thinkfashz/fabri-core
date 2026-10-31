@@ -7,8 +7,8 @@
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="cl.fabrick.core"
-    android:versionCode="55"
-    android:versionName="0.9.40">
+    android:versionCode="56"
+    android:versionName="0.9.41">
 
     <uses-sdk android:minSdkVersion="24" android:targetSdkVersion="34" />
 
@@ -45,6 +45,7 @@
             android:launchMode="singleTask"
             android:screenOrientation="portrait"
             android:configChanges="orientation|screenSize|keyboardHidden|uiMode|density|fontScale"
+            android:windowSoftInputMode="adjustResize"
             android:alwaysRetainTaskState="true"
             android:resizeableActivity="true">
             <intent-filter>

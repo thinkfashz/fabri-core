@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <title>FORGE CORE STOCK</title>
   <link rel="stylesheet" href="app.css" />
   <link rel="stylesheet" href="inventario.css" />
@@ -1515,87 +1515,158 @@ npx -y omniroute@latest
       </div>
     </section>
 
-    <!-- ===================== CATÁLOGO DE PRODUCTOS ========================== -->
+    <!-- ===================== CATÁLOGO + TIENDA ============================== -->
   <section class="vista" id="v-catalogo">
-    <!-- 1 · cabecera + estado vivo -->
-    <div class="cat-hero">
-      <div>
-        <p class="cat-eyebrow">Módulo · catálogo</p>
-        <h2>Catálogo de <em>productos</em></h2>
-        <p class="cat-sub">Todos los productos de tu base, en tarjetas. Busca por nombre,
-          código o escanea el código de barras: la lectura es local y al instante.</p>
+    <div class="cat-app">
+      <!-- barra propia del módulo -->
+      <div class="cat-barra">
+        <button class="cat-barra-btn" id="catVolver" type="button" aria-label="Volver" hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <div class="cat-barra-titulo">
+          <b id="catTituloBarra">Catálogo</b>
+          <span id="catSubBarra">Tu tienda</span>
+        </div>
+        <span id="catPiloto" class="piloto-conexion espera" title="Estado de la conexión"><i></i>verificando…</span>
+        <button class="cat-barra-btn" id="catBtnCarro" type="button" aria-label="Abrir carrito">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+               stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h2l2.1 9.6a1.6 1.6 0 0 0 1.6 1.3h7.6a1.6 1.6 0 0 0 1.6-1.2L20.5 8H6.4"/><circle cx="10" cy="19.5" r="1.4"/><circle cx="17" cy="19.5" r="1.4"/></svg>
+          <span class="cat-badge" id="catCarroBadge"></span>
+        </button>
       </div>
-      <div class="cat-estado">
-        <span id="catPiloto" class="piloto-conexion espera"><i></i>verificando…</span>
-        <span id="catEstado">Cargando tu catálogo…</span>
-      </div>
-    </div>
 
-    <!-- 2 · KPIs del negocio -->
-    <div class="cat-kpis" id="catKpis" aria-label="Resumen del catálogo"></div>
+      <!-- ── 1 · catálogo ───────────────────────────────────────────────── -->
+      <section class="cat-escena activa" id="catEscenaCatalogo">
+        <div class="cat-cuerpo">
+          <div class="cat-hero">
+            <p class="cat-eyebrow">Módulo · catálogo</p>
+            <h2>Tu tienda <em>FORGE</em></h2>
+            <p class="cat-sub">Todos los productos de tu base. Busca, escanea el código de
+              barras, agrega al carrito y paga cuando quieras.</p>
+          </div>
 
-    <!-- 3 · búsqueda + escáner de código de barras -->
-    <div class="cat-busca">
-      <label class="cat-campo" for="catBuscar">
-        <span data-ico="buscar" data-ico-tam="18"></span>
-        <input id="catBuscar" type="search" inputmode="search" autocomplete="off"
-               placeholder="Buscar por nombre, marca o código…" />
-      </label>
-      <button class="cat-esc-btn" id="btnCatEsc" type="button" aria-pressed="false">
-        <span data-ico="scan" data-ico-tam="18"></span><b>OFF</b>
-      </button>
-    </div>
-    <div class="cat-esc-caja" id="catEscCaja" hidden>
-      <div class="cat-esc-video" id="catEscVideoCaja" hidden>
-        <video id="catEscVideo" playsinline muted autoplay></video>
-        <div class="cat-esc-mira" aria-hidden="true"></div>
-        <div class="cat-esc-laser" aria-hidden="true"></div>
-      </div>
-      <p class="cat-esc-nota" id="catEscNota">Escáner apagado. Toca «Escanear» para buscar por código.</p>
-    </div>
+          <div class="cat-kpis" id="catKpis" aria-label="Resumen de la tienda"></div>
 
-    <!-- chips fijos de categorías (con sus conteos reales) -->
-    <div class="cat-chips" id="catChips" role="group" aria-label="Categorías"></div>
+          <div class="cat-busca">
+            <label class="cat-campo" for="catBuscar">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+                   stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input id="catBuscar" type="search" inputmode="search" autocomplete="off"
+                     placeholder="Buscar producto o código…" />
+            </label>
+            <button class="cat-btn-lec" id="btnCatLector" type="button" aria-pressed="false">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+                   stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><line x1="3" y1="12" x2="21" y2="12"/></svg>
+              <b>OFF</b>
+            </button>
+          </div>
 
-    <!-- 4 · grilla de tarjetas -->
-    <p class="cat-vacio" id="catAviso"></p>
-    <div class="cat-lista" id="catLista" aria-live="polite"></div>
+          <div class="cat-lector" id="catLectorCaja" hidden>
+            <div class="cat-lector-cab">
+              <span class="cat-lector-estado" id="catLectorNota">Lector apagado.</span>
+            </div>
+            <div class="cat-lector-video" id="catLectorVideoCaja">
+              <video id="catLectorVideo" playsinline muted autoplay hidden></video>
+              <div class="cat-lector-mira" id="catLectorMira" hidden aria-hidden="true"><i></i></div>
+            </div>
+            <div class="cat-lector-resultado" id="catLectorResultado"></div>
+          </div>
 
-    <!-- 5 · Tienda FORGE: las 8 pantallas web unificadas en este módulo -->
-    <section class="cat-tienda" aria-label="Tienda FORGE">
-      <div class="cat-tienda-cab">
-        <h3>Tienda FORGE · 8 pantallas en un módulo</h3>
-        <p>El recorrido de compra completo de la app web, integrado aquí:
-          catálogo, escáner, detalle, carrito, checkout, pago y confirmación.</p>
-      </div>
-      <div class="cat-tienda-tabs" role="tablist">
-        <button class="cat-tienda-tab activo" data-tab="1" type="button"><b>01</b> Catálogo</button>
-        <button class="cat-tienda-tab" data-tab="2" type="button"><b>02</b> Escáner</button>
-        <button class="cat-tienda-tab" data-tab="3" type="button"><b>03</b> Detalle</button>
-        <button class="cat-tienda-tab" data-tab="4" type="button"><b>04</b> Agregar</button>
-        <button class="cat-tienda-tab" data-tab="5" type="button"><b>05</b> Carrito</button>
-        <button class="cat-tienda-tab" data-tab="6" type="button"><b>06</b> Datos</button>
-        <button class="cat-tienda-tab" data-tab="7" type="button"><b>07</b> Pago</button>
-        <button class="cat-tienda-tab" data-tab="8" type="button"><b>08</b> Listo</button>
-      </div>
-      <div class="cat-tienda-marco" id="catTiendaMarco"></div>
-      <div class="cat-tienda-pie">
-        <span class="cat-progreso" id="catTiendaProgreso">PASO 1/8 · CATÁLOGO</span>
-        <span>desliza dentro de la pantalla</span>
-      </div>
-      <p class="cat-tienda-nota">Las 8 pantallas son las mismas de la tienda web FORGE,
-        con precios en CLP y diseño offline. Tus productos reales viven arriba,
-        en la grilla de este módulo.</p>
-    </section>
+          <div class="cat-banners" id="catBanners" aria-label="Promociones"></div>
 
-    <!-- 6 · acciones -->
-    <div class="cat-acciones">
-      <button class="btn btn-primario" id="btnCatRefrescar" type="button">
-        <span data-ico="refrescar"></span> Refrescar catálogo
-      </button>
-      <button class="btn" data-vista="inventario" type="button">
-        <span data-ico="apilar"></span> Abrir Inventario
-      </button>
+          <div class="cat-chips" id="catChips" role="group" aria-label="Categorías"></div>
+
+          <p class="cat-vacio" id="catAviso"></p>
+          <p class="cat-cuentas"><span id="catEstado">Cargando tu catálogo…</span></p>
+          <div class="cat-lista" id="catLista" aria-live="polite"></div>
+        </div>
+      </section>
+
+      <!-- ── 2 · detalle de producto ────────────────────────────────────── -->
+      <section class="cat-escena" id="catEscenaProducto">
+        <div class="cat-cuerpo">
+          <div class="cat-detalle-img" id="catDetalleImg"></div>
+          <div class="cat-detalle-cab" id="catDetalleCab"></div>
+          <div class="cat-detalle-datos" id="catDetalleDatos"></div>
+          <div class="cat-wiki" id="catDetalleWiki" hidden></div>
+          <div class="cat-relacionados" id="catRelacionados" hidden></div>
+        </div>
+        <div class="cat-compra">
+          <button class="cat-btn fantasma" id="catSeguirComprando" type="button">Seguir viendo</button>
+          <button class="cat-btn lima" id="catAgregarDetalle" type="button">Agregar al carrito</button>
+        </div>
+      </section>
+
+      <!-- ── 3 · carrito ────────────────────────────────────────────────── -->
+      <section class="cat-escena" id="catEscenaCarrito">
+        <div class="cat-cuerpo">
+          <div class="cat-carro-lista" id="catCarroLista"></div>
+          <div class="cat-totales" id="catCarroTotales"></div>
+          <button class="cat-btn lima bloque" id="catIrPagar" type="button">Ir a pagar</button>
+          <button class="cat-btn fantasma bloque" id="catVolverTienda" type="button">Seguir comprando</button>
+        </div>
+      </section>
+
+      <!-- ── 4 · checkout ───────────────────────────────────────────────── -->
+      <section class="cat-escena" id="catEscenaCheckout">
+        <form class="cat-cuerpo cat-form" id="catFormPedido">
+          <div class="cat-grupo"><span>Nombre y apellido</span>
+            <input id="catNombre" autocomplete="name" placeholder="Ej: Fabrizzio Muñoz" /></div>
+          <div class="cat-grupo"><span>Dirección</span>
+            <input id="catDireccion" autocomplete="street-address" placeholder="Calle y número" /></div>
+          <div class="cat-fila-2">
+            <div class="cat-grupo"><span>Comuna</span><input id="catComuna" placeholder="Providencia" /></div>
+            <div class="cat-grupo"><span>Teléfono</span><input id="catTelefono" inputmode="tel" placeholder="+56 9 …" /></div>
+          </div>
+          <div class="cat-grupo"><span>Entrega</span>
+            <div class="cat-opciones">
+              <label class="cat-opcion activa"><input type="radio" name="catEntrega" value="Despacho 24H" checked />
+                <span class="cat-opcion-desc">Despacho 24H<small>Llega mañana</small></span></label>
+              <label class="cat-opcion"><input type="radio" name="catEntrega" value="Retiro en tienda" />
+                <span class="cat-opcion-desc">Retiro en tienda<small>Hoy mismo</small></span></label>
+            </div>
+          </div>
+          <div class="cat-grupo"><span>Pago</span>
+            <div class="cat-opciones">
+              <label class="cat-opcion activa"><input type="radio" name="catPago" value="WebPay" checked />
+                <span class="cat-opcion-desc">WebPay<small>Tarjeta de crédito o débito</small></span></label>
+              <label class="cat-opcion"><input type="radio" name="catPago" value="Transferencia" />
+                <span class="cat-opcion-desc">Transferencia<small>Confirmación inmediata</small></span></label>
+            </div>
+          </div>
+          <div class="cat-totales" id="catCheckoutResumen"></div>
+          <button class="cat-btn lima bloque" type="submit">Confirmar y pagar</button>
+        </form>
+      </section>
+
+      <!-- ── 5 · pago ───────────────────────────────────────────────────── -->
+      <section class="cat-escena" id="catEscenaPago">
+        <div class="cat-pago">
+          <div class="cat-pago-anillo">
+            <svg viewBox="0 0 92 92" aria-hidden="true">
+              <circle class="fondo" cx="46" cy="46" r="42"></circle>
+              <circle class="aro" id="catPagoAro" cx="46" cy="46" r="42"></circle>
+            </svg>
+            <b id="catPagoPct">0%</b>
+          </div>
+          <h3>Procesando tu pago</h3>
+          <p>Estamos confirmando el pedido con la pasarela.</p>
+          <div class="cat-pago-pasos" id="catPagoPasos">
+            <div class="cat-pago-paso activo"><i></i>Validando datos</div>
+            <div class="cat-pago-paso"><i></i>Autorizando pago</div>
+            <div class="cat-pago-paso"><i></i>Confirmando pedido</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 6 · éxito ──────────────────────────────────────────────────── -->
+      <section class="cat-escena" id="catEscenaExito">
+        <div class="cat-cuerpo cat-exito" id="catExitoCaja"></div>
+        <div class="cat-cuerpo" style="padding-top:0">
+          <button class="cat-btn lima bloque" id="catVolverTienda2" type="button">Volver al catálogo</button>
+        </div>
+      </section>
     </div>
   </section>
 
@@ -2260,7 +2331,7 @@ CREATE INDEX IF NOT EXISTS idx_inv_productos_actualizado
             <label class="campo"><span>Precio proveedor</span><input id="invEdPrecioProveedor" inputmode="decimal" placeholder="0" /></label>
           </div>
           <div class="inv-ed-par">
-            <label class="campo"><span>Precio de venta</span><input id="invEdPrecio" inputmode="decimal" value="0" /></label>
+            <label class="campo"><span>Precio de venta</span><input id="invEdPrecio2" inputmode="decimal" value="0" /></label>
             <label class="campo"><span>Precio de mercado</span><input id="invEdPrecioMercado" inputmode="decimal" placeholder="–" /></label>
           </div>
           <div class="inv-ed-par">

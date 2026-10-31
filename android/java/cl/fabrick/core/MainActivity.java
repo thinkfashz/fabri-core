@@ -68,6 +68,13 @@ public class MainActivity extends Activity {
         cfg.setBuiltInZoomControls(false);
         cfg.setDisplayZoomControls(false);
         cfg.setSupportZoom(false);
+        // Sin esto la WebView maqueta la página a 980 px y la encoge para que
+        // quepa: el contenido queda con bordes negros, letra diminuta y el
+        // usuario puede alejarse con pinch. Con el viewport ancho activado se
+        // respeta el <meta viewport> y la interfaz ocupa el ancho real.
+        cfg.setUseWideViewPort(true);
+        cfg.setLoadWithOverviewMode(true);
+        cfg.setTextZoom(100);
         cfg.setMediaPlaybackRequiresUserGesture(true);
         // La interfaz vive en https://appassets.local y el usuario puede
         // apuntar la sincronización del inventario a un servidor propio por

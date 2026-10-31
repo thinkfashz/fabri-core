@@ -499,6 +499,31 @@ function invConectarEventos() {
     const el = $(id);
     if (el) el.addEventListener("input", invEdRecalcular);
   });
+  // El editor tiene dos campos de «Precio de venta»: el destacado de la ficha
+  // viva y el del formulario. Antes compartían id, así que el segundo quedaba
+  // muerto (getElementById devuelve el primero) y escribir ahí no hacía nada.
+  // Ahora se mantienen sincronizados en los dos sentidos.
+  (function invEspejoPrecio() {
+    const a = $("invEdPrecio");
+    const b = $("invEdPrecio2");
+    if (!a || !b) return;
+    let escribiendo = false;
+    const unir = function (origen, destino) {
+      if (escribiendo) return;
+      escribiendo = true;
+      destino.value = origen.value;
+      escribiendo = false;
+      invEdRecalcular();
+    };
+    a.addEventListener("input", function () { unir(a, b); });
+    b.addEventListener("input", function () { unir(b, a); });
+    // Al cargar un producto el valor se escribe por código: hay que copiarlo.
+    window.invEdSyncPrecio = function () {
+      const hero = $("invEdPrecio");
+      const form = $("invEdPrecio2");
+      if (hero && form) form.value = hero.value;
+    };
+  })();
   const edCodigo = $("invEdCodigo");
   if (edCodigo) {
     edCodigo.addEventListener("keydown", function (ev) {
@@ -2911,6 +2936,7 @@ function invEditorAbrir(p) {
   document.getElementById("invEdCategoria").value = (p && p.categoria) || "abarrotes";
   document.getElementById("invEdCosto").value = p && p.costo != null ? p.costo : "";
   document.getElementById("invEdPrecio").value = p && p.precio != null ? p.precio : "0";
+  if (typeof window.invEdSyncPrecio === "function") window.invEdSyncPrecio();
   document.getElementById("invEdStock").value = p && p.stock != null ? p.stock : 0;
   document.getElementById("invEdProveedor").value = (p && p.proveedor) || "";
   document.getElementById("invEdIva").value = p && p.iva != null ? p.iva : 19;
@@ -3219,6 +3245,7 @@ function invEdAplicarOptimo() {
   }
   const optimo = Math.round(mercado * (1 + INV_MARGEN_OBJETIVO / 100));
   document.getElementById("invEdPrecio").value = optimo;
+  if (typeof window.invEdSyncPrecio === "function") window.invEdSyncPrecio();
   invEdRecalcular();
   invEdAviso("Precio de venta sugerido aplicado: " + invClp(optimo));
 }

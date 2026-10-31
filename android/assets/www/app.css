@@ -249,6 +249,46 @@ html, body {
   font-weight: 800;
 }
 
+/* En móvil la marca no puede partirse en tres líneas ni empujar las píldoras
+   fuera de la pantalla: el bloque de texto se comprime y el título se queda
+   en una sola línea. */
+.topbar { gap: 8px; }
+.marca { min-width: 0; flex: 0 1 auto; }
+.marca > div { min-width: 0; }
+.marca h1,
+.marca p {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 42vw;
+  font-size: 13px;
+}
+.marca h1 { letter-spacing: 0.06em; }
+.marca p { font-size: 10px; }
+.topbar-acciones {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.topbar-acciones .piloto-conexion { max-width: 34vw; }
+.topbar-acciones .pill { max-width: 26vw; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 400px) {
+  .marca p { display: none; }
+  .marca h1 { max-width: 46vw; font-size: 12px; letter-spacing: 0.04em; }
+  /* Luz piloto: en pantalla chica queda sólo el punto (el texto va en el
+     tooltip y el detalle completo está en la barra del módulo). */
+  .topbar-acciones .piloto-conexion {
+    max-width: 26px;
+    padding: 7px;
+    font-size: 0;
+    letter-spacing: 0;
+  }
+  .topbar-acciones .piloto-conexion i { width: 10px; height: 10px; }
+  .topbar-acciones .pill { max-width: 24vw; font-size: 10px; padding: 5px 8px; }
+}
+
 .marca p {
   margin: 0;
   font-size: 11px;
