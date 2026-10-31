@@ -1762,3 +1762,15 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
   pendientes como enviados).
 - `inventario.css`: añadido `@keyframes check-fill` (la animación ya lo referenciaba).
 - Verificado con headless shell: éxito (modal+check+cierre) y fallo 401 (cierre+toast).
+
+## Sesión 2026-10-31 · APK 0.9.39 (54) — fix del modal de sincronización
+
+- Build de `scripts/compilar.sh` (sin Gradle) con los assets corregidos del commit `c5a2428`:
+  `invAnimarEnvioModal` implementada, validación 401/`resp.ok` antes de `sync_marcar`,
+  keyframes `check-fill` añadidos a `inventario.css`.
+- versionCode 54 / versionName 0.9.39 → se instala encima de la 0.9.x sin borrar datos
+  (mismo package `cl.fabrick.core`).
+- Verificado dentro del APK: `invAnimarEnvioModal` 1×, validación 401 1×, `check-fill` 1×,
+  marca FORGE 17×. `apksigner verify`: v2 ✔ v3 ✔ (exit 0).
+- SHA-256: `d0f2d7a3d4bf12e39698142c05b6adb03c4e4c16fe3c7f5c3ae9cc2567bbafb0` · 4.333.363 B.
+- Entregada en `/storage/emulated/0/Download/FORGE-CORE-STOCK-0.9.39.apk` y `/tmp/opencode/`.
