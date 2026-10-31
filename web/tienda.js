@@ -65,6 +65,114 @@
     clearTimeout(t._x);
     t._x = setTimeout(function () { t.classList.remove("on"); }, 1800);
   }
+
+  /* ── Tienda 2.0: oferta, reloj canvas, gauge d3 y temporizador ────────── */
+  var OFERTA = { categoria: "Equipos", descuento: 20 };
+
+  function pad(n) { return String(n).padStart(2, "0"); }
+
+  // Precio con descuento aplicado si el producto pertenece a la categoría en promo.
+  function precioEfectivo(p) {
+    return p && p.categoria === OFERTA.categoria
+      ? Math.round(p.precio * (1 - OFERTA.descuento / 100))
+      : (p ? p.precio : 0);
+  }
+
+  function finOferta() {
+    var d = new Date();
+    d.setHours(23, 59, 59, 999);
+    return d.getTime();
+  }
+
+  /* Reloj analógico en canvas (marca de la tienda). */
+  function relojCanvas() {
+    var cv = $("tiReloj");
+    if (!cv) return;
+    var ctx = cv.getContext("2d");
+    var W = cv.width, H = cv.height, cx = W / 2, cy = H / 2, R = W / 2 - 6;
+    function linea(x1, y1, x2, y2, w, color) {
+      ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+      ctx.strokeStyle = color; ctx.lineWidth = w; ctx.lineCap = "round"; ctx.stroke();
+    }
+    (function dib() {
+      ctx.clearRect(0, 0, W, H);
+      ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2);
+      ctx.strokeStyle = "rgba(255,255,255,.12)"; ctx.lineWidth = 2; ctx.stroke();
+      ctx.fillStyle = "rgba(255,255,255,.05)";
+      ctx.beginPath(); ctx.arc(cx, cy, R - 26, 0, Math.PI * 2); ctx.fill();
+      var i, ang;
+      for (i = 0; i < 12; i++) {
+        ang = i / 12 * Math.PI * 2;
+        var largo = i % 3 === 0 ? 10 : 6;
+        linea(cx + Math.cos(ang) * (R - largo), cy + Math.sin(ang) * (R - largo),
+              cx + Math.cos(ang) * R, cy + Math.sin(ang) * R,
+              i % 3 === 0 ? 2 : 1,
+              i % 3 === 0 ? "#c8f542" : "rgba(255,255,255,.35)");
+      }
+      var now = new Date();
+      var hora = now.getHours() % 12, min = now.getMinutes(), seg = now.getSeconds() + now.getMilliseconds() / 1000;
+      var aH = (hora + min / 60) / 12 * Math.PI * 2;
+      var aM = (min + seg / 60) / 60 * Math.PI * 2;
+      var aS = seg / 60 * Math.PI * 2;
+      linea(cx, cy, cx + Math.cos(aH - 1.57) * (R - 26), cy + Math.sin(aH - 1.57) * (R - 26), 3.5, "#f2f5fd");
+      linea(cx, cy, cx + Math.cos(aM - 1.57) * (R - 16), cy + Math.sin(aM - 1.57) * (R - 16), 2.5, "#8c8cff");
+      linea(cx, cy, cx + Math.cos(aS - 1.57) * (R - 9), cy + Math.sin(aS - 1.57) * (R - 9), 1.5, "#c8f542");
+      ctx.beginPath(); ctx.arc(cx, cy, 3, 0, Math.PI * 2); ctx.fillStyle = "#c8f542"; ctx.fill();
+      var fecha = $("tiFecha");
+      if (fecha) fecha.textContent = now.toLocaleDateString("es-CL", { weekday: "short", day: "2-digit", month: "short" })
+        + " · " + pad(now.getHours()) + ":" + pad(now.getMinutes());
+      requestAnimationFrame(dib);
+    })();
+  }
+
+  /* Gauge d3: anillo de progreso de la oferta (fracción del día restante). */
+  function dibujarGauge(resto) {
+    var svg = $("promoGauge");
+    if (!svg || !window.d3s) return;
+    var D3 = window.d3s;
+    var total = 864e5;
+    var frac = Math.max(0, Math.min(1, resto / total));
+    var angulo = frac * Math.PI * 2;
+    var ns = "http://www.w3.org/2000/svg";
+    var arco = D3.arc().innerRadius(50).outerRadius(64).startAngle(0).cornerRadius(4);
+    var g = svg.querySelector("[data-g]") || (function () {
+      var n = document.createElementNS(ns, "g"); n.setAttribute("data-g", "1"); svg.appendChild(n); return n;
+    })();
+    g.innerHTML = "";
+    var bg = document.createElementNS(ns, "path");
+    bg.setAttribute("d", arco({ endAngle: Math.PI * 2 }));
+    bg.setAttribute("fill", "rgba(255,255,255,.06)");
+    g.appendChild(bg);
+    var fg = document.createElementNS(ns, "path");
+    fg.setAttribute("d", arco({ endAngle: angulo }));
+    fg.setAttribute("fill", "#c8f542");
+    fg.style.filter = "drop-shadow(0 0 6px rgba(200,245,66,.6))";
+    g.appendChild(fg);
+  }
+
+  function temporizador() {
+    var fin = finOferta();
+    function pintar() {
+      var resto = fin - Date.now();
+      var d = 0, h = 0, m = 0, s = 0;
+      if (resto > 0) {
+        d = Math.floor(resto / 864e5);
+        h = Math.floor(resto % 864e5 / 36e5);
+        m = Math.floor(resto % 36e5 / 6e4);
+        s = Math.floor(resto % 6e4 / 1e3);
+      }
+      [["cdD", d], ["cdH", h], ["cdM", m], ["cdS", s]].forEach(function (par) {
+        var el = $(par[0]); if (el) el.textContent = pad(par[1]);
+      });
+      dibujarGauge(resto);
+      if (resto <= 0) {
+        var sub = $("tiPromoSub");
+        if (sub) sub.textContent = "La oferta terminó. Vuelve pronto por nuevas promociones.";
+      }
+    }
+    pintar();
+    setInterval(pintar, 1000);
+  }
   function prod(id) {
     var lista = (datos && datos.productos) || [];
     for (var i = 0; i < lista.length; i++) if (lista[i].id === id) return lista[i];
@@ -74,7 +182,7 @@
     var t = 0;
     carrito.forEach(function (item) {
       var p = prod(item.id);
-      if (p) t += p.precio * item.cantidad;
+      if (p) t += precioEfectivo(p) * item.cantidad;
     });
     return t;
   }
@@ -132,13 +240,23 @@
       return;
     }
     grid.innerHTML = lista.map(function (p) {
+      var oferta = p.categoria === OFERTA.categoria;
+      var badgeCat = '<span class="ti-badge cat">' + esc(p.categoria) + "</span>";
+      var badgeClas = '<span class="ti-badge">' + esc(p.clasificacion) + "</span>";
+      var badgeOff = oferta ? '<span class="ti-badge oferta">OFERTA −' + OFERTA.descuento + '%</span>' : "";
+      var htmlPrecio;
+      if (oferta) {
+        htmlPrecio = '<div class="ti-precio ti-precio-oferta"><s>' + fmtCLP(p.precio) + '</s><b>' + fmtCLP(precioEfectivo(p)) + '</b><span class="ti-ahorra">−' + OFERTA.descuento + '%</span></div>';
+      } else {
+        htmlPrecio = '<div class="ti-precio"><b>' + fmtCLP(p.precio) + '</b><small>' + esc(p.moneda || "CLP") + "</small></div>";
+      }
       return '<article class="ti-tarjeta" data-id="' + esc(p.id) + '">' +
         '<div class="ti-tint"><span class="ti-cat">' + esc(p.categoria) + "</span>" + cuboHtml(p.tinte || "#c8f542") + "</div>" +
         '<div class="ti-cuerpo">' +
         '<div class="ti-nombre">' + esc(p.nombre) + "</div>" +
-        '<div class="ti-badges"><span class="ti-badge cat">' + esc(p.categoria) + '</span><span class="ti-badge">' + esc(p.clasificacion) + "</span></div>" +
+        '<div class="ti-badges">' + badgeCat + badgeClas + badgeOff + "</div>" +
         '<p class="ti-desc">' + esc(p.descripcion) + "</p>" +
-        '<div class="ti-precio"><b>' + fmtCLP(p.precio) + '</b><small>' + esc(p.moneda || "CLP") + "</small></div>" +
+        htmlPrecio +
         "</div></article>";
     }).join("");
     Array.prototype.forEach.call(grid.querySelectorAll(".ti-tarjeta"), function (card) {
@@ -179,7 +297,9 @@
       '<div class="ti-detalle-info">' +
       '<p class="ti-eyebrow">' + esc(p.categoria) + " · " + esc(p.clasificacion) + "</p>" +
       "<h1>" + esc(p.nombre) + "</h1>" +
-      '<div class="ti-detalle-precio">' + fmtCLP(p.precio) + "</div>" +
+      '<div class="ti-detalle-precio">' + (p.categoria === OFERTA.categoria
+        ? '<s style="font-size:18px;color:var(--tx3)">' + fmtCLP(p.precio) + '</s> ' + fmtCLP(precioEfectivo(p)) + ' <span class="ti-ahorra">(−' + OFERTA.descuento + '%)</span>'
+        : fmtCLP(p.precio)) + "</div>" +
       '<p class="ti-detalle-desc">' + esc(p.descripcion) + "</p>" +
       '<div class="ti-cant"><button type="button" id="detMenos">−</button><output id="detCant">' + (cantidadDe(id) || 1) + '</output><button type="button" id="detMas">+</button></div>' +
       '<div class="ti-detalle-acciones">' +
@@ -216,7 +336,11 @@
       var p = prod(item.id);
       if (!p) return "";
       return '<div class="ti-bloque" style="flex-direction:row;align-items:center;justify-content:space-between">' +
-        '<div><div class="ti-nombre">' + esc(p.nombre) + '</div><div class="ti-precio"><b>' + fmtCLP(p.precio) + "</b></div></div>" +
+        '<div><div class="ti-nombre">' + esc(p.nombre) + '</div><div class="ti-precio">' +
+        (p.categoria === OFERTA.categoria
+          ? '<s style="font-size:12px;color:var(--tx3)">' + fmtCLP(p.precio) + '</s> <b>' + fmtCLP(precioEfectivo(p)) + '</b>'
+          : '<b>' + fmtCLP(p.precio) + '</b>') +
+        "</div></div>" +
         '<div style="display:flex;align-items:center;gap:10px">' +
         '<button class="ti-cant" data-camb="-1" data-id="' + esc(p.id) + '" type="button" style="width:36px;height:36px">−</button>' +
         '<output>' + item.cantidad + "</output>" +
@@ -259,7 +383,7 @@
     var res = $("coResumen");
     res.innerHTML = carrito.map(function (item) {
       var p = prod(item.id);
-      return "<div style=\"display:flex;justify-content:space-between;gap:10px\"><span>" + item.cantidad + "× " + esc(p.nombre) + '</span><span>' + fmtCLP(p.precio * item.cantidad) + "</span></div>";
+      return "<div style=\"display:flex;justify-content:space-between;gap:10px\"><span>" + item.cantidad + "× " + esc(p.nombre) + '</span><span>' + fmtCLP(precioEfectivo(p) * item.cantidad) + "</span></div>";
     }).join("") +
       '<div class="ti-fila-total"><span>Total</span><span>' + fmtCLP(totalCarrito()) + "</span></div>";
     $("coEstado").textContent = "";
@@ -334,7 +458,7 @@
     var lineas = [];
     carrito.forEach(function (item) {
       var p = prod(item.id);
-      lineas.push(item.cantidad + "× " + p.nombre + " — " + fmtCLP(p.precio * item.cantidad));
+      lineas.push(item.cantidad + "× " + p.nombre + " — " + fmtCLP(precioEfectivo(p) * item.cantidad));
     });
     var texto = "Hola! Quiero comprar en FORGE CORE STOCK:\n\n";
     texto += "*Pedido " + pedidoRef + "*\n";
@@ -439,6 +563,8 @@
     renderGrid();
     bindear();
     actualizarBadge();
+    relojCanvas();
+    temporizador();
     if (document.title) document.title = "FORGE CORE STOCK · Tienda";
   });
 })();

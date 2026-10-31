@@ -1656,3 +1656,10 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
 - Número de WhatsApp configurable en `tienda.js` → `WA_NUMERO` (default `56912345678`, placeholder) o `window.FORGE_WA`.
 - Verificado con Chromium headless: catálogo (12 productos, 5 chips), detalle, carrito, checkout, pago aprobado (WhatsApp presente) y rechazado (tarjeta inválida). `node --check` OK.
 - Pago de DEMOSTRACIÓN: no mueve dinero real.
+
+## Sesión 2026-10-31 · Tienda 2.0: reloj canvas, promoción d3 y temporizador
+
+- Mejora de presentación del catálogo: hero con **reloj analógico en canvas** (#tiReloj, marca lima, fecha local), banner de **promoción d3 por tiempo limitado** (gauge de anillo con `d3s.arc` + `scaleLinear`, via `app/vendor/d3-mini.js`), **temporizador de oferta** (días/h/min/s hasta medianoche) y badge «OFERTA −20%» en las tarjetas de la categoría en promo (Equipos).
+- El descuento se aplica de verdad en toda la cadena: tarjetas (precio tachado + efectivo), detalle, carrito, resumen de checkout, total y mensaje de WhatsApp.
+- Verificado headless: 12 tarjetas, 4 badges de oferta, reloj pintando fecha, gauge d3 con 2 paths, temporizador corriendo, pct 20%. `node --check` OK.
+- Desplegado: `dpl_6Bi3tUVfjQrrWdwaFfhfjroFxy18` → aliased `https://fabri-core-web.vercel.app/tienda.html` (HTTP 200; `app/vendor/d3-mini.js` sirve 200).

@@ -35,9 +35,37 @@
   <!-- Catalogado de catálogo -->
   <section class="ti-vista" id="v-catalogo">
     <div class="ti-hero">
-      <p class="ti-eyebrow">Marketplace · en la nube</p>
-      <h1>La tienda de tu negocio</h1>
-      <p class="ti-sub">Catálogo en vivo desde fabri-api. Elige, arma tu pedido y paga — o confirma directo por WhatsApp.</p>
+      <div class="ti-hero-txt">
+        <p class="ti-eyebrow">Marketplace · en la nube</p>
+        <h1>La tienda de tu negocio</h1>
+        <p class="ti-sub">Catálogo en vivo desde fabri-api. Elige, arma tu pedido y paga — o confirma directo por WhatsApp.</p>
+      </div>
+      <div class="ti-reloj-wrap" title="Hora local">
+        <canvas id="tiReloj" width="120" height="120" aria-hidden="true"></canvas>
+        <span class="ti-reloj-fecha" id="tiFecha"></span>
+      </div>
+    </div>
+
+    <!-- Anuncio d3: promoción por tiempo limitado + temporizador -->
+    <div class="ti-promo" id="tiPromo">
+      <div class="ti-promo-txt">
+        <p class="ti-eyebrow">Oferta por tiempo limitado</p>
+        <h2 id="tiPromoTitulo">20% OFF en Equipos</h2>
+        <p class="ti-sub" id="tiPromoSub">Se aplica automáticamente al agregar productos de la categoría Equipos.</p>
+        <div class="ti-cuenta" aria-label="Tiempo restante de la oferta">
+          <div><b id="cdD">00</b><span>días</span></div>
+          <div><b id="cdH">00</b><span>h</span></div>
+          <div><b id="cdM">00</b><span>min</span></div>
+          <div><b id="cdS">00</b><span>s</span></div>
+        </div>
+      </div>
+      <div class="ti-promo-d3">
+        <svg id="promoGauge" width="150" height="150" viewBox="0 0 150 150" aria-hidden="true"></svg>
+        <div class="ti-promo-pct">
+          <b id="tiPromoPct">20%</b>
+          <span>OFF</span>
+        </div>
+      </div>
     </div>
 
     <div class="ti-filtros">
@@ -122,6 +150,7 @@
 
 <div class="ti-toast" id="tiToast"></div>
 
+<script src="./app/vendor/d3-mini.js"></script>
 <script src="./tienda.js"></script>
 </body>
 </html>
