@@ -1848,3 +1848,30 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
 - Entregada en `/storage/emulated/0/Download/FORGE-CORE-STOCK-0.9.41.apk` y `/tmp/opencode/`.
 - Pendiente: prueba en dispositivo (cámara real, teclado) — no hay adb. El token de
   nube sigue pendiente de pegar en Integración → Nube.
+
+## Sesión 2026-10-31 · APK 0.9.42 (57) — escáner con canvas + carrito en vivo
+
+- Commit `e011a17` (push `7cfddb0..e011a17`).
+- **Bug «cargar más» corregido**: `catMas()` descargaba otra página de 500 pero
+  `catRender()` seguía cortando en `CAT.lote` (24), así que el usuario pulsaba y no
+  veía nada. Ahora expande primero lo descargado y sólo pide páginas cuando se
+  agota el búfer (`CAT.recargarLote` sube el lote al llegar la página). El contador
+  muestra «Mostrando N de M cargados» y el botón distingue «Ver N más» de
+  «Cargar N más».
+- **Escáner a pantalla completa** (`catEscenaEscaner`, `ESC.*`): vídeo + `<canvas>`
+  que dibuja máscara, esquinas, línea de barrido y destello verde. Lectura sobre
+  canvas fuera de pantalla (720×540, recorte central) en vez del `<video>`, con
+  respaldo `invEscanearCuadro`, linterna (`track.getCapabilities().torch`), pitido
+  WebAudio y vibración (`navigator.vibrate`).
+- **Base completa**: `catPorCodigo()` busca en la página cargada y, si no está,
+  en el núcleo (`listar` con texto=código) con caché `CAT.cacheCodigo`.
+- **Carrito en vivo**: cada lectura hace `catCarroAgregar` y apila la fila en el
+  panel inferior (`esc-fila`), que sube al primer producto. Precio con animación
+  de contador (`catAnimarNumero`) + destello (`@keyframes esc-precio`) y total
+  animado. Acciones: seguir viendo / ir a pagar / limpiar.
+- Se eliminó el lector inline (el botón del buscador ahora abre el escáner).
+- Build EXIT=0 · 4.296 KB · VC 57 / 0.9.42 · `apksigner` v2 ✔ v3 ✔.
+  Dentro del APK: `catEscDibujar`/`catEscLeido`/`catPorCodigo` (7 referencias) y
+  `escCanvas`/`escPanel` en `index.html`.
+- SHA-256: `7f47daf3ac94e3ef5e71ecc4cd70b4ab89a322adad5a6edfcc7017a93c0d12eb` · 4.396.478 B.
+- Entregada en `/storage/emulated/0/Download/FORGE-CORE-STOCK-0.9.42.apk` y `/tmp/opencode/`.
