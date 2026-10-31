@@ -1748,3 +1748,17 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
 - Aclaración de contratos: la APK consume **fabri-api** con `Bearer FABRI_API_TOKEN`;
   **fabri-core-web** no usa token fijo (`/api/health` y `/api/estado` son públicos,
   `/api/auth` emite sesiones — hoy 501 por falta de `BLOB_READ_WRITE_TOKEN`).
+
+### Bug crítico de la APK: invAnimarEnvioModal — 2026-10-31 (commit c5a2428)
+
+- El log del usuario mostró `ReferenceError: invAnimarEnvioModal is not defined`
+  (id 1981, severidad crítico): el HTML/CSS del modal `#modalEnvioAnimado` existían
+  pero ningún JS lo implementaba; `datos.js` lo llamaba en `hojaSincronizarNube`.
+- Implementada en `inventario.js` (espacio de nombres `inv`): canvas de partículas,
+  cronómetro, barra de progreso (`progreso(texto, pct)`), check SVG, cierre auto,
+  contador `INV.envioGen` para invalidar animaciones viejas, `prefers-reduced-motion`.
+- Segundo bug corregido en `hojaSincronizarNube`: ahora valida 401/`resp.ok`/
+  `salida.ok===false` ANTES de `sync_marcar` (antes un token rechazado marcaba
+  pendientes como enviados).
+- `inventario.css`: añadido `@keyframes check-fill` (la animación ya lo referenciaba).
+- Verificado con headless shell: éxito (modal+check+cierre) y fallo 401 (cierre+toast).
