@@ -1774,3 +1774,37 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
   marca FORGE 17×. `apksigner verify`: v2 ✔ v3 ✔ (exit 0).
 - SHA-256: `d0f2d7a3d4bf12e39698142c05b6adb03c4e4c16fe3c7f5c3ae9cc2567bbafb0` · 4.333.363 B.
 - Entregada en `/storage/emulated/0/Download/FORGE-CORE-STOCK-0.9.39.apk` y `/tmp/opencode/`.
+
+## Sesión 2026-10-31 · APK 0.9.40 (55) — módulo Catálogo + refinamiento del Inventario
+
+- Commit `0ddcd9d` (push `0ccbd86..0ddcd9d`): rediseño y módulo nuevo, todo aditivo.
+- **Nuevo módulo «Catálogo» (`#v-catalogo`, `catalogo.js` + `catalogo.css`)**:
+  - KPIs y chips de categorías con conteos **reales** del panel del núcleo.
+  - Búsqueda server-side (el núcleo resuelve `texto`/`categoria` con LIKE sobre
+    toda la base; `limite` clamp 1-500 + `offset`, paginación por «Ver más»).
+  - Escáner de código de barras propio con `BarcodeDetector` (mismos formatos
+    que el lector de inventario); **reutiliza `INV.lec.camara`** si ya está
+    encendida → nunca dos cámaras. Al leer: búsqueda exacta + tarjeta destacada.
+  - Sección «Tienda FORGE»: las 8 pantallas de `web/forge-app/01..08` copiadas
+    a `assets/www/catalogo-web/` y embebidas por iframe lazy con pestañas 01-08.
+  - Registrado en `RAMAS_VISTA.catalogo`; `catSalir()` apaga la cámara al salir.
+- **Luz piloto de conexión global** (`pilotoConexion`, `catPiloto`,
+  `invPilotoConexion`): `navigator.onLine` + ping a
+  `https://fabri-api.vercel.app/api/health` cada 45 s (AbortController, 6 s).
+  Estados ok/aviso/error **siempre con texto y hora** (nunca color solo).
+- **Refinamiento del Inventario (los 5 pasos)**: sección «Refinamiento 0.9.40»
+  al final de `inventario.css` — hero con glow y eyebrow pulsante, KPIs con
+  gradiente, pasos con glow activo, paneles como card, foco acento en inputs,
+  botones con glow, ticket con sombra, `.inv-vacio`, `prefers-reduced-motion`.
+  **No se eliminó ninguna regla ni comportamiento.**
+- Verificación visual con headless shell (arnés temporal en `www/`, borrado antes
+  del build): catálogo con datos fake, chips, tarjetas, «Ver más», tienda con
+  iframe 01 cargado, piloto verde con hora. Fix derivado: `.cat-vacio:empty { display:none }`.
+- Build `scripts/compilar.sh` EXIT=0 · 4.281 KB · VC 55 / 0.9.40.
+  Verificado dentro del APK: las 8 pantallas de `catalogo-web/`, `catalogo.js`
+  (21.908 B), `catalogo.css` (15.865 B), `v-catalogo`+`pilotoConexion` en
+  `index.html`, marca FORGE 18× en el módulo. `apksigner verify`: v2 ✔ v3 ✔.
+- SHA-256: `5a4c3236d63773bde1de9fddce49c899be574e70e899f749ad735e0660b115d5` · 4.384.190 B.
+- Entregada en `/storage/emulated/0/Download/FORGE-CORE-STOCK-0.9.40.apk` y `/tmp/opencode/`.
+- Sin probar en dispositivo: cámara/escáner real (no hay adb). Pendiente del usuario:
+  pegar el token en Integración → Nube (Integración → Nube, `fabrick.nube.url`/`fabrick.nube.token`).
