@@ -15,9 +15,6 @@
     },
     "api/sync/index.go": {
       "maxDuration": 15
-    },
-    "api/catalogo/index.go": {
-      "maxDuration": 10
     }
   },
   "headers": [

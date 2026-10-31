@@ -1641,3 +1641,10 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
 - **Service worker**: `SHELL` incluye `mercado.js`; versión de caché `fcore-v7`.
 - **Verificación**: `tests/web/diseno.js` ✔ (contrato, sistema visual, offline); render Chromium headless: 12 tarjetas, chips poblados, badge de conteo. Detector impeccable: sin hallazgos propios en la superficie nueva (solo patrones preexistentes de la app, que se conservan por brief).
 - Nota: la conexión APK→catálogo requiere cablear `op_nube` (hoy valida/guarda config) para llamar `/api/catalogo`; documentado como paso siguiente.
+
+## Sesión 2026-10-31 · Deploy en vivo del marketplace (fabri-api)
+
+- El endpoint público del catálogo vive en **`api-telefono/`** (proyecto Vercel `fabri-api`, Node/TS), NO en `web/` (que es `fabri-core-web`). Se creó `api-telefono/api/catalogo.ts` (catálogo + filtros `q`/`categoria`/`clasificacion`/`max_precio` + CORS) y se registró la ruta `/api/catalogo` en `api-telefono/vercel.json`.
+- Se retiró el handler Go equivalente de `web/api/catalogo/` y su entrada en `web/vercel.json` para evitar dos fuentes de verdad.
+- Desplegado con `vercel --prod` (CLI autenticado): deployment `dpl_EjzLsy2fza2zAsctB8aZBHUmXBag` → aliased `https://fabri-api.vercel.app`.
+- Verificado en vivo: `GET /api/catalogo` → `{ok:true,total:12}`, filtros OK, `/api/health` sigue 200. La PWA (mercado.js) ahora carga desde la nube (origen "nube").

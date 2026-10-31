@@ -14,6 +14,7 @@
     { "src": "/api/skills", "dest": "/api/skills.ts" },
     { "src": "/api/health", "dest": "/api/health.ts" },
     { "src": "/api/estado", "dest": "/api/estado.ts" },
-    { "src": "/api/inventario", "dest": "/api/inventario.ts" }
+    { "src": "/api/inventario", "dest": "/api/inventario.ts" },
+    { "src": "/api/catalogo", "dest": "/api/catalogo.ts" }
   ]
 }
