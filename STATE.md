@@ -1735,3 +1735,16 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
   sitio + 8 pantallas + CSS) en `https://fabri-core-web.vercel.app/forge-app/`.
 - **Pendiente**: probar en dispositivo real (sin adb), `window.FORGE_WA` sigue con
   placeholder `56912345678`.
+
+### Rotación de FABRI_API_TOKEN (fabri-api) — 2026-10-31
+
+- El token anterior estaba creado como variable **sensitive** en Vercel (solo-escritura):
+  irrecuperable, ni siquiera por `vercel env pull` (devolvía `[SENSITIVE]`).
+- Rotado: valor nuevo generado con `openssl rand -hex 24`, instalado en Vercel por pipe
+  (no pasó por el chat), y guardado en
+  `~/.config/opencode/secrets/fabri-api-token.txt` (**chmod 600**, no commitear).
+- Deploy `dpl_9Uap5FNHiJJYWxzgheyyWZ9qhwG3` (fabri-api). Verificado end-to-end:
+  POST `/api/inventario` → 401 sin token, 401 con token inválido, 200 con el nuevo.
+- Aclaración de contratos: la APK consume **fabri-api** con `Bearer FABRI_API_TOKEN`;
+  **fabri-core-web** no usa token fijo (`/api/health` y `/api/estado` son públicos,
+  `/api/auth` emite sesiones — hoy 501 por falta de `BLOB_READ_WRITE_TOKEN`).
