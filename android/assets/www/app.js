@@ -417,6 +417,7 @@ const RAMAS_VISTA = {
   modulos: () => cargarModulos(),
   chat: () => chatIniciar(),
   inventario: () => { if (typeof invIniciar === "function") invIniciar(); },
+  catalogo: () => { if (typeof catIniciar === "function") catIniciar(); },
   flujo: () => { if (typeof flujoIniciar === "function") flujoIniciar(); },
   termux: () => { cargarTermux(); puenteIniciar(); },
   revision: () => revisionIniciar(),
@@ -433,6 +434,11 @@ function navegar(vista) {
   if (estadoApp.vista === "inventario" && vista !== "inventario"
       && typeof invSalir === "function") {
     try { invSalir(); } catch (e) { /* nunca romper la navegación */ }
+  }
+  // El escáner del catálogo también se apaga al salir de su módulo.
+  if (estadoApp.vista === "catalogo" && vista !== "catalogo"
+      && typeof catSalir === "function") {
+    try { catSalir(); } catch (e) { /* idem */ }
   }
   // El flujo deja de refrescar cuando no está visible.
   if (estadoApp.vista === "flujo" && vista !== "flujo"

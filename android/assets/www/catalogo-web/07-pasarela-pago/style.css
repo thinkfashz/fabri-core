@@ -1,0 +1,489 @@
+/* ==========================================================================
+   FORGE CORE STOCK · 07 Pasarela de pago
+   Identidad FORGE: negro carbón + verde neón. Mobile first, 430 px, 9:16.
+   Sin frameworks, sin estilos inline: todo vive acá.
+   ========================================================================== */
+
+/* ── 1 · Design System ─────────────────────────────────────────────────── */
+:root {
+  --bg: #0A0A0A;
+  --neon: #C8FF00;
+  --card: #151515;
+  --text: #fff;
+
+  --text-2: #A6ADA6;
+  --text-3: #7C837C;
+  --line: #232323;
+  --line-strong: #323232;
+  --danger: #FF5C5C;
+  --ok: #C8FF00;
+
+  --r-sm: 8px;
+  --r: 14px;
+  --r-lg: 22px;
+  --s1: 6px;
+  --s2: 10px;
+  --s3: 14px;
+  --s4: 18px;
+  --s5: 24px;
+  --touch: 44px;
+
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body { margin: 0; padding: 0; }
+
+body {
+  min-height: 100dvh;
+  display: flex;
+  justify-content: center;
+  background:
+    radial-gradient(120% 80% at 50% -10%, rgba(200, 255, 0, 0.06), transparent 60%),
+    var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.45;
+  -webkit-text-size-adjust: 100%;
+}
+
+.app {
+  position: relative;
+  width: 100%;
+  max-width: 430px;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+  background-image:
+    repeating-linear-gradient(45deg,
+      rgba(255, 255, 255, 0.017) 0 2px,
+      transparent 2px 6px),
+    repeating-linear-gradient(-45deg,
+      rgba(255, 255, 255, 0.012) 0 2px,
+      transparent 2px 6px);
+}
+
+img, svg { display: block; }
+a { color: inherit; }
+
+:focus-visible {
+  outline: 2px solid var(--neon);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ── 2 · Header FORGE ──────────────────────────────────────────────────── */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  min-height: 58px;
+  padding: var(--s2) var(--s3);
+  background: rgba(10, 10, 10, 0.94);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--line);
+}
+
+.brand {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+.brand b {
+  font-size: 13.5px;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.16em;
+  color: var(--neon);
+}
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--neon);
+  box-shadow: 0 0 8px var(--neon);
+  animation: pulse 1.8s ease-in-out infinite;
+}
+@keyframes pulse { 50% { opacity: 0.25; } }
+
+.icon-btn {
+  position: relative;
+  flex: 0 0 auto;
+  width: var(--touch);
+  height: var(--touch);
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  background: var(--card);
+  color: var(--text);
+  text-decoration: none;
+}
+.icon-btn svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.count {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 4px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--neon);
+  color: #0A0A0A;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+/* ── 3 · Progreso 7/8 ──────────────────────────────────────────────────── */
+.step {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--s3) var(--s3) var(--s1);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: var(--text-3);
+}
+.bar {
+  height: 4px;
+  margin: 0 var(--s3);
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+}
+.bar > i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--neon);
+  box-shadow: 0 0 12px rgba(200, 255, 0, 0.65);
+}
+.p7 > i { width: 87.5%; }
+
+main {
+  flex: 1;
+  padding-bottom: 96px;      /* deja pasar la barra de pago */
+}
+
+.title {
+  margin: var(--s4) var(--s3) var(--s3);
+  font-size: 20px;
+  letter-spacing: -0.01em;
+}
+
+/* ── 4 · Métodos de pago ───────────────────────────────────────────────── */
+.methods {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  padding: 0 var(--s3);
+}
+
+.method {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  min-height: var(--touch);
+  padding: var(--s3);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r);
+  background: var(--card);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.method--on {
+  border-color: var(--neon);
+  background: rgba(200, 255, 0, 0.07);
+}
+
+.method-radio {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.method-logo {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  background: #101010;
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-2);
+}
+.method--on .method-logo {
+  border-color: rgba(200, 255, 0, 0.5);
+  color: var(--neon);
+}
+.method-logo--webpay { font-size: 16px; }
+
+.method-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.method-body b { font-size: 14px; }
+.method-body span { font-size: 11.5px; color: var(--text-3); }
+
+.check {
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  color: transparent;
+}
+.method--on .check {
+  border-color: var(--neon);
+  background: var(--neon);
+  color: #0A0A0A;
+  box-shadow: 0 0 14px rgba(200, 255, 0, 0.45);
+}
+.check svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ── 5 · Formulario de tarjeta ─────────────────────────────────────────── */
+.card-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  margin: var(--s4) var(--s3) 0;
+  padding: var(--s3);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--card);
+}
+.card-form h2 {
+  margin: 0;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s2);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+.field-k {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.16em;
+  color: var(--text-3);
+}
+
+.input {
+  width: 100%;
+  min-height: var(--touch);
+  padding: 0 var(--s3);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  background: #101010;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14.5px;
+}
+.input:focus {
+  outline: none;
+  border-color: var(--neon);
+  box-shadow: 0 0 0 1px rgba(200, 255, 0, 0.45);
+}
+.input--mono {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.08em;
+}
+
+/* ── 6 · Total y seguridad ─────────────────────────────────────────────── */
+.total {
+  margin: var(--s3) var(--s3) 0;
+  padding: var(--s3);
+  border: 1px solid rgba(200, 255, 0, 0.5);
+  border-radius: var(--r);
+  background: linear-gradient(160deg, #171B0A 0%, var(--card) 72%);
+}
+.total-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s3);
+}
+.total-row span { font-size: 14px; font-weight: 700; }
+.total-row em {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-style: normal;
+  letter-spacing: 0.14em;
+  color: var(--text-3);
+}
+.total-row b {
+  font-family: var(--mono);
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--neon);
+  font-variant-numeric: tabular-nums;
+}
+.total-note {
+  display: block;
+  margin-top: 4px;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  color: var(--text-3);
+  text-align: right;
+}
+
+.ssl {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: var(--s3) var(--s3) 0;
+  font-size: 11.5px;
+  color: var(--text-2);
+}
+.ssl svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: var(--neon);
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ── 7 · Barra de pago ─────────────────────────────────────────────────── */
+.paybar {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 430px;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s2) var(--s3) calc(var(--s2) + env(safe-area-inset-bottom));
+  background: rgba(10, 10, 10, 0.96);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border-top: 1px solid var(--line);
+}
+.paybar-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.paybar-info span {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.16em;
+  color: var(--text-3);
+}
+.paybar-info b {
+  font-family: var(--mono);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--neon);
+  font-variant-numeric: tabular-nums;
+}
+
+.btn {
+  flex: 1;
+  min-height: var(--touch);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 var(--s4);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  background: var(--card);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14.5px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+.btn:active { transform: scale(0.985); }
+.btn svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.btn-neon {
+  border-color: var(--neon);
+  background: var(--neon);
+  color: #0A0A0A;
+  box-shadow: 0 0 20px rgba(200, 255, 0, 0.4);
+}
+
+/* ── 8 · Ajustes finos ─────────────────────────────────────────────────── */
+@media (max-width: 340px) {
+  .row { grid-template-columns: minmax(0, 1fr); }
+  .paybar { flex-wrap: wrap; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+}

@@ -21,7 +21,7 @@ CACHE_CARGO="${CACHE_CARGO:-/data/data/com.termux/files/home/.cargo}"
 
 B="$RAIZ/build"
 DIST="$RAIZ/dist"
-NOMBRE="FORGE-CORE-STOCK-0.9.39"
+NOMBRE="FORGE-CORE-STOCK-0.9.40"
 
 # La versión vive en tres sitios (Cargo.toml, manifiesto y NOMBRE). aapt2 sólo
 # inyecta --version-code si el manifiesto no lo trae, pero se pasa igual para

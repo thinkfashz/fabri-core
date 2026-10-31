@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="flujo.css" />
   <link rel="stylesheet" href="inicio.css" />
   <link rel="stylesheet" href="identidad.css" />
+  <link rel="stylesheet" href="catalogo.css" />
 </head>
 <body>
   <!-- ===================== ACCESO · HUELLA + PIN ===================== -->
@@ -96,6 +97,7 @@
       </div>
     </div>
     <div class="topbar-acciones">
+      <span id="pilotoConexion" class="piloto-conexion espera" title="Estado de la conexión"><i></i>verificando…</span>
       <span id="pilotoNucleo" class="pill pill-espera">iniciando…</span>
       <button class="btn btn-icono" id="btnMenu" aria-label="Abrir menú" aria-controls="drawer">☰</button>
     </div>
@@ -118,6 +120,7 @@
       <button class="nav-drawer" data-vista="id"><span>▣</span>Mi identidad</button>
       <button class="nav-drawer" data-vista="chat"><span>✦</span>Chat</button>
       <button class="nav-drawer" data-vista="inventario"><span>▦</span>Inventario</button>
+      <button class="nav-drawer" data-vista="catalogo"><span>◈</span>Catálogo</button>
       <button class="nav-drawer" data-vista="flujo"><span>⇄</span>Flujo en tiempo real</button>
       <button class="nav-drawer" data-vista="modulos"><span>⬡</span>Módulos</button>
       <button class="nav-drawer" data-vista="consola"><span>▸</span>Consola</button>
@@ -1512,11 +1515,97 @@ npx -y omniroute@latest
       </div>
     </section>
 
-    <section class="vista" id="v-inventario">
+    <!-- ===================== CATÁLOGO DE PRODUCTOS ========================== -->
+  <section class="vista" id="v-catalogo">
+    <!-- 1 · cabecera + estado vivo -->
+    <div class="cat-hero">
+      <div>
+        <p class="cat-eyebrow">Módulo · catálogo</p>
+        <h2>Catálogo de <em>productos</em></h2>
+        <p class="cat-sub">Todos los productos de tu base, en tarjetas. Busca por nombre,
+          código o escanea el código de barras: la lectura es local y al instante.</p>
+      </div>
+      <div class="cat-estado">
+        <span id="catPiloto" class="piloto-conexion espera"><i></i>verificando…</span>
+        <span id="catEstado">Cargando tu catálogo…</span>
+      </div>
+    </div>
+
+    <!-- 2 · KPIs del negocio -->
+    <div class="cat-kpis" id="catKpis" aria-label="Resumen del catálogo"></div>
+
+    <!-- 3 · búsqueda + escáner de código de barras -->
+    <div class="cat-busca">
+      <label class="cat-campo" for="catBuscar">
+        <span data-ico="buscar" data-ico-tam="18"></span>
+        <input id="catBuscar" type="search" inputmode="search" autocomplete="off"
+               placeholder="Buscar por nombre, marca o código…" />
+      </label>
+      <button class="cat-esc-btn" id="btnCatEsc" type="button" aria-pressed="false">
+        <span data-ico="scan" data-ico-tam="18"></span><b>OFF</b>
+      </button>
+    </div>
+    <div class="cat-esc-caja" id="catEscCaja" hidden>
+      <div class="cat-esc-video" id="catEscVideoCaja" hidden>
+        <video id="catEscVideo" playsinline muted autoplay></video>
+        <div class="cat-esc-mira" aria-hidden="true"></div>
+        <div class="cat-esc-laser" aria-hidden="true"></div>
+      </div>
+      <p class="cat-esc-nota" id="catEscNota">Escáner apagado. Toca «Escanear» para buscar por código.</p>
+    </div>
+
+    <!-- chips fijos de categorías (con sus conteos reales) -->
+    <div class="cat-chips" id="catChips" role="group" aria-label="Categorías"></div>
+
+    <!-- 4 · grilla de tarjetas -->
+    <p class="cat-vacio" id="catAviso"></p>
+    <div class="cat-lista" id="catLista" aria-live="polite"></div>
+
+    <!-- 5 · Tienda FORGE: las 8 pantallas web unificadas en este módulo -->
+    <section class="cat-tienda" aria-label="Tienda FORGE">
+      <div class="cat-tienda-cab">
+        <h3>Tienda FORGE · 8 pantallas en un módulo</h3>
+        <p>El recorrido de compra completo de la app web, integrado aquí:
+          catálogo, escáner, detalle, carrito, checkout, pago y confirmación.</p>
+      </div>
+      <div class="cat-tienda-tabs" role="tablist">
+        <button class="cat-tienda-tab activo" data-tab="1" type="button"><b>01</b> Catálogo</button>
+        <button class="cat-tienda-tab" data-tab="2" type="button"><b>02</b> Escáner</button>
+        <button class="cat-tienda-tab" data-tab="3" type="button"><b>03</b> Detalle</button>
+        <button class="cat-tienda-tab" data-tab="4" type="button"><b>04</b> Agregar</button>
+        <button class="cat-tienda-tab" data-tab="5" type="button"><b>05</b> Carrito</button>
+        <button class="cat-tienda-tab" data-tab="6" type="button"><b>06</b> Datos</button>
+        <button class="cat-tienda-tab" data-tab="7" type="button"><b>07</b> Pago</button>
+        <button class="cat-tienda-tab" data-tab="8" type="button"><b>08</b> Listo</button>
+      </div>
+      <div class="cat-tienda-marco" id="catTiendaMarco"></div>
+      <div class="cat-tienda-pie">
+        <span class="cat-progreso" id="catTiendaProgreso">PASO 1/8 · CATÁLOGO</span>
+        <span>desliza dentro de la pantalla</span>
+      </div>
+      <p class="cat-tienda-nota">Las 8 pantallas son las mismas de la tienda web FORGE,
+        con precios en CLP y diseño offline. Tus productos reales viven arriba,
+        en la grilla de este módulo.</p>
+    </section>
+
+    <!-- 6 · acciones -->
+    <div class="cat-acciones">
+      <button class="btn btn-primario" id="btnCatRefrescar" type="button">
+        <span data-ico="refrescar"></span> Refrescar catálogo
+      </button>
+      <button class="btn" data-vista="inventario" type="button">
+        <span data-ico="apilar"></span> Abrir Inventario
+      </button>
+    </div>
+  </section>
+
+  <!-- ===================== MÓDULO INVENTARIO ============================== -->
+  <section class="vista" id="v-inventario">
       <div class="inv-hero">
         <div class="inv-hero-texto">
           <p class="inv-eyebrow">Módulo · inventario</p>
           <h2 id="invTitulo">Inventario guiado</h2>
+          <div class="cat-estado" style="margin-top:6px"><span id="invPilotoConexion" class="piloto-conexion espera" title="Estado de la conexión"><i></i>verificando…</span></div>
           <p class="inv-sub">Escanea, revisa, ajusta precios, calcula márgenes y emite la boleta.
             Todo queda en tu SQLite local y se sincroniza cuando tú decidas.</p>
         </div>
@@ -2495,6 +2584,7 @@ CREATE INDEX IF NOT EXISTS idx_inv_productos_actualizado
   <script src="datos.js"></script>
   <script src="conexiones.js"></script>
   <script src="inventario.js"></script>
+  <script src="catalogo.js"></script>
   <script src="impresora.js"></script>
   <script src="lector-red.js"></script>
   <script src="importar-base.js"></script>

@@ -2346,3 +2346,147 @@ img.inv-mini { object-fit: cover; }
   white-space: nowrap;
 }
 .inv-negocio-fila span { flex: 0 0 auto; font-variant-numeric: tabular-nums; color: var(--acento); }
+
+/* ==========================================================================
+   Refinamiento 0.9.40 · Módulo Inventario (los 5 pasos)
+   --------------------------------------------------------------------------
+   Sólo se AÑADE pulido visual: jerarquía, glow FORGE, foco visible y
+   estados más legibles. No se elimina ninguna regla ni comportamiento.
+   ========================================================================== */
+
+/* ── Hero: identidad + estado vivo ───────────────────────────────────────── */
+.inv-hero {
+  border-color: #232323;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45);
+}
+.inv-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--acento), transparent 70%);
+}
+.inv-eyebrow { display: flex; align-items: center; gap: 7px; }
+.inv-eyebrow::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--acento);
+  box-shadow: 0 0 8px rgba(200, 255, 0, 0.8);
+  animation: inv-eyebrow-pulso 2.2s infinite ease-in-out;
+}
+@keyframes inv-eyebrow-pulso {
+  0%, 100% { transform: scale(0.85); opacity: 0.7; }
+  50% { transform: scale(1.15); opacity: 1; }
+}
+.inv-hero h2 { font-size: 26px; }
+.inv-sub { color: #9AA39B; }
+
+/* ── KPIs: tiles con más presencia ───────────────────────────────────────── */
+.inv-kpi {
+  border-radius: 14px;
+  border-color: #242424;
+  background: linear-gradient(180deg, #131313, var(--elevado));
+  transition: border-color 150ms ease, transform 150ms ease;
+}
+.inv-kpi:hover { border-color: rgba(200, 255, 0, 0.35); }
+.inv-kpi strong { font-size: 19px; font-weight: 800; letter-spacing: -0.01em; }
+
+/* ── Pasos: píldoras con número definido + glow en el activo ─────────────── */
+.inv-paso {
+  padding: 10px 14px;
+  min-height: 42px;
+  border-color: #262626;
+}
+.inv-paso b {
+  border: 1px solid #303030;
+  font-weight: 700;
+}
+.inv-paso:hover { color: var(--texto); border-color: #3A3A3A; }
+.inv-paso.activo {
+  box-shadow: 0 0 18px rgba(200, 255, 0, 0.35);
+  font-weight: 700;
+}
+.inv-pasos { gap: 8px; }
+
+/* ── Paneles: tarjeta de contenido con respiración ───────────────────────── */
+.inv-panel.activo {
+  padding: 16px;
+  border: 1px solid #212121;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #0E0E0E, var(--card));
+}
+.inv-panel .campo { margin-bottom: 12px; }
+
+/* ── Escáner y lectores: viewfinder más nítido ───────────────────────────── */
+.inv-scan-bar {
+  border-color: #262626;
+  background: var(--hundido);
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+.inv-scan-bar:focus-within {
+  border-color: rgba(200, 255, 0, 0.55);
+  box-shadow: 0 0 0 3px rgba(200, 255, 0, 0.12);
+}
+.inv-lector-btn[aria-pressed="true"] {
+  box-shadow: 0 0 14px rgba(200, 255, 0, 0.45);
+}
+.inv-lector-video { border-color: #2A2A2A; }
+
+/* ── Campos: foco visible (acento) en todos los inputs del módulo ────────── */
+.inv-panel input:focus,
+.inv-panel select:focus,
+.inv-panel textarea:focus,
+.inv-lector-fijo input:focus {
+  outline: none;
+  border-color: rgba(200, 255, 0, 0.55) !important;
+  box-shadow: 0 0 0 3px rgba(200, 255, 0, 0.13);
+}
+.inv-panel input::placeholder { color: #6B6B6B; }
+
+/* ── Barra de acciones: primario con glow ────────────────────────────────── */
+.inv-toolbar-acciones .btn { min-height: 44px; }
+.inv-toolbar-acciones .btn-primario {
+  box-shadow: 0 0 16px rgba(200, 255, 0, 0.28);
+}
+.inv-toolbar-acciones .btn:hover { transform: translateY(-1px); }
+.inv-toolbar-acciones .btn { transition: transform 140ms ease, box-shadow 140ms ease; }
+
+/* ── Salida de cálculo de márgenes: número protagonista ──────────────────── */
+.inv-calc-salida {
+  border-color: #262626;
+  background: linear-gradient(180deg, #121212, var(--elevado));
+}
+.inv-calc-salida strong,
+.inv-calc-salida b { font-variant-numeric: tabular-nums; }
+
+/* ── Boleta y ticket: profundidad ────────────────────────────────────────── */
+.ticket-termico {
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55);
+}
+.impresora-boca { filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.5)); }
+.inv-boleta-der { border-radius: 12px; }
+
+/* ── Estados vacíos del módulo ───────────────────────────────────────────── */
+.inv-vacio {
+  padding: 30px 16px;
+  border: 1px dashed #333;
+  border-radius: 16px;
+  color: var(--texto-3);
+  text-align: center;
+  line-height: 1.55;
+}
+
+/* ── Accesibilidad: foco teclado en botones del módulo ───────────────────── */
+.inv-panel button:focus-visible,
+.inv-hero button:focus-visible,
+.inv-paso:focus-visible {
+  outline: 2px solid var(--acento);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .inv-eyebrow::before { animation: none; }
+  .inv-kpi, .inv-toolbar-acciones .btn { transition: none; }
+}
