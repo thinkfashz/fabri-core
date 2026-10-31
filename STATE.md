@@ -1633,3 +1633,11 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
 - APK: versionCode 53 / versionName 0.9.38, zipalign 4 ✔, apksigner V2+V3 ✔, assets con marca FORGE dentro (17×, 0 FABRI) ✔.
 - SHA-256: `f36cbaeb8c277aab8610b18bea1315c4c3768dbd78436e64ae23770c2aff00df` · 4.329.267 B.
 - Copiada a `/tmp/opencode/FORGE-CORE-STOCK-0.9.38.apk` y `/storage/emulated/0/Download/FORGE-CORE-STOCK-0.9.38.apk`.
+
+## Sesión 2026-10-31 · Marketplace en la nube (catálogo con filtros)
+
+- **API**: `web/api/catalogo/index.go` → `GET /api/catalogo` sirve el catálogo de la tienda (12 productos con categoría, clasificación, descripción, precio CLP, stock y tinte). Filtros por query: `q`, `categoria`, `clasificacion`, `max_precio`; devuelve también las categorías/clasificaciones disponibles. Lee una sobreescritura de Blob (`fabri/catalogo.json`) si existe `BLOB_READ_WRITE_TOKEN`; si no, usa el seed. Registrado en `web/vercel.json`. Probado localmente con `go build` + servidor de prueba (todos los filtros OK).
+- **PWA**: nueva pantalla «Mercado» (`s-mercado`) en `web/app/index.html`, botón de nav (bajo Operación, con `data-mas`), integrada en `go()` de `app.js`. Catálogo tipo marketplace con filtros (búsqueda, chips de categoría, chips de clasificación, rango de precio máx) y grilla de tarjetas con tinte por categoría + cubo isométrico CSS. `web/app/mercado.js` consulta `/api/catalogo` y cae a un seed local espejo si no hay red. Estilos fusionados en `web/app/styles.css` (herencia de tokens: navy, acento, lima).
+- **Service worker**: `SHELL` incluye `mercado.js`; versión de caché `fcore-v7`.
+- **Verificación**: `tests/web/diseno.js` ✔ (contrato, sistema visual, offline); render Chromium headless: 12 tarjetas, chips poblados, badge de conteo. Detector impeccable: sin hallazgos propios en la superficie nueva (solo patrones preexistentes de la app, que se conservan por brief).
+- Nota: la conexión APK→catálogo requiere cablear `op_nube` (hoy valida/guarda config) para llamar `/api/catalogo`; documentado como paso siguiente.

@@ -382,6 +382,7 @@
     if (id === 'datos') Pro.renderDatos();
     if (id === 'ia') Pro.renderIA();
     if (id === 'inv') Pro.renderInv();
+    if (id === 'mercado' && window.Mercado) Mercado.render();
     if (id === 'hoja') Sheet.mount($('#pro-hoja'));
     if (id === 'cuenta') Pro.renderCuenta();
     if (id === 'wiki' && window.Wiki) Wiki.render();

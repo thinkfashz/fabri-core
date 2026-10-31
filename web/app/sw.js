@@ -5,9 +5,10 @@
    La lista de precache es deliberadamente explícita: si un archivo falta, el
    install falla y la app deja de ser offline — mejor detectarlo en la prueba
    `tests/web/diseno.js` que en el teléfono del usuario. */
-const V = 'fcore-v6';
+const V = 'fcore-v7';
 const SHELL = [
   './', './index.html', './styles.css', './app.js', './cloud.js', './lottie-mount.js',
+  './mercado.js',
   './core-xlsx.js', './core-sec.js', './core-pro.js', './core-sheet.js',
   './core-scan.js', './core-wiki.js',
   './manifest.webmanifest',

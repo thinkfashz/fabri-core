@@ -59,6 +59,7 @@
       <div class="nav-group">
         <span class="nav-lbl">Operación</span>
         <button data-go="inv" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7.5 12 3l9 4.5v9L12 21l-9-4.5v-9Z"/><path d="M3 7.5 12 12l9-4.5M12 12v9"/></svg><span>Stock</span></button>
+        <button data-go="mercado" data-mas type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 7h17L19 20H5L3.5 7Z"/><path d="M9 10V6a3 3 0 0 1 6 0v4"/></svg><span>Mercado</span></button>
         <button data-go="wiki" data-mas type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5v-15Z"/><path d="M4 20.5A2.5 2.5 0 0 1 6.5 18H20v3H6.5"/><path d="M8 7h8M8 10.5h5"/></svg><span>Wiki</span></button>
         <button data-go="flow" data-mas type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="2.5"/><circle cx="19" cy="6" r="2.5"/><circle cx="19" cy="18" r="2.5"/><path d="M7.5 12h4a3 3 0 0 0 3-3V8.5"/><path d="M7.5 12h4a3 3 0 0 1 3 3v.5"/></svg><span>Flujos</span></button>
         <button data-go="datos" data-mas type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V9m5 10V5m5 14v-7m5 7V8"/></svg><span>Datos</span></button>
@@ -383,6 +384,32 @@
       </section>
 
       <!-- ══════════════ WIKI DE PRODUCTOS ══════════════ -->
+      <section class="screen" id="s-mercado">
+        <div class="screen-head" style="display:flex;align-items:center;gap:16px">
+          <div style="flex:1;min-width:0">
+            <p class="eyebrow">Marketplace</p>
+            <h1>Mercado en la nube</h1>
+            <p class="sub">Catálogo de tu tienda servido desde fabri-api. Al conectar tu APK verás
+              exactamente estos productos, con categoría, clasificación, descripción y precio.</p>
+          </div>
+          <span class="badge acc" id="mercCount">…</span>
+        </div>
+
+        <div class="card tight mercado-filtros">
+          <input class="field" id="mercQ" type="search" placeholder="Buscar producto o descripción…" autocomplete="off">
+          <div class="chips" id="mercCats"></div>
+          <div class="chips" id="mercClas"></div>
+          <div class="merc-rango">
+            <span>Precio máx</span>
+            <input type="range" id="mercMax" min="0" max="500000" step="10000" value="500000">
+            <output id="mercMaxVal">$500.000</output>
+          </div>
+          <p class="hint" id="mercNota"></p>
+        </div>
+
+        <div class="merc-grid" id="mercGrid"></div>
+      </section>
+
       <section class="screen" id="s-wiki">
         <div class="screen-head wiki-head">
           <div>
@@ -513,5 +540,6 @@
 <script src="./core-wiki.js"></script>
 <script src="./app.js"></script>
 <script src="./cloud.js"></script>
+<script src="./mercado.js"></script>
 </body>
 </html>
