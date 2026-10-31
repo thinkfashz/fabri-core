@@ -1808,3 +1808,43 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
 - Entregada en `/storage/emulated/0/Download/FORGE-CORE-STOCK-0.9.40.apk` y `/tmp/opencode/`.
 - Sin probar en dispositivo: cámara/escáner real (no hay adb). Pendiente del usuario:
   pegar el token en Integración → Nube (Integración → Nube, `fabrick.nube.url`/`fabrick.nube.token`).
+
+## Sesión 2026-10-31 · APK 0.9.41 (56) — tienda real, lector propio y pantalla completa
+
+- Commit `2066409` (push `703a08d..2066409`). Motivo: capturas del usuario mostraban
+  topbar partido, tarjetas con el código fuera del borde, la tienda por iframes
+  guiados y zoom/bordes en todas las pantallas.
+- **Pantalla completa y sin zoom** (nativo): `MainActivity` ahora usa
+  `setUseWideViewPort(true)` + `setLoadWithOverviewMode(true)` + `setTextZoom(100)`.
+  Antes la WebView maquetaba a 980 px y encogía la página → bordes negros y pinch
+  zoom. Meta viewport con `maximum-scale=1, user-scalable=no`. Manifiesto con
+  `android:windowSoftInputMode="adjustResize"` para que el teclado no deforme.
+- **Topbar**: marca en una línea (elipsis), píldoras acotadas y el piloto de
+  conexión reducido a luz (punto + tooltip) en pantallas ≤400 px.
+- **Tienda real**: se eliminó el recorrido guiado por iframes 01-08 (`cat-tienda*`,
+  `catTiendaTab`, `cat-esc-*`). El módulo tiene 6 páginas con navegación libre:
+  `catEscenaCatalogo → Producto → Carrito → Checkout → Pago → Éxito`.
+  Carrito persistente (`forge.tienda.carrito`), totales con envío gratis ≥ $20.000,
+  checkout con entrega/pago, pago simulado con anillo de progreso y éxito con
+  seguimiento (60%).
+- **Lector propio** (`catLector*`) con el mismo lenguaje del inventario: ON/OFF,
+  mira con láser, ficha del producto leído, `BarcodeDetector` y
+  `invLectorParar()` antes de abrir cámara (nunca dos cámaras).
+- **Detalle con wiki**: imagen/descripción/etiquetas/Nutri-Score/NOVA/alérgenos
+  desde `ficha`, datos del producto y relacionados por categoría.
+- **Banners SVG en español** generados en la app (OFERTA FLASH / PRECIO BAJÓ /
+  LLEVA 3 PAGA 2), 3 temas, producto y precio reales, rotación variada por categoría.
+- **Tarjetas**: imagen si la ficha la trae, si no motivo por categoría; promo
+  determinista por código; stock con color; código con elipsis (ya no se sale).
+- **Inventario**: id duplicado `invEdPrecio` (el campo del formulario quedaba
+  muerto porque `getElementById` devuelve el primero). Segundo campo renombrado a
+  `invEdPrecio2` + espejo bidireccional y `window.invEdSyncPrecio()` al cargar.
+- Verificado con arnés headless a 393×852 (iPhone 17): catálogo, producto, carrito,
+  checkout, pago y éxito; topbar en una línea. Arneses borrados antes del build.
+- Build EXIT=0 · 4.289 KB · VC 56 / 0.9.41 · `apksigner` v2 ✔ v3 ✔.
+  Dentro del APK: `catalogo.js` 42.803 B, `catalogo.css` 32.382 B, las 6 escenas en
+  `index.html`, `windowSoftInputMode` en el manifiesto binario.
+- SHA-256: `f5f44a41cc217762602fba787669c9aebe7211ebd0a67316cf6a1e0912a3a4c3` · 4.392.382 B.
+- Entregada en `/storage/emulated/0/Download/FORGE-CORE-STOCK-0.9.41.apk` y `/tmp/opencode/`.
+- Pendiente: prueba en dispositivo (cámara real, teclado) — no hay adb. El token de
+  nube sigue pendiente de pegar en Integración → Nube.
