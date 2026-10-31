@@ -1558,19 +1558,8 @@ npx -y omniroute@latest
             <button class="cat-btn-lec" id="btnCatLector" type="button" aria-pressed="false">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
                    stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><line x1="3" y1="12" x2="21" y2="12"/></svg>
-              <b>OFF</b>
+              <b>Escanear</b>
             </button>
-          </div>
-
-          <div class="cat-lector" id="catLectorCaja" hidden>
-            <div class="cat-lector-cab">
-              <span class="cat-lector-estado" id="catLectorNota">Lector apagado.</span>
-            </div>
-            <div class="cat-lector-video" id="catLectorVideoCaja">
-              <video id="catLectorVideo" playsinline muted autoplay hidden></video>
-              <div class="cat-lector-mira" id="catLectorMira" hidden aria-hidden="true"><i></i></div>
-            </div>
-            <div class="cat-lector-resultado" id="catLectorResultado"></div>
           </div>
 
           <div class="cat-banners" id="catBanners" aria-label="Promociones"></div>
@@ -1580,6 +1569,42 @@ npx -y omniroute@latest
           <p class="cat-vacio" id="catAviso"></p>
           <p class="cat-cuentas"><span id="catEstado">Cargando tu catálogo…</span></p>
           <div class="cat-lista" id="catLista" aria-live="polite"></div>
+        </div>
+      </section>
+
+      <!-- ── 2 · escáner (canvas + panel de carrito) ───────────────────── -->
+      <section class="cat-escena" id="catEscenaEscaner">
+        <div class="esc">
+          <div class="esc-vista">
+            <video id="escVideo" playsinline muted autoplay></video>
+            <canvas id="escCanvas"></canvas>
+            <div class="esc-hud">
+              <span class="esc-chip" id="escEstado"><i></i>Iniciando cámara…</span>
+            </div>
+            <button class="esc-linterna" id="escLinterna" type="button" hidden aria-label="Linterna">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+                   stroke-linecap="round" stroke-linejoin="round"><path d="M9 2h6l-1 6 3 4v10H7V12l3-4z"/><path d="M10 16h4"/></svg>
+            </button>
+            <button class="esc-cerrar" id="escCerrar" type="button" aria-label="Cerrar escáner">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
+          </div>
+
+          <div class="esc-panel" id="escPanel">
+            <div class="esc-panel-cab">
+              <div class="esc-panel-total">
+                <b id="escTotal">$0</b>
+                <span id="escCuenta">0 productos</span>
+              </div>
+              <button class="esc-limpiar" id="escLimpiar" type="button">Limpiar</button>
+            </div>
+            <div class="esc-lista" id="escLista"></div>
+            <div class="esc-acciones">
+              <button class="cat-btn fantasma" id="escSeguir" type="button">Seguir viendo</button>
+              <button class="cat-btn lima" id="escPagar" type="button">Ir a pagar</button>
+            </div>
+          </div>
         </div>
       </section>
 

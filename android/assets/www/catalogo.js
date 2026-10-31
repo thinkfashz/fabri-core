@@ -110,7 +110,8 @@ function catIniciar() {
 
 function catSalir() {
   CAT.activa = false;
-  catLectorApagar();
+  catEscApagar();
+  ESC.abierto = false;
 }
 
 /* ── navegación entre páginas del módulo ───────────────────────────────── */
@@ -118,6 +119,7 @@ function catIr(vista, silencio) {
   const paginas = {
     catalogo: ["catEscenaCatalogo", "Catálogo", "Tu tienda"],
     producto: ["catEscenaProducto", "Producto", "Detalle"],
+    escaner: ["catEscenaEscaner", "Escáner", "Agrega al carrito"],
     carrito: ["catEscenaCarrito", "Carrito", "Tu pedido"],
     checkout: ["catEscenaCheckout", "Entrega y pago", "Paso 2 de 3"],
     pago: ["catEscenaPago", "Procesando pago", "Paso 3 de 3"],
@@ -250,6 +252,12 @@ function catCargar(mas) {
     const filas = r.data.productos;
     CAT.total = Number(r.data.total || 0);
     CAT.productos = mas ? CAT.productos.concat(filas) : filas;
+    // Si «Ver más» tuvo que traer una página nueva, muestra enseguida el
+    // siguiente lote: si no, el usuario pulsa y no ve nada nuevo.
+    if (mas && CAT.recargarLote) {
+      CAT.lote = Math.min(CAT.productos.length, CAT.lote + 24);
+      CAT.recargarLote = false;
+    }
     catPintarEstado();
     catRender();
     catPintarBanners();
@@ -317,7 +325,7 @@ function catPintarEstado() {
   const hora = String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
   caja.innerHTML = n
     ? "Mostrando <b>" + Number(n).toLocaleString("es-CL") + "</b> de <b>" +
-      Number(CAT.total).toLocaleString("es-CL") + "</b> · " + hora
+      Number(Math.min(CAT.total, CAT.productos.length)).toLocaleString("es-CL") + "</b> cargados · " + hora
     : "Sin resultados";
 }
 
@@ -384,11 +392,11 @@ function catRender() {
     return;
   }
   const visibles = CAT.productos.slice(0, CAT.lote);
-  const restantes = CAT.total - visibles.length;
+  const rest = catRestantes();
   caja.innerHTML = visibles.map(catCardHtml).join("") +
-    (restantes > 0
+    (rest
       ? '<button class="cat-btn bloque" id="catMas" type="button" style="grid-column:1/-1">' +
-        catIco("mas", 16) + " Ver " + Number(restantes).toLocaleString("es-CL") + " más</button>"
+        catIco("mas", 16) + " " + rest.texto + "</button>"
       : "");
   const b = document.getElementById("catMas");
   if (b) b.addEventListener("click", catMas);
@@ -407,10 +415,27 @@ function catRender() {
   });
 }
 
+/** «Ver más»: primero muestra lo ya descargado; sólo pide otra página cuando
+ *  se agotó el búfer local. Antes siempre pedía una página nueva y el render
+ *  seguía cortando en CAT.lote, así que no aparecía nada. */
 function catMas() {
-  if (CAT.productos.length < CAT.total) { catCargar(true); return; }
-  CAT.lote += 24;
-  catRender();
+  if (CAT.lote < CAT.productos.length) {
+    CAT.lote += 24;
+    catRender();
+    return;
+  }
+  if (CAT.productos.length < CAT.total) {
+    CAT.recargarLote = true;
+    catCargar(true);
+  }
+}
+
+function catRestantes() {
+  const porMostrar = Math.max(0, CAT.productos.length - CAT.lote);
+  if (porMostrar > 0) return { n: porMostrar, texto: "Ver " + Number(porMostrar).toLocaleString("es-CL") + " más" };
+  const porTraer = Math.max(0, CAT.total - CAT.productos.length);
+  if (porTraer > 0) return { n: porTraer, texto: "Cargar " + Number(porTraer).toLocaleString("es-CL") + " más" };
+  return null;
 }
 
 function catBuscar(texto) {
@@ -758,141 +783,413 @@ function catExito() {
   catPintarCarrito();
 }
 
-/* ── lector de código de barras (mismo que el inventario) ──────────────── */
-function catLectorCaja() { return document.getElementById("catLectorCaja"); }
-function catLectorVideo() { return document.getElementById("catLectorVideo"); }
-function catLectorNota(msg) {
-  const n = document.getElementById("catLectorNota");
-  if (n) n.textContent = msg || "";
+/* ==========================================================================
+   ESCÁNER CON CANVAS
+   --------------------------------------------------------------------------
+   Escáner a pantalla completa pensado para trabajar de pie, en la tienda:
+
+     · El vídeo va detrás y un <canvas> dibuja encima: máscara, esquinas,
+       línea de barrido y destello verde al leer.
+     · La lectura se hace sobre un canvas fuera de pantalla (más estable que
+       leer el <video>), con BarcodeDetector y respaldo a invEscanearCuadro.
+     · Cada código encontrado se agrega al carrito y se apila en el panel
+       inferior, que sube con una fila por producto y el precio animado.
+     · El código se busca en TODA la base (no sólo en la página cargada).
+   ========================================================================== */
+
+const ESC = {
+  abierto: false,
+  stream: null,
+  detector: null,
+  raf: 0,
+  ultimoMs: 0,
+  ultimoCodigo: "",
+  ultimoT: 0,
+  items: [],
+  total: 0,
+  totalMostrado: 0,
+  destello: 0,
+  audio: null,
+  mudo: false,
+  linterna: null,
+  trabajando: false
+};
+
+/** Vibración corta (si el WebView la expone). */
+function escVibrar(ms) {
+  try { if (navigator.vibrate) navigator.vibrate(ms || 25); } catch (e) {}
 }
-function catLectorPintar(on) {
-  const btn = document.getElementById("btnCatLector");
-  if (!btn) return;
-  btn.setAttribute("aria-pressed", on ? "true" : "false");
-  const b = btn.querySelector("b");
-  if (b) b.textContent = on ? "ON" : "OFF";
-}
 
-function catLectorToggle() {
-  if (CAT.lector.activo) catLectorApagar();
-  else catLectorEncender();
-}
-
-function catLectorEncender() {
-  const video = catLectorVideo();
-  const caja = catLectorCaja();
-  if (!video || !caja) return;
-  caja.hidden = false;
-
-  if (typeof window.BarcodeDetector !== "function" && typeof invEscanearCuadro !== "function") {
-    catLectorNota("Este Android no trae detector nativo: escribe el código.");
-    return;
-  }
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    catLectorNota("Sin acceso a la cámara en este dispositivo.");
-    return;
-  }
-  // Una sola cámara en toda la app: se apaga la del inventario si estaba.
-  if (typeof invLectorParar === "function") invLectorParar();
-
-  catLectorPintar(true);
-  catLectorNota("Abriendo cámara…");
-  navigator.mediaDevices.getUserMedia({
-    video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 } },
-    audio: false
-  }).then(function (stream) {
-    CAT.lector.stream = stream;
-    CAT.lector.activo = true;
-    video.srcObject = stream;
-    video.hidden = false;
-    if (typeof window.BarcodeDetector === "function" && !CAT.lector.detector) {
-      CAT.lector.detector = new window.BarcodeDetector({
-        formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "code_39", "itf", "qr_code"]
-      });
+/** Pitido corto generado con WebAudio: no hay archivos externos. */
+function escPitar() {
+  if (ESC.mudo) return;
+  try {
+    if (!ESC.audio) {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+      ESC.audio = new Ctx();
     }
-    catLectorNota("Lector activo · apunta al código");
-    video.play().catch(function () {});
-    CAT.lector.raf = requestAnimationFrame(catLectorBucle);
-  }).catch(function (e) {
-    catLectorPintar(false);
-    catLectorNota("No pude abrir la cámara: " + (e && e.message ? e.message : "permiso denegado"));
-    if (typeof toast === "function") toast("Revisa el permiso de cámara.", "error");
+    const ac = ESC.audio;
+    if (ac.state === "suspended") ac.resume();
+    const o = ac.createOscillator();
+    const g = ac.createGain();
+    o.type = "sine";
+    o.frequency.value = 1180;
+    g.gain.setValueAtTime(0.0001, ac.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.12, ac.currentTime + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + 0.12);
+    o.connect(g).connect(ac.destination);
+    o.start();
+    o.stop(ac.currentTime + 0.13);
+  } catch (e) { /* sin audio: no pasa nada */ }
+}
+
+/** Busca un producto por código en la página cargada o en toda la base. */
+function catPorCodigo(codigo) {
+  const c = String(codigo || "");
+  const enMem = CAT.productos.find(function (p) { return String(p.codigo) === c; });
+  if (enMem) return Promise.resolve(enMem);
+  if (CAT.cacheCodigo && CAT.cacheCodigo[c]) return Promise.resolve(CAT.cacheCodigo[c]);
+  return invApiTarde("listar", { texto: c, limite: 8 }, { maxMs: 9000 }).then(function (r) {
+    if (!r.ok || !r.data || !Array.isArray(r.data.productos)) return null;
+    const p = r.data.productos.find(function (x) { return String(x.codigo) === c; }) || null;
+    if (p) {
+      CAT.cacheCodigo = CAT.cacheCodigo || {};
+      CAT.cacheCodigo[c] = p;
+    }
+    return p;
   });
 }
 
-function catLectorApagar() {
-  const l = CAT.lector;
-  if (l.raf) cancelAnimationFrame(l.raf);
-  l.raf = 0;
-  if (l.stream) l.stream.getTracks().forEach(function (t) { try { t.stop(); } catch (e) {} });
-  l.stream = null;
-  l.activo = false;
-  l.detector = null;
-  l.ultimo = "";
-  const video = catLectorVideo();
-  if (video) { video.srcObject = null; video.hidden = true; }
-  const caja = catLectorCaja();
-  if (caja) caja.hidden = true;
-  const mira = document.getElementById("catLectorMira");
-  if (mira) mira.hidden = true;
-  catLectorPintar(false);
-  catLectorNota("Lector apagado.");
+function catEscEstado(texto, clase) {
+  const el = document.getElementById("escEstado");
+  if (!el) return;
+  el.className = "esc-chip" + (clase ? " " + clase : "");
+  el.innerHTML = "<i></i>" + esc(texto);
 }
 
-function catLectorBucle(ts) {
-  const l = CAT.lector;
-  if (!l.activo) return;
-  l.raf = requestAnimationFrame(catLectorBucle);
-  if (ts - l.ultimoMs < 180) return;
-  l.ultimoMs = ts;
-  const video = catLectorVideo();
-  if (!video || !video.videoWidth) return;
-  const leer = function (codigos) {
-    if (!codigos || !codigos.length || !CAT.lector.activo) return;
-    const raw = codigos[0].rawValue;
-    if (raw && raw !== l.ultimo) {
-      l.ultimo = raw;
-      catLectorLeido(String(raw));
+/* ── abrir / cerrar ────────────────────────────────────────────────────── */
+function catEscAbrir() {
+  ESC.abierto = true;
+  catIr("escaner");
+  catEscPintar(null, true);
+  catEscEncender();
+}
+
+function catEscCerrar() {
+  catEscApagar();
+  ESC.abierto = false;
+  catIr("catalogo");
+}
+
+function catEscApagar() {
+  if (ESC.raf) cancelAnimationFrame(ESC.raf);
+  ESC.raf = 0;
+  if (ESC.stream) {
+    ESC.stream.getTracks().forEach(function (t) { try { t.stop(); } catch (e) {} });
+  }
+  ESC.stream = null;
+  ESC.detector = null;
+  ESC.linterna = null;
+  const video = document.getElementById("escVideo");
+  if (video) video.srcObject = null;
+  const cv = document.getElementById("escCanvas");
+  if (cv) {
+    const ctx = cv.getContext("2d");
+    if (ctx) ctx.clearRect(0, 0, cv.width, cv.height);
+  }
+}
+
+async function catEscEncender() {
+  const video = document.getElementById("escVideo");
+  if (!video) return;
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    catEscEstado("Sin cámara en este dispositivo", "error");
+    return;
+  }
+  // Una sola cámara en toda la app.
+  if (typeof invLectorParar === "function") invLectorParar();
+
+  catEscEstado("Abriendo cámara…");
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: { ideal: "environment" },
+        width: { ideal: 1920 },
+        height: { ideal: 1080 }
+      },
+      audio: false
+    });
+    ESC.stream = stream;
+    video.srcObject = stream;
+    await video.play().catch(function () {});
+
+    if (typeof window.BarcodeDetector === "function" && !ESC.detector) {
+      try {
+        ESC.detector = new window.BarcodeDetector({
+          formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "code_39", "itf", "qr_code", "codabar"]
+        });
+      } catch (e) {
+        try { ESC.detector = new window.BarcodeDetector(); } catch (e2) { ESC.detector = null; }
+      }
     }
-  };
-  if (l.detector) {
-    l.detector.detect(video).then(leer).catch(function () {});
+
+    // Linterna, si el teléfono la expone.
+    try {
+      const track = stream.getVideoTracks()[0];
+      const cap = track && track.getCapabilities ? track.getCapabilities() : {};
+      if (cap && cap.torch) {
+        ESC.linterna = track;
+        const btn = document.getElementById("escLinterna");
+        if (btn) btn.hidden = false;
+      }
+    } catch (e) {}
+
+    catEscEstado("Apunta al código de barras");
+    ESC.raf = requestAnimationFrame(catEscBucle);
+  } catch (e) {
+    catEscEstado("No pude abrir la cámara", "error");
+    if (typeof toast === "function") toast("Cámara: " + (e && e.message ? e.message : "permiso denegado"), "error");
+  }
+}
+
+function escLinternaToggle() {
+  if (!ESC.linterna) return;
+  ESC.torch = !ESC.torch;
+  ESC.linterna.applyConstraints({ advanced: [{ torch: ESC.torch }] }).catch(function () {});
+  const b = document.getElementById("escLinterna");
+  if (b) b.classList.toggle("activa", ESC.torch);
+}
+
+/* ── bucle: dibujo del canvas + lectura ────────────────────────────────── */
+function catEscBucle(ts) {
+  if (!ESC.abierto) return;
+  ESC.raf = requestAnimationFrame(catEscBucle);
+  catEscDibujar(ts);
+  if (ts - ESC.ultimoMs < 150 || ESC.trabajando) return;
+  ESC.ultimoMs = ts;
+  catEscLeerCuadro();
+}
+
+/** Lienzo fuera de pantalla reutilizado para leer fotogramas. */
+let ESC_LIENZO = null;
+
+function catEscLeerCuadro() {
+  const video = document.getElementById("escVideo");
+  if (!video || !video.videoWidth || !video.videoHeight) return;
+  if (!ESC_LIENZO) {
+    ESC_LIENZO = document.createElement("canvas");
+    ESC_LIENZO.width = 720;
+    ESC_LIENZO.height = 540;
+  }
+  const c = ESC_LIENZO;
+  const ctx = c.getContext("2d", { willReadFrequently: true });
+  // Recorte central 4:3 (donde apunta la mira) y reescalado: menos píxeles,
+  // más rápido y más estable que leer el vídeo entero.
+  const vw = video.videoWidth, vh = video.videoHeight;
+  const escala = Math.max(c.width / vw, c.height / vh);
+  const sw = c.width / escala, sh = c.height / escala;
+  ctx.drawImage(video, (vw - sw) / 2, (vh - sh) / 2, sw, sh, 0, 0, c.width, c.height);
+
+  if (ESC.detector) {
+    ESC.trabajando = true;
+    ESC.detector.detect(c).then(function (codigos) {
+      ESC.trabajando = false;
+      if (!ESC.abierto || !codigos || !codigos.length) return;
+      const raw = codigos[0].rawValue;
+      if (raw) catEscLeido(String(raw));
+    }).catch(function () { ESC.trabajando = false; });
   } else if (typeof invEscanearCuadro === "function") {
-    const v = invEscanearCuadro("catLectorVideo");
-    if (v) leer([{ rawValue: v }]);
+    // Respaldo del inventario: sólo si el WebView no trae BarcodeDetector.
+    let v = "";
+    try { v = invEscanearCuadro("escVideo"); } catch (e) { v = ""; }
+    if (v) catEscLeido(String(v));
   }
 }
 
-function catLectorLeido(codigo) {
-  const mira = document.getElementById("catLectorMira");
-  if (mira) mira.hidden = false;
-  const p = CAT.productos.find(function (x) { return x.codigo === codigo; });
-  const res = document.getElementById("catLectorResultado");
-  catLectorApagar();
-  const input = document.getElementById("catBuscar");
-  if (input) input.value = codigo;
-  CAT.q = codigo;
-  catCargar(false);
+/** Dibuja la máscara, las esquinas, el barrido y el destello. */
+function catEscDibujar(ts) {
+  const cv = document.getElementById("escCanvas");
+  const video = document.getElementById("escVideo");
+  if (!cv || !video) return;
+  const r = cv.getBoundingClientRect();
+  if (!r.width || !r.height) return;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const W = Math.round(r.width * dpr), H = Math.round(r.height * dpr);
+  if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+  const ctx = cv.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const w = r.width, h = r.height;
+  ctx.clearRect(0, 0, w, h);
 
-  if (p) {
-    if (res) {
-      res.innerHTML = '<div class="cat-lec-ficha"><b>' + esc(p.nombre || "") + '</b>' +
-        '<span class="cat-lec-linea"><span>Código</span><span>' + esc(p.codigo) + '</span></span>' +
-        '<span class="cat-lec-linea"><span>Precio</span><span>' + invClp(p.precio || 0) + '</span></span>' +
-        '<span class="cat-lec-linea"><span>Stock</span><span>' + Number(p.stock || 0) + ' und</span></span>' +
-        '<button class="cat-btn lima bloque" id="catLecVer" type="button">Ver producto</button></div>';
-      const b = res.querySelector("#catLecVer");
-      if (b) b.addEventListener("click", function () { catAbrirProducto(p.codigo); });
+  // Ventana de lectura
+  const mx = w * 0.1, my = h * 0.2;
+  const vx = mx, vy = my, vw = w - mx * 2, vh = h - my * 2;
+  const radio = 20;
+
+  // Máscara oscura con hueco
+  ctx.save();
+  ctx.fillStyle = "rgba(0,0,0,0.55)";
+  ctx.fillRect(0, 0, w, h);
+  ctx.globalCompositeOperation = "destination-out";
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(vx, vy, vw, vh, radio);
+  else ctx.rect(vx, vy, vw, vh);
+  ctx.fill();
+  ctx.restore();
+
+  // Destello al leer
+  const ahora = ts || 0;
+  const desde = ESC.destello ? ahora - ESC.destello : 9999;
+  const leyendo = desde < 700;
+  const alpha = leyendo ? Math.max(0, 1 - desde / 700) : 0;
+
+  // Esquinas
+  const largo = Math.min(34, vw * 0.16);
+  ctx.lineWidth = 4;
+  ctx.lineCap = "round";
+  ctx.strokeStyle = leyendo ? "rgba(74,222,128," + (0.5 + alpha * 0.5) + ")" : "#C8FF00";
+  ctx.shadowColor = leyendo ? "rgba(74,222,128,0.9)" : "rgba(200,255,0,0.9)";
+  ctx.shadowBlur = 12;
+  const esquinas = [
+    [vx, vy, 1, 1], [vx + vw, vy, -1, 1],
+    [vx, vy + vh, 1, -1], [vx + vw, vy + vh, -1, -1]
+  ];
+  esquinas.forEach(function (e) {
+    ctx.beginPath();
+    ctx.moveTo(e[0] + e[2] * largo, e[1]);
+    ctx.lineTo(e[0], e[1]);
+    ctx.lineTo(e[0], e[1] + e[3] * largo);
+    ctx.stroke();
+  });
+  ctx.shadowBlur = 0;
+
+  // Línea de barrido
+  const t = (ahora % 2200) / 2200;
+  const tri = t < 0.5 ? t * 2 : (1 - t) * 2;
+  const y = vy + vh * (0.08 + tri * 0.84);
+  const grad = ctx.createLinearGradient(vx, y, vx + vw, y);
+  grad.addColorStop(0, "rgba(200,255,0,0)");
+  grad.addColorStop(0.5, "rgba(200,255,0,0.9)");
+  grad.addColorStop(1, "rgba(200,255,0,0)");
+  ctx.strokeStyle = grad;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(vx + 6, y);
+  ctx.lineTo(vx + vw - 6, y);
+  ctx.stroke();
+
+  // Ondas del destello
+  if (leyendo) {
+    ctx.strokeStyle = "rgba(74,222,128," + (alpha * 0.6) + ")";
+    ctx.lineWidth = 2;
+    for (let i = 1; i <= 2; i++) {
+      const off = alpha * 26 * i;
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(vx - off, vy - off, vw + off * 2, vh + off * 2, radio + off);
+      else ctx.rect(vx - off, vy - off, vw + off * 2, vh + off * 2);
+      ctx.stroke();
     }
-    if (typeof toast === "function") toast("Encontrado: " + (p.nombre || codigo));
-  } else {
-    if (res) {
-      res.innerHTML = '<div class="cat-lec-ficha"><b>Sin coincidencia</b>' +
-        '<span class="cat-lec-linea"><span>Código leído</span><span>' + esc(codigo) + '</span></span>' +
-        '<span class="cat-lec-linea"><span>Acción</span><span>Escríbelo en el buscador</span></span></div>';
-    }
-    if (typeof toast === "function") toast("Código leído: " + codigo);
   }
+}
+
+/* ── lectura: agrega al carrito y apila la fila ────────────────────────── */
+function catEscLeido(codigo) {
+  const ahora = Date.now();
+  // El mismo código seguido no debe contar como lectura nueva cada 150 ms.
+  if (codigo === ESC.ultimoCodigo && ahora - ESC.ultimoT < 2200) return;
+  ESC.ultimoCodigo = codigo;
+  ESC.ultimoT = ahora;
+  ESC.destello = performance.now();
+  escVibrar(28);
+  escPitar();
+
+  catEscEstado("Buscando " + codigo + "…");
+  catPorCodigo(codigo).then(function (p) {
+    if (!p) {
+      catEscEstado("Código " + codigo + " no está en tu base", "error");
+      return;
+    }
+    catCarroAgregar(p, 1);
+    const it = ESC.items.find(function (x) { return x.codigo === p.codigo; });
+    if (it) {
+      it.cantidad += 1;
+      it.precio = Number(p.precio || 0);
+      catEscPintar(String(p.codigo));
+    } else {
+      ESC.items.unshift({
+        codigo: p.codigo,
+        nombre: p.nombre || "(sin nombre)",
+        precio: Number(p.precio || 0),
+        cantidad: 1,
+        categoria: p.categoria || "otros",
+        imagen: catFicha(p).imagen || ""
+      });
+      catEscPintar(String(p.codigo));
+    }
+    catEscEstado("Agregado: " + (p.nombre || codigo), "ok");
+  });
+}
+
+/* ── panel inferior con animación de precios ───────────────────────────── */
+function catAnimarNumero(el, desde, hasta) {
+  if (!el) return;
+  const ini = performance.now();
+  const dur = 420;
+  const paso = function (t) {
+    const k = Math.min(1, (t - ini) / dur);
+    const e = 1 - Math.pow(1 - k, 3);   // ease-out cúbico
+    const v = desde + (hasta - desde) * e;
+    el.textContent = invClp(v);
+    if (k < 1) requestAnimationFrame(paso);
+    else el.textContent = invClp(hasta);
+  };
+  requestAnimationFrame(paso);
+}
+
+function catEscPintar(nuevoCodigo, primera) {
+  const lista = document.getElementById("escLista");
+  const totalEl = document.getElementById("escTotal");
+  const cuenta = document.getElementById("escCuenta");
+  if (!lista) return;
+
+  if (!ESC.items.length) {
+    lista.innerHTML = '<div class="esc-vacio">Apunta al código de barras.<br>Los productos se van sumando aquí.</div>';
+  } else {
+    lista.innerHTML = ESC.items.map(function (it) {
+      const t = catTinte(it.categoria);
+      return '<div class="esc-fila' + (it.codigo === nuevoCodigo ? " entra" : "") + '" ' +
+          'style="--cat-tinte:' + t.fondo + ';--cat-tinte-txt:' + t.texto + '">' +
+        '<span class="esc-fila-thumb">' +
+          (it.imagen ? '<img src="' + esc(it.imagen) + '" alt="" onerror="this.remove()" />' : catMotivo(it.categoria, 22)) +
+        '</span>' +
+        '<span class="esc-fila-info"><b>' + esc(it.nombre) + '</b>' +
+          '<span class="esc-fila-cod">' + esc(it.codigo) + '</span></span>' +
+        '<span class="esc-fila-cant">x' + it.cantidad + '</span>' +
+        '<b class="esc-fila-precio' + (it.codigo === nuevoCodigo ? " sube" : "") + '">' +
+          invClp(it.precio * it.cantidad) + '</b>' +
+      '</div>';
+    }).join("");
+  }
+
+  const total = ESC.items.reduce(function (a, x) { return a + x.precio * x.cantidad; }, 0);
+  const n = ESC.items.reduce(function (a, x) { return a + x.cantidad; }, 0);
+  if (cuenta) cuenta.textContent = n + (n === 1 ? " producto" : " productos");
+  if (totalEl) catAnimarNumero(totalEl, ESC.totalMostrado, total);
+  ESC.total = total;
+  ESC.totalMostrado = total;
+
+  const panel = document.getElementById("escPanel");
+  if (panel) panel.classList.toggle("con-items", ESC.items.length > 0);
+}
+
+function catEscLimpiar() {
+  ESC.items = [];
+  ESC.total = 0;
+  ESC.totalMostrado = 0;
+  catEscPintar(null, true);
+  const t = document.getElementById("escTotal");
+  if (t) t.textContent = invClp(0);
 }
 
 /* ── luz piloto de conexión ────────────────────────────────────────────── */
@@ -951,8 +1248,23 @@ function conexionPintar(estado, ms, texto) {
   document.addEventListener("click", function (ev) {
     const t = ev.target;
     if (!(t instanceof Element)) return;
-    if (t.closest("#btnCatLector")) { catLectorToggle(); return; }
-    if (t.closest("#catVolver")) { catIr("catalogo"); return; }
+    if (t.closest("#btnCatLector")) { catEscAbrir(); return; }
+    if (t.closest("#escCerrar")) { catEscCerrar(); return; }
+    if (t.closest("#escLimpiar")) { catEscLimpiar(); return; }
+    if (t.closest("#escLinterna")) { escLinternaToggle(); return; }
+    if (t.closest("#escPagar")) {
+      catEscApagar();
+      ESC.abierto = false;
+      catPintarCarrito();
+      catIrPagar();
+      return;
+    }
+    if (t.closest("#escSeguir")) { catEscCerrar(); return; }
+    if (t.closest("#catVolver")) {
+      if (CAT.vista === "escaner") { catEscCerrar(); return; }
+      catIr("catalogo");
+      return;
+    }
     if (t.closest("#catBtnCarro")) { catPintarCarrito(); catIr("carrito"); return; }
     if (t.closest("#catIrPagar")) { catIrPagar(); return; }
     if (t.closest("#catAgregarDetalle")) { catProductoAgregar(); return; }

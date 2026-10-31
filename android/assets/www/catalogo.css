@@ -1091,3 +1091,226 @@
   .cat-banner:active,
   .cat-btn:active { transform: none; }
 }
+
+/* ==========================================================================
+   ESCÁNER A PANTALLA COMPLETA (canvas + panel de carrito)
+   ========================================================================== */
+.cat-escena#catEscenaEscaner { padding: 0; }
+
+.esc {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100dvh - 150px);
+  background: #050505;
+}
+.esc-vista {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 46vh;
+  overflow: hidden;
+  background: #050505;
+}
+.esc-vista video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.esc-vista canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.esc-hud {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+  max-width: 88%;
+}
+.esc-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 13px;
+  border-radius: 999px;
+  background: rgba(6, 7, 6, 0.72);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #E9EBE4;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.esc-chip i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--cat-lima);
+  box-shadow: 0 0 8px rgba(200, 255, 0, 0.9);
+  flex: 0 0 auto;
+  animation: cat-pulso 1.6s infinite ease-in-out;
+}
+.esc-chip.ok { color: #B9F7C9; border-color: rgba(74, 222, 128, 0.45); }
+.esc-chip.ok i { background: var(--cat-ok); box-shadow: 0 0 8px rgba(74, 222, 128, 0.9); }
+.esc-chip.error { color: #FFC4C0; border-color: rgba(248, 113, 113, 0.45); }
+.esc-chip.error i { background: var(--cat-error); box-shadow: 0 0 8px rgba(248, 113, 113, 0.9); }
+
+.esc-cerrar,
+.esc-linterna {
+  position: absolute;
+  top: 10px;
+  z-index: 4;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(6, 7, 6, 0.65);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: #E9EBE4;
+  cursor: pointer;
+}
+.esc-cerrar { right: 10px; }
+.esc-linterna { left: 10px; }
+.esc-cerrar svg, .esc-linterna svg { width: 18px; height: 18px; }
+.esc-linterna.activa { color: #050505; background: var(--cat-lima); border-color: var(--cat-lima); }
+
+/* Panel inferior: sube al primer producto escaneado. */
+.esc-panel {
+  position: relative;
+  z-index: 5;
+  display: grid;
+  gap: 10px;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  margin-top: -18px;
+  border-radius: 22px 22px 0 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  background: linear-gradient(180deg, #121310, #0A0B09);
+  box-shadow: 0 -18px 40px rgba(0, 0, 0, 0.6);
+  transition: transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.esc-panel-cab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.esc-panel-total { display: grid; gap: 1px; }
+.esc-panel-total b {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--cat-lima);
+  font-variant-numeric: tabular-nums;
+}
+.esc-panel-total span { font-size: 11.5px; color: var(--cat-texto-3); }
+.esc-limpiar {
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: transparent;
+  color: var(--cat-texto-2);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.esc-lista {
+  display: grid;
+  gap: 7px;
+  max-height: 34vh;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.esc-lista::-webkit-scrollbar { display: none; }
+.esc-vacio {
+  padding: 18px 10px;
+  text-align: center;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--cat-texto-3);
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+}
+
+.esc-fila {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: #161714;
+}
+.esc-fila.entra { animation: esc-entra 380ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+@keyframes esc-entra {
+  from { opacity: 0; transform: translateY(14px) scale(0.97); }
+  to   { opacity: 1; transform: none; }
+}
+.esc-fila-thumb {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: var(--cat-tinte, rgba(200, 255, 0, 0.1));
+  color: var(--cat-tinte-txt, var(--cat-lima));
+  overflow: hidden;
+}
+.esc-fila-thumb svg { width: 20px; height: 20px; }
+.esc-fila-thumb img { width: 100%; height: 100%; object-fit: contain; padding: 3px; }
+.esc-fila-info { flex: 1; min-width: 0; display: grid; gap: 1px; }
+.esc-fila-info b {
+  font-size: 12.5px;
+  line-height: 1.25;
+  color: var(--cat-texto);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.esc-fila-cod { font-size: 10px; color: var(--cat-texto-3); font-variant-numeric: tabular-nums; }
+.esc-fila-cant {
+  flex: 0 0 auto;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(200, 255, 0, 0.12);
+  color: var(--cat-lima);
+  font-size: 11px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.esc-fila-precio {
+  flex: 0 0 auto;
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--cat-texto);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+/* Cada precio nuevo entra con un destello y un leve salto. */
+.esc-fila-precio.sube { animation: esc-precio 620ms ease-out both; }
+@keyframes esc-precio {
+  0%   { color: var(--cat-lima); transform: translateY(6px) scale(1.14); text-shadow: 0 0 14px rgba(200, 255, 0, 0.9); }
+  45%  { color: var(--cat-lima); transform: translateY(-2px) scale(1.04); text-shadow: 0 0 8px rgba(200, 255, 0, 0.5); }
+  100% { color: var(--cat-texto); transform: none; text-shadow: none; }
+}
+
+.esc-acciones { display: flex; gap: 9px; }
+.esc-acciones .cat-btn { flex: 1; min-height: 46px; font-size: 13px; }
+.esc-panel:not(.con-items) .esc-acciones .cat-btn.lima { opacity: 0.45; pointer-events: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .esc-fila.entra, .esc-fila-precio.sube, .esc-chip i { animation: none; }
+}
