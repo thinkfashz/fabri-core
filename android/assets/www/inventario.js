@@ -488,7 +488,7 @@ function invConectarEventos() {
     invEdLector(!INV_ED.camara);
   });
   // Lector fijo de los pasos 1 a 4: cada uno enciende/apaga su propia cámara.
-  for (let p = 1; p <= 4; p++) {
+  for (let p = 1; p <= 5; p++) {
     const bp = $("btnInvLec" + p);
     if (bp) bp.addEventListener("click", (function (n) { return function () { invLecToggle(n); }; })(p));
   }
@@ -645,7 +645,15 @@ function invPaso(n) {
   if (n === 3) invPintarPrecios();
   if (n === 4) { invCalcularMargen(); invPintarMargenes(); }
   if (n === 5) { invPintarCarrito(); invBoletasHistorial(); }
-  if (n >= 1 && n <= 4) invLectorIniciar(n);
+  if (n >= 1 && n <= 5) invLectorIniciar(n);
+  // El paso activo se centra en la barra: en móvil los 5 no caben.
+  const barra = document.getElementById("invPasos");
+  const act = barra && barra.querySelector(".inv-paso.activo");
+  if (barra && act) {
+    // Se desplaza SÓLO la barra de pasos: scrollIntoView movía también la
+    // página en horizontal y descuadraba toda la vista en el teléfono.
+    barra.scrollLeft = Math.max(0, act.offsetLeft - (barra.clientWidth - act.offsetWidth) / 2);
+  }
   window.scrollTo({ top: 0, behavior: "instant" });
 }
 
@@ -704,6 +712,8 @@ function invPintarPanel(d) {
       <div class="inv-negocio-dato"><span>Margen promedio</span><strong>${r.margen_promedio || 0}%</strong><small>${invClp(r.utilidad_potencial)} potencial</small></div>
       <div class="inv-negocio-dato"><span>Ventas 24 h</span><strong>${invClp(v24.total)}</strong><small>${v24.n || 0} boletas · ${v24.unidades || 0} u.</small></div>
       <div class="inv-negocio-dato"><span>Ventas 30 días</span><strong>${invClp(v30.total)}</strong><small>utilidad ${invClp(v30.utilidad)}</small></div>
+      <div class="inv-negocio-dato"><span>IVA estimado</span><strong>${catClpCortoInv(Math.round(Number(r.valor_venta || 0) * 19 / 119))}</strong><small>19 % del valor de venta</small></div>
+      <div class="inv-negocio-dato"><span>Sin sincronizar</span><strong>${Number(r.pendientes_sync || 0)}</strong><small>${r.agotados || 0} agotados · ${r.stock_bajo || 0} bajos</small></div>
     </div>
     ${cats.length ? `<p class="inv-negocio-titulo">Categorías por valor</p>
       <div class="inv-negocio-lista">${cats.map(function (c) {
@@ -741,15 +751,26 @@ function invPintarResumen(datos) {
     return;
   }
   if (!caja) return;
+  // IVA incluido: en Chile el precio de venta ya lo trae, así que el débito
+  // estimado es valor_venta × 19/119.
+  const iva = Math.round(Number(d.valor_venta || 0) * 19 / 119);
   caja.innerHTML = [
-    `<div class="inv-kpi"><span>Productos</span><strong>${d.total || 0}</strong></div>`,
-    `<div class="inv-kpi"><span>Unidades</span><strong>${d.unidades || 0}</strong></div>`,
-    `<div class="inv-kpi ok"><span>Valor venta</span><strong>${invClp(d.valor_venta)}</strong></div>`,
-    `<div class="inv-kpi"><span>Margen prom.</span><strong>${d.margen_promedio || 0}%</strong></div>`,
-    `<div class="inv-kpi ${d.stock_bajo > 0 ? "alerta" : ""}"><span>Stock bajo</span><strong>${d.stock_bajo || 0}</strong></div>`,
-    `<div class="inv-kpi ${d.agotados > 0 ? "alerta" : ""}"><span>Agotados</span><strong>${d.agotados || 0}</strong></div>`,
-    `<div class="inv-kpi ${d.pendientes_sync > 0 ? "alerta" : "ok"}"><span>Sin sincronizar</span><strong>${d.pendientes_sync || 0}</strong></div>`
+    `<div class="inv-kpi"><span>Productos</span><strong>${Number(d.total || 0).toLocaleString("es-CL")}</strong></div>`,
+    `<div class="inv-kpi ok"><span>Valor venta</span><strong>${catClpCortoInv(d.valor_venta)}</strong></div>`,
+    `<div class="inv-kpi"><span>Margen</span><strong>${d.margen_promedio || 0}%</strong></div>`,
+    `<div class="inv-kpi ${d.stock_bajo > 0 ? "alerta" : ""}"><span>Stock bajo</span><strong>${Number(d.stock_bajo || 0).toLocaleString("es-CL")}</strong></div>`,
+    `<div class="inv-kpi ${d.agotados > 0 ? "alerta" : ""}"><span>Agotados</span><strong>${Number(d.agotados || 0).toLocaleString("es-CL")}</strong></div>`,
+    `<div class="inv-kpi"><span>IVA est.</span><strong>${catClpCortoInv(iva)}</strong></div>`
   ].join("");
+}
+
+/** Precio compacto para los KPIs: $12,3 M en vez de $12.345.678. */
+function catClpCortoInv(n) {
+  const v = Number(n || 0);
+  if (v >= 1000000000) return "$" + (v / 1000000000).toFixed(1).replace(".", ",") + " MM";
+  if (v >= 1000000) return "$" + (v / 1000000).toFixed(1).replace(".", ",") + " M";
+  if (v >= 100000) return "$" + Math.round(v / 1000) + " mil";
+  return invClp(v);
 }
 
 /* ── paso 1 · escanear ──────────────────────────────────────────────────── */
@@ -1009,7 +1030,7 @@ function invBucleEscaneo() {
    pisa con el escáner principal del paso 1. */
 
 function invLectorIniciar(paso) {
-  if (paso < 1 || paso > 4) return;
+  if (paso < 1 || paso > 5) return;
   const caja = document.getElementById("invLecCaja" + paso);
   const video = document.getElementById("invLecVideo" + paso);
   const videoCaja = document.getElementById("invLecVideoCaja" + paso);
@@ -1041,7 +1062,7 @@ function invLectorIniciar(paso) {
 
 /** Enciende/apaga la cámara del lector fijo de un paso (toggle del botón). */
 function invLecToggle(paso) {
-  if (paso < 1 || paso > 4) return;
+  if (paso < 1 || paso > 5) return;
   const btn = document.getElementById("btnInvLec" + paso);
   const encendido = btn && btn.getAttribute("aria-pressed") === "true";
   if (!encendido) {
@@ -1140,7 +1161,7 @@ function invLectorParar() {
   INV.lec.gen++;
   INV.lec.encendiendo = false;
   if (INV.lec.timer) { clearTimeout(INV.lec.timer); INV.lec.timer = null; }
-  for (let p = 1; p <= 4; p++) {
+  for (let p = 1; p <= 5; p++) {
     const video = document.getElementById("invLecVideo" + p);
     const videoCaja = document.getElementById("invLecVideoCaja" + p);
     const nota = document.getElementById("invLecNota" + p);
@@ -1189,6 +1210,51 @@ function invLecBucle(paso) {
 function invLectorLeido(codigo, paso) {
   const resultado = document.getElementById("invLecResultado" + paso);
   const p = invPorCodigo(codigo);
+  // Paso 5: la lectura va directo a la boleta (escanear y cobrar).
+  if (Number(paso) === 5) {
+    if (p) {
+      INV.sel = p.codigo;
+      invCarritoAgregar();
+      if (resultado) {
+        resultado.innerHTML = `
+          <div class="inv-card-api">
+            <h3>${esc(p.nombre)}</h3>
+            <div class="inv-meta">
+              <span class="inv-chip lima">agregado a la boleta</span>
+              <span class="inv-chip">${esc(p.codigo)}</span>
+              <span class="inv-chip">${invClp(p.precio)}</span>
+            </div>
+            <div class="inv-item-acciones">
+              <button class="btn" id="btnInvLec5Uno">${ico("mas", 14)} Otra unidad</button>
+              <button class="btn btn-primario" id="btnInvLec5Emitir">${ico("ok", 14)} Emitir boleta</button>
+            </div>
+          </div>`;
+        const b1 = resultado.querySelector("#btnInvLec5Uno");
+        if (b1) b1.addEventListener("click", function () { INV.sel = p.codigo; invCarritoAgregar(); });
+        const b2 = resultado.querySelector("#btnInvLec5Emitir");
+        if (b2) b2.addEventListener("click", function () { invEmitirBoleta(); });
+      }
+      toast("A la boleta: " + esc(p.nombre));
+      return;
+    }
+    if (resultado) {
+      resultado.innerHTML = `
+        <div class="inv-card-api">
+          <h3>Código ${esc(codigo)}</h3>
+          <p class="inv-ayuda">No está en tu base local.</p>
+          <div class="inv-item-acciones">
+            <button class="btn btn-primario" id="btnInvLec5Crear">${ico("nuevo", 14)} Crear producto</button>
+          </div>
+        </div>`;
+      const b = resultado.querySelector("#btnInvLec5Crear");
+      if (b) b.addEventListener("click", function () {
+        resultado.innerHTML = "";
+        invFormulario({ codigo: codigo, origen: "manual" });
+      });
+    }
+    toast("Código no registrado: " + codigo);
+    return;
+  }
   if (p) {
     const m = invMargenDe(p);
     if (resultado) {
@@ -3469,13 +3535,15 @@ function invCalcularMargen() {
     const iva = invNum(document.getElementById("invMiva").value);
     invApiTarde("margen", { costo: costo, precio: precio, objetivo: objetivo, iva: iva }).then(function (r) {
       if (!r.ok) { caja.innerHTML = ""; return; }
-      const d = r.data;
+      const d = r.data || {};
+      // Nunca «undefined%»: si el núcleo no devolvió un campo, se muestra 0.
+      const num = function (v) { const n = Number(v); return isFinite(n) ? n : 0; };
       caja.innerHTML = [
-        `<div class="inv-comp-caja ${d.rentable ? "mejor" : ""}"><span>Utilidad</span><strong>${invClp(d.utilidad)}</strong></div>`,
-        `<div class="inv-comp-caja"><span>Margen s/ venta</span><strong>${d.margen_venta}%</strong></div>`,
-        `<div class="inv-comp-caja"><span>Markup s/ costo</span><strong>${d.markup}%</strong></div>`,
-        `<div class="inv-comp-caja"><span>Precio con IVA</span><strong>${invClp(d.precio_con_iva)}</strong></div>`,
-        objetivo > 0 ? `<div class="inv-comp-caja mejor"><span>Para ${objetivo}%</span><strong>${invClp(d.precio_sugerido)}</strong></div>` : ""
+        `<div class="inv-comp-caja ${d.rentable ? "mejor" : ""}"><span>Utilidad</span><strong>${invClp(num(d.utilidad))}</strong></div>`,
+        `<div class="inv-comp-caja"><span>Margen s/ venta</span><strong>${num(d.margen_venta)}%</strong></div>`,
+        `<div class="inv-comp-caja"><span>Markup s/ costo</span><strong>${num(d.markup)}%</strong></div>`,
+        `<div class="inv-comp-caja"><span>Precio con IVA</span><strong>${invClp(num(d.precio_con_iva))}</strong></div>`,
+        objetivo > 0 ? `<div class="inv-comp-caja mejor"><span>Para ${objetivo}%</span><strong>${invClp(num(d.precio_sugerido))}</strong></div>` : ""
       ].join("");
     });
   }, 140);

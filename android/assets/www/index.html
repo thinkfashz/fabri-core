@@ -2232,6 +2232,22 @@ CREATE INDEX IF NOT EXISTS idx_inv_productos_actualizado
 
       <!-- ── PASO 5 · BOLETA ───────────────────────────────────────────── -->
       <div class="inv-panel" id="invPaso5">
+        <!-- ── Lector de código fijo (paso 5 · boleta) ── -->
+        <div class="inv-lector-fijo" id="invLecCaja5">
+          <div class="inv-lector-cab">
+            <button class="inv-lector-btn" id="btnInvLec5" type="button" aria-pressed="false"
+                    title="Escanear para la boleta">
+              <span data-ico="scan"></span><b>OFF</b>
+            </button>
+            <span class="inv-lector-estado" id="invLecNota5">Escanea y el producto entra a la boleta</span>
+          </div>
+          <div class="inv-lector-video" id="invLecVideoCaja5">
+            <video id="invLecVideo5" playsinline muted autoplay></video>
+            <div class="inv-lector-mira" id="invLecMira5" aria-hidden="true"><i></i></div>
+          </div>
+          <div id="invLecResultado5" class="inv-lector-resultado"></div>
+        </div>
+
         <div class="inv-boleta">
           <div class="inv-boleta-izq">
             <label class="campo">

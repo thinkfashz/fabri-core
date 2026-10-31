@@ -6660,3 +6660,48 @@ function conectarRendimiento() {
     apiTarde("rendimiento", {}, { maxMs: 15000 }).then(pintarRendimiento);
   });
 }
+
+/* ==========================================================================
+   TECLADO · el campo enfocado siempre queda visible
+   --------------------------------------------------------------------------
+   En móvil el teclado tapa media pantalla. Al enfocar un campo (por ejemplo
+   al escribir el precio de un producto) se mide el alto visible real con
+   visualViewport y se desplaza la página lo justo para que el campo quede
+   centrado por encima del teclado, sin deformar ni saltar de más.
+   ========================================================================== */
+(function tecladoVisible() {
+  const vv = window.visualViewport;
+
+  function asegurar(el) {
+    if (!el || !el.getBoundingClientRect) return;
+    const alto = vv ? vv.height : window.innerHeight;
+    const r = el.getBoundingClientRect();
+    const margen = 16;
+    const visibleAbajo = alto - margen;
+    if (r.bottom > visibleAbajo) {
+      const dy = r.bottom - visibleAbajo + 14;
+      window.scrollBy({ top: dy, behavior: "smooth" });
+    } else if (r.top < 72) {
+      window.scrollBy({ top: r.top - 84, behavior: "smooth" });
+    }
+  }
+
+  function esCampo(el) {
+    return el && el.matches && el.matches("input, select, textarea") &&
+      !el.disabled && el.type !== "hidden" && el.type !== "radio" && el.type !== "checkbox";
+  }
+
+  document.addEventListener("focusin", function (ev) {
+    if (!esCampo(ev.target)) return;
+    // Dos pasadas: el teclado tarda en abrirse y cambia el alto visible.
+    setTimeout(function () { asegurar(ev.target); }, 260);
+    setTimeout(function () { asegurar(ev.target); }, 620);
+  });
+
+  if (vv) {
+    vv.addEventListener("resize", function () {
+      const a = document.activeElement;
+      if (esCampo(a)) asegurar(a);
+    });
+  }
+})();

@@ -2490,3 +2490,560 @@ img.inv-mini { object-fit: cover; }
   .inv-eyebrow::before { animation: none; }
   .inv-kpi, .inv-toolbar-acciones .btn { transition: none; }
 }
+
+/* ==========================================================================
+   INVENTARIO 0.9.43 · rediseño completo (móvil premium, referencia iPhone 17)
+   --------------------------------------------------------------------------
+   Capa de presentación: no cambia comportamiento ni quita funciones. Orden:
+   cabecera + estado → KPIs → pasos → panel → acciones. Superficies oscuras
+   con bordes de 1 px, radios grandes, jerarquía tipográfica clara.
+   ========================================================================== */
+#v-inventario {
+  --inv-borde: rgba(255, 255, 255, 0.075);
+  --inv-borde-2: rgba(255, 255, 255, 0.14);
+  --inv-sup: #101110;
+  --inv-sup-2: #171817;
+  --inv-txt: #F4F5F1;
+  --inv-txt-2: #A6AAA2;
+  --inv-txt-3: #6F746C;
+  --inv-lima: #C8FF00;
+}
+
+/* ── Cabecera ──────────────────────────────────────────────────────────── */
+.inv-hero {
+  padding: 18px;
+  border-radius: 24px;
+  border: 1px solid var(--inv-borde);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+  background:
+    radial-gradient(120% 120% at 100% 0%, rgba(200, 255, 0, 0.13), transparent 58%),
+    linear-gradient(180deg, #131410, #0C0D0B);
+}
+.inv-hero::before {
+  height: 1px;
+  background: linear-gradient(90deg, var(--inv-lima), rgba(200, 255, 0, 0.1) 60%, transparent);
+}
+.inv-eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: var(--inv-lima);
+  font-weight: 700;
+}
+.inv-hero h2 {
+  font-size: 25px;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  color: var(--inv-txt);
+}
+.inv-sub {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--inv-txt-2);
+  max-width: 34ch;
+}
+
+/* ── KPIs: 3 columnas, número protagonista ─────────────────────────────── */
+.inv-kpis {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.inv-kpi {
+  display: grid;
+  gap: 2px;
+  padding: 12px 11px;
+  border-radius: 16px;
+  border: 1px solid var(--inv-borde);
+  background: linear-gradient(180deg, #161714, #101110);
+  min-width: 0;
+}
+.inv-kpi span {
+  font-size: 9.5px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--inv-txt-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.inv-kpi strong {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--inv-txt);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.inv-kpi.ok strong { color: var(--inv-lima); }
+.inv-kpi.alerta strong { color: #fbbf24; }
+.inv-kpi.alerta { border-color: rgba(251, 191, 36, 0.28); }
+
+/* ── Panel del negocio: datos, no adorno ───────────────────────────────── */
+.inv-negocio {
+  padding: 14px;
+  border-radius: 20px;
+  border: 1px solid var(--inv-borde);
+  background: var(--inv-sup);
+}
+.inv-negocio-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.inv-negocio-dato {
+  padding: 11px;
+  border-radius: 14px;
+  background: var(--inv-sup-2);
+  border: 1px solid var(--inv-borde);
+  min-width: 0;
+}
+.inv-negocio-dato span {
+  display: block;
+  font-size: 9.5px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--inv-txt-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.inv-negocio-dato strong {
+  display: block;
+  margin-top: 2px;
+  font-size: 17px;
+  letter-spacing: -0.02em;
+  color: var(--inv-txt);
+  font-variant-numeric: tabular-nums;
+}
+.inv-negocio-dato small {
+  display: block;
+  font-size: 10.5px;
+  color: var(--inv-txt-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.inv-negocio-titulo {
+  margin: 14px 0 7px;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--inv-lima);
+  font-weight: 700;
+}
+.inv-negocio-lista { display: grid; gap: 6px; }
+.inv-negocio-fila {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: var(--inv-sup-2);
+  border: 1px solid var(--inv-borde);
+  font-size: 12px;
+  min-width: 0;
+}
+.inv-negocio-fila b {
+  color: var(--inv-txt);
+  font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.inv-negocio-fila span { color: var(--inv-lima); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* ── Pasos: barra segmentada ───────────────────────────────────────────── */
+.inv-pasos {
+  display: flex;
+  gap: 5px;
+  padding: 5px;
+  margin: 0;
+  list-style: none;
+  border-radius: 999px;
+  border: 1px solid var(--inv-borde);
+  background: var(--inv-sup);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.inv-pasos::-webkit-scrollbar { display: none; }
+.inv-paso {
+  flex: 1 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--inv-txt-3);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.inv-paso b {
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--inv-txt-3);
+  font-size: 10.5px;
+  border: 0;
+}
+.inv-paso.activo {
+  background: var(--inv-lima);
+  border-color: var(--inv-lima);
+  color: #050505;
+  box-shadow: 0 0 18px rgba(200, 255, 0, 0.3);
+  font-weight: 800;
+}
+.inv-paso.activo b { background: rgba(0, 0, 0, 0.16); color: #050505; }
+.inv-paso.hecho:not(.activo) { color: var(--inv-lima); }
+.inv-paso.hecho:not(.activo) b { background: rgba(200, 255, 0, 0.16); color: var(--inv-lima); }
+
+/* ── Paneles ───────────────────────────────────────────────────────────── */
+.inv-panel.activo {
+  padding: 16px;
+  border-radius: 22px;
+  border: 1px solid var(--inv-borde);
+  background: linear-gradient(180deg, #0F100E, #0B0C0A);
+}
+
+/* ── Campos: altos, legibles, foco lima ────────────────────────────────── */
+#v-inventario .campo span,
+#v-inventario .campo > label > span {
+  font-size: 10px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--inv-txt-3);
+  font-weight: 600;
+}
+#v-inventario .campo input,
+#v-inventario .campo select,
+#v-inventario .campo textarea,
+#v-inventario .inv-scan-bar input {
+  min-height: 48px;
+  padding: 0 14px;
+  border-radius: 14px;
+  border: 1px solid var(--inv-borde);
+  background: var(--inv-sup-2);
+  color: var(--inv-txt);
+  font-size: 15px;
+  box-sizing: border-box;
+}
+#v-inventario .campo textarea { padding: 12px 14px; min-height: 92px; line-height: 1.5; }
+#v-inventario .campo input:focus,
+#v-inventario .campo select:focus,
+#v-inventario .campo textarea:focus,
+#v-inventario .inv-scan-bar input:focus {
+  border-color: rgba(200, 255, 0, 0.55) !important;
+  box-shadow: 0 0 0 3px rgba(200, 255, 0, 0.12);
+  outline: none;
+}
+#v-inventario .campo input::placeholder { color: #5C615A; }
+
+/* ── Barra de escaneo ──────────────────────────────────────────────────── */
+.inv-scan-bar {
+  border-radius: 18px;
+  border: 1px solid var(--inv-borde);
+  background: var(--inv-sup);
+  padding: 6px;
+  gap: 6px;
+}
+.inv-scan-bar-rect {
+  border-radius: 14px;
+  min-width: 48px;
+  min-height: 48px;
+  background: rgba(200, 255, 0, 0.1);
+  border: 1px solid rgba(200, 255, 0, 0.32);
+  color: var(--inv-lima);
+}
+
+/* ── Botones ───────────────────────────────────────────────────────────── */
+#v-inventario .btn {
+  min-height: 44px;
+  border-radius: 14px;
+  font-size: 13px;
+  font-weight: 700;
+  border: 1px solid var(--inv-borde-2);
+  background: var(--inv-sup-2);
+  color: var(--inv-txt);
+}
+#v-inventario .btn-primario {
+  background: var(--inv-lima);
+  border-color: var(--inv-lima);
+  color: #050505;
+  box-shadow: 0 8px 22px rgba(200, 255, 0, 0.18);
+}
+.inv-toolbar-acciones { gap: 8px; }
+.inv-toolbar-acciones .btn { flex: 1 1 140px; justify-content: center; }
+
+/* ── Catálogo de productos: tarjetas limpias ───────────────────────────── */
+.inv-catalogo { display: grid; gap: 10px; }
+.inv-card {
+  padding: 12px;
+  border-radius: 20px;
+  border: 1px solid var(--inv-borde);
+  background: linear-gradient(180deg, #141513, #0F100E);
+  gap: 8px;
+}
+.inv-card.bajo { border-color: rgba(251, 191, 36, 0.3); }
+.inv-card-cab { gap: 11px; align-items: center; }
+.inv-card-mini {
+  width: 60px;
+  height: 60px;
+  border-radius: 15px;
+  background: rgba(200, 255, 0, 0.07);
+  border: 1px solid var(--inv-borde);
+}
+.inv-card-id h4 {
+  font-size: 14px;
+  line-height: 1.25;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--inv-txt);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.inv-card-id p { font-size: 11px; color: var(--inv-txt-3); }
+.inv-card-cod span {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 9.5px;
+  color: #5C615A;
+  letter-spacing: 0.03em;
+}
+.inv-card-precio { text-align: right; }
+.inv-card-precio strong {
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--inv-lima);
+  font-variant-numeric: tabular-nums;
+}
+.inv-card-precio span { font-size: 10px; color: var(--inv-txt-3); }
+.inv-item-meta { gap: 5px; }
+.inv-chip {
+  border-radius: 999px;
+  border: 1px solid var(--inv-borde);
+  background: var(--inv-sup-2);
+  color: var(--inv-txt-2);
+  font-size: 10.5px;
+  padding: 4px 9px;
+}
+.inv-chip.lima { color: var(--inv-lima); border-color: rgba(200, 255, 0, 0.3); background: rgba(200, 255, 0, 0.07); }
+.inv-chip.baja { color: #fbbf24; border-color: rgba(251, 191, 36, 0.32); background: rgba(251, 191, 36, 0.07); }
+.inv-item-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+.inv-item-acciones .btn {
+  min-height: 38px;
+  padding: 0 11px;
+  border-radius: 12px;
+  font-size: 11.5px;
+  font-weight: 600;
+  flex: 1 1 auto;
+  justify-content: center;
+}
+.inv-item-acciones .btn svg { width: 14px; height: 14px; }
+
+/* ── Boleta: dos columnas en pantalla, una en móvil ────────────────────── */
+.inv-boleta {
+  display: grid;
+  gap: 14px;
+}
+@media (min-width: 720px) {
+  .inv-boleta { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
+}
+.inv-boleta-izq { display: grid; gap: 12px; min-width: 0; }
+.inv-carrito { display: grid; gap: 6px; }
+.impresora-termica {
+  border-radius: 20px;
+  border: 1px solid var(--inv-borde);
+  background: var(--inv-sup);
+  padding: 12px;
+}
+.ticket-termico {
+  border-radius: 14px;
+  background: #F7F6F1;
+  color: #12130F;
+  border: 0;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5);
+}
+
+/* ── Lector (pasos 1-5) ────────────────────────────────────────────────── */
+.inv-lector-fijo {
+  border-radius: 20px;
+  border: 1px solid var(--inv-borde);
+  background: var(--inv-sup);
+  padding: 12px;
+  gap: 9px;
+}
+.inv-lector-btn {
+  border-radius: 999px;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--inv-borde-2);
+  background: var(--inv-sup-2);
+  color: var(--inv-txt);
+  font-weight: 700;
+  font-size: 12px;
+}
+.inv-lector-btn[aria-pressed="true"] {
+  background: var(--inv-lima);
+  border-color: var(--inv-lima);
+  color: #050505;
+}
+.inv-lector-video {
+  border-radius: 16px;
+  border: 1px solid var(--inv-borde);
+  aspect-ratio: 16 / 10;
+  background: #050505;
+}
+
+/* ── Estados vacíos y accesibilidad ────────────────────────────────────── */
+.inv-vacio {
+  padding: 30px 16px;
+  border-radius: 20px;
+  border: 1px dashed var(--inv-borde-2);
+  color: var(--inv-txt-3);
+  line-height: 1.55;
+  text-align: center;
+  font-size: 13px;
+}
+#v-inventario button:focus-visible,
+#v-inventario input:focus-visible,
+#v-inventario select:focus-visible {
+  outline: 2px solid var(--inv-lima);
+  outline-offset: 2px;
+}
+
+/* Deja aire al final: el teclado y la barra inferior no tapan nada. */
+#v-inventario .inv-panel.activo { padding-bottom: 22px; }
+
+@media (max-width: 380px) {
+  .inv-kpi strong { font-size: 16px; }
+  .inv-hero h2 { font-size: 22px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .inv-paso.activo { box-shadow: none; }
+}
+
+/* ── Ajustes finos 0.9.43b ─────────────────────────────────────────────── */
+.inv-kpi strong { font-size: 16px; letter-spacing: -0.03em; }
+.inv-paso { font-size: 11px; padding: 7px 10px; min-height: 38px; gap: 5px; }
+.inv-paso b { width: 17px; height: 17px; font-size: 10px; }
+.inv-toolbar-acciones .btn { white-space: nowrap; font-size: 12px; }
+
+/* Filtros del paso 2: dos columnas en vez de una lista larguísima. */
+#invPaso2 .inv-toolbar {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+  align-items: end;
+}
+#invPaso2 .inv-toolbar .campo-buscar { grid-column: 1 / -1; }
+#invPaso2 .inv-toolbar .inv-check { grid-column: 1 / -1; }
+#invPaso2 .inv-toolbar .campo select { min-height: 46px; }
+
+/* (la pista de degradado se retiró: rompía el ancho de la barra) */
+
+/* Formularios del inventario: una columna en el teléfono, dos en pantalla
+   ancha. Antes el RUT y el precio se cortaban a la derecha. */
+#v-inventario .inv-form-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+}
+@media (min-width: 560px) {
+  #v-inventario .inv-form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+#v-inventario .inv-form-grid > * { min-width: 0; }
+
+/* ── Paso 4: calculadora en una columna y tabla desplazable ────────────── */
+#v-inventario .inv-calc {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+}
+@media (min-width: 560px) {
+  #v-inventario .inv-calc { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+#v-inventario .inv-calc-salida {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+#v-inventario .inv-comp-caja {
+  min-width: 0;
+  padding: 11px;
+  border-radius: 14px;
+  border: 1px solid var(--inv-borde);
+  background: var(--inv-sup-2);
+}
+#v-inventario .inv-comp-caja span {
+  display: block;
+  font-size: 9.5px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--inv-txt-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#v-inventario .inv-comp-caja strong {
+  display: block;
+  margin-top: 2px;
+  font-size: 16px;
+  letter-spacing: -0.02em;
+  color: var(--inv-txt);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#v-inventario .inv-comp-caja.mejor strong { color: var(--inv-lima); }
+
+/* Tabla de márgenes: se desliza en horizontal dentro de su tarjeta. */
+#invMargenesTabla { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+#invMargenesTabla table { min-width: 520px; width: 100%; border-collapse: collapse; }
+#invMargenesTabla th,
+#invMargenesTabla td {
+  padding: 9px 10px;
+  font-size: 12px;
+  border-bottom: 1px solid var(--inv-borde);
+  text-align: left;
+  white-space: nowrap;
+}
+#invMargenesTabla th {
+  font-size: 10px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--inv-txt-3);
+}
+#invMargenesTabla td.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* Comparativa de precios (paso 3): 2 columnas legibles en el teléfono. */
+#v-inventario .inv-comparativa {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 12px 0;
+}
+
+/* Los campos ocupan todo el ancho de su columna. */
+#v-inventario .campo { display: grid; gap: 5px; min-width: 0; }
+#v-inventario .campo input,
+#v-inventario .campo select,
+#v-inventario .campo textarea { width: 100%; }
+#v-inventario .campo { width: 100%; }
