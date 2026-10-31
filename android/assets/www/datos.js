@@ -1075,6 +1075,21 @@ async function hojaSincronizarNube() {
       body: JSON.stringify({ accion: "subir", productos: pendientes })
     });
 
+    progreso("Verificando la respuesta de Postgres…", 80);
+    // Sin estas comprobaciones, un 401 (token viejo/rechazado) habría marcado
+    // los pendientes como enviados igual: sync_marcar corría igual aunque la
+    // nube hubiera rechazado la subida.
+    if (resp.status === 401) {
+      throw new Error("el token de la nube fue rechazado (revisa Integración)");
+    }
+    if (!resp.ok) {
+      throw new Error("la nube respondió HTTP " + resp.status);
+    }
+    const salida = await resp.json().catch(function () { return { ok: false, error: "respuesta ilegible de la nube" }; });
+    if (salida && salida.ok === false) {
+      throw new Error(String(salida.error || "la nube rechazó la subida"));
+    }
+
     progreso("Confirmando integridad de la base…", 90);
     if (pendientes.length) {
       const codigos = pendientes.map((p) => p.codigo);

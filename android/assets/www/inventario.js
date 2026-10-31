@@ -252,6 +252,159 @@ function invApiTarde(accion, extra, opciones) {
   });
 }
 
+// Modal de envío a la nube (#modalEnvioAnimado): overlay con canvas de
+// partículas, cronómetro mm:ss.cc y barra de progreso. `tarea(progreso)` hace
+// el trabajo real y `progreso(texto, pct)` actualiza detalle y barra.
+// Devuelve lo que devuelva `tarea`; si lanza, cierra el modal y avisa con
+// toast sin re-propagar la excepción al llamador.
+// `INV.envioGen` invalida animaciones viejas: si se lanza un segundo envío
+// mientras el primero corre, el primero deja de tocar la UI y no cierra el
+// modal del segundo.
+function invAnimarEnvioModal(titulo, tarea) {
+  const gen = (INV.envioGen = (INV.envioGen || 0) + 1);
+  const overlay = document.getElementById("modalEnvioAnimado");
+
+  function avisar(texto) {
+    if (typeof toast === "function") toast(texto, "error");
+  }
+
+  // Sin el HTML del modal (pantalla recortada / test): ejecuta sin animación.
+  if (!overlay) {
+    return Promise.resolve()
+      .then(function () { return tarea(function () {}); })
+      .catch(function (e) {
+        const msg = String((e && e.message) || e);
+        avisar(msg);
+        return { ok: false, error: msg };
+      });
+  }
+
+  const tituloEl = document.getElementById("modalEnvioTitulo");
+  const detalle = document.getElementById("modalEnvioDetalle");
+  const fill = document.getElementById("modalEnvioFill");
+  const cronometro = document.getElementById("modalEnvioCronometro");
+  const exito = document.getElementById("modalEnvioExito");
+  const exitoTexto = document.getElementById("modalEnvioExitoTexto");
+  const canvas = document.getElementById("modalEnvioCanvas");
+
+  if (tituloEl && titulo) tituloEl.textContent = titulo;
+  if (detalle) detalle.textContent = "Preparando…";
+  if (fill) fill.style.width = "0%";
+  if (exito) exito.hidden = true;
+  if (cronometro) cronometro.textContent = "00:00.00";
+  overlay.hidden = false;
+
+  const sinMovimiento = !!(window.matchMedia &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+
+  // Cronómetro mm:ss.cc mientras la tarea corre.
+  const t0 = Date.now();
+  const timer = setInterval(function () {
+    if (gen !== INV.envioGen) { clearInterval(timer); return; }
+    const dt = Date.now() - t0;
+    const mm = String(Math.floor(dt / 60000)).padStart(2, "0");
+    const ss = String(Math.floor(dt / 1000) % 60).padStart(2, "0");
+    const cc = String(Math.floor(dt / 10) % 100).padStart(2, "0");
+    if (cronometro) cronometro.textContent = mm + ":" + ss + "." + cc;
+  }, 40);
+
+  // Partículas viajando de izquierda a derecha con estela: "transmitiendo".
+  const ctx = (canvas && canvas.getContext) ? canvas.getContext("2d") : null;
+  let raf = 0;
+  let particulas = [];
+
+  function pintar() {
+    if (!ctx) return;
+    const w = canvas.width, h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+    // rejilla tenue de fondo
+    ctx.strokeStyle = "rgba(200,255,0,0.06)";
+    ctx.lineWidth = 1;
+    for (let x = 0; x < w; x += 20) {
+      ctx.beginPath(); ctx.moveTo(x + 0.5, 0); ctx.lineTo(x + 0.5, h); ctx.stroke();
+    }
+    for (let i = 0; i < particulas.length; i++) {
+      const p = particulas[i];
+      const cola = p.x - p.v * 12;
+      const grad = ctx.createLinearGradient(cola, p.y, p.x, p.y);
+      grad.addColorStop(0, "rgba(200,255,0,0)");
+      grad.addColorStop(1, "rgba(200,255,0,0.5)");
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = p.r * 2;
+      ctx.beginPath(); ctx.moveTo(cola, p.y); ctx.lineTo(p.x, p.y); ctx.stroke();
+      ctx.fillStyle = "#C8FF00";
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  function mover() {
+    if (gen !== INV.envioGen) return;
+    for (let i = 0; i < particulas.length; i++) {
+      const p = particulas[i];
+      p.x += p.v;
+      if (p.x > canvas.width + 10) {
+        p.x = -10;
+        p.y = 8 + Math.random() * (canvas.height - 16);
+      }
+    }
+    pintar();
+    raf = requestAnimationFrame(mover);
+  }
+
+  if (ctx) {
+    for (let i = 0; i < 26; i++) {
+      particulas.push({
+        x: Math.random() * canvas.width,
+        y: 8 + Math.random() * (canvas.height - 16),
+        v: 1.5 + Math.random() * 3.5,
+        r: 1 + Math.random() * 2
+      });
+    }
+    if (sinMovimiento) pintar(); else raf = requestAnimationFrame(mover);
+  }
+
+  function cerrar() {
+    clearInterval(timer);
+    if (raf) cancelAnimationFrame(raf);
+    overlay.hidden = true;
+  }
+
+  function progreso(texto, pct) {
+    if (gen !== INV.envioGen) return;   // animación vieja: no toca la UI
+    if (texto && detalle) detalle.textContent = texto;
+    if (typeof pct === "number" && fill) {
+      fill.style.width = Math.max(0, Math.min(100, pct)) + "%";
+    }
+  }
+
+  return Promise.resolve()
+    .then(function () { return tarea(progreso); })
+    .then(function (r) {
+      if (gen !== INV.envioGen) return r;
+      progreso("Listo.", 100);
+      if (r && r.ok === false) {
+        cerrar();
+        avisar(String(r.error || "El envío falló."));
+        return r;
+      }
+      if (exito) {
+        if (exitoTexto) exitoTexto.textContent = (r && r.mensaje) || "¡Guardado con éxito!";
+        exito.hidden = false;
+      }
+      setTimeout(function () { if (gen === INV.envioGen) cerrar(); }, sinMovimiento ? 400 : 1500);
+      return r;
+    })
+    .catch(function (e) {
+      const msg = String((e && e.message) || e);
+      if (gen === INV.envioGen) cerrar();
+      avisar(msg);
+      if (typeof revision === "function") {
+        revision("inventario", "error", "envío a la nube falló", msg, 0, "ui");
+      }
+      return { ok: false, error: msg };
+    });
+}
+
 function invAviso(texto, tipo) {
   const caja = document.getElementById("invGuardadoEstado");
   if (!caja) { toast(texto, tipo); return; }
