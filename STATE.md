@@ -1663,3 +1663,75 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
 - El descuento se aplica de verdad en toda la cadena: tarjetas (precio tachado + efectivo), detalle, carrito, resumen de checkout, total y mensaje de WhatsApp.
 - Verificado headless: 12 tarjetas, 4 badges de oferta, reloj pintando fecha, gauge d3 con 2 paths, temporizador corriendo, pct 20%. `node --check` OK.
 - Desplegado: `dpl_6Bi3tUVfjQrrWdwaFfhfjroFxy18` → aliased `https://fabri-core-web.vercel.app/tienda.html` (HTTP 200; `app/vendor/d3-mini.js` sirve 200).
+
+## Sesión 2026-10-31 · Tienda multipágina 3.0 (Fabrick Design System + QR + recorrido)
+
+- **Arquitectura**: la tienda pasó de una sola página a **7 páginas** enlazadas:
+  `tienda.html` (catálogo), `producto.html?id=`, `promociones.html`, `carrito.html`,
+  `checkout.html`, `pago.html` y `escaner.html`, con núcleo compartido
+  `web/tienda-nucleo.js` (`window.FCS`) y un JS por página (`tienda-*.js`).
+- **Sistema de diseño**: `web/components.css` es ahora una copia del **Fabrick Design
+  System** (tokens `--ds-*`, 23 componentes `.ds-*`); `tienda.css` quedó solo con los
+  componentes propios de la tienda (prefijo `ti-`). Cada página declara su identidad
+  con `<body data-pg="...">` → `--pg` (catálogo lima, producto cian, promos ámbar,
+  carrito azul, checkout violeta, pago verde, escáner rosa), así se personaliza una
+  pantalla sin tocar a las demás.
+- **Navegación de recorrido**: topbar `.ds-topbar` + barra de pasos 1→5 (marca
+  `is-hecho` los ya visitados) + `.ds-bottom-nav` móvil con ítem central de escáner;
+  overlay de **recorrido guiado** de 5 pasos (`#fcsTour`, auto-ofrecido la 1.ª visita,
+  `localStorage fcs_recorrido_visto`) y botón «Recorrido» siempre accesible.
+- **Escáner QR real**: `app/vendor/zxing.min.js` (vendoreado) genera el QR del producto
+  (`FORGE:<id>`) y lee con la cámara; fallbacks de código **manual** e **imagen** si no
+  hay cámara. Lo leído se busca en el catálogo (local → API) y **agrega al carrito**;
+  historial en `localStorage fcs_escaneos`.
+- **Bug corregido (importante)**: ZXing lanza `TypeError: Cannot read properties of
+  undefined (reading 'get')` si `MultiFormatWriter.encode` recibe 4 argumentos — hay
+  que pasar **`null` explícito como 5.º parámetro** (hints). Mismo detalle en
+  `d3.arc()`: dibuja centrado en `(0,0)`, exige `translate(cx,cy)` al centro del
+  viewBox. Y `.ds-progress` necesita su `<i>` interno para pintar relleno.
+- **Verificación**: banco de pruebas headless en `/tmp/opencode/fcs-pruebas.js`
+  → **8/8** (catálogo, producto con `?id=`, promos, carrito, checkout, pago, escáner y
+  **ida y vuelta QR** `FORGE:eq-001`). Capturas 390 px + escritorio en
+  `/tmp/opencode/fcs-fotos/`. Corregidos en el camino: filas del carrito solapadas en
+  móvil, título de marca sin espacio, `[hidden]` anulado por el `display` de las
+  componentes, input de archivo nativo en inglés.
+- **Deploy + git**: `vercel --prod` → `dpl_GbWGVmM6MD86dZf2Cbun9zBYdYqm` (10 URLs en
+  200 en `https://fabri-core-web.vercel.app/`), commit `e28b4c4` push a
+  `thinkfashz/fabri-core`.
+- **Pendiente**: número real de WhatsApp (`window.FORGE_WA`, hoy placeholder
+  `56912345678`) y prueba de cámara real en el teléfono (sin adb).
+
+## Sesión 2026-10-31 · App móvil FORGE CORE STOCK (8 pantallas, 100% offline)
+
+- **Nueva app** en `web/forge-app/`: 8 pantallas, **cada una en su carpeta** con su
+  `index.html` + `style.css` propios (sin CSS compartido ni frameworks). Identidad
+  FORGE: `--bg:#0A0A0A`, `--neon:#C8FF00`, `--card:#151515`, `--text:#fff`; textura de
+  carbono (tramas diagonales), HUD mono espaciado, glow `0 0 20px rgba(200,255,0,.4)`.
+  Mobile first: app centrada, `max-width:430px`, `min-height:100dvh`, safe-areas.
+- **Pantallas**: `01-home-catalogo` (banner PRICE SAVER, buscador, grid CSS Grid 2×2,
+  bottom nav fija con cart 0), `02-scanner-busqueda` (visor HUD, marco neon con
+  esquinas y láser animado, overlay «PRODUCTO ENCONTRADO», Buscar/Añadir),
+  `03-detalle-producto` (ficha Aceite Oliva −25%, stock 12, Valle Central, tabla
+  nutricional, 4,8 estrellas, selector de cantidad en barra fija),
+  `04-add-to-cart` (popup +1 con anillo, confeti neón, toast, carrito 0→1),
+  `05-carrito` (2 líneas, cupón PRICE SAVER, subtotal $10.570 / envío $3.990 /
+  descuento −$1.747 / total $10.570, Pagar ahora), `06-checkout-form` (RUT, teléfono,
+  Región Metropolitana / Comuna Providencia, Despacho 24H $3.990 vs Retiro Gratis),
+  `07-pasarela-pago` (WebPay Plus con check, MercadoPago, Transferencia, Mach; tarjeta
+  •••• 4242; Total CLP $10.570), `08-pago-exitoso` (check gigante + confeti, orden
+  #FCS-8821-CHILE, tracking 60% con pasos, factura PDF).
+- **Cada pantalla** lleva cabecera FORGE + «NÚCLEO ACTIVO» pulsante + carrito, y barra
+  de progreso **1/8 … 8/8** (12,5% por paso, `.p1`…`.p8`) con `role="progressbar"`.
+  Iconos SVG inline (cero emoji), foco visible neón, `prefers-reduced-motion`,
+  `tabular-nums` en todos los precios.
+- **Bugs corregidos en la revisión visual**: `overflow-x:hidden` en `.app` rompía el
+  `position:sticky` del bottom nav (pasó a `fixed` como las barras de compra/pago);
+  «Región Metropolitana» se truncaba en el `select` (fila `.row--geo` 1.45fr/1fr con
+  fuente 13px); iconos de arroz y leche ilegibles → redibujados como saco y cartón.
+- **Verificación**: las 8 pantallas + `style.css` capturadas con headless shell a
+  430×932 (confeti fotografiado a 0,9 s), cero `style=` inline, 8/8 con «PASO n/8»,
+  precios solo en CLP.
+- **Deploy + git**: `vercel --prod` → `fabri-core-7ogr8ywg8` (9 URLs en 200:
+  sitio + 8 pantallas + CSS) en `https://fabri-core-web.vercel.app/forge-app/`.
+- **Pendiente**: probar en dispositivo real (sin adb), `window.FORGE_WA` sigue con
+  placeholder `56912345678`.

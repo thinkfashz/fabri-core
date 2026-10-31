@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0A0A0A">
+<title>FORGE CORE STOCK · Pasarela de pago</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+
+  <!-- 1 · cabecera + estado vivo -->
+  <header class="topbar">
+    <a class="icon-btn" href="../06-checkout-form/" aria-label="Volver a la entrega">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5m6-6-6 6 6 6"/></svg>
+    </a>
+    <span class="brand">
+      <b>FORGE CORE STOCK</b>
+      <span class="status"><i class="dot" aria-hidden="true"></i>NÚCLEO ACTIVO</span>
+    </span>
+    <span class="icon-btn" aria-label="Carrito, 3 productos">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h2l2.1 9.6a1.6 1.6 0 0 0 1.6 1.3h7.6a1.6 1.6 0 0 0 1.6-1.2L20.5 8H6.4"/><circle cx="10" cy="19.5" r="1.4"/><circle cx="17" cy="19.5" r="1.4"/></svg>
+      <span class="count">3</span>
+    </span>
+  </header>
+
+  <!-- progreso 7/8 -->
+  <div class="step"><span>PASO 7/8</span><span>PAGO</span></div>
+  <div class="bar p7" role="progressbar" aria-label="Paso 7 de 8" aria-valuenow="7" aria-valuemin="1" aria-valuemax="8"><i></i></div>
+
+  <main>
+    <h1 class="title">Método de pago</h1>
+
+    <!-- métodos -->
+    <div class="methods" role="radiogroup" aria-label="Métodos de pago">
+
+      <label class="method method--on">
+        <input class="method-radio" type="radio" name="pago" checked>
+        <span class="method-logo method-logo--webpay" aria-hidden="true">W</span>
+        <span class="method-body">
+          <b>WebPay Plus</b>
+          <span>Tarjetas de crédito y débito · Transbank</span>
+        </span>
+        <span class="check" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>
+        </span>
+      </label>
+
+      <label class="method">
+        <input class="method-radio" type="radio" name="pago">
+        <span class="method-logo" aria-hidden="true">M</span>
+        <span class="method-body">
+          <b>MercadoPago</b>
+          <span>Pago con saldo o cuenta vinculada</span>
+        </span>
+        <span class="check" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>
+        </span>
+      </label>
+
+      <label class="method">
+        <input class="method-radio" type="radio" name="pago">
+        <span class="method-logo" aria-hidden="true">T</span>
+        <span class="method-body">
+          <b>Transferencia bancaria</b>
+          <span>Banco de Chile, Santander, Itaú · acreditación 24H</span>
+        </span>
+        <span class="check" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>
+        </span>
+      </label>
+
+      <label class="method">
+        <input class="method-radio" type="radio" name="pago">
+        <span class="method-logo" aria-hidden="true">Ma</span>
+        <span class="method-body">
+          <b>Mach</b>
+          <span>Botón de pago con app Mach</span>
+        </span>
+        <span class="check" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>
+        </span>
+      </label>
+
+    </div>
+
+    <!-- tarjeta -->
+    <section class="card-form" aria-label="Datos de la tarjeta">
+      <h2>Pagar con tarjeta</h2>
+
+      <label class="field">
+        <span class="field-k">Nombre del titular</span>
+        <input class="input" type="text" value="Juan Pérez" autocomplete="cc-name">
+      </label>
+
+      <label class="field">
+        <span class="field-k">Número de tarjeta</span>
+        <input class="input input--mono" type="text" value="•••• •••• •••• 4242" inputmode="numeric" autocomplete="cc-number">
+      </label>
+
+      <div class="row">
+        <label class="field">
+          <span class="field-k">Vencimiento</span>
+          <input class="input input--mono" type="text" value="MM/AA" inputmode="numeric" autocomplete="cc-exp">
+        </label>
+        <label class="field">
+          <span class="field-k">CVV</span>
+          <input class="input input--mono" type="text" value="•••" inputmode="numeric" autocomplete="cc-csc">
+        </label>
+      </div>
+    </section>
+
+    <!-- total -->
+    <section class="total" aria-label="Total a pagar">
+      <div class="total-row">
+        <span>Total a pagar <em>CLP</em></span>
+        <b>$10.570</b>
+      </div>
+      <span class="total-note">IVA incluido · Despacho 24H $3.990 · Descuento -$1.747</span>
+    </section>
+
+    <p class="ssl">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="9.5" rx="2"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></svg>
+      Pago 100% seguro SSL · Datos encriptados
+    </p>
+  </main>
+
+  <!-- acción fija -->
+  <div class="paybar">
+    <div class="paybar-info">
+      <span>Total CLP</span>
+      <b>$10.570</b>
+    </div>
+    <a class="btn btn-neon" href="../08-pago-exitoso/">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="9.5" rx="2"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></svg>
+      Pagar de forma segura
+    </a>
+  </div>
+
+</div>
+</body>
+</html>
