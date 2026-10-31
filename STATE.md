@@ -1875,3 +1875,26 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
   `escCanvas`/`escPanel` en `index.html`.
 - SHA-256: `7f47daf3ac94e3ef5e71ecc4cd70b4ab89a322adad5a6edfcc7017a93c0d12eb` · 4.396.478 B.
 - Entregada en `/storage/emulated/0/Download/FORGE-CORE-STOCK-0.9.42.apk` y `/tmp/opencode/`.
+
+## Sesión 2026-10-31 · APK 0.9.43 (58) — rediseño del Inventario + lector en boleta
+
+- Commit `9d199c7` (push `a9cbaca..9d199c7`).
+- **Rediseño completo** (capa nueva al final de `inventario.css`, sin quitar nada):
+  hero con jerarquía, KPIs de 3 columnas, panel del negocio con 6 datos (unidades,
+  margen, ventas 24 h y 30 d, IVA estimado, sin sincronizar), pasos como barra
+  segmentada con el activo centrado, paneles tarjeta, campos de 48 px, catálogo en
+  tarjetas y boleta a dos columnas.
+- **IVA estimado** = valor_venta × 19/119 (precio con IVA incluido). Precios
+  compactos `$12,3 M` para que no se trunquen.
+- **Lector en el paso 5 (boleta)**: `invLecCaja5` + guards de 1..5; al leer, el
+  producto entra al carrito de la boleta con «Otra unidad» y «Emitir boleta».
+- **Teclado**: bloque `tecladoVisible()` en `app.js` con `visualViewport`; al
+  enfocar un campo la página se desplaza lo justo (dos pasadas 260/620 ms).
+- Bugs reales corregidos: «undefined%» en márgenes si el núcleo no devuelve un
+  campo; campos del paso 4 cortados (`.inv-calc` a 1 columna); tabla de márgenes
+  con scroll; `scrollIntoView` que descuadraba la página en horizontal (ahora
+  sólo mueve `scrollLeft` de la barra de pasos).
+- Verificado con arnés headless (393×852) en los 5 pasos; arnés borrado.
+- Build EXIT=0 · 4.300 KB · VC 58 / 0.9.43 · `apksigner` v2 ✔ v3 ✔.
+- SHA-256: `d143bf23af7359cbb6aa44deb91a9f2fc64743d65132fbd794282f912a2169ac` · 4.400.574 B.
+- Entregada en `/storage/emulated/0/Download/FORGE-CORE-STOCK-0.9.43.apk` y `/tmp/opencode/`.
