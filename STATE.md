@@ -2009,3 +2009,22 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
 - Build EXIT=0 · 4.325 KB · VC 63 / 0.9.48 · `apksigner` v2 ✔ v3 ✔.
 - SHA-256: `ae73a14d574f972808c5c0e0933481a14266663084e02761d184df00fed8f954` · 4.425.219 B.
 - Entregada en `/storage/emulated/0/Download/FORGE-CORE-STOCK-0.9.48.apk` y `/tmp/opencode/`.
+
+## Sesión 2026-11-01 · APK 0.9.49 (64) — módulo Impuestos F29
+
+- Commit `7fb3122` (push `c2c6df0..7fb3122`).
+- **Motor** (`impuestos.js`): `impCalcular()` con IVA 19 %, débito = ventas ×
+  19/119, crédito = costo × 19/119, determinado = débito − crédito − remanente,
+  remanente arrastrable, PPM = ventas × tasa (0,2 % por defecto) y total.
+  Datos desde `panel` del núcleo (`valor_venta`, `valor_costo`); admite ventas
+  reales manuales.
+- **UI**: hero con semáforo y plazo referencial (día 20), parámetros (período,
+  tasa PPM, remanente, ventas), 5 KPIs, barra SVG animada de beneficios
+  tributarios, resumen, formulario de pago con comprobante imprimible,
+  hoja de ruta de 6 pasos y fuentes oficiales con `abrirUrl`.
+- Verificado con captura 393×2700 y datos de prueba: débito $1.971.159,
+  crédito $1.421.008, determinado $550.151, PPM $24.691, total $574.842.
+- Aviso de estimación referencial y dependencia del régimen (14 D N°8 / N°3).
+- Build EXIT=0 · 4.334 KB · VC 64 / 0.9.49 · `apksigner` v2 ✔ v3 ✔.
+- SHA-256: `2cb9b6c566cb54539862dc124ec118ac71057d455beb2ab90a83fcaf178df965` · 4.437.646 B.
+- Entregada en `/storage/emulated/0/Download/FORGE-CORE-STOCK-0.9.49.apk` y `/tmp/opencode/`.
