@@ -1788,6 +1788,23 @@ npx -y omniroute@latest
       </div>
 
       <div class="ctb-caja">
+        <h3>Consulta al SII (opcional)</h3>
+        <p class="ctb-api-estado" id="ctbApiEstado">Sin clave: solo registro local</p>
+        <div class="ctb-api-fila">
+          <input id="ctbApiClave" type="password" placeholder="Clave de la API (X-API-Key)"
+                 autocomplete="off" spellcheck="false" />
+          <button class="ctb-btn" id="btnCtbGuardarClave" type="button">Guardar clave</button>
+        </div>
+        <div class="ctb-api-fila">
+          <input id="ctbApiRut" placeholder="RUT · 12345678-9" autocomplete="off" spellcheck="false" />
+          <button class="ctb-btn principal" id="btnCtbConsultarSii" type="button">Consultar</button>
+        </div>
+        <div id="ctbApiResultado"></div>
+        <p class="ctb-nota">Situación tributaria pública del SII. La clave queda en este teléfono.
+          Sin clave, el módulo sigue funcionando con tus datos locales.</p>
+      </div>
+
+      <div class="ctb-caja">
         <h3>Importar consulta</h3>
         <div class="ctb-importar">
           <textarea id="ctbImportarTexto" placeholder='{"rut":"12.345.678-9","razon_social":"Mi negocio","giro":"Comercio al por menor"}'></textarea>

@@ -39,6 +39,7 @@ function ctbClp(n) { return "$" + Math.round(Number(n || 0)).toLocaleString("es-
 function ctbIniciar() {
   CTB.activo = true;
   ctbPintarFormulario();
+  ctbEstadoClave();
   ctbCargar();
 }
 
@@ -275,6 +276,155 @@ function ctbImportar() {
     });
 }
 
+/* ==========================================================================
+   CONSULTA AL SII (opcional, con clave de API propia)
+   --------------------------------------------------------------------------
+   La app funciona 100 % local sin esto. Si el usuario tiene una clave de la
+   API de situación tributaria, puede consultar un RUT y el resultado se
+   mapea al registro local, guardando la respuesta completa en `extra`.
+   Endpoint: POST /api/v1/sii/contribuyente/situacion-tributaria
+   Cabecera: X-API-Key
+   ========================================================================== */
+function ctbEsApi() {
+  return !!(window.FabrickNative && typeof window.FabrickNative.siiConsultar === "function");
+}
+
+function ctbEstadoClave() {
+  const el = document.getElementById("ctbApiEstado");
+  if (!el) return;
+  if (!ctbEsApi()) {
+    el.textContent = "Este build no trae el puente de consulta.";
+    return;
+  }
+  try {
+    const r = JSON.parse(window.FabrickNative.siiEstadoClave());
+    el.textContent = r.configurado ? "Clave guardada en este teléfono" : "Sin clave: solo registro local";
+    el.className = "ctb-api-estado" + (r.configurado ? " ok" : "");
+  } catch (e) {
+    el.textContent = "No pude leer el estado de la clave.";
+  }
+}
+
+function ctbGuardarClaveSii() {
+  const input = document.getElementById("ctbApiClave");
+  const clave = input ? input.value.trim() : "";
+  if (!clave) { if (typeof toast === "function") toast("Escribe la clave de la API", "error"); return; }
+  if (!ctbEsApi()) return;
+  try {
+    const r = JSON.parse(window.FabrickNative.siiGuardarClave(clave));
+    if (!r.ok) { if (typeof toast === "function") toast(r.error || "no se pudo guardar", "error"); return; }
+    input.value = "";
+    ctbEstadoClave();
+    if (typeof toast === "function") toast("Clave guardada");
+  } catch (e) {
+    if (typeof toast === "function") toast("Error al guardar la clave", "error");
+  }
+}
+
+function ctbConsultarSii() {
+  const input = document.getElementById("ctbApiRut");
+  const rut = input ? input.value.trim() : "";
+  const caja = document.getElementById("ctbApiResultado");
+  if (!rut) { if (typeof toast === "function") toast("Escribe el RUT a consultar", "error"); return; }
+  if (!ctbEsApi()) return;
+  if (caja) caja.innerHTML = '<div class="ctb-api-cargando">Consultando al SII…</div>';
+  let r;
+  try {
+    r = JSON.parse(window.FabrickNative.siiConsultar(rut));
+  } catch (e) {
+    r = { ok: false, error: String(e) };
+  }
+  if (!r.ok) {
+    if (caja) caja.innerHTML = '<div class="ctb-api-error">' + esc(r.error || "error") + "</div>";
+    return;
+  }
+  // La respuesta real llega por FabriSii.resultado.
+}
+
+window.FabriSii = {
+  resultado: function (r) {
+    const caja = document.getElementById("ctbApiResultado");
+    if (!r || !r.ok || !r.data) {
+      const msg = (r && r.error) || "La consulta no devolvió datos.";
+      if (caja) caja.innerHTML = '<div class="ctb-api-error">' + esc(msg) + "</div>";
+      return;
+    }
+    const d = r.data;
+    CTB.sii = d;
+    const acts = (d.actividadesEconomicas || []).length;
+    const alertas = d.alertas || [];
+    const graves = alertas.filter(function (a) { return a.grave; }).length;
+    if (caja) {
+      caja.innerHTML =
+        '<div class="ctb-api-card">' +
+          '<b>' + esc(d.nombre || "—") + "</b>" +
+          '<span class="ctb-api-rut">' + esc(d.rut || "") + "</span>" +
+          '<div class="ctb-api-chips">' +
+            '<span class="ctb-chip ' + (String(d.cumpleObligacionTributaria || "").toUpperCase() === "SI" ? "lima" : "rojo") + '">' +
+              "Obligación: " + esc(d.cumpleObligacionTributaria || "—") + "</span>" +
+            '<span class="ctb-chip">' + (d.inicioActividades ? "Inicio de actividades" : "Sin inicio") + "</span>" +
+            '<span class="ctb-chip">' + acts + " actividades</span>" +
+            (d.empresaMenorTamano ? '<span class="ctb-chip">Menor tamaño</span>' : "") +
+            (d.obligadoFacturaElectronica ? '<span class="ctb-chip">Factura electrónica</span>' : "") +
+            (alertas.length ? '<span class="ctb-chip ' + (graves ? "rojo" : "") + '">' + alertas.length + " alertas</span>" : "") +
+          "</div>" +
+          (d.fechaInicioActividades ? '<p class="ctb-api-dato">Inicio: ' + esc(d.fechaInicioActividades) + "</p>" : "") +
+          (alertas.length ? '<div class="ctb-api-alertas">' + alertas.slice(0, 3).map(function (a) {
+            return '<div class="ctb-api-alerta' + (a.grave ? " grave" : "") + '">' +
+              "<b>" + esc(a.titulo || "Alerta") + "</b><span>" + esc(a.texto || a.motivo || "") + "</span></div>";
+          }).join("") + "</div>" : "") +
+          '<button class="ctb-btn principal" id="btnCtbGuardarSii" type="button">Guardar en el registro</button>' +
+        "</div>";
+    }
+  }
+};
+
+/** Convierte la respuesta del SII a la ficha local (todo queda en `extra`). */
+function ctbMapearSii(d) {
+  const acts = (d.actividadesEconomicas || []).map(function (a) {
+    return {
+      codigo: a.codigo || "",
+      descripcion: a.descripcion || "",
+      categoria: a.categoriaTributaria || "",
+      afecto_iva: a.afectaIva,
+      desde: a.fechaInicio || ""
+    };
+  });
+  const situaciones = [];
+  if (d.cumpleObligacionTributaria) situaciones.push("Obligación: " + d.cumpleObligacionTributaria);
+  if (d.terminoGiro) situaciones.push("Término de giro");
+  if (d.empresaMenorTamano) situaciones.push("Empresa de menor tamaño");
+  return {
+    rut: d.rut || "",
+    razon_social: d.nombre || "",
+    nombre_fantasia: "",
+    giro: (acts[0] && acts[0].descripcion) || "",
+    actividades: JSON.stringify(acts),
+    direccion: "",
+    comuna: "",
+    region: "",
+    email: "",
+    telefono: "",
+    situacion: situaciones.join(" · "),
+    regimen: "",
+    inicio_actividades: d.fechaInicioActividades || "",
+    extra: JSON.stringify(d),
+    origen: "api-sii"
+  };
+}
+
+function ctbGuardarSii() {
+  if (!CTB.sii) return;
+  const c = ctbMapearSii(CTB.sii);
+  apiTarde("contabilidad", { accion: "guardar", contribuyente: c }, { maxMs: 15000 })
+    .then(function (r) {
+      if (!r.ok) { if (typeof toast === "function") toast(r.error || "error", "error"); return; }
+      if (typeof toast === "function") toast("Guardado desde el SII · versión " + ((r.data && r.data.version) || 1));
+      ctbLlenarFormulario(c);
+      ctbCargar();
+    });
+}
+
 /* ── eventos ──────────────────────────────────────────────────────────── */
 (function ctbMontar() {
   document.addEventListener("click", function (ev) {
@@ -285,6 +435,9 @@ function ctbImportar() {
     if (t.closest("#btnCtbLimpiar")) { ctbLlenarFormulario(null); return; }
     if (t.closest("#btnCtbImportar")) { ctbImportar(); return; }
     if (t.closest("#btnCtbRefrescar")) { ctbCargar(); return; }
+    if (t.closest("#btnCtbGuardarClave")) { ctbGuardarClaveSii(); return; }
+    if (t.closest("#btnCtbConsultarSii")) { ctbConsultarSii(); return; }
+    if (t.closest("#btnCtbGuardarSii")) { ctbGuardarSii(); return; }
     if (t.closest("#btnCtbVerBorrados")) {
       CTB.incluirBorrados = !CTB.incluirBorrados;
       t.closest("#btnCtbVerBorrados").classList.toggle("activo", CTB.incluirBorrados);

@@ -1008,6 +1008,99 @@ public final class NativeBridge {
         return "{\"ok\":true}";
     }
 
+    // ------------------------------------------------ SII · situación tributaria
+    /** Guarda la clave de la API externa (no sale del teléfono). */
+    @JavascriptInterface
+    public String siiGuardarClave(String clave) {
+        try {
+            guardarConfig("ctb.api.key", clave == null ? "" : clave.trim());
+            return "{\"ok\":true}";
+        } catch (Throwable t) {
+            return error(t.getMessage() == null ? t.toString() : t.getMessage());
+        }
+    }
+
+    @JavascriptInterface
+    public String siiEstadoClave() {
+        String k = leerConfig("ctb.api.key");
+        return "{\"ok\":true,\"configurado\":" + (!k.isEmpty()) + "}";
+    }
+
+    /**
+     * Consulta la situación tributaria de un RUT en la API externa.
+     * Corre en segundo plano y devuelve el JSON tal cual por FabriSii.resultado.
+     * Si no hay clave configurada responde con error claro: la app sigue
+     * funcionando 100 % local con el registro manual.
+     */
+    @JavascriptInterface
+    public String siiConsultar(final String rut) {
+        final String clave = leerConfig("ctb.api.key");
+        final String limpio = rut == null ? "" : rut.trim();
+        if (clave.isEmpty()) {
+            return error("configura primero la clave de la API del SII");
+        }
+        if (!limpio.matches("\\d{1,8}-[\\dkK]")) {
+            return error("RUT inválido: usa el formato 12345678-9");
+        }
+        Thread hilo = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                JSONObject r = new JSONObject();
+                HttpURLConnection con = null;
+                try {
+                    JSONObject cuerpo = new JSONObject();
+                    cuerpo.put("rut", limpio);
+                    byte[] bytes = cuerpo.toString().getBytes(Charset.forName("UTF-8"));
+
+                    con = (HttpURLConnection) new URL(
+                            "https://api.baseapi.cl/api/v1/sii/contribuyente/situacion-tributaria")
+                            .openConnection();
+                    con.setRequestMethod("POST");
+                    con.setConnectTimeout(15000);
+                    con.setReadTimeout(45000);
+                    con.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+                    con.setRequestProperty("Accept", "application/json");
+                    con.setRequestProperty("X-API-Key", clave);
+                    con.setDoOutput(true);
+                    con.setFixedLengthStreamingMode(bytes.length);
+                    OutputStream salida = con.getOutputStream();
+                    salida.write(bytes);
+                    salida.flush();
+                    salida.close();
+
+                    int codigo = con.getResponseCode();
+                    InputStream flujo = codigo >= 200 && codigo < 300
+                            ? con.getInputStream() : con.getErrorStream();
+                    String texto = leerFlujo(flujo);
+                    if (codigo < 200 || codigo >= 300) {
+                        JSONObject err = new JSONObject();
+                        err.put("ok", false);
+                        err.put("error", "HTTP " + codigo + ": " +
+                                (texto.length() > 220 ? texto.substring(0, 220) : texto));
+                        notificar("window.FabriSii && FabriSii.resultado(" + err.toString() + ");");
+                        return;
+                    }
+                    JSONObject resp = new JSONObject(texto);
+                    resp.put("ok", resp.optBoolean("success", false));
+                    notificar("window.FabriSii && FabriSii.resultado(" + resp.toString() + ");");
+                } catch (Throwable t) {
+                    try {
+                        r.put("ok", false);
+                        r.put("error", t.getMessage() == null ? t.toString() : t.getMessage());
+                    } catch (Throwable ignorado) { }
+                    notificar("window.FabriSii && FabriSii.resultado(" + r.toString() + ");");
+                } finally {
+                    if (con != null) {
+                        try { con.disconnect(); } catch (Throwable ignorado) { }
+                    }
+                }
+            }
+        }, "sii-consulta");
+        hilo.setDaemon(true);
+        hilo.start();
+        return "{\"ok\":true,\"estado\":\"CONSULTANDO\"}";
+    }
+
     /** Cancelación del turno remoto en curso (streaming). */
     private volatile boolean chatCancelado = false;
     private volatile HttpURLConnection chatConexion = null;
