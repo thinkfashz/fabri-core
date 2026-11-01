@@ -445,83 +445,288 @@ function catBuscar(texto) {
 }
 
 /* ── banners de promoción en SVG (español) ─────────────────────────────── */
-function catBannerSvg(tipo, p) {
+const CAT_BANNERS = [
+  { t: "OFERTA FLASH",     s: "hasta 30% OFF", c: "en productos seleccionados", cta: "VER OFERTAS",   tema: 0 },
+  { t: "PRECIO BAJÓ",      s: "nuevos precios", c: "en tu catálogo local",      cta: "VER PRECIOS",   tema: 1 },
+  { t: "LLEVA 3 PAGA 2",   s: "en toda la tienda", c: "mientras haya stock",    cta: "APROVECHAR",    tema: 2 },
+  { t: "ENVÍO GRATIS",     s: "desde $20.000", c: "en toda la región",          cta: "COMPRAR",       tema: 3 },
+  { t: "TOP VENTAS",       s: "lo más pedido", c: "elegido por tus clientes",   cta: "VER RANKING",   tema: 4 },
+  { t: "LIQUIDACIÓN",      s: "últimas unidades", c: "hasta agotar stock",      cta: "VER AHORA",     tema: 5 }
+];
+
+const CAT_TEMAS = [
+  { fondo: "#C8FF00", texto: "#0A0A0A", acento: "#0A0A0A", cta: "#0A0A0A", ctaTxt: "#C8FF00" },
+  { fondo: "#121212", texto: "#F5F6F2", acento: "#C8FF00", cta: "#C8FF00", ctaTxt: "#0A0A0A" },
+  { fondo: "#FF5A4E", texto: "#FFF8F5", acento: "#0A0A0A", cta: "#0A0A0A", ctaTxt: "#FFF3F0" },
+  { fondo: "#7FB5FF", texto: "#06101F", acento: "#06101F", cta: "#06101F", ctaTxt: "#CFE6FF" },
+  { fondo: "#B48CFF", texto: "#150A28", acento: "#150A28", cta: "#150A28", ctaTxt: "#E9DBFF" },
+  { fondo: "#FFA85A", texto: "#231000", acento: "#231000", cta: "#231000", ctaTxt: "#FFE0C2" }
+];
+
+function catBannerSvg(temaIdx, p) {
+  const def = CAT_BANNERS[temaIdx % CAT_BANNERS.length];
+  const t = CAT_TEMAS[def.tema];
   const nombre = esc((p && p.nombre ? p.nombre : "Productos seleccionados").slice(0, 18)) +
     ((p && p.nombre && p.nombre.length > 18) ? "…" : "");
   const precio = p && p.precio ? invClp(p.precio) : "";
-  const tema = [
-    { fondo: "#C8FF00", texto: "#0A0A0A", acento: "#0A0A0A" },
-    { fondo: "#141414", texto: "#F5F6F2", acento: "#C8FF00" },
-    { fondo: "#FF5A4E", texto: "#FFF6F2", acento: "#0A0A0A" }
-  ][tipo % 3];
-  const titulos = [
-    ["OFERTA FLASH", "hasta 30% OFF", "en productos seleccionados"],
-    ["PRECIO BAJÓ", "nuevos precios", "en tu catálogo local"],
-    ["LLEVA 3 PAGA 2", "en toda la tienda", "mientras haya stock"]
-  ][tipo % 3];
-  return '<svg viewBox="0 0 640 260" role="img" aria-label="' + titulos[0] + '">' +
-    '<defs><linearGradient id="bg' + tipo + '" x1="0" y1="0" x2="1" y2="1">' +
-      '<stop offset="0" stop-color="' + tema.fondo + '"/>' +
-      '<stop offset="1" stop-color="' + (tema.fondo === "#141414" ? "#1F211D" : tema.fondo) + '"/>' +
-    '</linearGradient></defs>' +
-    '<rect width="640" height="260" rx="28" fill="url(#bg' + tipo + ')"/>' +
-    (tema.fondo === "#C8FF00"
-      ? '<g opacity="0.12" stroke="#0A0A0A" stroke-width="2">' +
-        '<path d="M0 210 210 0M120 260 330 50M300 260 510 50M480 260 640 100"/></g>'
-      : '<g opacity="0.16" stroke="' + tema.acento + '" stroke-width="2">' +
-        '<path d="M0 210 210 0M120 260 330 50M300 260 510 50M480 260 640 100"/></g>') +
-    '<text x="40" y="72" fill="' + tema.acento + '" font-family="system-ui,-apple-system,sans-serif" ' +
-      'font-size="15" font-weight="700" letter-spacing="4">' + titulos[0] + '</text>' +
-    '<text x="40" y="128" fill="' + tema.texto + '" font-family="system-ui,-apple-system,sans-serif" ' +
-      'font-size="42" font-weight="800" letter-spacing="-1.5">' + titulos[1] + '</text>' +
-    '<text x="40" y="164" fill="' + tema.texto + '" opacity="0.72" ' +
-      'font-family="system-ui,-apple-system,sans-serif" font-size="17" font-weight="500">' +
-      titulos[2] + '</text>' +
-    '<rect x="40" y="190" rx="14" width="200" height="44" fill="' +
-      (tema.fondo === "#C8FF00" ? "#0A0A0A" : tema.acento) + '"/>' +
-    '<text x="140" y="218" text-anchor="middle" fill="' +
-      (tema.fondo === "#C8FF00" ? "#C8FF00" : "#0A0A0A") + '" ' +
-      'font-family="system-ui,-apple-system,sans-serif" font-size="15" font-weight="800">' +
-      'VER OFERTAS</text>' +
-    '<g transform="translate(430 60)">' +
-      '<rect x="0" y="0" width="150" height="140" rx="24" fill="' +
-        (tema.fondo === "#C8FF00" ? "rgba(10,10,10,0.08)" : "rgba(200,255,0,0.10)") + '"/>' +
-      '<text x="75" y="58" text-anchor="middle" fill="' + tema.texto + '" ' +
+  return '<svg viewBox="0 0 640 260" role="img" aria-label="' + def.t + '">' +
+    '<defs><linearGradient id="bg' + temaIdx + '" x1="0" y1="0" x2="1" y2="1">' +
+      '<stop offset="0" stop-color="' + t.fondo + '"/>' +
+      '<stop offset="1" stop-color="' + t.fondo + '"/></linearGradient></defs>' +
+    '<rect width="640" height="260" rx="28" fill="' + t.fondo + '"/>' +
+    '<g opacity="0.14" stroke="' + t.acento + '" stroke-width="2">' +
+      '<path d="M0 210 210 0M120 260 330 50M300 260 510 50M480 260 640 100"/></g>' +
+    '<text x="40" y="70" fill="' + t.acento + '" font-family="system-ui,-apple-system,sans-serif" ' +
+      'font-size="15" font-weight="700" letter-spacing="4">' + def.t + '</text>' +
+    '<text x="40" y="126" fill="' + t.texto + '" font-family="system-ui,-apple-system,sans-serif" ' +
+      'font-size="40" font-weight="800" letter-spacing="-1.5">' + def.s + '</text>' +
+    '<text x="40" y="162" fill="' + t.texto + '" opacity="0.72" ' +
+      'font-family="system-ui,-apple-system,sans-serif" font-size="16" font-weight="500">' +
+      def.c + '</text>' +
+    '<rect x="40" y="188" rx="14" width="196" height="44" fill="' + t.cta + '"/>' +
+    '<text x="138" y="216" text-anchor="middle" fill="' + t.ctaTxt + '" ' +
+      'font-family="system-ui,-apple-system,sans-serif" font-size="14" font-weight="800">' +
+      def.cta + '</text>' +
+    '<g transform="translate(430 58)">' +
+      '<rect x="0" y="0" width="150" height="142" rx="24" fill="rgba(0,0,0,0.10)"/>' +
+      '<text x="75" y="60" text-anchor="middle" fill="' + t.texto + '" ' +
         'font-family="system-ui,-apple-system,sans-serif" font-size="11.5" font-weight="600" ' +
-        'opacity="0.8">' + nombre + '</text>' +
-      '<text x="75" y="96" text-anchor="middle" fill="' + tema.acento + '" ' +
+        'opacity="0.85">' + nombre + '</text>' +
+      '<text x="75" y="100" text-anchor="middle" fill="' + t.acento + '" ' +
         'font-family="system-ui,-apple-system,sans-serif" font-size="24" font-weight="800">' +
         precio + '</text>' +
-      '<text x="75" y="118" text-anchor="middle" fill="' + tema.texto + '" opacity="0.55" ' +
+      '<text x="75" y="122" text-anchor="middle" fill="' + t.texto + '" opacity="0.55" ' +
         'font-family="system-ui,-apple-system,sans-serif" font-size="10" font-weight="600">' +
         'precio tienda</text>' +
-    '</g>' +
-    '</svg>';
+    '</g></svg>';
 }
 
 function catPintarBanners() {
   const caja = document.getElementById("catBanners");
+  const dots = document.getElementById("catBannersDots");
   if (!caja) return;
-  // Productos variados: los que más stock tienen, rotando por categoría.
   const conStock = CAT.productos.filter(function (p) { return Number(p.stock || 0) > 0; });
-  const pick = [];
-  const vistos = {};
-  for (let i = 0; i < conStock.length && pick.length < 3; i++) {
-    const p = conStock[(i * 7 + 3) % conStock.length];
-    const k = p.categoria + "|" + p.codigo;
-    if (vistos[k]) continue;
-    vistos[k] = 1;
-    if (pick.some(function (x) { return x.categoria === p.categoria; })) continue;
-    pick.push(p);
-  }
-  if (!pick.length) { caja.innerHTML = ""; return; }
-  caja.innerHTML = pick.map(function (p, i) {
-    return '<div class="cat-banner" data-banner="' + esc(p.codigo) + '">' +
+  const base = conStock.length ? conStock : CAT.productos;
+  const pick = base.slice(0, 6).map(function (_, i) {
+    return base[(i * 7 + 3) % base.length];
+  });
+  const lista = pick.length ? pick : [null, null, null];
+  caja.innerHTML = lista.map(function (p, i) {
+    return '<div class="cat-banner" data-banner="' + esc(p ? p.codigo : "") + '">' +
       catBannerSvg(i, p) + '</div>';
   }).join("");
+  if (dots) {
+    dots.innerHTML = lista.map(function (_, i) {
+      return '<i' + (i === 0 ? ' class="activo"' : '') + '></i>';
+    }).join("");
+  }
   caja.querySelectorAll(".cat-banner").forEach(function (b) {
-    b.addEventListener("click", function () { catAbrirProducto(b.dataset.banner); });
+    b.addEventListener("click", function () {
+      if (b.dataset.banner) catAbrirProducto(b.dataset.banner);
+    });
   });
+  caja.onscroll = function () { catBannersPunto(caja); };
+  catBannersAuto();
+}
+
+/** Índice del banner más cercano al borde izquierdo del carrusel. */
+function catBannerIndice(caja) {
+  const first = caja.children[0];
+  if (!first) return 0;
+  const base = first.offsetLeft;
+  let mejor = 0, dist = Infinity;
+  for (let i = 0; i < caja.children.length; i++) {
+    const d = Math.abs((caja.children[i].offsetLeft - base) - caja.scrollLeft);
+    if (d < dist) { dist = d; mejor = i; }
+  }
+  return mejor;
+}
+
+function catBannersPunto(caja) {
+  const dots = document.getElementById("catBannersDots");
+  if (!dots) return;
+  const i = catBannerIndice(caja);
+  dots.querySelectorAll("i").forEach(function (d, k) {
+    d.classList.toggle("activo", k === i);
+  });
+}
+
+function catBannersAuto() {
+  clearInterval(CAT.bannerTimer);
+  CAT.bannerTimer = setInterval(function () {
+    if (!CAT.activa || CAT.vista !== "catalogo") return;
+    const caja = document.getElementById("catBanners");
+    if (!caja || caja.children.length < 2) return;
+    const i = catBannerIndice(caja);
+    const n = (i + 1) % caja.children.length;
+    const first = caja.children[0];
+    const destino = caja.children[n].offsetLeft - first.offsetLeft;
+    caja.scrollTo({ left: destino, behavior: "smooth" });
+  }, 5200);
+}
+
+/* ==========================================================================
+   WIKI DEL PRODUCTO (Open Food/Beauty/Products Facts) + PRECIOS DE MERCADO
+   ========================================================================== */
+
+const CAT_WIKI_TTL = 30 * 24 * 60 * 60 * 1000;   // 30 días
+
+function catWikiLeer(codigo) {
+  try {
+    const raw = localStorage.getItem("forge.wiki." + codigo);
+    if (!raw) return null;
+    const o = JSON.parse(raw);
+    if (!o || !o.ts || Date.now() - o.ts > CAT_WIKI_TTL) return null;
+    return o.datos || null;
+  } catch (e) { return null; }
+}
+
+function catWikiGuardar(codigo, datos) {
+  try {
+    localStorage.setItem("forge.wiki." + codigo,
+      JSON.stringify({ ts: Date.now(), datos: datos }));
+  } catch (e) { /* sin espacio: se ignora */ }
+}
+
+/** Pide la ficha a las bases libres (sin clave) y la cachea 30 días. */
+function catWikiCargar(p, forzar) {
+  if (!p || !p.codigo) return Promise.resolve(null);
+  const codigo = String(p.codigo);
+  if (!forzar) {
+    const guardado = catWikiLeer(codigo);
+    if (guardado) return Promise.resolve(guardado);
+  }
+  if (typeof invConsultarApiLibre !== "function") return Promise.resolve(null);
+  if (navigator.onLine === false) return Promise.resolve(null);
+  return invConsultarApiLibre(codigo).then(function (r) {
+    if (!r || !r.ok || !r.producto) return null;
+    catWikiGuardar(codigo, r.producto);
+    return r.producto;
+  }).catch(function () { return null; });
+}
+
+/** Pinta la ficha ampliada de la wiki en el detalle. */
+function catPintarWikiApi(p, wiki) {
+  const caja = document.getElementById("catWikiApi");
+  if (!caja) return;
+  if (!wiki) { caja.hidden = true; return; }
+  const f = wiki.ficha || {};
+  const chips = [];
+  if (f.nutriscore) chips.push('<span class="cat-etq alerta">Nutri-Score ' + esc(String(f.nutriscore).toUpperCase()) + '</span>');
+  if (f.nova) chips.push('<span class="cat-etq">NOVA ' + esc(String(f.nova)) + '</span>');
+  (f.alergenos || []).slice(0, 4).forEach(function (a) {
+    chips.push('<span class="cat-etq error">' + esc(a) + '</span>');
+  });
+  (f.etiquetas_todas || []).slice(0, 6).forEach(function (e) {
+    chips.push('<span class="cat-etq ok">' + esc(e) + '</span>');
+  });
+  const desc = (wiki.descripcion || "").trim();
+  const ing = (f.ingredientes || "").trim();
+  caja.hidden = false;
+  caja.innerHTML =
+    '<h3>Ficha ampliada <small>' + esc(wiki.fuente || "Open Food Facts") + '</small></h3>' +
+    (wiki.imagen
+      ? '<img class="cat-wiki-img" src="' + esc(wiki.imagen) + '" alt="" loading="lazy" ' +
+        'onerror="this.remove()" />'
+      : "") +
+    (desc ? '<p>' + esc(desc) + '</p>' : "") +
+    (ing ? '<p class="cat-wiki-ing"><b>Ingredientes:</b> ' + esc(ing) + '</p>' : "") +
+    (chips.length ? '<div class="cat-wiki-etiquetas">' + chips.join("") + '</div>' : "");
+}
+
+/** Precios de mercado: referencia local + Open Prices (comunitario). */
+function catPreciosMercado(p) {
+  const caja = document.getElementById("catMercado");
+  if (!caja) return;
+  const precio = Number(p.precio || 0);
+  // 1) Referencia local: misma categoría en tu propia base.
+  const pares = CAT.productos.filter(function (x) {
+    return x.categoria === p.categoria && Number(x.precio || 0) > 0 && x.codigo !== p.codigo;
+  });
+  const valores = pares.map(function (x) { return Number(x.precio); });
+  let local = null;
+  if (valores.length) {
+    const min = Math.min.apply(null, valores);
+    const max = Math.max.apply(null, valores);
+    const prom = valores.reduce(function (a, b) { return a + b; }, 0) / valores.length;
+    const dif = precio > 0 ? Math.round(((precio - prom) / prom) * 100) : 0;
+    local = { min: min, max: max, prom: prom, n: valores.length, dif: dif };
+  }
+
+  const filaLocal = local
+    ? '<div class="cat-mercado-fila"><span>Tu base · ' + local.n + ' similares</span>' +
+      '<b>' + invClp(local.prom) + '</b></div>' +
+      '<div class="cat-mercado-rango">' +
+        '<span>mín ' + invClp(local.min) + '</span>' +
+        '<span>máx ' + invClp(local.max) + '</span>' +
+        (precio > 0 ? '<span class="' + (local.dif > 0 ? "caro" : "barato") + '">' +
+          (local.dif > 0 ? "+" : "") + local.dif + '% vs promedio</span>' : "") +
+      '</div>'
+    : '<div class="cat-mercado-rango"><span>Sin otros productos de la misma categoría.</span></div>';
+
+  caja.hidden = false;
+  caja.innerHTML =
+    '<h3>Precios de mercado</h3>' +
+    '<div class="cat-mercado-tu">' +
+      '<span>Tu precio</span><b>' + invClp(precio) + '</b>' +
+    '</div>' +
+    filaLocal +
+    '<div class="cat-mercado-ext" id="catMercadoExt">' +
+      '<span class="cat-mercado-cargando">Buscando precios comunitarios…</span>' +
+    '</div>' +
+    '<p class="cat-mercado-nota">Referencia local de tu base. Los precios ' +
+      'comunitarios vienen de Open Prices (colaborativo, sin clave) y pueden no ' +
+      'existir para este código en Chile.</p>';
+
+  // 2) Open Prices: precios observados por la comunidad.
+  if (navigator.onLine === false) {
+    catMercadoExt("Sin conexión: sólo referencia local.", false);
+    return;
+  }
+  const ctrl = typeof AbortController === "function" ? new AbortController() : null;
+  const tope = setTimeout(function () { if (ctrl) ctrl.abort(); }, 8000);
+  fetch("https://prices.openfoodfacts.org/api/v1/prices?product_code=" +
+        encodeURIComponent(p.codigo) + "&size=20", { signal: ctrl ? ctrl.signal : undefined })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (d) {
+      clearTimeout(tope);
+      const items = (d && d.items) || [];
+      if (!items.length) {
+        catMercadoExt("Sin precios comunitarios para este código.", true);
+        return;
+      }
+      const cl = items.filter(function (it) {
+        return (it.location_osm_address_country_code === "CL") ||
+               (it.location && it.location.osm_address_country_code === "CL") ||
+               String(it.currency || "").toUpperCase() === "CLP";
+      });
+      const usar = cl.length ? cl : items.slice(0, 5);
+      const filas = usar.slice(0, 5).map(function (it) {
+        const moneda = it.currency || "";
+        const precioTxt = moneda === "CLP"
+          ? invClp(it.price)
+          : Number(it.price || 0).toLocaleString("es-CL") + " " + esc(moneda);
+        const lugar = (it.location && (it.location.osm_name || it.location.osm_address_city)) || "Comunidad";
+        const fecha = it.date ? String(it.date) : "";
+        return '<div class="cat-mercado-obs">' +
+          '<span>' + esc(lugar) + (fecha ? " · " + esc(fecha) : "") + '</span>' +
+          '<b>' + precioTxt + '</b></div>';
+      }).join("");
+      catMercadoExt(
+        (cl.length ? "" : '<p class="cat-mercado-aviso">Sin observaciones en Chile; ' +
+          'se muestran referencias de otros países.</p>') + filas, true);
+    })
+    .catch(function () {
+      clearTimeout(tope);
+      catMercadoExt("No se pudo consultar Open Prices ahora.", false);
+    });
+}
+
+function catMercadoExt(html, ok) {
+  const caja = document.getElementById("catMercadoExt");
+  if (!caja) return;
+  caja.innerHTML = html;
+  caja.classList.toggle("sin-datos", !ok);
 }
 
 /* ── página de producto ────────────────────────────────────────────────── */
@@ -619,6 +824,20 @@ function catPintarProducto(p) {
       });
     }
   }
+
+  catCargarExtras(p);
+}
+
+/** Carga en segundo plano la wiki del código y los precios de mercado. */
+function catCargarExtras(p) {
+  catPintarWikiApi(p, null);
+  catPreciosMercado(p);
+  const objetivo = p.codigo;
+  catWikiCargar(p).then(function (w) {
+    // Si el usuario ya abrió otro producto, no se pinta encima.
+    if (!CAT.producto || CAT.producto.codigo !== objetivo) return;
+    catPintarWikiApi(p, w);
+  });
 }
 
 function catProductoAgregar() {
