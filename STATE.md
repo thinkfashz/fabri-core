@@ -2090,3 +2090,21 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
 - Build EXIT=0 · 4.344 KB · VC 69 / 0.9.54 · `apksigner` v2 ✔ v3 ✔.
 - SHA-256: `346ca92c61f1d450ec9a02d19373d69535231ec5e09ab92b31129fc8f1db4744` · 4.470.559 B.
 - Entregada en `/storage/emulated/0/Download/FORGE-CORE-STOCK-0.9.54.apk` y `/tmp/opencode/`.
+
+## Sesión 2026-11-01 · APK 0.9.55 (70) — consultas SII automatizadas
+
+- Commit `b003bd8` (push `66da1ea..b003bd8`).
+- **«Actualizar todos»**: cola secuencial sobre los RUT guardados (pausa de
+  450-500 ms entre cada uno), actualiza y versiona; si un RUT falla, sigue.
+- **«Auto cada 7 días»**: al abrir el módulo, si hay clave y pasaron 7 días,
+  lanza la cola en segundo plano (`ctb.auto.on` + marca de tiempo).
+- **Progreso** visible con RUT en curso y contador.
+- **Demo**: el refresco conserva la identidad del ejemplo (busca por nombre en
+  `CTB_DEMO_NEGOCIOS`) para no duplicar fichas.
+- Arquitectura: JS → `FabrickNative.siiConsultar` (Java, hilo, HTTPS con
+  X-API-Key) → `FabriSii.resultado` → núcleo Rust (SQLite con historial y
+  auditoría). **Sin Termux ni servidor**.
+- Verificado con captura: 4 fichas pasan de 1 a 2 versiones (8 totales).
+- Build EXIT=0 · 4.344 KB · VC 70 / 0.9.55 · `apksigner` v2 ✔ v3 ✔.
+- SHA-256: `4f81ac665ffd180eca9c8d93234d88f5d68a4cb2fb775b8b14850d825d30b324` · 4.470.559 B.
+- Entregada en `/storage/emulated/0/Download/FORGE-CORE-STOCK-0.9.55.apk` y `/tmp/opencode/`.
