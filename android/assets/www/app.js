@@ -492,6 +492,7 @@ const RAMAS_VISTA = {
   modulos: () => cargarModulos(),
   chat: () => chatIniciar(),
   inventario: () => { if (typeof invIniciar === "function") invIniciar(); },
+  impuestos: () => { if (typeof impIniciar === "function") impIniciar(); },
   catalogo: () => { if (typeof catIniciar === "function") catIniciar(); },
   flujo: () => { if (typeof flujoIniciar === "function") flujoIniciar(); },
   termux: () => { cargarTermux(); puenteIniciar(); },

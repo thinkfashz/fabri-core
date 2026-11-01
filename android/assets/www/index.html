@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="inicio.css" />
   <link rel="stylesheet" href="identidad.css" />
   <link rel="stylesheet" href="catalogo.css" />
+  <link rel="stylesheet" href="impuestos.css" />
 </head>
 <body>
   <!-- ===================== ACCESO · HUELLA + PIN ===================== -->
@@ -120,6 +121,7 @@
       <button class="nav-drawer" data-vista="id"><span>▣</span>Mi identidad</button>
       <button class="nav-drawer" data-vista="chat"><span>✦</span>Chat</button>
       <button class="nav-drawer" data-vista="inventario"><span>▦</span>Inventario</button>
+      <button class="nav-drawer" data-vista="impuestos"><span>％</span>Impuestos F29</button>
       <button class="nav-drawer" data-vista="catalogo"><span>◈</span>Catálogo</button>
       <button class="nav-drawer" data-vista="flujo"><span>⇄</span>Flujo en tiempo real</button>
       <button class="nav-drawer" data-vista="modulos"><span>⬡</span>Módulos</button>
@@ -1746,6 +1748,94 @@ npx -y omniroute@latest
     </div>
   </section>
 
+  <!-- ===================== IMPUESTOS · F29 ================================ -->
+  <section class="vista" id="v-impuestos">
+    <div class="imp-cuerpo">
+      <div class="imp-hero">
+        <div>
+          <p class="imp-eyebrow">Módulo · impuestos</p>
+          <h2>Formulario <em>F29</em> estimado</h2>
+          <p class="imp-sub">Calcula el IVA del período con el stock de tu inventario,
+            estima el PPM y arma el comprobante de pago. La declaración oficial se hace en el SII.</p>
+        </div>
+        <div class="imp-estado ok" id="impEstado"><i></i><b>Calculando…</b><small></small></div>
+        <p class="imp-plazo" id="impPlazo"></p>
+        <p class="cat-vacio" id="impAviso"></p>
+      </div>
+
+      <div class="imp-parametros">
+        <div class="imp-campo"><span>Período</span><input id="impPeriodo" type="month" /></div>
+        <div class="imp-campo"><span>Tasa PPM %</span><input id="impTasaPpm" inputmode="decimal" value="0.2" /></div>
+        <div class="imp-campo"><span>Remanente anterior</span><input id="impRemanente" inputmode="numeric" placeholder="0" /></div>
+        <div class="imp-campo"><span>Ventas reales (opcional)</span><input id="impVentasManual" inputmode="numeric" placeholder="vacío = stock" /></div>
+      </div>
+
+      <div class="imp-kpis" id="impKpis"></div>
+
+      <div class="imp-beneficios">
+        <div class="imp-beneficios-cab">
+          <h3>Beneficios tributarios usados</h3>
+          <span id="impBarraPct"></span>
+        </div>
+        <svg id="impBarraSvg" viewBox="0 0 300 18" role="img" aria-label="Crédito fiscal aplicado frente a impuesto a pagar">
+          <defs>
+            <linearGradient id="impGradCredito" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stop-color="#4ade80"/>
+              <stop offset="1" stop-color="#C8FF00"/>
+            </linearGradient>
+          </defs>
+          <rect x="0" y="0" width="300" height="18" rx="9" fill="#1B1C19"/>
+          <rect id="impSegCredito" x="0" y="0" width="0" height="18" rx="9" fill="url(#impGradCredito)"/>
+          <rect id="impSegPagar" x="0" y="0" width="0" height="18" rx="9" fill="#fbbf24"/>
+        </svg>
+        <div class="imp-leyenda">
+          <div class="imp-leyenda-dato"><span><i class="imp-verde"></i>Crédito usado</span><b id="impEtqCredito">$0</b></div>
+          <div class="imp-leyenda-dato"><span><i class="imp-ambar"></i>IVA a pagar</span><b id="impEtqPagar">$0</b></div>
+          <div class="imp-leyenda-dato"><span><i class="imp-gris"></i>Remanente</span><b id="impEtqRemanente">$0</b></div>
+        </div>
+      </div>
+
+      <div class="imp-resumen" id="impResumen"></div>
+
+      <div class="imp-pago">
+        <h3>Formulario de pago</h3>
+        <div class="imp-fila">
+          <div class="imp-campo"><span>Razón social</span><input id="impRazon" placeholder="Mi negocio" /></div>
+          <div class="imp-campo"><span>RUT</span><input id="impRut" placeholder="12.345.678-9" /></div>
+        </div>
+        <div class="imp-fila">
+          <div class="imp-campo"><span>Banco / medio</span><input id="impBanco" placeholder="Banco Estado" /></div>
+          <div class="imp-campo"><span>Folio interno</span><input id="impFolio" placeholder="F29-0001" /></div>
+        </div>
+        <div class="imp-monto">
+          <span>Monto a pagar</span>
+          <b id="impComprobanteMonto">$0</b>
+        </div>
+        <div class="imp-acciones">
+          <button class="btn btn-primario" id="btnImpImprimir" type="button">Comprobante</button>
+          <button class="btn" id="btnImpSii" type="button">Declarar en SII</button>
+          <button class="btn" id="btnImpTgr" type="button">Pagar en TGR</button>
+          <button class="btn" id="btnImpActualizar" type="button">Actualizar stock</button>
+        </div>
+      </div>
+
+      <div class="imp-ruta-card">
+        <h3>Hoja de ruta mensual</h3>
+        <ol class="imp-ruta" id="impRuta"></ol>
+      </div>
+
+      <div class="imp-ruta-card">
+        <h3>Fuentes oficiales</h3>
+        <div class="imp-fuentes" id="impFuentes"></div>
+      </div>
+
+      <p class="imp-nota">Estimación referencial calculada con el inventario de este teléfono.
+        No constituye asesoría tributaria ni reemplaza el F29 oficial. Verifica siempre las cifras
+        en el SII: la tasa de PPM depende de tu régimen (Pro Pyme 14 D N°8 o N°3) y el crédito
+        fiscal exige factura a tu RUT.</p>
+    </div>
+  </section>
+
   <!-- ===================== MÓDULO INVENTARIO ============================== -->
   <section class="vista" id="v-inventario">
       <div class="inv-hero">
@@ -2749,6 +2839,7 @@ CREATE INDEX IF NOT EXISTS idx_inv_productos_actualizado
   <script src="conexiones.js"></script>
   <script src="inventario.js"></script>
   <script src="catalogo.js"></script>
+  <script src="impuestos.js"></script>
   <script src="impresora.js"></script>
   <script src="lector-red.js"></script>
   <script src="importar-base.js"></script>
