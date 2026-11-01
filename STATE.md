@@ -1987,3 +1987,25 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
 - Build EXIT=0 · 4.309 KB · VC 62 / 0.9.47 · `apksigner` v2 ✔ v3 ✔.
 - SHA-256: `2662ef6919831685fa74cdea656955fa2104aa28df2a3f47b5388a9562baec0d` · 4.412.862 B.
 - Entregada en `/storage/emulated/0/Download/FORGE-CORE-STOCK-0.9.47.apk` y `/tmp/opencode/`.
+
+## Sesión 2026-11-01 · APK 0.9.48 (63) — chat: scroll, logos y flujo de modelos
+
+- Commit `1da1869` (push `f24ced2..1da1869`).
+- **Scroll de ajustes**: `#v-chat` es fija con `overflow:hidden` y `.chat-config`
+  era `flex:0 0 auto` → el panel se recortaba sin scroll. Ahora
+  `flex:0 1 auto; max-height:64vh; overflow-y:auto; overscroll-behavior:contain`.
+- **Logos reales**: `marcas-ia.js` (23.721 B) con 20 SVG de LobeHub icons
+  incrustados y normalizados a currentColor. Se carga antes de `app.js`.
+- **Selectores**: botones `.chat-selector` con logo + nombre + tipo, hoja
+  inferior `.chat-hoja` con lista ilustrada; `chatHojaProveedores()` y
+  `chatHojaModelos()`. Los `<select>`/`<datalist>` quedan ocultos por
+  compatibilidad con `chatGuardarRemoto`.
+- **Flujo**: al guardar la clave sin modelo se pone `CHAT_MODELOS_AUTO` y
+  `chatTraerModelos()` abre la hoja al recibir el catálogo.
+- **Render**: JSON crudo → bloque de código tabulado; `overflow-wrap:anywhere`
+  en burbujas para URLs/números largos.
+- Verificado con captura 393×900: hoja de proveedores con logos y panel de
+  ajustes (velocidad y estilo) correctos.
+- Build EXIT=0 · 4.325 KB · VC 63 / 0.9.48 · `apksigner` v2 ✔ v3 ✔.
+- SHA-256: `ae73a14d574f972808c5c0e0933481a14266663084e02761d184df00fed8f954` · 4.425.219 B.
+- Entregada en `/storage/emulated/0/Download/FORGE-CORE-STOCK-0.9.48.apk` y `/tmp/opencode/`.
