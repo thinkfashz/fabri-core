@@ -1968,3 +1968,22 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
 - Build EXIT=0 · 4.309 KB · VC 61 / 0.9.46 · `apksigner` v2 ✔ v3 ✔.
 - SHA-256: `befc2d027bb340ea2b6e7d3a240d327bcd1dd3ba454831c476fe89233999b656` · 4.412.862 B.
 - Entregada en `/storage/emulated/0/Download/FORGE-CORE-STOCK-0.9.46.apk` y `/tmp/opencode/`.
+
+## Sesión 2026-11-01 · APK 0.9.47 (62) — chat más natural y rápido
+
+- Commit `f42d14e` (push `5c8aa35..f42d14e`).
+- **Bug de duplicación**: `chatPromptRemoto` incluía toda la conversación en el
+  texto y el puente la mandaba además como `historial` → cada turno viajaba dos
+  veces. Corregido: el prompt lleva sólo el mensaje actual + contexto.
+- **Estilos** (`CHAT_ESTILOS`): Natural (0.70, 2-4 frases), Conciso (0.45, 1-2
+  frases), Técnico (0.30, cifras y pasos). El `sistema` viaja al nativo y se
+  usa también en el prompt local; se guarda en `forge.chat.estilo`.
+- **Precalentamiento**: `chatPreconectar()` (HEAD keep-alive en hilo propio)
+  deja DNS+TLS listos para el primer turno.
+- **Métrica**: la burbuja muestra «1er token X ms · total Y s».
+- Nota de rendimiento para el usuario: el modelo manda. Groq (llama-3.3-70b) y
+  Gemini 2.5 Flash dan primer token de 200-400 ms; un GGUF de 0.5B en el
+  teléfono ronda 8-15 tok/s y es menos coherente.
+- Build EXIT=0 · 4.309 KB · VC 62 / 0.9.47 · `apksigner` v2 ✔ v3 ✔.
+- SHA-256: `2662ef6919831685fa74cdea656955fa2104aa28df2a3f47b5388a9562baec0d` · 4.412.862 B.
+- Entregada en `/storage/emulated/0/Download/FORGE-CORE-STOCK-0.9.47.apk` y `/tmp/opencode/`.
