@@ -426,3 +426,48 @@
   font-size: 11px;
   font-variant-numeric: tabular-nums;
 }
+
+/* Sesión SII */
+.ctb-sii-acts { display: grid; gap: 4px; }
+.ctb-sii-acts span {
+  font-size: 10.5px;
+  color: var(--ctb-txt-2);
+  padding: 6px 9px;
+  border-radius: 9px;
+  background: var(--ctb-sup-2);
+  border: 1px solid var(--ctb-borde);
+}
+.ctb-sii-texto { margin-top: 4px; }
+.ctb-sii-texto summary {
+  font-size: 11px;
+  color: var(--ctb-lima);
+  cursor: pointer;
+  padding: 6px 0;
+}
+.ctb-sii-texto pre {
+  margin: 6px 0 0;
+  max-height: 220px;
+  overflow: auto;
+  padding: 10px;
+  border-radius: 11px;
+  background: #0B0C0A;
+  border: 1px solid var(--ctb-borde);
+  font-size: 10px;
+  line-height: 1.45;
+  color: var(--ctb-txt-2);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+@media (max-width: 380px) {
+  .ctb-api-fila { flex-wrap: wrap; }
+  .ctb-api-fila input { flex: 1 1 100%; }
+}
+
+/* Nada puede ensanchar la página (inputs de URL con texto largo). */
+#v-contabilidad { overflow-x: hidden; }
+#v-contabilidad .ctb-caja,
+#v-contabilidad .ctb-card,
+#v-contabilidad .ctb-lista,
+#v-contabilidad .ctb-cuerpo { min-width: 0; }
+.ctb-api-fila { min-width: 0; }
+.ctb-api-fila input { min-width: 0; width: 100%; }

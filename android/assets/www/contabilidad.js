@@ -47,6 +47,7 @@ function ctbIniciar() {
   ctbModo(CTB.demo);
   ctbEstadoClave();
   ctbAutoRefresco();
+  ctbSiiEstado();
   ctbCargar();
 }
 
@@ -463,7 +464,143 @@ function ctbConsultarSii() {
   // La respuesta real llega por FabriSii.resultado.
 }
 
+/* ── sesión SII propia (sin terceros) ─────────────────────────────────── */
+function ctbSiiEstado() {
+  const el = document.getElementById("ctbSiiEstado");
+  if (!el || !window.FabrickNative || !window.FabrickNative.siiSesionEstado) return;
+  try {
+    const r = JSON.parse(window.FabrickNative.siiSesionEstado());
+    const partes = [];
+    if (r.sesion) partes.push("Sesión activa");
+    else partes.push("Sin sesión");
+    if (r.rut) partes.push(r.rut);
+    if (r.claveGuardada) partes.push("clave guardada cifrada");
+    el.textContent = partes.join(" · ");
+    el.className = "ctb-api-estado" + (r.sesion ? " ok" : "");
+    const rutEl = document.getElementById("ctbSiiRut");
+    if (rutEl && r.rut && !rutEl.value) rutEl.value = r.rut;
+  } catch (e) { el.textContent = "No pude leer el estado de la sesión"; }
+}
+
+function ctbSiiLogin() {
+  const rut = (document.getElementById("ctbSiiRut") || {}).value || "";
+  const clave = (document.getElementById("ctbSiiClave") || {}).value || "";
+  const recordar = !!(document.getElementById("ctbSiiRecordar") || {}).checked;
+  if (!rut.trim() || !clave.trim()) {
+    if (typeof toast === "function") toast("Escribe RUT y clave tributaria", "error");
+    return;
+  }
+  if (!window.FabrickNative || !window.FabrickNative.siiLogin) {
+    if (typeof toast === "function") toast("Este build no trae la sesión SII", "error");
+    return;
+  }
+  const el = document.getElementById("ctbSiiEstado");
+  if (el) { el.textContent = "Conectando con el SII…"; el.className = "ctb-api-estado"; }
+  let r;
+  try { r = JSON.parse(window.FabrickNative.siiLogin(rut.trim(), clave, recordar)); }
+  catch (e) { r = { ok: false, error: String(e) }; }
+  if (!r.ok) {
+    if (el) el.textContent = r.error || "No se pudo iniciar sesión";
+    if (typeof toast === "function") toast(r.error || "No se pudo iniciar sesión", "error");
+  }
+}
+
+function ctbSiiLogout() {
+  try { window.FabrickNative.siiCerrarSesion(); } catch (e) {}
+  const c = document.getElementById("ctbSiiClave");
+  if (c) c.value = "";
+  ctbSiiEstado();
+  if (typeof toast === "function") toast("Sesión SII cerrada");
+}
+
+function ctbSiiConsultar() {
+  const url = (document.getElementById("ctbSiiUrl") || {}).value || "";
+  const caja = document.getElementById("ctbSiiResultado");
+  if (!url.trim()) { if (typeof toast === "function") toast("Escribe la dirección del SII", "error"); return; }
+  if (caja) caja.innerHTML = '<div class="ctb-api-cargando">Consultando con tu sesión…</div>';
+  let r;
+  try { r = JSON.parse(window.FabrickNative.siiGet(url.trim())); }
+  catch (e) { r = { ok: false, error: String(e) }; }
+  if (!r.ok) {
+    if (caja) caja.innerHTML = '<div class="ctb-api-error">' + esc(r.error || "error") + "</div>";
+  }
+}
+
+/** Extrae datos del HTML del SII (tolerante a cambios de maqueta). */
+function ctbParsearSii(html) {
+  const txt = String(html || "")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&aacute;/gi, "á").replace(/&eacute;/gi, "é")
+    .replace(/&iacute;/gi, "í").replace(/&oacute;/gi, "ó").replace(/&uacute;/gi, "ú")
+    .replace(/&ntilde;/gi, "ñ").replace(/&amp;/gi, "&")
+    .replace(/\s+/g, " ")
+    .trim();
+  const rut = (txt.match(/\b\d{1,2}\.\d{3}\.\d{3}-[\dkK]\b/) || [])[0] || "";
+  const nombre = (function () {
+    const m = txt.match(/(?:contribuyente|raz[oó]n social|nombre)[:\s]+([A-ZÁÉÍÓÚÑ0-9][A-ZÁÉÍÓÚÑ0-9 .,&\-]{4,70})/i);
+    if (!m) return "";
+    // Se corta en el siguiente rótulo para no arrastrar toda la página.
+    return m[1]
+      .split(/\s+(?:RUT|Inicio|Situaci[oó]n|Actividades|Domicilio|Giro)\b/i)[0]
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 60);
+  })();
+  const inicio = (function () {
+    const m = txt.match(/inicio\s+de\s+actividades[:\s]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}|\d{1,2}\s+de\s+[a-záéíóúñ]+\s+de\s+\d{4})/i);
+    return m ? m[1] : "";
+  })();
+  const cumple = /sin\s+observaciones|al\s+d[ií]a|no\s+registra\s+deuda/i.test(txt)
+    ? "Sin observaciones" : "";
+  const actividades = (txt.match(/\b\d{6}\b\s+[A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ .,\-]{6,70}/g) || [])
+    .slice(0, 5).map(function (x) { return x.trim(); });
+  return { rut: rut, nombre: nombre, inicio: inicio, cumple: cumple, actividades: actividades, texto: txt.slice(0, 2500) };
+}
+
 window.FabriSii = {
+  sesion: function (r) {
+    const el = document.getElementById("ctbSiiEstado");
+    if (!r || !r.ok) {
+      if (el) { el.textContent = (r && r.error) || "No se pudo iniciar sesión"; el.className = "ctb-api-estado"; }
+      if (typeof toast === "function") toast((r && r.error) || "No se pudo iniciar sesión", "error");
+      return;
+    }
+    const c = document.getElementById("ctbSiiClave");
+    if (c) c.value = "";
+    ctbSiiEstado();
+    if (typeof toast === "function") toast("Sesión SII iniciada" + (r.nombre ? " · " + r.nombre : ""));
+  },
+
+  pagina: function (r) {
+    const caja = document.getElementById("ctbSiiResultado");
+    if (!caja) return;
+    if (!r || !r.ok) {
+      caja.innerHTML = '<div class="ctb-api-error">' + esc((r && r.error) || ("HTTP " + ((r && r.status) || "?"))) + "</div>";
+      return;
+    }
+    const d = ctbParsearSii(r.html);
+    CTB.siiPagina = d;
+    caja.innerHTML =
+      '<div class="ctb-api-card">' +
+        "<b>" + esc(d.nombre || "Sin nombre detectado") + "</b>" +
+        (d.rut ? '<span class="ctb-api-rut">' + esc(d.rut) + "</span>" : "") +
+        '<div class="ctb-api-chips">' +
+          (d.inicio ? '<span class="ctb-chip">Inicio: ' + esc(d.inicio) + "</span>" : "") +
+          (d.cumple ? '<span class="ctb-chip lima">' + esc(d.cumple) + "</span>" : "") +
+          '<span class="ctb-chip">' + d.actividades.length + " actividades</span>" +
+        "</div>" +
+        (d.actividades.length ? '<div class="ctb-sii-acts">' + d.actividades.map(function (a) {
+          return "<span>" + esc(a) + "</span>";
+        }).join("") + "</div>" : "") +
+        '<details class="ctb-sii-texto"><summary>Ver página recibida</summary><pre>' +
+          esc(d.texto) + "</pre></details>" +
+        '<button class="ctb-btn principal" id="btnCtbSiiUsar" type="button">Usar estos datos</button>' +
+      "</div>";
+  },
+
   resultado: function (r) {
     const caja = document.getElementById("ctbApiResultado");
     if (!r || !r.ok || !r.data) {
@@ -650,6 +787,36 @@ function ctbGuardarSii() {
     });
 }
 
+function ctbSiiUsar() {
+  const d = CTB.siiPagina;
+  if (!d) return;
+  const c = {
+    rut: d.rut || "",
+    razon_social: d.nombre || "",
+    nombre_fantasia: "",
+    giro: d.actividades[0] || "",
+    actividades: JSON.stringify(d.actividades),
+    direccion: "",
+    comuna: "",
+    region: "",
+    email: "",
+    telefono: "",
+    situacion: d.cumple || "",
+    regimen: "",
+    inicio_actividades: d.inicio || "",
+    extra: JSON.stringify({ origen: "sesion-sii", texto: d.texto }),
+    origen: "sesion-sii"
+  };
+  if (!c.rut) { if (typeof toast === "function") toast("No detecté el RUT en la página", "error"); return; }
+  apiTarde("contabilidad", { accion: "guardar", contribuyente: c }, { maxMs: 15000 })
+    .then(function (r) {
+      if (!r.ok) { if (typeof toast === "function") toast(r.error || "error", "error"); return; }
+      if (typeof toast === "function") toast("Guardado desde tu sesión SII");
+      ctbLlenarFormulario(c);
+      ctbCargar();
+    });
+}
+
 /* ── eventos ──────────────────────────────────────────────────────────── */
 (function ctbMontar() {
   document.addEventListener("click", function (ev) {
@@ -663,6 +830,10 @@ function ctbGuardarSii() {
     if (t.closest("#btnCtbGuardarClave")) { ctbGuardarClaveSii(); return; }
     if (t.closest("#btnCtbConsultarSii")) { ctbConsultarSii(); return; }
     if (t.closest("#btnCtbGuardarSii")) { ctbGuardarSii(); return; }
+    if (t.closest("#btnCtbSiiLogin")) { ctbSiiLogin(); return; }
+    if (t.closest("#btnCtbSiiLogout")) { ctbSiiLogout(); return; }
+    if (t.closest("#btnCtbSiiConsultar")) { ctbSiiConsultar(); return; }
+    if (t.closest("#btnCtbSiiUsar")) { ctbSiiUsar(); return; }
     if (t.closest("#btnCtbActualizarTodos")) { ctbActualizarTodos(false); return; }
     if (t.closest("#btnCtbDemoCargar")) { ctbCargarDemo(); return; }
     if (t.closest("#btnCtbDemoBorrar")) { ctbBorrarDemo(); return; }

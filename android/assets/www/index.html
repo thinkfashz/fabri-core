@@ -1788,6 +1788,37 @@ npx -y omniroute@latest
       </div>
 
       <div class="ctb-caja">
+        <h3>Sesión SII (sin terceros)</h3>
+        <p class="ctb-nota">Inicia sesión con tu RUT y clave tributaria. La sesión (cookies)
+          queda en este teléfono y la clave se guarda cifrada solo si marcas «recordar».</p>
+        <div class="ctb-api-fila">
+          <input id="ctbSiiRut" placeholder="RUT · 12345678-9" autocomplete="off" spellcheck="false" />
+          <input id="ctbSiiClave" type="password" placeholder="Clave tributaria" autocomplete="off" />
+        </div>
+        <label class="ctb-auto">
+          <input type="checkbox" id="ctbSiiRecordar" />
+          <span>Recordar clave (cifrada)</span>
+        </label>
+        <div class="ctb-acciones">
+          <button class="ctb-btn principal" id="btnCtbSiiLogin" type="button">Iniciar sesión</button>
+          <button class="ctb-btn" id="btnCtbSiiLogout" type="button">Cerrar sesión</button>
+        </div>
+        <p class="ctb-api-estado" id="ctbSiiEstado">Sin sesión</p>
+      </div>
+
+      <div class="ctb-caja">
+        <h3>Consultar con mi sesión</h3>
+        <div class="ctb-api-fila">
+          <input id="ctbSiiUrl" value="https://misiir.sii.cl/cgi_misii/siihome.cgi"
+                 autocomplete="off" spellcheck="false" />
+          <button class="ctb-btn principal" id="btnCtbSiiConsultar" type="button">Consultar</button>
+        </div>
+        <p class="ctb-nota">Pega la dirección exacta de la página del SII que quieras leer.
+          El SII cambia sus rutas: si una falla, prueba otra.</p>
+        <div id="ctbSiiResultado"></div>
+      </div>
+
+      <div class="ctb-caja">
         <h3>Consulta al SII (opcional)</h3>
         <div class="ctb-modos" role="group" aria-label="Modo de consulta">
           <button class="ctb-modo activo" data-ctb-modo="demo" type="button">

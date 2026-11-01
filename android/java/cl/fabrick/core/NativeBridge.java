@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
+import android.util.Base64;
 import android.speech.tts.TextToSpeech;
 import android.speech.tts.UtteranceProgressListener;
 import android.webkit.JavascriptInterface;
@@ -15,10 +16,21 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.net.CookieManager;
+import java.net.CookiePolicy;
+import java.net.HttpCookie;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URL;
 import java.nio.charset.Charset;
+import java.net.URLEncoder;
+import java.security.KeyStore;
+import javax.crypto.Cipher;
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.GCMParameterSpec;
+import android.security.keystore.KeyGenParameterSpec;
+import android.security.keystore.KeyProperties;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -1006,6 +1018,302 @@ public final class NativeBridge {
         hilo.setDaemon(true);
         hilo.start();
         return "{\"ok\":true}";
+    }
+
+    // ============================================================ SESIÓN SII
+    // Login real contra el SII con RUT y clave tributaria, guardando la sesión
+    // (cookies) en este teléfono para consultar después sin abrir navegador.
+    // La clave, si el usuario lo pide, se guarda cifrada con AndroidKeyStore.
+    private static final String SII_LOGIN = "https://zeusr.sii.cl/cgi_AUT2000/CAutInicio.cgi";
+    private static CookieManager siiCookies = null;
+
+    private synchronized CookieManager siiCookieManager() {
+        if (siiCookies == null) {
+            siiCookies = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
+        }
+        return siiCookies;
+    }
+
+    /** Cifra un texto con una clave AES del AndroidKeyStore (queda en el TEE). */
+    private String siiCifrar(String texto) throws Exception {
+        KeyStore ks = KeyStore.getInstance("AndroidKeyStore");
+        ks.load(null);
+        if (!ks.containsAlias("forge_sii")) {
+            KeyGenerator kg = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore");
+            kg.init(new KeyGenParameterSpec.Builder("forge_sii",
+                    KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
+                    .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                    .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                    .build());
+            kg.generateKey();
+        }
+        SecretKey clave = (SecretKey) ks.getKey("forge_sii", null);
+        Cipher c = Cipher.getInstance("AES/GCM/NoPadding");
+        c.init(Cipher.ENCRYPT_MODE, clave);
+        byte[] iv = c.getIV();
+        byte[] datos = c.doFinal(texto.getBytes(Charset.forName("UTF-8")));
+        byte[] todo = new byte[iv.length + datos.length];
+        System.arraycopy(iv, 0, todo, 0, iv.length);
+        System.arraycopy(datos, 0, todo, iv.length, datos.length);
+        return Base64.encodeToString(todo, Base64.NO_WRAP);
+    }
+
+    private String siiDescifrar(String base64) throws Exception {
+        byte[] todo = Base64.decode(base64, Base64.NO_WRAP);
+        KeyStore ks = KeyStore.getInstance("AndroidKeyStore");
+        ks.load(null);
+        SecretKey clave = (SecretKey) ks.getKey("forge_sii", null);
+        Cipher c = Cipher.getInstance("AES/GCM/NoPadding");
+        c.init(Cipher.DECRYPT_MODE, clave, new GCMParameterSpec(128, todo, 0, 12));
+        byte[] datos = c.doFinal(todo, 12, todo.length - 12);
+        return new String(datos, Charset.forName("UTF-8"));
+    }
+
+    /** Serializa las cookies para sobrevivir reinicios de la app. */
+    private String siiCookiesJson() {
+        JSONArray arr = new JSONArray();
+        for (HttpCookie ck : siiCookieManager().getCookieStore().getCookies()) {
+            try {
+                JSONObject o = new JSONObject();
+                o.put("n", ck.getName());
+                o.put("v", ck.getValue());
+                o.put("d", ck.getDomain() == null ? "" : ck.getDomain());
+                o.put("p", ck.getPath() == null ? "/" : ck.getPath());
+                o.put("e", ck.hasExpired() ? 0 : ck.getMaxAge());
+                o.put("s", ck.getSecure());
+                o.put("h", ck.getVersion());
+                arr.put(o);
+            } catch (Throwable ignorado) { }
+        }
+        return arr.toString();
+    }
+
+    private void siiRestaurarCookies() {
+        String crudo = leerConfig("sii.cookies");
+        if (crudo == null || crudo.trim().isEmpty()) return;
+        try {
+            JSONArray arr = new JSONArray(crudo);
+            long ahora = System.currentTimeMillis();
+            for (int i = 0; i < arr.length(); i++) {
+                JSONObject o = arr.optJSONObject(i);
+                if (o == null) continue;
+                String nombre = o.optString("n", "");
+                if (nombre.isEmpty()) continue;
+                HttpCookie ck = new HttpCookie(nombre, o.optString("v", ""));
+                String dom = o.optString("d", "");
+                if (!dom.isEmpty()) ck.setDomain(dom);
+                ck.setPath(o.optString("p", "/"));
+                long seg = o.optLong("e", -1);
+                if (seg > 0) ck.setMaxAge(seg);
+                ck.setSecure(o.optBoolean("s", true));
+                ck.setVersion(o.optInt("h", 0));
+                siiCookieManager().getCookieStore().add(null, ck);
+            }
+        } catch (Throwable ignorado) { }
+    }
+
+    /** Inicia sesión en el SII y guarda las cookies. */
+    @JavascriptInterface
+    public String siiLogin(final String rut, final String clave, final boolean recordar) {
+        final String r = rut == null ? "" : rut.replace(".", "").trim();
+        if (!r.matches("\\d{1,8}-[\\dkK]")) {
+            return error("RUT inválido: usa 12345678-9");
+        }
+        if (clave == null || clave.trim().isEmpty()) {
+            return error("falta la clave tributaria");
+        }
+        final String sinDv = r.split("-")[0];
+        final String dv = r.split("-")[1];
+        Thread hilo = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                JSONObject salida = new JSONObject();
+                HttpURLConnection con = null;
+                try {
+                    String cuerpo = "rut=" + URLEncoder.encode(sinDv, "UTF-8")
+                            + "&dv=" + URLEncoder.encode(dv, "UTF-8")
+                            + "&rutcntr=" + URLEncoder.encode(r, "UTF-8")
+                            + "&clave=" + URLEncoder.encode(clave, "UTF-8")
+                            + "&code=411&referencia=";
+                    byte[] bytes = cuerpo.getBytes(Charset.forName("UTF-8"));
+
+                    con = (HttpURLConnection) new URL(SII_LOGIN).openConnection();
+                    con.setInstanceFollowRedirects(true);
+                    con.setRequestMethod("POST");
+                    con.setConnectTimeout(20000);
+                    con.setReadTimeout(40000);
+                    con.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+                    con.setRequestProperty("User-Agent",
+                            "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36");
+                    con.setRequestProperty("Accept", "text/html,application/xhtml+xml");
+                    con.setDoOutput(true);
+                    con.setFixedLengthStreamingMode(bytes.length);
+                    OutputStream out = con.getOutputStream();
+                    out.write(bytes);
+                    out.flush();
+                    out.close();
+
+                    int codigo = con.getResponseCode();
+                    String html = leerFlujo(codigo >= 200 && codigo < 300
+                            ? con.getInputStream() : con.getErrorStream());
+                    String bajo = html.toLowerCase(Locale.ROOT);
+                    boolean errorClave = bajo.contains("clave incorrecta")
+                            || bajo.contains("clave invalida")
+                            || bajo.contains("clave inválida")
+                            || bajo.contains("usuario no existe")
+                            || bajo.contains("intentos");
+                    boolean ok = codigo >= 200 && codigo < 400 && !errorClave
+                            && (bajo.contains("cerrar sesi") || bajo.contains("mi sii")
+                                || bajo.contains("bienvenid") || bajo.contains("contribuyente"));
+
+                    guardarConfig("sii.cookies", siiCookiesJson());
+                    guardarConfig("sii.rut", r);
+                    if (ok && recordar) {
+                        try {
+                            guardarConfig("sii.clave.cifrada", siiCifrar(clave));
+                            guardarConfig("sii.recordar", "1");
+                        } catch (Throwable ignorado) { }
+                    } else if (!recordar) {
+                        guardarConfig("sii.clave.cifrada", "");
+                        guardarConfig("sii.recordar", "0");
+                    }
+                    salida.put("ok", ok);
+                    if (!ok) {
+                        salida.put("error", errorClave
+                                ? "El SII rechazó la clave. Revisa tus datos o si está bloqueada."
+                                : "No pude confirmar el inicio de sesión (HTTP " + codigo + ").");
+                    } else {
+                        salida.put("rut", r);
+                        salida.put("nombre", siiNombreDe(html));
+                    }
+                } catch (Throwable t) {
+                    try {
+                        salida.put("ok", false);
+                        salida.put("error", t.getMessage() == null ? t.toString() : t.getMessage());
+                    } catch (Throwable ignorado) { }
+                } finally {
+                    if (con != null) { try { con.disconnect(); } catch (Throwable ignorado) { } }
+                }
+                notificar("window.FabriSii && FabriSii.sesion(" + salida.toString() + ");");
+            }
+        }, "sii-login");
+        hilo.setDaemon(true);
+        hilo.start();
+        return "{\"ok\":true,\"estado\":\"CONECTANDO\"}";
+    }
+
+    /** Intenta sacar el nombre del contribuyente del HTML de bienvenida. */
+    private String siiNombreDe(String html) {
+        try {
+            java.util.regex.Matcher m = java.util.regex.Pattern
+                    .compile("(?i)(?:bienvenid[oa]|contribuyente|nombre)[^<]{0,40}<[^>]*>\\s*([A-ZÁÉÍÓÚÑ0-9 .,&]{4,60})")
+                    .matcher(html);
+            if (m.find()) {
+                return m.group(1).replaceAll("\\s+", " ").trim();
+            }
+        } catch (Throwable ignorado) { }
+        return "";
+    }
+
+    /** Estado de la sesión guardada (sin exponer la clave). */
+    @JavascriptInterface
+    public String siiSesionEstado() {
+        String rut = leerConfig("sii.rut");
+        String cookies = leerConfig("sii.cookies");
+        boolean recordar = "1".equals(leerConfig("sii.recordar"));
+        JSONObject o = new JSONObject();
+        try {
+            o.put("ok", true);
+            o.put("rut", rut);
+            o.put("sesion", !cookies.isEmpty());
+            o.put("recordar", recordar);
+            o.put("claveGuardada", recordar && !leerConfig("sii.clave.cifrada").isEmpty());
+        } catch (Throwable t) {
+            return error(t.toString());
+        }
+        return o.toString();
+    }
+
+    /** Vuelve a iniciar sesión con la clave cifrada guardada. */
+    @JavascriptInterface
+    public String siiReconectar() {
+        String cifrada = leerConfig("sii.clave.cifrada");
+        String rut = leerConfig("sii.rut");
+        if (cifrada.isEmpty() || rut.isEmpty()) {
+            return error("no hay credenciales guardadas");
+        }
+        try {
+            return siiLogin(rut, siiDescifrar(cifrada), true);
+        } catch (Throwable t) {
+            return error("no pude descifrar la clave: " + t.getMessage());
+        }
+    }
+
+    @JavascriptInterface
+    public String siiCerrarSesion() {
+        try {
+            siiCookieManager().getCookieStore().removeAll();
+            guardarConfig("sii.cookies", "");
+            guardarConfig("sii.clave.cifrada", "");
+            guardarConfig("sii.recordar", "0");
+            guardarConfig("sii.rut", "");
+            return "{\"ok\":true}";
+        } catch (Throwable t) {
+            return error(t.getMessage() == null ? t.toString() : t.getMessage());
+        }
+    }
+
+    /**
+     * GET autenticado contra el SII usando las cookies guardadas.
+     * Devuelve el HTML para que la interfaz lo interprete. La URL es
+     * configurable porque el SII cambia sus rutas.
+     */
+    @JavascriptInterface
+    public String siiGet(final String url) {
+        final String destino = url == null ? "" : url.trim();
+        if (!destino.startsWith("https://") ||
+            !(destino.contains(".sii.cl") || destino.contains("sii.cl/"))) {
+            return error("sólo se consultan direcciones del SII (https)");
+        }
+        if (leerConfig("sii.cookies").isEmpty()) {
+            return error("no hay sesión: inicia sesión primero");
+        }
+        Thread hilo = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                JSONObject o = new JSONObject();
+                HttpURLConnection con = null;
+                try {
+                    con = (HttpURLConnection) new URL(destino).openConnection();
+                    con.setInstanceFollowRedirects(true);
+                    con.setRequestMethod("GET");
+                    con.setConnectTimeout(20000);
+                    con.setReadTimeout(45000);
+                    con.setRequestProperty("User-Agent",
+                            "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36");
+                    con.setRequestProperty("Accept", "text/html,application/xhtml+xml");
+                    int codigo = con.getResponseCode();
+                    String html = leerFlujo(codigo >= 200 && codigo < 300
+                            ? con.getInputStream() : con.getErrorStream());
+                    guardarConfig("sii.cookies", siiCookiesJson());
+                    o.put("ok", codigo >= 200 && codigo < 300);
+                    o.put("status", codigo);
+                    o.put("html", html.length() > 400000 ? html.substring(0, 400000) : html);
+                    o.put("url", destino);
+                } catch (Throwable t) {
+                    try {
+                        o.put("ok", false);
+                        o.put("error", t.getMessage() == null ? t.toString() : t.getMessage());
+                    } catch (Throwable ignorado) { }
+                } finally {
+                    if (con != null) { try { con.disconnect(); } catch (Throwable ignorado) { } }
+                }
+                notificar("window.FabriSii && FabriSii.pagina(" + o.toString() + ");");
+            }
+        }, "sii-get");
+        hilo.setDaemon(true);
+        hilo.start();
+        return "{\"ok\":true,\"estado\":\"CONSULTANDO\"}";
     }
 
     // ------------------------------------------------ SII · situación tributaria
