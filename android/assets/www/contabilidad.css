@@ -400,3 +400,29 @@
   cursor: pointer;
 }
 .ctb-enlace:active { background: rgba(200, 255, 0, 0.14); }
+
+/* Automatización de consultas */
+.ctb-auto {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 12px;
+  min-height: 46px;
+  border-radius: 13px;
+  border: 1px solid var(--ctb-borde);
+  background: var(--ctb-sup-2);
+  font-size: 11px;
+  color: var(--ctb-txt-2);
+  flex: 0 0 auto;
+}
+.ctb-auto input { accent-color: var(--ctb-lima); width: 16px; height: 16px; }
+.ctb-progreso {
+  margin: 8px 0 0;
+  padding: 8px 11px;
+  border-radius: 11px;
+  border: 1px solid rgba(200, 255, 0, 0.28);
+  background: rgba(200, 255, 0, 0.06);
+  color: var(--ctb-lima);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}

@@ -1808,6 +1808,14 @@ npx -y omniroute@latest
           <input id="ctbApiRut" placeholder="RUT · 12345678-9" autocomplete="off" spellcheck="false" />
           <button class="ctb-btn principal" id="btnCtbConsultarSii" type="button">Consultar</button>
         </div>
+        <div class="ctb-api-fila">
+          <button class="ctb-btn" id="btnCtbActualizarTodos" type="button">Actualizar todos</button>
+          <label class="ctb-auto">
+            <input type="checkbox" id="ctbAutoRefresco" />
+            <span>Auto cada 7 días</span>
+          </label>
+        </div>
+        <p class="ctb-progreso" id="ctbProgreso" hidden></p>
         <div id="ctbApiResultado"></div>
         <p class="ctb-nota">Situación tributaria pública del SII. La clave queda en este teléfono.
           Sin clave, el módulo sigue funcionando con tus datos locales.</p>

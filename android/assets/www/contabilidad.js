@@ -17,7 +17,10 @@ const CTB = {
   incluirBorrados: false,
   cargando: false,
   demo: true,
-  sii: null
+  sii: null,
+  cola: [],
+  actualizando: false,
+  progreso: { hechos: 0, total: 0 }
 };
 
 const CTB_CAMPOS = [
@@ -43,6 +46,7 @@ function ctbIniciar() {
   ctbPintarFormulario();
   ctbModo(CTB.demo);
   ctbEstadoClave();
+  ctbAutoRefresco();
   ctbCargar();
 }
 
@@ -469,6 +473,16 @@ window.FabriSii = {
     }
     const d = r.data;
     CTB.sii = d;
+
+    // Cola automática: guarda y sigue con el siguiente RUT.
+    if (CTB.actualizando) {
+      ctbGuardarSiiSilencioso(d).then(function () {
+        CTB.cola.shift();
+        CTB.progreso.hechos++;
+        setTimeout(ctbSiguienteDeCola, 500);
+      });
+      return;
+    }
     const acts = (d.actividadesEconomicas || []).length;
     const alertas = d.alertas || [];
     const graves = alertas.filter(function (a) { return a.grave; }).length;
@@ -531,6 +545,99 @@ function ctbMapearSii(d) {
   };
 }
 
+/* ── automatización: actualizar todos los RUT de una vez ──────────────── */
+const CTB_AUTO_CLAVE = "ctb.auto.refresco";
+const CTB_AUTO_DIAS = 7;
+
+function ctbProgreso(texto) {
+  const el = document.getElementById("ctbProgreso");
+  if (!el) return;
+  if (!texto) { el.hidden = true; el.textContent = ""; return; }
+  el.hidden = false;
+  el.textContent = texto;
+}
+
+/** Pide la situación tributaria de cada RUT guardado, de a uno. */
+function ctbActualizarTodos(silencioso) {
+  if (CTB.actualizando) return;
+  const objetivos = CTB.lista.filter(function (c) { return !c.borrado && c.rut; });
+  if (!objetivos.length) {
+    if (!silencioso && typeof toast === "function") toast("No hay contribuyentes para actualizar");
+    return;
+  }
+  CTB.cola = objetivos.map(function (c) { return c.rut; });
+  CTB.progreso = { hechos: 0, total: CTB.cola.length };
+  CTB.actualizando = true;
+  ctbProgreso("Actualizando 0/" + CTB.progreso.total + "…");
+  ctbSiguienteDeCola();
+}
+
+function ctbSiguienteDeCola() {
+  if (!CTB.cola.length) {
+    CTB.actualizando = false;
+    ctbProgreso("");
+    try { localStorage.setItem(CTB_AUTO_CLAVE, String(Date.now())); } catch (e) {}
+    if (typeof toast === "function") toast("Actualización terminada: " + CTB.progreso.total + " RUT");
+    ctbCargar();
+    return;
+  }
+  const rut = CTB.cola[0];
+  ctbProgreso("Actualizando " + (CTB.progreso.hechos + 1) + "/" + CTB.progreso.total + " · " + rut);
+  if (CTB.demo) {
+    // Se conserva la identidad del ejemplo: se busca por el nombre guardado,
+    // así refrescar no cambia de negocio ni duplica fichas.
+    const fila = CTB.lista.find(function (c) { return c.rut === rut; });
+    let idx = 0;
+    if (fila) {
+      const k = CTB_DEMO_NEGOCIOS.findIndex(function (n) { return n.nombre === fila.razon_social; });
+      if (k >= 0) idx = k;
+    }
+    const sim = ctbDemoSii(rut, idx);
+    setTimeout(function () { window.FabriSii.resultado({ ok: true, data: sim }); }, 450);
+    return;
+  }
+  if (!ctbEsApi()) {
+    CTB.cola = [];
+    ctbSiguienteDeCola();
+    return;
+  }
+  let r;
+  try { r = JSON.parse(window.FabrickNative.siiConsultar(rut)); }
+  catch (e) { r = { ok: false, error: String(e) }; }
+  if (!r.ok) {
+    // Si falla un RUT (clave, red, límite), se salta y sigue con el resto.
+    CTB.cola.shift();
+    CTB.progreso.hechos++;
+    setTimeout(ctbSiguienteDeCola, 400);
+  }
+}
+
+/** Guarda sin pintar la tarjeta: se usa en la cola automática. */
+function ctbGuardarSiiSilencioso(d) {
+  const c = ctbMapearSii(d);
+  return apiTarde("contabilidad", { accion: "guardar", contribuyente: c }, { maxMs: 15000 })
+    .then(function () { return true; })
+    .catch(function () { return false; });
+}
+
+/** Actualización automática al abrir (cada 7 días, sólo si hay clave). */
+function ctbAutoRefresco() {
+  const chk = document.getElementById("ctbAutoRefresco");
+  if (!chk) return;
+  try { chk.checked = localStorage.getItem("ctb.auto.on") === "1"; } catch (e) {}
+  if (!chk.checked) return;
+  let ultimo = 0;
+  try { ultimo = Number(localStorage.getItem(CTB_AUTO_CLAVE) || 0); } catch (e) {}
+  const dias = (Date.now() - ultimo) / 86400000;
+  if (dias < CTB_AUTO_DIAS) return;
+  if (!CTB.demo) {
+    let listo = false;
+    try { listo = JSON.parse(window.FabrickNative.siiEstadoClave()).configurado; } catch (e) {}
+    if (!listo) return;
+  }
+  setTimeout(function () { ctbActualizarTodos(true); }, 1200);
+}
+
 function ctbGuardarSii() {
   if (!CTB.sii) return;
   const c = ctbMapearSii(CTB.sii);
@@ -556,6 +663,7 @@ function ctbGuardarSii() {
     if (t.closest("#btnCtbGuardarClave")) { ctbGuardarClaveSii(); return; }
     if (t.closest("#btnCtbConsultarSii")) { ctbConsultarSii(); return; }
     if (t.closest("#btnCtbGuardarSii")) { ctbGuardarSii(); return; }
+    if (t.closest("#btnCtbActualizarTodos")) { ctbActualizarTodos(false); return; }
     if (t.closest("#btnCtbDemoCargar")) { ctbCargarDemo(); return; }
     if (t.closest("#btnCtbDemoBorrar")) { ctbBorrarDemo(); return; }
     const modo = t.closest("[data-ctb-modo]");
@@ -577,6 +685,14 @@ function ctbGuardarSii() {
       const h = document.getElementById("ctbHistHoja");
       if (h) h.hidden = true;
       return;
+    }
+  });
+  document.addEventListener("change", function (ev) {
+    if (ev.target && ev.target.id === "ctbAutoRefresco") {
+      try { localStorage.setItem("ctb.auto.on", ev.target.checked ? "1" : "0"); } catch (e) {}
+      if (typeof toast === "function") {
+        toast(ev.target.checked ? "Se actualizará cada 7 días al abrir" : "Actualización automática apagada");
+      }
     }
   });
   document.addEventListener("input", function (ev) {
