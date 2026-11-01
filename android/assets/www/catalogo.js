@@ -997,7 +997,12 @@ function catEscLeerCuadro() {
       ESC.trabajando = false;
       if (!ESC.abierto || !codigos || !codigos.length) return;
       const raw = codigos[0].rawValue;
-      if (raw) catEscLeido(String(raw));
+      if (raw) {
+        // QR con URL o JSON: se extrae el código antes de buscar.
+        const limpio = (typeof invCodigoDeTexto === "function")
+          ? invCodigoDeTexto(raw) : String(raw);
+        catEscLeido(limpio);
+      }
     }).catch(function () { ESC.trabajando = false; });
   } else if (typeof invEscanearCuadro === "function") {
     // Respaldo del inventario: sólo si el WebView no trae BarcodeDetector.

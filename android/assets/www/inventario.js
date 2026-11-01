@@ -1119,7 +1119,9 @@ function invLecEncender(paso) {
         formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "code_39", "itf", "qr_code"]
       });
     }
-    if (nota) nota.textContent = "Lector activo · apunta al código";
+    if (nota) nota.textContent = Number(paso) === 5
+      ? "Lector activo · código o QR"
+      : "Lector activo · apunta al código";
     invLecBucle(paso);
   }).catch(function (e) {
     if (gen !== INV.lec.gen) return;
@@ -1144,7 +1146,7 @@ function invLecApagarPaso(paso) {
   if (video) video.srcObject = null;
   if (videoCaja) videoCaja.hidden = true;
   invLecPintar(paso, false);
-  if (nota) nota.textContent = "Apunta al código de barras";
+  if (nota) nota.textContent = invNotaLector(paso);
   if (INV.lec.pasoActivo === paso) INV.lec.pasoActivo = null;
   if (!INV.lec.pasoActivo) {
     if (INV.lec.timer) { clearTimeout(INV.lec.timer); INV.lec.timer = null; }
@@ -1168,7 +1170,7 @@ function invLectorParar() {
     if (video) video.srcObject = null;
     if (videoCaja) videoCaja.hidden = true;
     invLecPintar(p, false);
-    if (nota) nota.textContent = "Apunta al código de barras";
+    if (nota) nota.textContent = invNotaLector(p);
   }
   if (INV.lec.camara) {
     INV.lec.camara.getTracks().forEach(function (t) { try { t.stop(); } catch (e) {} });
@@ -1198,7 +1200,7 @@ function invLecBucle(paso) {
           INV.lec.ultimoT = ahora;
           const mira = document.getElementById("invLecMira" + paso);
           if (mira) { mira.classList.add("leyo"); setTimeout(function () { mira.classList.remove("leyo"); }, 220); }
-          invLectorLeido(valor, paso);
+          invLectorLeido(invCodigoDeTexto(valor), paso);
         }
       }
     } catch (e) { /* un frame malo no corta el lector */ }
@@ -1207,6 +1209,53 @@ function invLecBucle(paso) {
 }
 
 /** Resultado de una lectura del lector fijo: muestra la ficha y ofrece editar. */
+/**
+ * Normaliza lo que devuelve un lector. Un QR puede traer el código pelado
+ * (7801234567890), una URL con el código dentro (?codigo=7801…) o un JSON.
+ * Se extrae el código y, si no hay nada reconocible, se devuelve el texto tal
+ * cual para que el usuario lo vea en el resultado.
+ */
+function invCodigoDeTexto(raw) {
+  const t = String(raw == null ? "" : raw).trim();
+  if (!t) return "";
+  // JSON: {"codigo":"7801..."} o similar
+  if (t.startsWith("{")) {
+    try {
+      const o = JSON.parse(t);
+      const v = o.codigo || o.code || o.ean || o.upc || o.gtin || o.barcode;
+      if (v) return String(v).trim();
+    } catch (e) { /* no era JSON válido */ }
+  }
+  // URL con el código en la query
+  if (/^https?:\/\//i.test(t)) {
+    try {
+      const u = new URL(t);
+      const q = ["codigo", "code", "ean", "upc", "gtin", "barcode", "id"];
+      for (let i = 0; i < q.length; i++) {
+        const v = u.searchParams.get(q[i]);
+        if (v) return String(v).trim();
+      }
+      const seg = (u.pathname.split("/").filter(Boolean).pop() || "");
+      const d = seg.replace(/\D/g, "");
+      if (d.length >= 6) return d;
+    } catch (e) { /* URL rara */ }
+  }
+  // Código con separadores (780-1234-567890)
+  const solo = t.replace(/[\s-]/g, "");
+  if (/^\d{6,14}$/.test(solo)) return solo;
+  // Texto con un código embebido
+  const m = t.match(/\d{8,14}/);
+  if (m) return m[0];
+  return t;
+}
+
+/** Texto por defecto del lector según el paso (la boleta pide QR también). */
+function invNotaLector(paso) {
+  return Number(paso) === 5
+    ? "Escanea el código o el QR: entra a la boleta"
+    : "Apunta al código de barras";
+}
+
 function invLectorLeido(codigo, paso) {
   const resultado = document.getElementById("invLecResultado" + paso);
   const p = invPorCodigo(codigo);

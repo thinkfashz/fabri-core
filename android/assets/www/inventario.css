@@ -3047,3 +3047,126 @@ img.inv-mini { object-fit: cover; }
 #v-inventario .campo select,
 #v-inventario .campo textarea { width: 100%; }
 #v-inventario .campo { width: 100%; }
+
+/* ==========================================================================
+   EDITOR DE PRODUCTO · arreglo de scroll
+   --------------------------------------------------------------------------
+   El editor es una capa fija (position: fixed) con altura de pantalla. Antes
+   sus hijos desbordaban sin scroll: al abrir «Nuevo producto» la ficha del
+   margen quedaba visible y el resto del formulario (nombre, marca, categoría,
+   proveedor, botones) era inalcanzable. Ahora el editor desplaza su contenido
+   y la cabecera y el pie quedan fijos.
+   ========================================================================== */
+.inv-editor {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  padding-bottom: 6px;
+  scroll-padding-top: 64px;
+  scroll-padding-bottom: 84px;
+}
+.inv-ed-cab {
+  position: sticky;
+  top: 0;
+  z-index: 7;
+  background: var(--bg, #050505);
+  padding-top: 2px;
+  padding-bottom: 8px;
+  box-shadow: 0 10px 18px -14px rgba(0, 0, 0, 0.9);
+}
+.inv-ed-pie {
+  position: sticky;
+  bottom: 0;
+  z-index: 7;
+  padding-top: 10px;
+  background: linear-gradient(180deg, rgba(5, 5, 5, 0), var(--bg, #050505) 45%);
+}
+/* La ficha del margen se desplaza con el resto: nunca queda «pegada». */
+.inv-ed-ficha { position: static; }
+
+/* ── Pulido 0.9.44: KPIs con acento, tablas legibles, tarjetas sobrias ─── */
+.inv-kpi { position: relative; overflow: hidden; }
+.inv-kpi::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 2px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.14), transparent 72%);
+}
+.inv-kpi.ok::before { background: linear-gradient(90deg, var(--inv-lima), transparent 78%); }
+.inv-kpi.alerta::before { background: linear-gradient(90deg, #fbbf24, transparent 78%); }
+
+/* Tablas: cabecera fija, filas alternas y foco al pasar. */
+#invMargenesTabla { border-radius: 16px; border: 1px solid var(--inv-borde); background: var(--inv-sup); }
+#invMargenesTabla thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #131412;
+  border-bottom: 1px solid var(--inv-borde-2);
+}
+#invMargenesTabla tbody tr:nth-child(even) td { background: rgba(255, 255, 255, 0.02); }
+#invMargenesTabla tbody tr:hover td { background: rgba(200, 255, 0, 0.04); }
+#invMargenesTabla tbody tr:last-child td { border-bottom: 0; }
+
+/* Tabla de precios del paso 3. */
+.inv-tabla-scroll {
+  overflow-x: auto;
+  border-radius: 16px;
+  border: 1px solid var(--inv-borde);
+  background: var(--inv-sup);
+}
+.inv-tabla { width: 100%; min-width: 460px; border-collapse: collapse; }
+.inv-tabla th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #131412;
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--inv-txt-3);
+  text-align: left;
+  padding: 10px;
+  border-bottom: 1px solid var(--inv-borde-2);
+}
+.inv-tabla td {
+  padding: 10px;
+  font-size: 12px;
+  border-bottom: 1px solid var(--inv-borde);
+  color: var(--inv-txt);
+}
+.inv-tabla td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.inv-tabla tbody tr:nth-child(even) td { background: rgba(255, 255, 255, 0.02); }
+
+/* Tarjetas de producto: el código de barras no compite con el nombre. */
+.inv-card-cod { gap: 6px; }
+.inv-card-cod svg { max-width: 108px; height: 20px; opacity: 0.75; }
+.inv-card-cod span { font-size: 9px; }
+.inv-card-id h4 { font-size: 13.5px; }
+.inv-card { transition: border-color 140ms ease; }
+.inv-card:active { border-color: rgba(200, 255, 0, 0.35); }
+
+/* ── Editor: un solo scroll para toda la pantalla ──────────────────────── */
+/* Antes sólo desplazaba la franja de campos (unos 248 px): al deslizar sobre
+   la ficha del margen no pasaba nada y el formulario parecía cortado. */
+.inv-editor { touch-action: pan-y; }
+.inv-ed-campos {
+  flex: 0 0 auto;
+  min-height: auto;
+  overflow: visible;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 8px;
+}
+
+/* Ficha del margen más compacta: deja ver el formulario de inmediato. */
+.inv-ed-monto { margin: 0 0 8px; }
+.inv-ed-monto input { font-size: 32px; }
+.inv-ed-cells { gap: 6px; }
+.inv-ed-cell { padding: 8px 9px; border-radius: 11px; }
+.inv-ed-cell span { font-size: 9px; }
+.inv-ed-cell b { font-size: 13.5px; }
+.inv-ed-ficha { padding: 12px 14px 10px; }

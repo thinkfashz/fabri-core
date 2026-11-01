@@ -6672,17 +6672,34 @@ function conectarRendimiento() {
 (function tecladoVisible() {
   const vv = window.visualViewport;
 
+  /* Devuelve el primer contenedor con scroll propio (el editor de producto
+     es una capa fija que desplaza su contenido, no la ventana). */
+  function contenedorScrollable(el) {
+    let p = el && el.parentElement;
+    while (p && p !== document.body && p !== document.documentElement) {
+      const st = getComputedStyle(p);
+      if (/(auto|scroll)/.test(st.overflowY) && p.scrollHeight > p.clientHeight + 4) return p;
+      p = p.parentElement;
+    }
+    return null;
+  }
+
+  function desplazar(caja, dy) {
+    if (caja) caja.scrollBy({ top: dy, behavior: "smooth" });
+    else window.scrollBy({ top: dy, behavior: "smooth" });
+  }
+
   function asegurar(el) {
     if (!el || !el.getBoundingClientRect) return;
     const alto = vv ? vv.height : window.innerHeight;
     const r = el.getBoundingClientRect();
     const margen = 16;
     const visibleAbajo = alto - margen;
+    const caja = contenedorScrollable(el);
     if (r.bottom > visibleAbajo) {
-      const dy = r.bottom - visibleAbajo + 14;
-      window.scrollBy({ top: dy, behavior: "smooth" });
+      desplazar(caja, r.bottom - visibleAbajo + 14);
     } else if (r.top < 72) {
-      window.scrollBy({ top: r.top - 84, behavior: "smooth" });
+      desplazar(caja, r.top - 84);
     }
   }
 
