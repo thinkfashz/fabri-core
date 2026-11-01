@@ -2129,3 +2129,21 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
 - Build EXIT=0 · 4.345 KB · VC 71 / 0.9.56 · `apksigner` v2 ✔ v3 ✔.
 - SHA-256: `171a8d14adab3d6230136ac3b84fff77e9c4b59a780dae4c287ae902d0117fae` · 4.474.655 B.
 - Entregada en `/storage/emulated/0/Download/FORGE-CORE-STOCK-0.9.56.apk` y `/tmp/opencode/`.
+
+## Sesión 2026-11-01 · APK 0.9.57 (72) — navegador interno para páginas con JS
+
+- Commit `2b601be` (push `6ea452c..2b601be`).
+- **WebView oculto** (`siiWebConsultar`): carga la página del SII con las cookies
+  de la sesión, espera el render (1,8 s por defecto, hasta 8 s) y extrae
+  `document.body.innerText` con `evaluateJavascript`. Todo dentro del APK.
+- Siembra cookies de la sesión en `CookieManager` y al terminar las vuelca de
+  vuelta al almacén persistente (`sii.cookies`).
+- Optimizado: 1×1 px, invisible, imágenes y red de imágenes bloqueadas, UA de
+  Chrome móvil; `siiWebCerrar` libera el WebView.
+- UI: botón «Leer con navegador interno (JS)»; el resultado indica el método
+  (GET simple o navegador interno) y los segundos de render.
+- Verificado con captura: página simulada parseada con método «navegador
+  interno (2.4 s)» y actividades detectadas.
+- Build EXIT=0 · 4.345 KB · VC 72 / 0.9.57 · `apksigner` v2 ✔ v3 ✔.
+- SHA-256: `65cce3de18d57fdf5793a39ee3317f06813c9cdea923c9435b528a8d9daa343e` · 4.478.751 B.
+- Entregada en `/storage/emulated/0/Download/FORGE-CORE-STOCK-0.9.57.apk` y `/tmp/opencode/`.
