@@ -2073,3 +2073,20 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
 - Build EXIT=0 · 4.340 KB · VC 68 / 0.9.53 · `apksigner` v2 ✔ v3 ✔.
 - SHA-256: `1882f300f0aebdede0fc66d213e4b6a059986c2cd63b21b37ce053711539ab65` · 4.466.463 B.
 - Entregada en `/storage/emulated/0/Download/FORGE-CORE-STOCK-0.9.53.apk` y `/tmp/opencode/`.
+
+## Sesión 2026-11-01 · APK 0.9.54 (69) — modo demo y guía de claves
+
+- Commit `d9ce3b7` (push `2959fd9..d9ce3b7`).
+- **Modo demo**: interruptor Demo/Real. `ctbDemoSii()` genera una respuesta con
+  la misma forma que la API (actividades, documentos autorizados y alertas con
+  `grave`) sin red ni claves; origen `api-sii-demo`.
+- **Ejemplos**: «Cargar ejemplos» inserta 4 fichas (nombres por índice) y
+  «Borrar ejemplos» las elimina con borrado lógico.
+- **Guía**: tarjeta con 3 pasos y enlaces reales (api.baseapi.cl, docs, clave
+  tributaria del SII y Mi SII). Aclara que situación tributaria solo necesita
+  API Key y que la ficha completa requiere clave del representante legal.
+- Verificado con captura 393×3400: 4 ejemplos, consulta demo y tarjeta de
+  resultado con chips y alertas.
+- Build EXIT=0 · 4.344 KB · VC 69 / 0.9.54 · `apksigner` v2 ✔ v3 ✔.
+- SHA-256: `346ca92c61f1d450ec9a02d19373d69535231ec5e09ab92b31129fc8f1db4744` · 4.470.559 B.
+- Entregada en `/storage/emulated/0/Download/FORGE-CORE-STOCK-0.9.54.apk` y `/tmp/opencode/`.
