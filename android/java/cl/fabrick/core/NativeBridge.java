@@ -919,6 +919,21 @@ public final class NativeBridge {
             public void run() {
                 JSONObject r = new JSONObject();
                 try {
+                    // Anthropic no publica /models: se devuelve su catálogo fijo.
+                    if (url.contains("anthropic.com")) {
+                        JSONArray fijos = new JSONArray();
+                        fijos.put("claude-sonnet-4-5");
+                        fijos.put("claude-opus-4-1");
+                        fijos.put("claude-haiku-4-5");
+                        fijos.put("claude-3-7-sonnet-latest");
+                        fijos.put("claude-3-5-haiku-latest");
+                        r.put("ok", true);
+                        r.put("modelos", fijos);
+                        r.put("total", fijos.length());
+                        r.put("fijo", true);
+                        notificar("window.FabriChat && FabriChat.modelos(" + r.toString() + ");");
+                        return;
+                    }
                     String cuerpo = http("GET", url + "/models", clave, null, 10000, 20000);
                     JSONObject o = new JSONObject(cuerpo);
                     JSONArray datos = o.optJSONArray("data");
@@ -950,12 +965,40 @@ public final class NativeBridge {
         return "{\"ok\":true,\"estado\":\"CONSULTANDO\"}";
     }
 
-    /** Envía un turno al proveedor activo en segundo plano. */
+    /** Cancelación del turno remoto en curso (streaming). */
+    private volatile boolean chatCancelado = false;
+    private volatile HttpURLConnection chatConexion = null;
+
+    /** Corta la respuesta remota en curso. La usa el botón Detener. */
     @JavascriptInterface
-    public String chatRemoto(final String prompt, final int maxTokens) {
+    public String chatRemotoCancelar() {
+        chatCancelado = true;
+        HttpURLConnection c = chatConexion;
+        if (c != null) {
+            try { c.disconnect(); } catch (Throwable ignorado) { }
+        }
+        return "{\"ok\":true}";
+    }
+
+    /**
+     * Envía un turno al proveedor activo en segundo plano, con streaming.
+     *
+     * Antes la llamada esperaba la respuesta completa (hasta 180 s) y la
+     * interfaz se sentía colgada: no había primer token, no se podía cortar y
+     * el botón quedaba bloqueado. Ahora:
+     *   · se pide `stream: true` y cada trozo llega a `FabriChat.token(...)`;
+     *   · `chatRemotoCancelar()` corta la conexión de verdad;
+     *   · Anthropic tiene su propio adaptador (x-api-key + SSE distinto);
+     *   · el resto usa el protocolo OpenAI-compatible que comparten casi todos
+     *     los proveedores (OpenAI, Groq, Mistral, DeepSeek, xAI, Together,
+     *     Fireworks, Perplexity, Cerebras, OpenRouter, Google, Ollama, LM Studio).
+     */
+    @JavascriptInterface
+    public String chatRemoto(final String prompt, final int maxTokens, final String ajustesJson) {
         final String url = leerConfig("chat.url");
         final String clave = leerConfig("chat.key");
         final String modelo = leerConfig("chat.model");
+        final String proveedor = leerConfig("chat.provider").toLowerCase(Locale.ROOT);
         if (url.isEmpty()) {
             return error("configura primero la URL del proveedor y pulsa Guardar");
         }
@@ -965,50 +1008,191 @@ public final class NativeBridge {
         if (prompt == null || prompt.trim().isEmpty()) {
             return error("el mensaje está vacío");
         }
-        if (prompt.length() > 12000) {
-            return error("mensaje demasiado largo (máximo 12000 caracteres)");
+        if (prompt.length() > 24000) {
+            return error("mensaje demasiado largo (máximo 24000 caracteres)");
         }
-        final int max = maxTokens < 1 ? 384 : Math.min(maxTokens, 1024);
+
+        final boolean anthropic = proveedor.contains("anthropic") || url.contains("anthropic.com");
+        final int max = maxTokens < 1 ? 512 : Math.min(maxTokens, 4096);
+
+        double temperatura = 0.7;
+        double topP = 0.9;
+        JSONArray historial = new JSONArray();
+        try {
+            if (ajustesJson != null && !ajustesJson.trim().isEmpty()) {
+                JSONObject aj = new JSONObject(ajustesJson);
+                temperatura = aj.optDouble("temperatura", 0.7);
+                topP = aj.optDouble("top_p", 0.9);
+                JSONArray h = aj.optJSONArray("historial");
+                if (h != null) historial = h;
+            }
+        } catch (Throwable ignorado) { }
+
+        final double tempFinal = temperatura;
+        final double topPFinal = topP;
+        final JSONArray historialFinal = historial;
+        chatCancelado = false;
 
         Thread hilo = new Thread(new Runnable() {
             @Override
             public void run() {
                 JSONObject r = new JSONObject();
+                StringBuilder acumulado = new StringBuilder();
+                long t0 = System.currentTimeMillis();
+                HttpURLConnection con = null;
                 try {
                     JSONObject req = new JSONObject();
                     req.put("model", modelo);
                     req.put("max_tokens", max);
-                    req.put("temperature", 0.7);
+                    req.put("temperature", tempFinal);
+                    req.put("top_p", topPFinal);
+                    req.put("stream", true);
+
                     JSONArray mensajes = new JSONArray();
-                    JSONObject m = new JSONObject();
-                    m.put("role", "user");
-                    m.put("content", prompt);
-                    mensajes.put(m);
+                    if (anthropic) {
+                        // Anthropic separa el sistema de los mensajes.
+                        req.put("system", "Eres el asistente de FORGE CORE STOCK. Responde en español, claro y breve.");
+                        for (int i = 0; i < historialFinal.length(); i++) {
+                            JSONObject m = historialFinal.optJSONObject(i);
+                            if (m == null) continue;
+                            JSONObject mm = new JSONObject();
+                            mm.put("role", m.optString("role", "user"));
+                            mm.put("content", m.optString("content", ""));
+                            mensajes.put(mm);
+                        }
+                        JSONObject u = new JSONObject();
+                        u.put("role", "user");
+                        u.put("content", prompt);
+                        mensajes.put(u);
+                    } else {
+                        JSONObject sys = new JSONObject();
+                        sys.put("role", "system");
+                        sys.put("content", "Eres el asistente de FORGE CORE STOCK. Responde en español, claro y breve.");
+                        mensajes.put(sys);
+                        for (int i = 0; i < historialFinal.length(); i++) {
+                            JSONObject m = historialFinal.optJSONObject(i);
+                            if (m == null) continue;
+                            mensajes.put(m);
+                        }
+                        JSONObject u = new JSONObject();
+                        u.put("role", "user");
+                        u.put("content", prompt);
+                        mensajes.put(u);
+                    }
                     req.put("messages", mensajes);
 
-                    long t0 = System.currentTimeMillis();
-                    String cuerpo = http("POST", url + "/chat/completions", clave, req.toString(), 10000, 180000);
+                    String endpoint = url + (anthropic ? "/messages" : "/chat/completions");
+                    con = (HttpURLConnection) new URL(endpoint).openConnection();
+                    chatConexion = con;
+                    con.setRequestMethod("POST");
+                    con.setConnectTimeout(15000);
+                    con.setReadTimeout(90000);
+                    con.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+                    con.setRequestProperty("Accept", "text/event-stream");
+                    con.setRequestProperty("User-Agent", "FORGE CORE STOCK/0.9.0 (Android)");
+                    if (anthropic) {
+                        if (clave != null && !clave.isEmpty()) {
+                            con.setRequestProperty("x-api-key", clave);
+                        }
+                        con.setRequestProperty("anthropic-version", "2023-06-01");
+                    } else if (clave != null && !clave.isEmpty()) {
+                        con.setRequestProperty("Authorization", "Bearer " + clave);
+                    }
+                    byte[] bytes = req.toString().getBytes(Charset.forName("UTF-8"));
+                    con.setDoOutput(true);
+                    con.setFixedLengthStreamingMode(bytes.length);
+                    OutputStream salida = con.getOutputStream();
+                    salida.write(bytes);
+                    salida.flush();
+                    salida.close();
+
+                    int codigo = con.getResponseCode();
+                    if (codigo < 200 || codigo >= 300) {
+                        String err = leerFlujo(con.getErrorStream());
+                        String recorte = err.length() > 300 ? err.substring(0, 300) : err;
+                        throw new IllegalStateException("HTTP " + codigo + ": " + recorte);
+                    }
+
+                    String tipo = con.getContentType() == null ? "" : con.getContentType();
+                    if (tipo.contains("text/event-stream")) {
+                        BufferedReader lector = new BufferedReader(
+                                new InputStreamReader(con.getInputStream(), Charset.forName("UTF-8")));
+                        String linea;
+                        while ((linea = lector.readLine()) != null) {
+                            if (chatCancelado) break;
+                            if (!linea.startsWith("data:")) continue;
+                            String dato = linea.substring(5).trim();
+                            if (dato.isEmpty() || "[DONE]".equals(dato)) continue;
+                            String trozo = "";
+                            try {
+                                JSONObject ev = new JSONObject(dato);
+                                if (anthropic) {
+                                    JSONObject delta = ev.optJSONObject("delta");
+                                    if (delta != null && "text_delta".equals(delta.optString("type"))) {
+                                        trozo = delta.optString("text", "");
+                                    }
+                                } else {
+                                    JSONArray ch = ev.optJSONArray("choices");
+                                    if (ch != null && ch.length() > 0) {
+                                        JSONObject d = ch.getJSONObject(0).optJSONObject("delta");
+                                        if (d != null) trozo = d.optString("content", "");
+                                    }
+                                }
+                            } catch (Throwable ignorado) {
+                                // Una línea rara no corta el streaming.
+                            }
+                            if (!trozo.isEmpty()) {
+                                acumulado.append(trozo);
+                                JSONObject n = new JSONObject();
+                                n.put("t", trozo);
+                                notificar("window.FabriChat && FabriChat.token(" +
+                                        JSONObject.quote(n.toString()) + ");");
+                            }
+                        }
+                        lector.close();
+                    } else {
+                        // El proveedor ignoró stream: se lee la respuesta completa.
+                        String cuerpo = leerFlujo(con.getInputStream());
+                        JSONObject o = new JSONObject(cuerpo);
+                        if (anthropic) {
+                            JSONArray c = o.optJSONArray("content");
+                            if (c != null) {
+                                for (int i = 0; i < c.length(); i++) {
+                                    JSONObject b = c.optJSONObject(i);
+                                    if (b != null && "text".equals(b.optString("type"))) {
+                                        acumulado.append(b.optString("text", ""));
+                                    }
+                                }
+                            }
+                        } else {
+                            JSONArray opciones = o.optJSONArray("choices");
+                            if (opciones != null && opciones.length() > 0) {
+                                acumulado.append(opciones.getJSONObject(0)
+                                        .getJSONObject("message").optString("content", ""));
+                            }
+                        }
+                    }
+
                     long ms = System.currentTimeMillis() - t0;
-                    JSONObject o = new JSONObject(cuerpo);
-                    JSONArray opciones = o.optJSONArray("choices");
-                    if (opciones == null || opciones.length() == 0) {
-                        throw new IllegalStateException("respuesta sin 'choices'");
-                    }
-                    String texto = opciones.getJSONObject(0).getJSONObject("message").optString("content", "");
                     r.put("ok", true);
-                    r.put("texto", texto);
-                    r.put("modelo", o.optString("model", modelo));
+                    r.put("texto", acumulado.toString());
+                    r.put("modelo", modelo);
                     r.put("ms", ms);
-                    JSONObject uso = o.optJSONObject("usage");
-                    if (uso != null) {
-                        r.put("uso", uso);
-                    }
+                    r.put("proveedor", proveedor);
+                    r.put("cancelado", chatCancelado);
                 } catch (Throwable t) {
                     try {
                         r.put("ok", false);
-                        r.put("error", t.getMessage() == null ? t.toString() : t.getMessage());
-                    } catch (Throwable ignorado) {
-                        // sin más.
+                        r.put("cancelado", chatCancelado);
+                        r.put("texto", acumulado.toString());
+                        r.put("error", chatCancelado
+                                ? "detenido"
+                                : (t.getMessage() == null ? t.toString() : t.getMessage()));
+                    } catch (Throwable ignorado) { }
+                } finally {
+                    chatConexion = null;
+                    if (con != null) {
+                        try { con.disconnect(); } catch (Throwable ignorado) { }
                     }
                 }
                 notificar("window.FabriChat && FabriChat.remoto(" + r.toString() + ");");

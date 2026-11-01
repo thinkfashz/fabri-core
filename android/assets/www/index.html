@@ -633,6 +633,7 @@
           </div>
         </div>
         <div class="chat-cab-acciones">
+          <span class="chat-chip-modelo" id="chatChipModelo" title="Modelo activo">Sin modelo</span>
           <span class="fc-pill" id="chatEstadoPill" data-estado="vacio">
             <i></i><span id="chatEstadoTexto">Sin modelo</span>
           </span>
@@ -712,6 +713,19 @@
 
         <!-- ── pestaña IA ─────────────────────────────────────────────────── -->
         <div class="chat-tab-panel" data-chat-panel="ia">
+          <!-- Velocidad de respuesta: controla tokens, temperatura y contexto. -->
+          <div class="chat-velocidad" id="chatVelocidad" role="group" aria-label="Velocidad de respuesta">
+            <button class="chat-vel" data-vel="rapido" type="button">
+              <b>Rápido</b><small>menos espera</small>
+            </button>
+            <button class="chat-vel activo" data-vel="equilibrado" type="button">
+              <b>Equilibrado</b><small>recomendado</small>
+            </button>
+            <button class="chat-vel" data-vel="preciso" type="button">
+              <b>Preciso</b><small>más contexto</small>
+            </button>
+          </div>
+
           <div id="chatAjustesIA" class="chat-panel">
             <div class="chat-preset">
               <div class="chat-preset-cab">

@@ -160,7 +160,8 @@ const estadoApp = {
     topP: 0.9,
     topK: 40,
     repeticion: 1.1,
-    maxTokens: 256
+    maxTokens: 640,
+    velocidad: "equilibrado"
   }
 };
 
@@ -172,7 +173,116 @@ const PROVEEDORES_CHAT = [
     url: "http://127.0.0.1:20128/v1",
     modelo: "auto",
     tipo: "Gratis / de pago según ruta",
+    modelos: ["auto", "gpt-4o-mini", "claude-3-5-sonnet", "llama-3.3-70b", "gemini-2.0-flash"],
     nota: "Gateway OpenAI-compatible auto-alojado en Termux o en un servidor. Enruta a modelos gratis y de pago."
+  },
+  {
+    id: "openai",
+    nombre: "OpenAI",
+    url: "https://api.openai.com/v1",
+    modelo: "gpt-4o-mini",
+    tipo: "De pago",
+    modelos: ["gpt-4o-mini", "gpt-4o", "gpt-4.1", "gpt-4.1-mini", "o4-mini", "o3-mini"],
+    nota: "API oficial. Clave en platform.openai.com/api-keys. Streaming y /models."
+  },
+  {
+    id: "anthropic",
+    nombre: "Anthropic · Claude",
+    url: "https://api.anthropic.com/v1",
+    modelo: "claude-sonnet-4-5",
+    tipo: "De pago",
+    modelos: ["claude-sonnet-4-5", "claude-opus-4-1", "claude-haiku-4-5", "claude-3-7-sonnet-latest", "claude-3-5-haiku-latest"],
+    nota: "Adaptador propio (x-api-key + SSE de Anthropic). Clave en console.anthropic.com."
+  },
+  {
+    id: "google",
+    nombre: "Google · Gemini",
+    url: "https://generativelanguage.googleapis.com/v1beta/openai",
+    modelo: "gemini-2.5-flash",
+    tipo: "Free tier / de pago",
+    modelos: ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash", "gemini-2.0-flash-lite"],
+    nota: "Endpoint OpenAI-compatible de Gemini. Clave en aistudio.google.com/apikey."
+  },
+  {
+    id: "deepseek",
+    nombre: "DeepSeek",
+    url: "https://api.deepseek.com/v1",
+    modelo: "deepseek-chat",
+    tipo: "Muy barato",
+    modelos: ["deepseek-chat", "deepseek-reasoner"],
+    nota: "OpenAI-compatible y económico. Clave en platform.deepseek.com."
+  },
+  {
+    id: "groq",
+    nombre: "Groq",
+    url: "https://api.groq.com/openai/v1",
+    modelo: "llama-3.3-70b-versatile",
+    tipo: "Free tier / de pago",
+    modelos: ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768", "gemma2-9b-it"],
+    nota: "El más rápido en latencia. Clave en console.groq.com/keys."
+  },
+  {
+    id: "xai",
+    nombre: "xAI · Grok",
+    url: "https://api.x.ai/v1",
+    modelo: "grok-4",
+    tipo: "De pago",
+    modelos: ["grok-4", "grok-3", "grok-3-mini", "grok-2-1212"],
+    nota: "OpenAI-compatible. Clave en console.x.ai."
+  },
+  {
+    id: "mistral",
+    nombre: "Mistral AI",
+    url: "https://api.mistral.ai/v1",
+    modelo: "mistral-large-latest",
+    tipo: "Free tier / de pago",
+    modelos: ["mistral-large-latest", "mistral-small-latest", "open-mistral-nemo", "codestral-latest"],
+    nota: "OpenAI-compatible. Clave en console.mistral.ai."
+  },
+  {
+    id: "openrouter",
+    nombre: "OpenRouter",
+    url: "https://openrouter.ai/api/v1",
+    modelo: "openrouter/auto",
+    tipo: "Gratis y de pago",
+    modelos: ["openrouter/auto", "openai/gpt-4o-mini", "anthropic/claude-sonnet-4", "google/gemini-2.5-flash", "meta-llama/llama-3.3-70b-instruct"],
+    nota: "Un solo token para casi todos los modelos, incluidos gratis. Clave en openrouter.ai/keys."
+  },
+  {
+    id: "together",
+    nombre: "Together AI",
+    url: "https://api.together.xyz/v1",
+    modelo: "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+    tipo: "De pago",
+    modelos: ["meta-llama/Llama-3.3-70B-Instruct-Turbo", "Qwen/Qwen2.5-72B-Instruct-Turbo", "mistralai/Mixtral-8x7B-Instruct-v0.1"],
+    nota: "Catálogo amplio de modelos abiertos. Clave en api.together.xyz."
+  },
+  {
+    id: "perplexity",
+    nombre: "Perplexity",
+    url: "https://api.perplexity.ai",
+    modelo: "sonar",
+    tipo: "De pago",
+    modelos: ["sonar", "sonar-pro", "sonar-reasoning"],
+    nota: "Responde con búsqueda web incluida. Clave en perplexity.ai/settings/api."
+  },
+  {
+    id: "fireworks",
+    nombre: "Fireworks AI",
+    url: "https://api.fireworks.ai/inference/v1",
+    modelo: "accounts/fireworks/models/llama-v3p3-70b-instruct",
+    tipo: "De pago",
+    modelos: ["accounts/fireworks/models/llama-v3p3-70b-instruct", "accounts/fireworks/models/qwen2p5-72b-instruct"],
+    nota: "OpenAI-compatible de alto rendimiento. Clave en fireworks.ai."
+  },
+  {
+    id: "cerebras",
+    nombre: "Cerebras",
+    url: "https://api.cerebras.ai/v1",
+    modelo: "llama-3.3-70b",
+    tipo: "Free tier / de pago",
+    modelos: ["llama-3.3-70b", "llama-3.1-8b", "qwen-3-32b"],
+    nota: "Inferencia muy rápida. Clave en cloud.cerebras.ai."
   },
   {
     id: "ollama",
@@ -180,6 +290,7 @@ const PROVEEDORES_CHAT = [
     url: "http://127.0.0.1:11434/v1",
     modelo: "llama3.2",
     tipo: "Gratis · local",
+    modelos: ["llama3.2", "qwen2.5", "mistral", "phi4", "gemma3"],
     nota: "Ollama escucha en 11434. Si está en otro equipo de la LAN, cambia 127.0.0.1 por su IP privada."
   },
   {
@@ -188,47 +299,8 @@ const PROVEEDORES_CHAT = [
     url: "http://127.0.0.1:1234/v1",
     modelo: "",
     tipo: "Gratis · local",
+    modelos: [],
     nota: "Activa el servidor local de LM Studio. La app sólo habla con su API OpenAI-compatible."
-  },
-  {
-    id: "openrouter",
-    nombre: "OpenRouter",
-    url: "https://openrouter.ai/api/v1",
-    modelo: "",
-    tipo: "Gratis y de pago",
-    nota: "Catálogo grande con modelos gratuitos y de pago. Trae /models para ver los disponibles con tu clave."
-  },
-  {
-    id: "groq",
-    nombre: "Groq",
-    url: "https://api.groq.com/openai/v1",
-    modelo: "",
-    tipo: "Free tier / de pago",
-    nota: "API OpenAI-compatible de baja latencia. Requiere clave; el catálogo se consulta en vivo."
-  },
-  {
-    id: "openai",
-    nombre: "OpenAI",
-    url: "https://api.openai.com/v1",
-    modelo: "gpt-4o-mini",
-    tipo: "De pago",
-    nota: "API oficial de OpenAI. La clave se guarda en SQLite y no vuelve a la página."
-  },
-  {
-    id: "mistral",
-    nombre: "Mistral AI",
-    url: "https://api.mistral.ai/v1",
-    modelo: "",
-    tipo: "Free tier / de pago",
-    nota: "API OpenAI-compatible. Trae /models para elegir el modelo de tu cuenta."
-  },
-  {
-    id: "together",
-    nombre: "Together AI",
-    url: "https://api.together.xyz/v1",
-    modelo: "",
-    tipo: "De pago",
-    nota: "API OpenAI-compatible con catálogo amplio. Requiere clave."
   },
   {
     id: "huggingface",
@@ -236,6 +308,7 @@ const PROVEEDORES_CHAT = [
     url: "https://router.huggingface.co/v1",
     modelo: "",
     tipo: "Free tier / de pago",
+    modelos: [],
     nota: "Router OpenAI-compatible de Hugging Face. Requiere token con permiso de inferencia."
   },
   {
@@ -244,6 +317,7 @@ const PROVEEDORES_CHAT = [
     url: "http://192.168.1.10:8080/v1",
     modelo: "",
     tipo: "Según servidor",
+    modelos: [],
     nota: "Cualquier servidor OpenAI-compatible. HTTP sólo se acepta en localhost o IP privada; el resto exige HTTPS."
   }
 ];
@@ -1529,6 +1603,11 @@ function chatIniciar() {
     chatCargarEstado();
     chatCargarEstadoLocal();
     chatPintarMensajes();
+    // Velocidad recordada entre sesiones (rápido / equilibrado / preciso).
+    try {
+      const v = localStorage.getItem("forge.chat.velocidad") || "equilibrado";
+      if (CHAT_VELOCIDADES[v]) chatAplicarVelocidad(v);
+    } catch (e) { /* sin preferencia guardada */ }
     // Si el modelo ya está cargado, la configuración no tiene por qué ocupar
     // espacio: queda a un toque en el engranaje.
     const cfg = document.getElementById("chatConfig");
@@ -1555,6 +1634,7 @@ function chatIniciar() {
 
 /** Refresca el pill de estado y el avatar según el modo y el modelo. */
 function chatActualizarCabecera() {
+  try { chatPintarChipModelo(); } catch (e) { /* cosmético */ }
   const pill = document.getElementById("chatEstadoPill");
   const texto = document.getElementById("chatEstadoTexto");
   const sub = document.getElementById("chatSubtitulo");
@@ -1627,10 +1707,61 @@ function chatAplicarProveedor(id, escribir) {
   const p = PROVEEDORES_CHAT.find((x) => x.id === id) || PROVEEDORES_CHAT[0];
   const nota = document.getElementById("chatProveedorNota");
   if (nota) nota.textContent = p.nota;
+  // Sugerencias de modelos: se pueden elegir sin pulsar «Traer modelos».
+  const lista = document.getElementById("chatModelosLista");
+  if (lista && Array.isArray(p.modelos)) {
+    lista.innerHTML = p.modelos.map((m) => `<option value="${esc(m)}"></option>`).join("");
+  }
   if (escribir) {
     document.getElementById("chatUrl").value = p.url;
     document.getElementById("chatModeloRemoto").value = p.modelo || "";
+    const estado = document.getElementById("chatRemotoEstado");
+    if (estado) {
+      estado.textContent = p.modelos && p.modelos.length
+        ? "Modelo sugerido: " + p.modelo + ". Guarda la clave y pulsa «Probar»."
+        : "Escribe el modelo o pulsa «Traer modelos».";
+    }
   }
+}
+
+/* ── velocidad de respuesta ─────────────────────────────────────────────── */
+const CHAT_VELOCIDADES = {
+  rapido:      { maxTokens: 320,  temperatura: 0.40, rag: false, etq: "Rápido" },
+  equilibrado: { maxTokens: 640,  temperatura: 0.70, rag: false, etq: "Equilibrado" },
+  preciso:     { maxTokens: 1200, temperatura: 0.50, rag: true,  etq: "Preciso" }
+};
+
+function chatAplicarVelocidad(v) {
+  const conf = CHAT_VELOCIDADES[v] || CHAT_VELOCIDADES.equilibrado;
+  estadoApp.chat.velocidad = v;
+  estadoApp.chat.maxTokens = conf.maxTokens;
+  estadoApp.chat.temperatura = conf.temperatura;
+  const casilla = document.getElementById("chatRag");
+  if (casilla) casilla.checked = conf.rag;
+  document.querySelectorAll("#chatVelocidad [data-vel]").forEach(function (b) {
+    b.classList.toggle("activo", b.dataset.vel === v);
+  });
+  chatPintarAjustesIA();
+  try { localStorage.setItem("forge.chat.velocidad", v); } catch (e) {}
+  chatActualizarCabecera();
+}
+
+/** Cabecera: modelo + proveedor + velocidad, siempre visible. */
+function chatPintarChipModelo() {
+  const el = document.getElementById("chatChipModelo");
+  if (!el) return;
+  const c = estadoApp.chat;
+  let txt = "Sin modelo";
+  if (c.modo === "local") {
+    txt = c.localCargado ? (c.modeloLocalNombre || "Modelo local") : "Modelo local sin cargar";
+  } else {
+    const m = (document.getElementById("chatModeloRemoto") || {}).value || "";
+    const prov = (document.getElementById("chatProveedor") || {}).value || "";
+    const p = PROVEEDORES_CHAT.find((x) => x.id === prov);
+    txt = m ? ((p ? p.nombre.split("·")[0].trim() + " · " : "") + m) : "Proveedor sin modelo";
+  }
+  el.textContent = txt;
+  el.title = txt + " · " + ((CHAT_VELOCIDADES[c.velocidad] || {}).etq || "");
 }
 
 function chatCambiarModo(modo) {
@@ -1964,6 +2095,7 @@ function chatProbarRemoto() {
 
 /** Busca contexto en los textos ya indexados. Devuelve "" si no hay nada. */
 async function chatContextoRag(consulta) {
+  if (estadoApp.chat.velocidad === "rapido") return "";
   const casilla = document.getElementById("chatRag");
   if (!casilla || !casilla.checked) return "";
   try {
@@ -2929,16 +3061,17 @@ async function chatEnviar() {
   estadoApp.chat.t0 = Date.now();
   chatAvatarEstado("thinking");
 
-  // Burbuja vacía donde va cayendo el texto. Sólo en local: el remoto llega
-  // completo y se pinta al final.
-  if (estadoApp.chat.modo === "local") {
-    estadoApp.chat.indiceIA = estadoApp.chat.mensajes.length;
-    estadoApp.chat.mensajes.push({
-      rol: "ia", texto: "", origen: "local", ts: Date.now(), parcial: true
-    });
-  } else {
-    estadoApp.chat.indiceIA = -1;
-  }
+  // Burbuja vacía donde va cayendo el texto. Antes sólo existía en local: en
+  // remoto la pantalla quedaba congelada hasta la respuesta completa. Ahora el
+  // remoto también transmite (SSE) y el texto aparece token a token.
+  estadoApp.chat.indiceIA = estadoApp.chat.mensajes.length;
+  estadoApp.chat.mensajes.push({
+    rol: "ia",
+    texto: "",
+    origen: estadoApp.chat.modo === "local" ? "local" : "remoto",
+    ts: Date.now(),
+    parcial: true
+  });
   chatPintarMensajes();
   chatActualizarBotonEnviar();
 
@@ -3058,13 +3191,20 @@ async function chatEnviar() {
       } catch (e) { /* el shim usa sus valores por defecto */ }
       r = JSON.parse(window.FabrickNative.localChat(chatPromptLocal(contextoCombinado), cfg.max_tokens));
     } else {
-      r = JSON.parse(window.FabrickNative.chatRemoto(chatPromptRemoto(contextoCombinado), cfg.max_tokens));
+      // El remoto también es asíncrono y con streaming: vuelve al instante con
+      // ENVIANDO y los trozos llegan por FabriChat.token / FabriChat.remoto.
+      const ajustesRemoto = JSON.stringify({
+        temperatura: cfg.temperatura,
+        top_p: cfg.top_p,
+        historial: chatHistorialParaApi()
+      });
+      r = JSON.parse(window.FabrickNative.chatRemoto(
+        chatPromptRemoto(contextoCombinado), cfg.max_tokens, ajustesRemoto));
     }
 
-    // localChat es asíncrono: devuelve {"ok":true,"estado":"GENERANDO"} al instante
-    // y la respuesta real llega por FabriChat.localFin. No hay que tratarlo como
-    // error ni como respuesta final aquí.
-    if (estadoApp.chat.modo === "local" && r.ok && r.estado === "GENERANDO") {
+    // Ambos caminos devuelven un estado de "en curso": la respuesta real llega
+    // después por el puente (localFin / token / remoto).
+    if (r.ok && (r.estado === "GENERANDO" || r.estado === "ENVIANDO")) {
       return;
     }
   } catch (e) {
@@ -3087,6 +3227,20 @@ async function chatEnviar() {
     chatActualizarBotonEnviar();
     toast("Chat: " + (r.error || "no se pudo enviar"), "error");
   }
+}
+
+/** Últimos turnos en el formato que esperan las APIs (role/content). */
+function chatHistorialParaApi() {
+  const c = estadoApp.chat;
+  const lista = (c.mensajes || []).filter(function (m) {
+    return (m.rol === "user" || m.rol === "ia") && m.texto && !m.parcial;
+  });
+  const ultimos = lista.slice(-8);
+  // El último mensaje es la pregunta actual: ya va en `prompt`.
+  if (ultimos.length && ultimos[ultimos.length - 1].rol === "user") ultimos.pop();
+  return ultimos.map(function (m) {
+    return { role: m.rol === "ia" ? "assistant" : "user", content: String(m.texto).slice(0, 4000) };
+  });
 }
 
 function chatAgregarRespuesta(texto, meta, esError, origen) {
@@ -3121,6 +3275,21 @@ function chatAgregarRespuesta(texto, meta, esError, origen) {
   estadoApp.chat.enviando = false;
   chatAvatarEstado("idle");
   chatPintarMensajes();
+}
+
+/** Repinta mientras llegan tokens, con freno para no saturar el WebView. */
+function chatPintarTokens() {
+  const ahora = Date.now();
+  if (chatPintarTokens._t && ahora - chatPintarTokens._t < 70) {
+    clearTimeout(chatPintarTokens._pend);
+    chatPintarTokens._pend = setTimeout(function () {
+      chatPintarTokens._t = 0;
+      try { chatPintarMensajes(); } catch (e) {}
+    }, 80);
+    return;
+  }
+  chatPintarTokens._t = ahora;
+  try { chatPintarMensajes(); } catch (e) {}
 }
 
 function chatFormatear(texto) {
@@ -3288,6 +3457,14 @@ function chatPintarParcial() {
 function chatDetener() {
   if (!estadoApp.chat.enviando || estadoApp.chat.deteniendo) return;
   estadoApp.chat.deteniendo = true;
+  // Remoto: se corta la conexión HTTP de verdad (streaming).
+  if (estadoApp.chat.modo === "remoto") {
+    let ok = true;
+    try { window.FabrickNative.chatRemotoCancelar(); } catch (e) { ok = false; }
+    toast(ok ? "Deteniendo…" : "No se pudo detener", ok ? "" : "error");
+    revision("chat", "aviso", "detención remota pedida", "se corta el streaming", 0, "chat");
+    return;
+  }
   let r = { ok: false };
   try {
     r = JSON.parse(window.FabrickNative.localDetener());
@@ -3560,13 +3737,61 @@ window.FabriChat = {
     chatActualizarBotonEnviar();
     chatActualizarContexto();
   },
+  /** Trozo de respuesta remota (streaming). Se pinta mientras llega. */
+  token: function (payload) {
+    let t = "";
+    try {
+      t = (typeof payload === "string") ? (JSON.parse(payload).t || "") : ((payload && payload.t) || "");
+    } catch (e) {
+      t = String(payload || "");
+    }
+    const c = estadoApp.chat;
+    if (!c.enviando || c.indiceIA < 0) return;
+    const m = c.mensajes[c.indiceIA];
+    if (!m || m.rol === "error") return;
+    m.texto = (m.texto || "") + t;
+    m.parcial = true;
+    if (!c.primerTokenMs) c.primerTokenMs = Date.now() - (c.t0 || Date.now());
+    chatPintarTokens();
+  },
+
   remoto: function (r) {
+    const c = estadoApp.chat;
+    const burbuja = c.indiceIA >= 0 ? c.mensajes[c.indiceIA] : null;
+    const textoFinal = r && typeof r.texto === "string" && r.texto.length
+      ? r.texto
+      : (burbuja ? burbuja.texto : "");
+
+    if (burbuja) {
+      burbuja.texto = textoFinal || burbuja.texto || "";
+      burbuja.parcial = false;
+      burbuja.detenida = !!(r && r.cancelado);
+      if (r && r.ms) {
+        burbuja.meta = (r.modelo || "modelo") + " · " + Math.round(r.ms) + " ms";
+      }
+    } else if (textoFinal) {
+      chatAgregarRespuesta(textoFinal, (r && r.modelo) || "remoto", false, "remoto");
+    }
+
+    c.enviando = false;
+    c.deteniendo = false;
+    c.indiceIA = -1;
+    chatAvatarEstado("idle");
+    chatPintarMensajes();
+    chatActualizarBotonEnviar();
+
     if (r && r.ok) {
-      const meta = (r.modelo || "modelo") + " · " + Math.round(r.ms || 0) + " ms";
-      chatAgregarRespuesta(r.texto, meta, false, "remoto");
-      api("log.append", { nivel: "OK", origen: "chat-remoto", mensaje: "respuesta en " + Math.round(r.ms || 0) + " ms" });
+      if (textoFinal) c.ultimaRespuesta = textoFinal;
+      api("log.append", { nivel: "OK", origen: "chat-remoto", mensaje: "respuesta en " + Math.round((r && r.ms) || 0) + " ms" });
+    } else if (r && r.cancelado) {
+      toast("Respuesta detenida");
     } else {
-      chatAgregarRespuesta((r && r.error) || "falló la llamada remota", "error", true);
+      toast("Chat: " + ((r && r.error) || "falló la llamada remota"), "error");
+      if (!textoFinal) {
+        if (burbuja) { burbuja.rol = "error"; burbuja.texto = (r && r.error) || "falló la llamada remota"; }
+        else chatAgregarRespuesta((r && r.error) || "falló", "error", true);
+        chatPintarMensajes();
+      }
       api("log.append", { nivel: "ERROR", origen: "chat-remoto", mensaje: (r && r.error) || "falló" });
     }
   },
@@ -4550,6 +4775,9 @@ document.addEventListener("click", (ev) => {
 
   const chatModo = ev.target.closest("[data-chat-modo]");
   if (chatModo) { chatCambiarModo(chatModo.dataset.chatModo); return; }
+
+  const vel = ev.target.closest("[data-vel]");
+  if (vel) { chatAplicarVelocidad(vel.dataset.vel); return; }
 
   const sugerencia = ev.target.closest("[data-sugerencia]");
   if (sugerencia) {

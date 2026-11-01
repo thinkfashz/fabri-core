@@ -3263,3 +3263,128 @@ input[type="range"]:active { opacity: 0.9; }
 .modelo-card-nota { margin: 0; font-size: 11px; line-height: 1.45; color: var(--texto-2); }
 .modelo-card-pie { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .modelo-card-aviso { font-size: 10px; color: var(--texto-3); }
+
+/* ==========================================================================
+   CHAT 0.9.46 · controles, velocidad y burbujas (móvil premium)
+   ========================================================================== */
+.chat-chip-modelo {
+  max-width: 42vw;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--borde);
+  background: var(--elevado, #171817);
+  color: var(--texto-2, #B9BDB4);
+  font-size: 10.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Selector de velocidad: tres tarjetas, la activa en lima. */
+.chat-velocidad {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+  margin-bottom: 12px;
+}
+.chat-vel {
+  display: grid;
+  gap: 1px;
+  padding: 10px 8px;
+  border-radius: 14px;
+  border: 1px solid var(--borde, #2A2A2A);
+  background: var(--elevado, #171817);
+  color: var(--texto-2, #B9BDB4);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 140ms ease, background 140ms ease;
+}
+.chat-vel b { font-size: 12px; font-weight: 700; }
+.chat-vel small { font-size: 9.5px; color: var(--texto-3, #7A7F76); }
+.chat-vel.activo {
+  background: #C8FF00;
+  border-color: #C8FF00;
+  color: #050505;
+  box-shadow: 0 0 16px rgba(200, 255, 0, 0.25);
+}
+.chat-vel.activo small { color: rgba(5, 5, 5, 0.7); }
+
+/* Ajustes: tarjetas con aire y valores alineados. */
+.chat-tab-panel { padding: 12px 2px 4px; }
+.chat-panel { display: grid; gap: 10px; }
+.chat-config .input,
+.chat-config select.input,
+.chat-config input.input {
+  min-height: 46px;
+  border-radius: 13px;
+  background: var(--elevado, #171817);
+  border: 1px solid var(--borde, #2A2A2A);
+  color: var(--texto, #fff);
+  font-size: 14.5px;
+  padding: 0 13px;
+}
+.chat-config .input:focus {
+  border-color: rgba(200, 255, 0, 0.55);
+  box-shadow: 0 0 0 3px rgba(200, 255, 0, 0.12);
+  outline: none;
+}
+.chat-config .etiqueta {
+  font-size: 10px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--texto-3, #7A7F76);
+  font-weight: 600;
+}
+.chat-config .fila-botones .btn { min-height: 44px; border-radius: 13px; }
+.chat-preset {
+  border-radius: 16px;
+  border: 1px solid var(--borde, #2A2A2A);
+  background: var(--elevado, #171817);
+  padding: 12px;
+}
+.ajuste-fila {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--texto-2, #B9BDB4);
+}
+.ajuste-valor {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--acento, #C8FF00);
+}
+.chat-config input[type="range"] {
+  width: 100%;
+  accent-color: var(--acento, #C8FF00);
+  margin: 2px 0 8px;
+}
+
+/* Burbujas: más aire, borde suave y metadatos discretos. */
+.chat-hilo { scroll-behavior: smooth; }
+.mensaje { animation: chat-msg-in 180ms ease both; }
+@keyframes chat-msg-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+.mensaje .burbuja { line-height: 1.55; }
+/* Mientras llegan tokens: cursor parpadeante al final del texto. */
+.mensaje.mensaje-parcial .msg-texto::after {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 14px;
+  margin-left: 3px;
+  vertical-align: -2px;
+  background: var(--acento, #C8FF00);
+  animation: chat-cursor-blink 900ms steps(2) infinite;
+}
+@keyframes chat-cursor-blink { 50% { opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-hilo { scroll-behavior: auto; }
+  .mensaje, .mensaje.mensaje-parcial .msg-texto::after { animation: none; }
+}
