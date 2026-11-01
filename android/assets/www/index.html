@@ -1813,8 +1813,12 @@ npx -y omniroute@latest
                  autocomplete="off" spellcheck="false" />
           <button class="ctb-btn principal" id="btnCtbSiiConsultar" type="button">Consultar</button>
         </div>
-        <p class="ctb-nota">Pega la dirección exacta de la página del SII que quieras leer.
-          El SII cambia sus rutas: si una falla, prueba otra.</p>
+        <div class="ctb-api-fila">
+          <button class="ctb-btn" id="btnCtbSiiWeb" type="button">Leer con navegador interno (JS)</button>
+        </div>
+        <p class="ctb-nota">Pega la dirección exacta de la página del SII. «Consultar» trae el HTML
+          simple; «navegador interno» ejecuta el JavaScript de la página (más lento, pero lee las
+          que se arman con JS). El SII cambia sus rutas: si una falla, prueba otra.</p>
         <div id="ctbSiiResultado"></div>
       </div>
 

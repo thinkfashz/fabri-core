@@ -464,6 +464,30 @@ function ctbConsultarSii() {
   // La respuesta real llega por FabriSii.resultado.
 }
 
+/** Pinta el resultado de una consulta (GET simple o WebView). */
+function ctbPintarPaginaSii(d) {
+  const caja = document.getElementById("ctbSiiResultado");
+  if (!caja) return;
+  CTB.siiPagina = d;
+  caja.innerHTML =
+    '<div class="ctb-api-card">' +
+      "<b>" + esc(d.nombre || "Sin nombre detectado") + "</b>" +
+      (d.rut ? '<span class="ctb-api-rut">' + esc(d.rut) + "</span>" : "") +
+      '<div class="ctb-api-chips">' +
+        (d.inicio ? '<span class="ctb-chip">Inicio: ' + esc(d.inicio) + "</span>" : "") +
+        (d.cumple ? '<span class="ctb-chip lima">' + esc(d.cumple) + "</span>" : "") +
+        '<span class="ctb-chip">' + d.actividades.length + " actividades</span>" +
+        (d.metodo ? '<span class="ctb-chip">' + esc(d.metodo) + "</span>" : "") +
+      "</div>" +
+      (d.actividades.length ? '<div class="ctb-sii-acts">' + d.actividades.map(function (a) {
+        return "<span>" + esc(a) + "</span>";
+      }).join("") + "</div>" : "") +
+      '<details class="ctb-sii-texto"><summary>Ver texto recibido</summary><pre>' +
+        esc(d.texto) + "</pre></details>" +
+      '<button class="ctb-btn principal" id="btnCtbSiiUsar" type="button">Usar estos datos</button>' +
+    "</div>";
+}
+
 /* ── sesión SII propia (sin terceros) ─────────────────────────────────── */
 function ctbSiiEstado() {
   const el = document.getElementById("ctbSiiEstado");
@@ -582,23 +606,24 @@ window.FabriSii = {
       return;
     }
     const d = ctbParsearSii(r.html);
-    CTB.siiPagina = d;
-    caja.innerHTML =
-      '<div class="ctb-api-card">' +
-        "<b>" + esc(d.nombre || "Sin nombre detectado") + "</b>" +
-        (d.rut ? '<span class="ctb-api-rut">' + esc(d.rut) + "</span>" : "") +
-        '<div class="ctb-api-chips">' +
-          (d.inicio ? '<span class="ctb-chip">Inicio: ' + esc(d.inicio) + "</span>" : "") +
-          (d.cumple ? '<span class="ctb-chip lima">' + esc(d.cumple) + "</span>" : "") +
-          '<span class="ctb-chip">' + d.actividades.length + " actividades</span>" +
-        "</div>" +
-        (d.actividades.length ? '<div class="ctb-sii-acts">' + d.actividades.map(function (a) {
-          return "<span>" + esc(a) + "</span>";
-        }).join("") + "</div>" : "") +
-        '<details class="ctb-sii-texto"><summary>Ver página recibida</summary><pre>' +
-          esc(d.texto) + "</pre></details>" +
-        '<button class="ctb-btn principal" id="btnCtbSiiUsar" type="button">Usar estos datos</button>' +
-      "</div>";
+    d.metodo = "GET simple";
+    ctbPintarPaginaSii(d);
+  },
+
+  paginaWeb: function (r) {
+    const caja = document.getElementById("ctbSiiResultado");
+    if (!caja) return;
+    if (!r || !r.ok) {
+      if (caja) {
+        caja.innerHTML = '<div class="ctb-api-error">' +
+          esc((r && r.error) || "no se pudo renderizar la página") + "</div>";
+      }
+      return;
+    }
+    const d = ctbParsearSii(r.texto || "");
+    d.metodo = "navegador interno (" + Math.round((r.ms || 0) / 100) / 10 + " s)";
+    d.titulo = r.titulo || "";
+    ctbPintarPaginaSii(d);
   },
 
   resultado: function (r) {
@@ -787,6 +812,24 @@ function ctbGuardarSii() {
     });
 }
 
+/** Renderiza la página con el WebView interno (ejecuta su JavaScript). */
+function ctbSiiWeb() {
+  const url = (document.getElementById("ctbSiiUrl") || {}).value || "";
+  const caja = document.getElementById("ctbSiiResultado");
+  if (!url.trim()) { if (typeof toast === "function") toast("Escribe la dirección del SII", "error"); return; }
+  if (!window.FabrickNative || !window.FabrickNative.siiWebConsultar) {
+    if (typeof toast === "function") toast("Este build no trae el navegador interno", "error");
+    return;
+  }
+  if (caja) caja.innerHTML = '<div class="ctb-api-cargando">Abriendo la página en el navegador interno…</div>';
+  let r;
+  try { r = JSON.parse(window.FabrickNative.siiWebConsultar(url.trim(), 1800)); }
+  catch (e) { r = { ok: false, error: String(e) }; }
+  if (!r.ok && caja) {
+    caja.innerHTML = '<div class="ctb-api-error">' + esc(r.error || "error") + "</div>";
+  }
+}
+
 function ctbSiiUsar() {
   const d = CTB.siiPagina;
   if (!d) return;
@@ -833,6 +876,7 @@ function ctbSiiUsar() {
     if (t.closest("#btnCtbSiiLogin")) { ctbSiiLogin(); return; }
     if (t.closest("#btnCtbSiiLogout")) { ctbSiiLogout(); return; }
     if (t.closest("#btnCtbSiiConsultar")) { ctbSiiConsultar(); return; }
+    if (t.closest("#btnCtbSiiWeb")) { ctbSiiWeb(); return; }
     if (t.closest("#btnCtbSiiUsar")) { ctbSiiUsar(); return; }
     if (t.closest("#btnCtbActualizarTodos")) { ctbActualizarTodos(false); return; }
     if (t.closest("#btnCtbDemoCargar")) { ctbCargarDemo(); return; }

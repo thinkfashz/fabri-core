@@ -1263,6 +1263,206 @@ public final class NativeBridge {
         }
     }
 
+    // ------------------------------------------------ SII · navegador interno
+    // Las páginas del SII se arman con JavaScript: un GET simple devuelve un
+    // caparazón vacío. Aquí se renderiza la página en un WebView oculto (con
+    // las cookies de la sesión), se espera a que el JS pinte y se extrae el
+    // texto visible. Todo dentro del APK, sin abrir navegador.
+    private volatile android.webkit.WebView siiWeb = null;
+    private volatile boolean siiWebListo = false;
+
+    @JavascriptInterface
+    public String siiWebConsultar(final String url, final int esperaMs) {
+        final String destino = url == null ? "" : url.trim();
+        if (!destino.startsWith("https://") || !destino.contains("sii.cl")) {
+            return error("sólo páginas https del SII");
+        }
+        final Activity act = actividad();
+        if (act == null) {
+            return error("sin actividad para renderizar");
+        }
+        act.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    siiWebCerrarInterno();
+                    final android.webkit.WebView w = new android.webkit.WebView(act);
+                    siiWeb = w;
+                    siiWebListo = false;
+
+                    android.webkit.WebSettings cfg = w.getSettings();
+                    cfg.setJavaScriptEnabled(true);
+                    cfg.setDomStorageEnabled(true);
+                    cfg.setDatabaseEnabled(true);
+                    cfg.setLoadsImagesAutomatically(false);   // más rápido y liviano
+                    cfg.setBlockNetworkImage(true);
+                    cfg.setUserAgentString("Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 " +
+                            "(KHTML, like Gecko) Chrome/120.0 Mobile Safari/537.36");
+
+                    final android.webkit.CookieManager cm = android.webkit.CookieManager.getInstance();
+                    cm.setAcceptCookie(true);
+                    cm.setAcceptThirdPartyCookies(w, true);
+                    // Sembrar las cookies de la sesión guardada.
+                    for (HttpCookie ck : siiCookieManager().getCookieStore().getCookies()) {
+                        String v = ck.getName() + "=" + ck.getValue()
+                                + "; path=" + (ck.getPath() == null ? "/" : ck.getPath());
+                        if (ck.getDomain() != null && !ck.getDomain().isEmpty()) {
+                            v += "; domain=" + ck.getDomain();
+                        }
+                        try { cm.setCookie(destino, v); } catch (Throwable ignorado) { }
+                    }
+
+                    w.setAlpha(0f);
+                    w.setVisibility(android.view.View.INVISIBLE);
+                    android.view.ViewGroup raiz =
+                            (android.view.ViewGroup) act.findViewById(android.R.id.content);
+                    if (raiz != null) {
+                        raiz.addView(w, new android.view.ViewGroup.LayoutParams(1, 1));
+                    }
+
+                    final long[] t0 = new long[] { System.currentTimeMillis() };
+                    w.setWebViewClient(new android.webkit.WebViewClient() {
+                        @Override
+                        public void onPageFinished(android.webkit.WebView view, String u) {
+                            if (siiWebListo) return;
+                            siiWebListo = true;
+                            final int espera = esperaMs <= 0 ? 1800 : Math.min(esperaMs, 8000);
+                            view.postDelayed(new Runnable() {
+                                @Override
+                                public void run() {
+                                    siiWebExtraer(w, destino, t0[0]);
+                                }
+                            }, espera);
+                        }
+
+                        @Override
+                        public void onReceivedError(android.webkit.WebView view, int code,
+                                                    String desc, String failing) {
+                            JSONObject r = new JSONObject();
+                            try {
+                                r.put("ok", false);
+                                r.put("error", "no se pudo cargar: " + desc + " (" + code + ")");
+                            } catch (Throwable ignorado) { }
+                            notificar("window.FabriSii && FabriSii.paginaWeb(" + r.toString() + ");");
+                            siiWebCerrarInterno();
+                        }
+                    });
+                    w.loadUrl(destino);
+                } catch (Throwable t) {
+                    JSONObject r = new JSONObject();
+                    try {
+                        r.put("ok", false);
+                        r.put("error", t.getMessage() == null ? t.toString() : t.getMessage());
+                    } catch (Throwable ignorado) { }
+                    notificar("window.FabriSii && FabriSii.paginaWeb(" + r.toString() + ");");
+                    siiWebCerrarInterno();
+                }
+            }
+        });
+        return "{\"ok\":true,\"estado\":\"RENDERIZANDO\"}";
+    }
+
+    /** Ejecuta JS en la página y devuelve el texto visible. */
+    private void siiWebExtraer(final android.webkit.WebView w, final String url, final long t0) {
+        final String js = "(function(){try{var t=document.body?document.body.innerText:'';" +
+                "return t.replace(/\\s+/g,' ').trim();}catch(e){return '';}})()";
+        try {
+            w.evaluateJavascript(js, new android.webkit.ValueCallback<String>() {
+                @Override
+                public void onReceiveValue(String value) {
+                    final String texto = siiDescomillar(value);
+                    w.evaluateJavascript("document.title", new android.webkit.ValueCallback<String>() {
+                        @Override
+                        public void onReceiveValue(String titulo) {
+                            JSONObject r = new JSONObject();
+                            try {
+                                r.put("ok", !texto.isEmpty());
+                                r.put("url", url);
+                                r.put("titulo", siiDescomillar(titulo));
+                                r.put("texto", texto.length() > 60000 ? texto.substring(0, 60000) : texto);
+                                r.put("ms", System.currentTimeMillis() - t0);
+                                if (texto.isEmpty()) {
+                                    r.put("error", "la página no mostró texto (¿pide clave o cambió la ruta?)");
+                                }
+                            } catch (Throwable ignorado) { }
+                            siiVolcarCookiesWeb(url);
+                            notificar("window.FabriSii && FabriSii.paginaWeb(" + r.toString() + ");");
+                            siiWebCerrarInterno();
+                        }
+                    });
+                }
+            });
+        } catch (Throwable t) {
+            JSONObject r = new JSONObject();
+            try {
+                r.put("ok", false);
+                r.put("error", "no pude ejecutar el JS de la página");
+            } catch (Throwable ignorado) { }
+            notificar("window.FabriSii && FabriSii.paginaWeb(" + r.toString() + ");");
+            siiWebCerrarInterno();
+        }
+    }
+
+    /** Quita las comillas y escapes de un valor devuelto por evaluateJavascript. */
+    private String siiDescomillar(String valor) {
+        if (valor == null) return "";
+        try {
+            Object o = new org.json.JSONTokener(valor).nextValue();
+            return o == null || o == JSONObject.NULL ? "" : String.valueOf(o);
+        } catch (Throwable t) {
+            return valor;
+        }
+    }
+
+    /** Copia las cookies del WebView al almacén de la sesión. */
+    private void siiVolcarCookiesWeb(String url) {
+        try {
+            android.webkit.CookieManager cm = android.webkit.CookieManager.getInstance();
+            cm.flush();
+            String crudo = cm.getCookie(url);
+            if (crudo == null || crudo.isEmpty()) return;
+            for (String par : crudo.split(";")) {
+                int i = par.indexOf('=');
+                if (i <= 0) continue;
+                String nombre = par.substring(0, i).trim();
+                String valor = par.substring(i + 1).trim();
+                if (nombre.isEmpty()) continue;
+                HttpCookie ck = new HttpCookie(nombre, valor);
+                ck.setPath("/");
+                try { ck.setDomain("sii.cl"); } catch (Throwable ignorado) { }
+                siiCookieManager().getCookieStore().add(null, ck);
+            }
+            guardarConfig("sii.cookies", siiCookiesJson());
+        } catch (Throwable ignorado) { }
+    }
+
+    private void siiWebCerrarInterno() {
+        final android.webkit.WebView w = siiWeb;
+        siiWeb = null;
+        if (w == null) return;
+        Activity act = actividad();
+        if (act != null) {
+            act.runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        android.view.ViewGroup padre = (android.view.ViewGroup) w.getParent();
+                        if (padre != null) padre.removeView(w);
+                        w.stopLoading();
+                        w.loadUrl("about:blank");
+                        w.destroy();
+                    } catch (Throwable ignorado) { }
+                }
+            });
+        }
+    }
+
+    @JavascriptInterface
+    public String siiWebCerrar() {
+        siiWebCerrarInterno();
+        return "{\"ok\":true}";
+    }
+
     /**
      * GET autenticado contra el SII usando las cookies guardadas.
      * Devuelve el HTML para que la interfaz lo interprete. La URL es
