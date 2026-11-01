@@ -2,6 +2,16 @@
    Módulo Impuestos · F29 (premium móvil, consistente con Inventario)
    ========================================================================== */
 #v-impuestos {
+  /* Los botones reutilizan las clases .cat-btn del catálogo; sus variables
+     estaban declaradas sólo en #v-catalogo y aquí no se pintaban. */
+  --cat-lima: #C8FF00;
+  --cat-borde: rgba(255, 255, 255, 0.08);
+  --cat-borde-fuerte: rgba(255, 255, 255, 0.14);
+  --cat-texto: #F4F5F1;
+  --cat-texto-2: #A6AAA2;
+  --cat-texto-3: #6F746C;
+  --cat-elevada: #171817;
+  --cat-superficie: #101110;
   --imp-borde: rgba(255, 255, 255, 0.075);
   --imp-borde-2: rgba(255, 255, 255, 0.14);
   --imp-sup: #101110;
@@ -339,3 +349,177 @@
   .imp-estado i { animation: none; }
   #impBarraSvg rect { transition: none; }
 }
+
+/* ==========================================================================
+   F29 0.9.50 · ayudas en campos, cierres, borrador y acciones de pago
+   ========================================================================== */
+.imp-ayuda {
+  font-size: 10px;
+  line-height: 1.35;
+  color: var(--imp-txt-3);
+}
+.imp-nota-corta { margin: 0 0 4px; padding: 0; border: 0; }
+
+/* Origen de las ventas */
+.imp-modos {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+.imp-modo {
+  display: grid;
+  gap: 1px;
+  padding: 10px 9px;
+  border-radius: 14px;
+  border: 1px solid var(--imp-borde);
+  background: var(--imp-sup-2);
+  color: var(--imp-txt-2);
+  text-align: left;
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease;
+}
+.imp-modo b { font-size: 11.5px; font-weight: 700; }
+.imp-modo small { font-size: 9.5px; color: var(--imp-txt-3); }
+.imp-modo.activo {
+  background: var(--imp-lima);
+  border-color: var(--imp-lima);
+  color: #050505;
+  box-shadow: 0 0 16px rgba(200, 255, 0, 0.22);
+}
+.imp-modo.activo small { color: rgba(5, 5, 5, 0.65); }
+
+/* Tabla de cierres */
+.imp-tabla-scroll {
+  overflow-x: auto;
+  border-radius: 14px;
+  border: 1px solid var(--imp-borde);
+  background: var(--imp-sup-2);
+}
+.imp-tabla { width: 100%; min-width: 420px; border-collapse: collapse; }
+.imp-tabla th {
+  position: sticky;
+  top: 0;
+  background: #131412;
+  font-size: 9px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--imp-txt-3);
+  text-align: left;
+  padding: 9px 8px;
+  border-bottom: 1px solid var(--imp-borde);
+}
+.imp-tabla td {
+  padding: 8px;
+  font-size: 11.5px;
+  color: var(--imp-txt);
+  border-bottom: 1px solid var(--imp-borde);
+}
+.imp-tabla th.num, .imp-tabla td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.imp-tabla tbody tr:nth-child(even) td { background: rgba(255, 255, 255, 0.02); }
+.imp-cierres-totales {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin-top: 9px;
+  font-size: 10.5px;
+  color: var(--imp-txt-3);
+}
+.imp-cierres-totales b { color: var(--imp-txt); font-variant-numeric: tabular-nums; }
+.imp-vacio {
+  padding: 20px 14px;
+  border-radius: 14px;
+  border: 1px dashed var(--imp-borde-2);
+  color: var(--imp-txt-3);
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+/* Borrador del formulario */
+.imp-form-cab {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--imp-borde-2);
+}
+.imp-form-cab small { display: block; font-size: 9.5px; color: var(--imp-txt-3); }
+.imp-form-cab b { font-size: 14px; color: var(--imp-txt); }
+.imp-form-per {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--imp-lima);
+  border: 1px solid rgba(200, 255, 0, 0.35);
+  border-radius: 999px;
+  padding: 5px 10px;
+  white-space: nowrap;
+}
+.imp-form-datos, .imp-form-cuerpo { display: grid; gap: 0; }
+.imp-form-cuerpo h4 {
+  margin: 12px 0 4px;
+  font-size: 9.5px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--imp-txt-3);
+}
+.imp-fila-form {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 2px;
+  border-bottom: 1px solid var(--imp-borde);
+  font-size: 12px;
+  color: var(--imp-txt-2);
+}
+.imp-fila-form span { min-width: 0; }
+.imp-fila-form b { color: var(--imp-txt); font-variant-numeric: tabular-nums; text-align: right; }
+.imp-fila-form.destacada b { color: var(--imp-lima); font-size: 14px; }
+.imp-form-total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 2px solid var(--imp-borde-2);
+  font-size: 12px;
+  color: var(--imp-txt);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.imp-form-total b { font-size: 22px; color: var(--imp-lima); font-weight: 800; font-variant-numeric: tabular-nums; }
+.imp-form-nota { margin: 10px 0 0; font-size: 10px; line-height: 1.45; color: var(--imp-txt-3); }
+
+/* Acciones de pago */
+.imp-acciones-pago {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 20px;
+  border: 1px solid rgba(200, 255, 0, 0.25);
+  background: linear-gradient(180deg, rgba(200, 255, 0, 0.06), rgba(200, 255, 0, 0.02));
+}
+.imp-acciones-fila { display: flex; gap: 8px; }
+.imp-acciones-fila .cat-btn { flex: 1; min-height: 46px; font-size: 13px; }
+.imp-monto-inline {
+  margin: 2px 0 0;
+  text-align: center;
+  font-size: 11.5px;
+  color: var(--imp-txt-2);
+}
+.imp-monto-inline b { color: var(--imp-lima); font-size: 16px; font-weight: 800; }
+
+@media (max-width: 380px) {
+  .imp-pago .imp-fila { grid-template-columns: 1fr; }
+  .imp-modos { grid-template-columns: 1fr; }
+}
+
+/* Ningún hijo puede ensanchar la columna (la tabla de cierres tiene min-width). */
+#v-impuestos .imp-cuerpo > * { min-width: 0; }
+#v-impuestos .imp-tabla-scroll { max-width: 100%; }
+#v-impuestos .imp-form-cab,
+#v-impuestos .imp-fila-form { min-width: 0; }
+#v-impuestos .imp-fila-form b { max-width: 60%; }

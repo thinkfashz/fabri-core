@@ -1754,20 +1754,50 @@ npx -y omniroute@latest
       <div class="imp-hero">
         <div>
           <p class="imp-eyebrow">Módulo · impuestos</p>
-          <h2>Formulario <em>F29</em> estimado</h2>
-          <p class="imp-sub">Calcula el IVA del período con el stock de tu inventario,
-            estima el PPM y arma el comprobante de pago. La declaración oficial se hace en el SII.</p>
+          <h2>Formulario <em>F29</em></h2>
+          <p class="imp-sub">Se arma solo con tus cierres de caja y tu stock. Revisa, ajusta y
+            descarga el borrador para declarar en el SII.</p>
         </div>
         <div class="imp-estado ok" id="impEstado"><i></i><b>Calculando…</b><small></small></div>
         <p class="imp-plazo" id="impPlazo"></p>
         <p class="cat-vacio" id="impAviso"></p>
       </div>
 
+      <!-- 1 · de dónde salen las ventas -->
+      <div class="imp-modos" role="group" aria-label="Origen de las ventas">
+        <button class="imp-modo activo" data-imp-modo="auto" type="button">
+          <b>Cierres del mes</b><small>boletas emitidas</small>
+        </button>
+        <button class="imp-modo" data-imp-modo="stock" type="button">
+          <b>Proyección</b><small>si vendes el stock</small>
+        </button>
+        <button class="imp-modo" data-imp-modo="manual" type="button">
+          <b>Manual</b><small>escribir las ventas</small>
+        </button>
+      </div>
+
+      <!-- 2 · datos del período -->
       <div class="imp-parametros">
-        <div class="imp-campo"><span>Período</span><input id="impPeriodo" type="month" /></div>
-        <div class="imp-campo"><span>Tasa PPM %</span><input id="impTasaPpm" inputmode="decimal" value="0.2" /></div>
-        <div class="imp-campo"><span>Remanente anterior</span><input id="impRemanente" inputmode="numeric" placeholder="0" /></div>
-        <div class="imp-campo"><span>Ventas reales (opcional)</span><input id="impVentasManual" inputmode="numeric" placeholder="vacío = stock" /></div>
+        <div class="imp-campo">
+          <span>Período</span>
+          <input id="impPeriodo" type="month" />
+          <small class="imp-ayuda">Mes que estás declarando. El F29 se presenta al mes siguiente.</small>
+        </div>
+        <div class="imp-campo">
+          <span>Tasa PPM %</span>
+          <input id="impTasaPpm" inputmode="decimal" value="0.2" />
+          <small class="imp-ayuda">Pago provisional mensual. Pro Pyme suele ser 0,2 %. Confírmalo en el SII.</small>
+        </div>
+        <div class="imp-campo">
+          <span>Remanente anterior</span>
+          <input id="impRemanente" inputmode="numeric" placeholder="0" />
+          <small class="imp-ayuda">Crédito fiscal que no alcanzaste a usar el mes pasado. Si no sabes, deja 0.</small>
+        </div>
+        <div class="imp-campo">
+          <span>Ventas reales (opcional)</span>
+          <input id="impVentasManual" inputmode="numeric" placeholder="vacío = automático" />
+          <small class="imp-ayuda">Solo si tienes el total exacto del mes, con IVA incluido. Ej: 1.250.000.</small>
+        </div>
       </div>
 
       <div class="imp-kpis" id="impKpis"></div>
@@ -1797,26 +1827,74 @@ npx -y omniroute@latest
 
       <div class="imp-resumen" id="impResumen"></div>
 
+      <!-- 3 · cierres de caja del mes -->
+      <div class="imp-ruta-card">
+        <h3>Cierres de caja del mes</h3>
+        <div id="impCierres"></div>
+      </div>
+
+      <!-- 4 · datos del contribuyente (se autocompletan) -->
       <div class="imp-pago">
-        <h3>Formulario de pago</h3>
+        <h3>Tus datos</h3>
+        <p class="imp-nota imp-nota-corta">Se llenan solos desde «Mi identidad». Puedes corregirlos aquí.</p>
         <div class="imp-fila">
-          <div class="imp-campo"><span>Razón social</span><input id="impRazon" placeholder="Mi negocio" /></div>
-          <div class="imp-campo"><span>RUT</span><input id="impRut" placeholder="12.345.678-9" /></div>
+          <div class="imp-campo">
+            <span>Razón social</span>
+            <input id="impRazon" placeholder="Ej: Almacén Doña Rosa" />
+            <small class="imp-ayuda">Nombre del negocio tal como está en el SII.</small>
+          </div>
+          <div class="imp-campo">
+            <span>RUT</span>
+            <input id="impRut" placeholder="12.345.678-9" />
+            <small class="imp-ayuda">RUT del contribuyente, con guion y dígito verificador.</small>
+          </div>
         </div>
         <div class="imp-fila">
-          <div class="imp-campo"><span>Banco / medio</span><input id="impBanco" placeholder="Banco Estado" /></div>
-          <div class="imp-campo"><span>Folio interno</span><input id="impFolio" placeholder="F29-0001" /></div>
+          <div class="imp-campo">
+            <span>Giro</span>
+            <input id="impGiro" placeholder="Comercio al por menor" />
+            <small class="imp-ayuda">Actividad económica registrada.</small>
+          </div>
+          <div class="imp-campo">
+            <span>Domicilio</span>
+            <input id="impDireccion" placeholder="Calle y número, comuna" />
+            <small class="imp-ayuda">Dirección comercial del negocio.</small>
+          </div>
         </div>
-        <div class="imp-monto">
-          <span>Monto a pagar</span>
-          <b id="impComprobanteMonto">$0</b>
+        <div class="imp-fila">
+          <div class="imp-campo">
+            <span>Banco / medio de pago</span>
+            <input id="impBanco" placeholder="Banco Estado" />
+            <small class="imp-ayuda">Solo para el comprobante interno.</small>
+          </div>
+          <div class="imp-campo">
+            <span>Folio interno</span>
+            <input id="impFolio" placeholder="F29-0001" />
+            <small class="imp-ayuda">Número que tú asignas para archivarlo.</small>
+          </div>
         </div>
-        <div class="imp-acciones">
-          <button class="btn btn-primario" id="btnImpImprimir" type="button">Comprobante</button>
-          <button class="btn" id="btnImpSii" type="button">Declarar en SII</button>
-          <button class="btn" id="btnImpTgr" type="button">Pagar en TGR</button>
-          <button class="btn" id="btnImpActualizar" type="button">Actualizar stock</button>
+      </div>
+
+      <!-- 5 · borrador del formulario -->
+      <div class="imp-ruta-card">
+        <h3>Borrador del F29</h3>
+        <div id="impFormulario"></div>
+      </div>
+
+      <!-- 6 · acciones de pago -->
+      <div class="imp-acciones-pago">
+        <button class="cat-btn lima bloque" id="btnImpPagar" type="button">
+          Ir a pagar en el SII
+        </button>
+        <div class="imp-acciones-fila">
+          <button class="cat-btn" id="btnImpDescargar" type="button">Descargar formulario</button>
+          <button class="cat-btn" id="btnImpImprimir" type="button">Comprobante</button>
         </div>
+        <div class="imp-acciones-fila">
+          <button class="cat-btn fantasma" id="btnImpTgr" type="button">Pagar en Tesorería</button>
+          <button class="cat-btn fantasma" id="btnImpActualizar" type="button">Actualizar datos</button>
+        </div>
+        <p class="imp-monto-inline">Monto a pagar: <b id="impComprobanteMonto">$0</b></p>
       </div>
 
       <div class="imp-ruta-card">
@@ -1829,10 +1907,9 @@ npx -y omniroute@latest
         <div class="imp-fuentes" id="impFuentes"></div>
       </div>
 
-      <p class="imp-nota">Estimación referencial calculada con el inventario de este teléfono.
-        No constituye asesoría tributaria ni reemplaza el F29 oficial. Verifica siempre las cifras
-        en el SII: la tasa de PPM depende de tu régimen (Pro Pyme 14 D N°8 o N°3) y el crédito
-        fiscal exige factura a tu RUT.</p>
+      <p class="imp-nota">Estimación referencial con el inventario y los cierres de caja de este teléfono.
+        No constituye asesoría tributaria ni reemplaza el F29 oficial. Verifica las cifras en el SII:
+        la tasa de PPM depende de tu régimen y el crédito fiscal exige factura a tu RUT.</p>
     </div>
   </section>
 

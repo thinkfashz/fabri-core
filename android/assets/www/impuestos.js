@@ -1,66 +1,49 @@
 /* ==========================================================================
    FORGE CORE STOCK · Módulo Impuestos · F29
    --------------------------------------------------------------------------
-   Estimación del Formulario 29 (IVA mensual) a partir del inventario:
+   Estimación del Formulario 29 (IVA mensual) a partir del inventario y de los
+   cierres de caja del mes:
 
-     · Venta estimada  = valor de venta del stock (con IVA)
-     · IVA débito      = ventas × 19/119
-     · IVA crédito     = costo del stock × 19/119 (compras con factura)
-     · IVA determinado = débito − crédito − remanente anterior
-     · PPM             = ingresos brutos × tasa del régimen
-     · Total a pagar   = IVA determinado + PPM
+     · Ventas del período  = suma de boletas emitidas (o stock si no hay)
+     · IVA débito          = ventas × 19/119
+     · IVA crédito         = costo del stock × 19/119 (compras con factura)
+     · IVA determinado     = débito − crédito − remanente anterior
+     · PPM                 = ventas × tasa del régimen
+     · Total a pagar       = IVA determinado + PPM
 
-   Todo es una ESTIMACIÓN referencial para planificar caja. La declaración
-   oficial se hace en sii.cl y el pago en tgr.cl. Los enlaces y la hoja de
-   ruta están dentro del módulo.
+   Autocompleta razón social, RUT, giro y dirección desde «Mi identidad».
+   Genera un borrador del F29 y un comprobante para imprimir o guardar en PDF.
+   La declaración oficial se hace en sii.cl y el pago en tgr.cl.
    ========================================================================== */
 
 const IMP = {
   activo: false,
   panel: null,
+  perfil: null,
+  boletas: [],
   periodo: "",
-  ventasManual: null,
+  modo: "auto",          // auto | stock | manual
   tasaPpm: 0.2,
   remanente: 0,
   datos: null,
-  animado: false
+  cargado: false
 };
 
 const IMP_FUENTES = [
-  {
-    titulo: "SII · Formulario 29",
-    detalle: "Declaración mensual y pago simultáneo de impuestos (IVA, PPM y retenciones).",
-    url: "https://www.sii.cl/destacados/f29/"
-  },
-  {
-    titulo: "SII · Regímenes tributarios",
-    detalle: "Pro Pyme Transparente (14 D N°8) y Pro Pyme General (14 D N°3): tasa de PPM y obligaciones.",
-    url: "https://www.sii.cl/portales/regimen_tributario/"
-  },
-  {
-    titulo: "SII · Servicios online",
-    detalle: "Declarar y pagar el F29 con clave tributaria.",
-    url: "https://www.sii.cl/servicios_online/"
-  },
-  {
-    titulo: "Tesorería General de la República",
-    detalle: "Pago de giros, convenios y comprobantes de pago.",
-    url: "https://www.tgr.cl/"
-  },
-  {
-    titulo: "ChileAtiende · Impuestos",
-    detalle: "Guías oficiales paso a paso y requisitos.",
-    url: "https://www.chileatiende.gob.cl/"
-  }
+  { titulo: "SII · Formulario 29", detalle: "Declaración mensual y pago simultáneo (IVA, PPM y retenciones).", url: "https://www.sii.cl/destacados/f29/" },
+  { titulo: "SII · Regímenes tributarios", detalle: "Pro Pyme Transparente (14 D N°8) y General (14 D N°3): obligaciones y PPM.", url: "https://www.sii.cl/portales/regimen_tributario/" },
+  { titulo: "SII · Servicios online", detalle: "Declarar y pagar el F29 con clave tributaria.", url: "https://www.sii.cl/servicios_online/" },
+  { titulo: "Tesorería General de la República", detalle: "Pago de giros, convenios y comprobantes.", url: "https://www.tgr.cl/" },
+  { titulo: "ChileAtiende · Impuestos", detalle: "Guías paso a paso y requisitos oficiales.", url: "https://www.chileatiende.gob.cl/" }
 ];
 
 const IMP_RUTA = [
-  { t: "Cierra el mes de ventas", d: "Revisa boletas y facturas emitidas del período. En la app: Inventario → Boleta." },
-  { t: "Junta las compras con factura", d: "Solo el IVA de compras con factura a tu RUT es crédito fiscal." },
-  { t: "Calcula débito y crédito", d: "El módulo lo hace con tu stock; puedes reemplazar por tus ventas reales." },
-  { t: "Declara el F29 en el SII", d: "Con clave tributaria, antes del día 20 del mes siguiente (o el plazo que fije el SII)." },
-  { t: "Paga en Tesorería o banco", d: "Usa el comprobante que genera este módulo como respaldo del monto." },
-  { t: "Guarda el respaldo", d: "Archiva el F29 y el comprobante de pago por al menos 6 años." }
+  { t: "Cierra la caja de cada día", d: "Cada boleta emitida en Inventario queda como cierre del día; aquí se suman por mes." },
+  { t: "Revisa compras con factura", d: "Sólo el IVA de compras con factura a tu RUT es crédito fiscal." },
+  { t: "Confirma las cifras", d: "Usa los cierres reales o la proyección de stock; el módulo recalcula al instante." },
+  { t: "Descarga el borrador", d: "Genera el F29 con tus datos y guárdalo en PDF desde el diálogo de impresión." },
+  { t: "Declara en el SII", d: "Antes del día 20 del mes siguiente (o el plazo que fije el SII)." },
+  { t: "Paga y archiva", d: "Paga en TGR o banco y guarda F29 + comprobante por 6 años." }
 ];
 
 /* ── utilidades ───────────────────────────────────────────────────────── */
@@ -71,33 +54,42 @@ function impClp(n) {
 
 function impPeriodoActual() {
   const d = new Date();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  return d.getFullYear() + "-" + mm;
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
 }
 
 function impPeriodoLindo(p) {
-  const partes = String(p || "").split("-");
   const meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio",
                  "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
-  const m = Number(partes[1]) - 1;
-  return (meses[m] || "—") + " " + (partes[0] || "");
+  const [a, m] = String(p || "").split("-").map(Number);
+  return (meses[m - 1] || "—") + " " + (a || "");
 }
 
-/** Día límite referencial del F29: 20 del mes siguiente. */
 function impFechaLimite(periodo) {
   const [a, m] = String(periodo || "").split("-").map(Number);
   if (!a || !m) return "";
-  const siguiente = m === 12 ? { a: a + 1, m: 1 } : { a: a, m: m + 1 };
-  return "20/" + String(siguiente.m).padStart(2, "0") + "/" + siguiente.a;
+  const sig = m === 12 ? { a: a + 1, m: 1 } : { a: a, m: m + 1 };
+  return "20/" + String(sig.m).padStart(2, "0") + "/" + sig.a;
 }
 
-/** Días que faltan para el vencimiento referencial. */
 function impDiasRestantes(periodo) {
   const [a, m] = String(periodo || "").split("-").map(Number);
   if (!a || !m) return null;
-  const limite = new Date(a, m, 20);   // mes siguiente (m es 0-based +1)
-  const hoy = new Date();
-  return Math.ceil((limite - hoy) / 86400000);
+  const limite = new Date(a, m, 20);
+  return Math.ceil((limite - new Date()) / 86400000);
+}
+
+function impMesDe(ts) {
+  const t = Number(ts || 0);
+  const ms = t > 1e12 ? t : t * 1000;         // algunos registros vienen en segundos
+  const d = new Date(ms);
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
+}
+
+function impFecha(ts) {
+  const t = Number(ts || 0);
+  const ms = t > 1e12 ? t : t * 1000;
+  const d = new Date(ms);
+  return d.toLocaleDateString("es-CL", { day: "2-digit", month: "2-digit" });
 }
 
 /* ── motor de cálculo ─────────────────────────────────────────────────── */
@@ -115,21 +107,19 @@ function impCalcular(d) {
   const nuevoRemanente = Math.max(0, creditoDisponible - debito);
   const ppm = Math.round(ventas * tasa);
   const total = determinado + ppm;
-
-  // Beneficio tributario aplicado: cuánto del crédito se usó en este período.
   const creditoUsado = Math.min(debito, creditoDisponible);
-  const alivio = creditoUsado;
-  const proporcionUsada = debito > 0 ? Math.min(1, creditoDisponible / debito) : 0;
 
   return {
     ventas, costos, debito, credito, remanente, creditoDisponible,
-    determinado, nuevoRemanente, ppm, total, creditoUsado, alivio,
-    proporcionUsada, tasaPpm: Number(d.tasaPpm || 0),
+    determinado, nuevoRemanente, ppm, total, creditoUsado,
+    proporcionUsada: debito > 0 ? Math.min(1, creditoDisponible / debito) : 0,
+    tasaPpm: Number(d.tasaPpm || 0),
+    neto: Math.round(ventas / 1.19),
     utilidad: ventas - costos
   };
 }
 
-/* ── ciclo de vida ────────────────────────────────────────────────────── */
+/* ── carga ────────────────────────────────────────────────────────────── */
 function impIniciar() {
   IMP.activo = true;
   if (!IMP.periodo) IMP.periodo = impPeriodoActual();
@@ -141,21 +131,15 @@ function impIniciar() {
   if (rem && !rem.value) rem.value = "0";
   impPintarRuta();
   impPintarFuentes();
-  impCargar();
+  impCargarTodo();
 }
 
 function impSalir() { IMP.activo = false; }
 
-function impCargar() {
-  if (typeof invApiTarde !== "function") return;
-  invApiTarde("panel", {}, { maxMs: 12000 }).then(function (r) {
-    if (!r.ok || !r.data || !r.data.ok) {
-      impAviso("No pude leer el inventario: " + (r.error || "error"));
-      return;
-    }
-    IMP.panel = r.data;
-    impRecalcular();
-  });
+function impCargarTodo() {
+  impCargarPerfil();
+  impCargarBoletas();
+  impCargarPanel();
 }
 
 function impAviso(msg) {
@@ -163,34 +147,105 @@ function impAviso(msg) {
   if (el) el.textContent = msg || "";
 }
 
-/** Lee los campos, calcula y pinta todo. */
+/** Relleno automático con los datos de «Mi identidad» (razón social, RUT…). */
+function impCargarPerfil() {
+  const caché = (function () {
+    try { return JSON.parse(localStorage.getItem("fabrick.identidad") || "{}"); }
+    catch (e) { return {}; }
+  })();
+  const pintar = function (p) {
+    const d = (p && p.datos) || {};
+    IMP.perfil = p || {};
+    const set = function (id, v) {
+      const el = document.getElementById(id);
+      if (el && !el.value && v) el.value = v;
+    };
+    set("impRazon", d.nombre_comercial || (p && p.nombre) || "");
+    set("impRut", d.rut || "");
+    set("impGiro", d.giro || "");
+    set("impDireccion", d.direccion || "");
+  };
+  pintar(caché);
+  if (typeof apiTarde === "function") {
+    apiTarde("perfil", { accion: "obtener" }, { maxMs: 12000 }).then(function (r) {
+      if (r.ok && r.data) pintar(r.data);
+    }).catch(function () {});
+  }
+}
+
+/** Cierres de caja (boletas) para el resumen mensual. */
+function impCargarBoletas() {
+  if (typeof invApiTarde !== "function") return;
+  invApiTarde("boletas", { limite: 200 }, { maxMs: 15000 }).then(function (r) {
+    if (!r.ok || !r.data) return;
+    IMP.boletas = r.data.boletas || [];
+    impRecalcular();
+  }).catch(function () {});
+}
+
+function impCargarPanel() {
+  if (typeof invApiTarde !== "function") return;
+  invApiTarde("panel", {}, { maxMs: 12000 }).then(function (r) {
+    if (!r.ok || !r.data || !r.data.ok) {
+      impAviso("No pude leer el inventario: " + (r.error || "error"));
+      return;
+    }
+    IMP.panel = r.data;
+    IMP.cargado = true;
+    impRecalcular();
+  });
+}
+
+/* ── recálculo ────────────────────────────────────────────────────────── */
+function impVentasDelMes(periodo) {
+  const del = (IMP.boletas || []).filter(function (b) {
+    return impMesDe(b.ts) === periodo && String(b.estado || "emitida") !== "anulada";
+  });
+  const total = del.reduce(function (a, b) { return a + Number(b.total || 0); }, 0);
+  const iva = del.reduce(function (a, b) { return a + Number(b.iva || 0); }, 0);
+  const neto = del.reduce(function (a, b) { return a + Number(b.neto || 0); }, 0);
+  return { lista: del, total: total, iva: iva, neto: neto, n: del.length };
+}
+
 function impRecalcular() {
   const r = (IMP.panel && IMP.panel.resumen) || {};
+  const perEl = document.getElementById("impPeriodo");
+  IMP.periodo = perEl && perEl.value ? perEl.value : (IMP.periodo || impPeriodoActual());
+
+  const delMes = impVentasDelMes(IMP.periodo);
   const manual = document.getElementById("impVentasManual");
   const valorManual = manual && String(manual.value).trim() !== ""
     ? Number(String(manual.value).replace(/[^\d]/g, ""))
     : null;
 
+  let ventas, fuente;
+  if (valorManual != null) {
+    ventas = valorManual;
+    fuente = "manual";
+  } else if (IMP.modo === "stock" || !delMes.n) {
+    ventas = Number(r.valor_venta || 0);
+    fuente = delMes.n ? "stock" : "stock (sin cierres del mes)";
+  } else {
+    ventas = delMes.total;
+    fuente = delMes.n + " cierres de caja";
+  }
+
   const tasaEl = document.getElementById("impTasaPpm");
   const remEl = document.getElementById("impRemanente");
-  const perEl = document.getElementById("impPeriodo");
-
-  const ventas = valorManual != null ? valorManual : Number(r.valor_venta || 0);
-  const costos = Number(r.valor_costo || 0);
 
   IMP.datos = impCalcular({
     ventas: ventas,
-    costos: costos,
+    costos: Number(r.valor_costo || 0),
     remanente: remEl ? Number(String(remEl.value).replace(/[^\d]/g, "")) || 0 : 0,
     tasaPpm: tasaEl ? Number(tasaEl.value) || 0 : IMP.tasaPpm
   });
-  IMP.periodo = perEl && perEl.value ? perEl.value : impPeriodoActual();
+  IMP.fuente = fuente;
 
-  impPintar(IMP.datos);
+  impPintar(IMP.datos, delMes);
 }
 
 /* ── pintado ──────────────────────────────────────────────────────────── */
-function impPintar(d) {
+function impPintar(d, delMes) {
   const caja = document.getElementById("impKpis");
   if (caja) {
     caja.innerHTML =
@@ -199,20 +254,10 @@ function impPintar(d) {
       '<div class="imp-kpi ' + (d.determinado > 0 ? "alerta" : "ok") + '"><span>IVA determinado</span><b>' + impClp(d.determinado) + '</b><small>' +
         (d.determinado > 0 ? "a pagar" : "sin impuesto") + '</small></div>' +
       '<div class="imp-kpi"><span>PPM</span><b>' + impClp(d.ppm) + '</b><small>' + d.tasaPpm + ' % de ventas</small></div>' +
-      '<div class="imp-kpi total"><span>Total estimado</span><b>' + impClp(d.total) + '</b><small>F29 del período</small></div>';
+      '<div class="imp-kpi total"><span>Total estimado</span><b>' + impClp(d.total) + '</b><small>' +
+        esc(IMP.fuente || "") + '</small></div>';
   }
 
-  const resumen = document.getElementById("impResumen");
-  if (resumen) {
-    resumen.innerHTML =
-      '<div class="imp-linea"><span>Ventas estimadas (con IVA)</span><b>' + impClp(d.ventas) + '</b></div>' +
-      '<div class="imp-linea"><span>Costo del stock (con IVA)</span><b>' + impClp(d.costos) + '</b></div>' +
-      '<div class="imp-linea"><span>Remanente anterior</span><b>' + impClp(d.remanente) + '</b></div>' +
-      '<div class="imp-linea"><span>Crédito disponible</span><b>' + impClp(d.creditoDisponible) + '</b></div>' +
-      '<div class="imp-linea grande"><span>Total a pagar estimado</span><b>' + impClp(d.total) + '</b></div>';
-  }
-
-  // Estado tipo semáforo
   const estado = document.getElementById("impEstado");
   if (estado) {
     let clase = "ok", texto = "Sin impuesto a pagar";
@@ -224,30 +269,37 @@ function impPintar(d) {
       ' · vence ' + impFechaLimite(IMP.periodo) + '</small>';
   }
 
+  const resumen = document.getElementById("impResumen");
+  if (resumen) {
+    resumen.innerHTML =
+      '<div class="imp-linea"><span>Ventas del período (con IVA)</span><b>' + impClp(d.ventas) + '</b></div>' +
+      '<div class="imp-linea"><span>Neto (sin IVA)</span><b>' + impClp(d.neto) + '</b></div>' +
+      '<div class="imp-linea"><span>Costo del stock (con IVA)</span><b>' + impClp(d.costos) + '</b></div>' +
+      '<div class="imp-linea"><span>Remanente anterior</span><b>' + impClp(d.remanente) + '</b></div>' +
+      '<div class="imp-linea"><span>Crédito disponible</span><b>' + impClp(d.creditoDisponible) + '</b></div>' +
+      '<div class="imp-linea grande"><span>Total a pagar estimado</span><b>' + impClp(d.total) + '</b></div>';
+  }
+
   impPintarBarra(d);
   impPintarPlazo();
-  impPintarComprobante(d);
+  impPintarCierres(delMes);
+  impPintarFormulario(d);
+  const monto = document.getElementById("impComprobanteMonto");
+  if (monto) monto.textContent = impClp(d.total);
 }
 
-/* Barra SVG de beneficios tributarios, animada. */
 function impPintarBarra(d) {
   const svg = document.getElementById("impBarraSvg");
   if (!svg) return;
   const total = Math.max(1, d.debito);
   const pCredito = Math.min(100, (d.creditoUsado / total) * 100);
   const pPagar = Math.min(100, (d.determinado / total) * 100);
-
   const segCredito = svg.querySelector("#impSegCredito");
   const segPagar = svg.querySelector("#impSegPagar");
-  const etqCredito = document.getElementById("impEtqCredito");
-  const etqPagar = document.getElementById("impEtqPagar");
-  const etqRem = document.getElementById("impEtqRemanente");
-
-  if (etqCredito) etqCredito.textContent = impClp(d.creditoUsado);
-  if (etqPagar) etqPagar.textContent = impClp(d.determinado);
-  if (etqRem) etqRem.textContent = impClp(d.nuevoRemanente);
-
-  // Se anima en el siguiente cuadro para que la transición CSS se vea.
+  const set = function (id, v) { const el = document.getElementById(id); if (el) el.textContent = impClp(v); };
+  set("impEtqCredito", d.creditoUsado);
+  set("impEtqPagar", d.determinado);
+  set("impEtqRemanente", d.nuevoRemanente);
   requestAnimationFrame(function () {
     if (segCredito) segCredito.setAttribute("width", String((pCredito / 100) * 300));
     if (segPagar) {
@@ -255,7 +307,6 @@ function impPintarBarra(d) {
       segPagar.setAttribute("width", String((pPagar / 100) * 300));
     }
   });
-
   const pct = document.getElementById("impBarraPct");
   if (pct) pct.textContent = Math.round(pCredito) + "% cubierto por crédito";
 }
@@ -270,77 +321,80 @@ function impPintarPlazo() {
   else el.innerHTML = "Faltan <b>" + dias + "</b> días para el plazo referencial";
 }
 
-/* Comprobante de pago estimado */
-function impPintarComprobante(d) {
-  const caja = document.getElementById("impComprobanteMonto");
-  if (caja) caja.textContent = impClp(d.total);
-}
-
-function impComprobanteHtml() {
-  const d = IMP.datos || impCalcular({});
-  const rut = (document.getElementById("impRut") || {}).value || "";
-  const nombre = (document.getElementById("impRazon") || {}).value || "";
-  const banco = (document.getElementById("impBanco") || {}).value || "";
-  const folio = (document.getElementById("impFolio") || {}).value || "";
-  const per = impPeriodoLindo(IMP.periodo);
-  return '<!doctype html><html><head><meta charset="utf-8"><style>' +
-    'body{font-family:monospace;padding:16px;font-size:12px;color:#111}' +
-    'h1{font-size:15px;letter-spacing:1px;margin:0 0 4px}' +
-    '.sub{font-size:10px;color:#555;margin-bottom:10px}' +
-    'table{width:100%;border-collapse:collapse;margin-top:8px}' +
-    'td{padding:3px 0;vertical-align:top}' +
-    'td.r{text-align:right;font-weight:bold}' +
-    '.tot{margin-top:10px;border-top:1px dashed #000;padding-top:6px;font-size:14px;font-weight:bold;display:flex;justify-content:space-between}' +
-    '.pie{margin-top:12px;font-size:9px;color:#555;line-height:1.4}' +
-    '</style></head><body>' +
-    '<h1>COMPROBANTE DE PAGO · F29 (ESTIMADO)</h1>' +
-    '<div class="sub">FORGE CORE STOCK · no es un documento del SII</div>' +
-    '<table>' +
-    '<tr><td>Razón social</td><td class="r">' + esc(nombre || "—") + '</td></tr>' +
-    '<tr><td>RUT</td><td class="r">' + esc(rut || "—") + '</td></tr>' +
-    '<tr><td>Período</td><td class="r">' + esc(per) + '</td></tr>' +
-    '<tr><td>Folio interno</td><td class="r">' + esc(folio || "—") + '</td></tr>' +
-    '<tr><td>Banco / medio</td><td class="r">' + esc(banco || "—") + '</td></tr>' +
-    '</table>' +
-    '<table>' +
-    '<tr><td>IVA débito fiscal</td><td class="r">' + impClp(d.debito) + '</td></tr>' +
-    '<tr><td>IVA crédito fiscal</td><td class="r">' + impClp(d.credito) + '</td></tr>' +
-    '<tr><td>Remanente anterior</td><td class="r">' + impClp(d.remanente) + '</td></tr>' +
-    '<tr><td>IVA determinado</td><td class="r">' + impClp(d.determinado) + '</td></tr>' +
-    '<tr><td>PPM (' + d.tasaPpm + '%)</td><td class="r">' + impClp(d.ppm) + '</td></tr>' +
-    '<tr><td>Remanente para el próximo mes</td><td class="r">' + impClp(d.nuevoRemanente) + '</td></tr>' +
-    '</table>' +
-    '<div class="tot"><span>TOTAL A PAGAR</span><span>' + impClp(d.total) + '</span></div>' +
-    '<div class="pie">Estimación generada con el inventario de este teléfono. ' +
-    'La declaración oficial se presenta en sii.cl y el pago se realiza en tgr.cl ' +
-    'o en el banco autorizado. Verifica siempre los montos en el F29 oficial.</div>' +
-    '</body></html>';
-}
-
-function impImprimir() {
-  const html = impComprobanteHtml();
-  if (window.FabrickNative && typeof window.FabrickNative.imprimir === "function") {
-    try {
-      const r = JSON.parse(window.FabrickNative.imprimir(html, "a4"));
-      if (r && r.ok) { if (typeof toast === "function") toast("Comprobante enviado a imprimir"); return; }
-    } catch (e) { /* sigue con el respaldo */ }
+/** Tabla de cierres de caja del mes + total mensual. */
+function impPintarCierres(delMes) {
+  const caja = document.getElementById("impCierres");
+  if (!caja) return;
+  const lista = (delMes && delMes.lista) || [];
+  if (!lista.length) {
+    caja.innerHTML = '<div class="imp-vacio">Este mes no tiene boletas emitidas. ' +
+      'Puedes usar la proyección de stock o escribir las ventas reales.</div>';
+    return;
   }
-  if (typeof toast === "function") toast("No hay impresora disponible: usa «Compartir».");
+  const filas = lista.slice(0, 40).map(function (b) {
+    return '<tr>' +
+      '<td>' + impFecha(b.ts) + '</td>' +
+      '<td class="num">' + esc(String(b.folio || "")) + '</td>' +
+      '<td class="num">' + impClp(b.neto) + '</td>' +
+      '<td class="num">' + impClp(b.iva) + '</td>' +
+      '<td class="num">' + impClp(b.total) + '</td>' +
+      '</tr>';
+  }).join("");
+  caja.innerHTML =
+    '<div class="imp-tabla-scroll"><table class="imp-tabla">' +
+      '<thead><tr><th>Fecha</th><th class="num">Folio</th><th class="num">Neto</th><th class="num">IVA</th><th class="num">Total</th></tr></thead>' +
+      '<tbody>' + filas + '</tbody>' +
+    '</table></div>' +
+    '<div class="imp-cierres-totales">' +
+      '<span>' + lista.length + ' cierres</span>' +
+      '<span>Neto <b>' + impClp(delMes.neto) + '</b></span>' +
+      '<span>IVA <b>' + impClp(delMes.iva) + '</b></span>' +
+      '<span>Total <b>' + impClp(delMes.total) + '</b></span>' +
+    '</div>';
 }
 
-function impAbrir(url) {
-  try {
-    if (window.FabrickNative && typeof window.FabrickNative.abrirUrl === "function") {
-      const r = JSON.parse(window.FabrickNative.abrirUrl(url));
-      if (r && r.ok) return;
-    }
-  } catch (e) { /* sin puente */ }
-  try { window.open(url, "_blank"); } catch (e) {
-    if (typeof toast === "function") toast("No se pudo abrir el enlace.");
-  }
+/** Borrador del F29 con los datos cargados. */
+function impPintarFormulario(d) {
+  const caja = document.getElementById("impFormulario");
+  if (!caja) return;
+  const razon = (document.getElementById("impRazon") || {}).value || "—";
+  const rut = (document.getElementById("impRut") || {}).value || "—";
+  const giro = (document.getElementById("impGiro") || {}).value || "—";
+  const dir = (document.getElementById("impDireccion") || {}).value || "—";
+  const fila = function (etq, valor, clase) {
+    return '<div class="imp-fila-form ' + (clase || "") + '"><span>' + esc(etq) + '</span><b>' +
+      (typeof valor === "number" ? impClp(valor) : esc(valor)) + '</b></div>';
+  };
+  caja.innerHTML =
+    '<div class="imp-form-cab">' +
+      '<div><small>Servicio de Impuestos Internos</small><b>Formulario 29 · borrador</b></div>' +
+      '<span class="imp-form-per">' + esc(impPeriodoLindo(IMP.periodo)).toUpperCase() + '</span>' +
+    '</div>' +
+    '<div class="imp-form-datos">' +
+      fila("Razón social", razon) +
+      fila("RUT", rut) +
+      fila("Giro", giro) +
+      fila("Domicilio", dir) +
+    '</div>' +
+    '<div class="imp-form-cuerpo">' +
+      '<h4>IVA débito fiscal</h4>' +
+      fila("Ventas netas del giro", d.neto) +
+      fila("IVA débito fiscal (19 %)", d.debito) +
+      '<h4>IVA crédito fiscal</h4>' +
+      fila("Compras con factura (con IVA)", d.costos) +
+      fila("IVA crédito fiscal", d.credito) +
+      fila("Remanente del período anterior", d.remanente) +
+      '<h4>Determinación</h4>' +
+      fila("IVA determinado", d.determinado, "destacada") +
+      fila("Remanente para el próximo período", d.nuevoRemanente) +
+      '<h4>Otros impuestos</h4>' +
+      fila("PPM (" + d.tasaPpm + " %)", d.ppm) +
+      '<div class="imp-form-total"><span>TOTAL A PAGAR</span><b>' + impClp(d.total) + '</b></div>' +
+    '</div>' +
+    '<p class="imp-form-nota">Borrador generado con tus datos y tus cierres de caja. ' +
+      'Los códigos y casillas definitivos los asigna el F29 del SII al declarar.</p>';
 }
 
-/* ── pintado estático (hoja de ruta y fuentes) ────────────────────────── */
 function impPintarRuta() {
   const caja = document.getElementById("impRuta");
   if (!caja || caja.dataset.listo) return;
@@ -365,21 +419,154 @@ function impPintarFuentes() {
   });
 }
 
+/* ── documentos ───────────────────────────────────────────────────────── */
+function impDatosCabecera() {
+  return {
+    razon: (document.getElementById("impRazon") || {}).value || "",
+    rut: (document.getElementById("impRut") || {}).value || "",
+    giro: (document.getElementById("impGiro") || {}).value || "",
+    dir: (document.getElementById("impDireccion") || {}).value || "",
+    banco: (document.getElementById("impBanco") || {}).value || "",
+    folio: (document.getElementById("impFolio") || {}).value || ""
+  };
+}
+
+function impEstilosDocumento() {
+  return '<style>' +
+    'body{font-family:Helvetica,Arial,sans-serif;padding:22px;font-size:11.5px;color:#111}' +
+    'h1{font-size:16px;margin:0}' +
+    '.sub{font-size:9.5px;color:#666;margin:2px 0 14px}' +
+    '.cab{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #111;padding-bottom:8px;margin-bottom:12px}' +
+    '.per{font-size:13px;font-weight:bold}' +
+    'table{width:100%;border-collapse:collapse}' +
+    'td,th{padding:5px 4px;border-bottom:1px solid #ddd;text-align:left}' +
+    'th{font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:#555}' +
+    '.num{text-align:right;font-variant-numeric:tabular-nums}' +
+    'h4{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#666;margin:14px 0 4px}' +
+    '.dst{font-weight:bold}' +
+    '.tot{margin-top:14px;border-top:2px solid #111;padding-top:8px;display:flex;justify-content:space-between;font-size:15px;font-weight:bold}' +
+    '.nota{margin-top:14px;font-size:9px;color:#666;line-height:1.5}' +
+    '</style>';
+}
+
+/** Descarga el borrador del F29 (diálogo de impresión → Guardar como PDF). */
+function impDescargarFormulario() {
+  const d = IMP.datos || impCalcular({});
+  const c = impDatosCabecera();
+  const fila = function (e, v, cls) {
+    return '<tr class="' + (cls || "") + '"><td>' + esc(e) + '</td><td class="num">' + impClp(v) + '</td></tr>';
+  };
+  const html = '<!doctype html><html><head><meta charset="utf-8">' + impEstilosDocumento() + '</head><body>' +
+    '<div class="cab"><div><h1>Formulario 29 · borrador</h1>' +
+      '<div class="sub">Declaración mensual y pago simultáneo de impuestos</div></div>' +
+      '<div class="per">' + esc(impPeriodoLindo(IMP.periodo)).toUpperCase() + '</div></div>' +
+    '<table>' +
+      '<tr><td>Razón social</td><td class="num">' + esc(c.razon || "—") + '</td></tr>' +
+      '<tr><td>RUT</td><td class="num">' + esc(c.rut || "—") + '</td></tr>' +
+      '<tr><td>Giro</td><td class="num">' + esc(c.giro || "—") + '</td></tr>' +
+      '<tr><td>Domicilio</td><td class="num">' + esc(c.dir || "—") + '</td></tr>' +
+    '</table>' +
+    '<h4>IVA débito fiscal</h4><table>' +
+      fila("Ventas netas del giro", d.neto) +
+      fila("IVA débito fiscal (19 %)", d.debito) +
+    '</table>' +
+    '<h4>IVA crédito fiscal</h4><table>' +
+      fila("Compras con factura (con IVA)", d.costos) +
+      fila("IVA crédito fiscal", d.credito) +
+      fila("Remanente del período anterior", d.remanente) +
+    '</table>' +
+    '<h4>Determinación</h4><table>' +
+      fila("IVA determinado", d.determinado, "dst") +
+      fila("Remanente para el próximo período", d.nuevoRemanente) +
+    '</table>' +
+    '<h4>Otros impuestos</h4><table>' +
+      fila("PPM (" + d.tasaPpm + " %)", d.ppm) +
+    '</table>' +
+    '<div class="tot"><span>TOTAL A PAGAR</span><span>' + impClp(d.total) + '</span></div>' +
+    '<div class="nota">Borrador generado por FORGE CORE STOCK con el inventario y los cierres de caja del teléfono. ' +
+      'No es un documento del SII: la declaración oficial se presenta en sii.cl y el pago en tgr.cl. ' +
+      'Verifica los montos y la tasa de PPM según tu régimen (Pro Pyme 14 D N°8 o N°3).</div>' +
+    '</body></html>';
+  impImprimirHtml(html);
+}
+
+function impImprimir() {
+  const d = IMP.datos || impCalcular({});
+  const c = impDatosCabecera();
+  const html = '<!doctype html><html><head><meta charset="utf-8">' + impEstilosDocumento() + '</head><body>' +
+    '<div class="cab"><div><h1>Comprobante de pago · F29 (estimado)</h1>' +
+      '<div class="sub">FORGE CORE STOCK · respaldo interno del pago</div></div>' +
+      '<div class="per">' + esc(impPeriodoLindo(IMP.periodo)).toUpperCase() + '</div></div>' +
+    '<table>' +
+      '<tr><td>Razón social</td><td class="num">' + esc(c.razon || "—") + '</td></tr>' +
+      '<tr><td>RUT</td><td class="num">' + esc(c.rut || "—") + '</td></tr>' +
+      '<tr><td>Folio interno</td><td class="num">' + esc(c.folio || "—") + '</td></tr>' +
+      '<tr><td>Banco / medio</td><td class="num">' + esc(c.banco || "—") + '</td></tr>' +
+    '</table>' +
+    '<table>' +
+      '<tr><td>IVA débito</td><td class="num">' + impClp(d.debito) + '</td></tr>' +
+      '<tr><td>IVA crédito</td><td class="num">' + impClp(d.credito) + '</td></tr>' +
+      '<tr><td>IVA determinado</td><td class="num">' + impClp(d.determinado) + '</td></tr>' +
+      '<tr><td>PPM</td><td class="num">' + impClp(d.ppm) + '</td></tr>' +
+    '</table>' +
+    '<div class="tot"><span>TOTAL PAGADO</span><span>' + impClp(d.total) + '</span></div>' +
+    '<div class="nota">Comprobante interno. El comprobante oficial lo emite el SII/TGR.</div>' +
+    '</body></html>';
+  impImprimirHtml(html);
+}
+
+function impImprimirHtml(html) {
+  if (window.FabrickNative && typeof window.FabrickNative.imprimir === "function") {
+    try {
+      const r = JSON.parse(window.FabrickNative.imprimir(html, "a4"));
+      if (r && r.ok) {
+        if (typeof toast === "function") toast("Listo: elige «Guardar como PDF» o tu impresora");
+        return;
+      }
+    } catch (e) { /* sin impresora */ }
+  }
+  if (typeof toast === "function") toast("No hay impresora disponible en este dispositivo.", "error");
+}
+
+function impAbrir(url) {
+  try {
+    if (window.FabrickNative && typeof window.FabrickNative.abrirUrl === "function") {
+      const r = JSON.parse(window.FabrickNative.abrirUrl(url));
+      if (r && r.ok) return;
+    }
+  } catch (e) { /* sin puente */ }
+  try { window.open(url, "_blank"); } catch (e) {
+    if (typeof toast === "function") toast("No se pudo abrir el enlace.");
+  }
+}
+
 /* ── eventos ──────────────────────────────────────────────────────────── */
 (function impMontar() {
   document.addEventListener("click", function (ev) {
     const t = ev.target;
     if (!(t instanceof Element)) return;
+    if (t.closest("#btnImpPagar")) { impAbrir("https://www.sii.cl/destacados/f29/"); return; }
+    if (t.closest("#btnImpDescargar")) { impDescargarFormulario(); return; }
     if (t.closest("#btnImpImprimir")) { impImprimir(); return; }
-    if (t.closest("#btnImpActualizar")) { impCargar(); return; }
-    if (t.closest("#btnImpSii")) { impAbrir("https://www.sii.cl/destacados/f29/"); return; }
     if (t.closest("#btnImpTgr")) { impAbrir("https://www.tgr.cl/"); return; }
+    if (t.closest("#btnImpActualizar")) { impCargarTodo(); return; }
+    const modo = t.closest("[data-imp-modo]");
+    if (modo) {
+      IMP.modo = modo.dataset.impModo;
+      document.querySelectorAll("[data-imp-modo]").forEach(function (b) {
+        b.classList.toggle("activo", b.dataset.impModo === IMP.modo);
+      });
+      const manual = document.getElementById("impVentasManual");
+      if (manual && IMP.modo !== "manual") manual.value = "";
+      impRecalcular();
+      return;
+    }
   });
   document.addEventListener("input", function (ev) {
     const id = ev.target && ev.target.id;
-    if (id === "impVentasManual" || id === "impRemanente" || id === "impTasaPpm" ||
-        id === "impPeriodo") {
-      if (id === "impPeriodo") IMP.periodo = ev.target.value;
+    if (id === "impPeriodo") IMP.periodo = ev.target.value;
+    if (["impVentasManual", "impRemanente", "impTasaPpm", "impPeriodo",
+         "impRazon", "impRut", "impGiro", "impDireccion"].indexOf(id) >= 0) {
       impRecalcular();
     }
   });
