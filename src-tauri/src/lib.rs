@@ -2911,6 +2911,7 @@ pub extern "system" fn Java_cl_fabrick_core_NativeBridge_exec<'local>(
         "sqlite" => op_sqlite(&payload_json),
         "inventario" => con_estado(|e| op_inventario(&payload_json, &e.db)),
         "perfil" => con_estado(|e| op_perfil(&payload_json, &e.db)),
+        "contabilidad" => con_estado(|e| op_contabilidad(&payload_json, &e.db)),
         "usuarios" => con_estado(|e| op_usuarios(&payload_json, &e.db)),
         "modulos" => con_estado(|e| modulos::op(&payload_json, &e.db, &e.data_dir)),
         "tarea" => op_tarea(&payload_json),
@@ -2925,6 +2926,531 @@ pub extern "system" fn Java_cl_fabrick_core_NativeBridge_exec<'local>(
     match env.new_string(respuesta.to_string()) {
         Ok(s) => s.into_raw(),
         Err(_) => std::ptr::null_mut(),
+    }
+}
+
+// ===========================================================================
+//  CONTABILIDAD · registro local de contribuyentes
+//  -------------------------------------------------------------------------
+//  Guarda la ficha tributaria de cada RUT SIN depender de ninguna API: se
+//  puede escribir a mano, autocompletar desde «Mi identidad» o importar el
+//  JSON de una consulta (p. ej. una API de situación tributaria del SII).
+//
+//  Tablas (se crean solas la primera vez):
+//    · ctb_contribuyentes          ficha vigente, con borrado lógico
+//    · ctb_contribuyente_historial una versión por cada cambio
+//    · ctb_auditoria               bitácora de todas las acciones
+//
+//  Nada se borra de verdad: `borrar` marca la fila y deja la copia anterior
+//  en el historial, así siempre se puede restaurar.
+// ===========================================================================
+static CTB_ESQUEMA_LISTO: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+
+fn ctb_esquema(db: &Connection) -> rusqlite::Result<()> {
+    db.execute_batch(
+        "CREATE TABLE IF NOT EXISTS ctb_contribuyentes (
+            id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+            rut                 TEXT NOT NULL UNIQUE,
+            razon_social        TEXT NOT NULL DEFAULT '',
+            nombre_fantasia     TEXT NOT NULL DEFAULT '',
+            giro                TEXT NOT NULL DEFAULT '',
+            actividades         TEXT NOT NULL DEFAULT '[]',
+            direccion           TEXT NOT NULL DEFAULT '',
+            comuna              TEXT NOT NULL DEFAULT '',
+            region              TEXT NOT NULL DEFAULT '',
+            email               TEXT NOT NULL DEFAULT '',
+            telefono            TEXT NOT NULL DEFAULT '',
+            situacion           TEXT NOT NULL DEFAULT '',
+            regimen             TEXT NOT NULL DEFAULT '',
+            inicio_actividades  TEXT NOT NULL DEFAULT '',
+            extra               TEXT NOT NULL DEFAULT '{}',
+            origen              TEXT NOT NULL DEFAULT 'manual',
+            creado              INTEGER NOT NULL DEFAULT 0,
+            actualizado         INTEGER NOT NULL DEFAULT 0,
+            borrado             INTEGER NOT NULL DEFAULT 0,
+            borrado_ts          INTEGER NOT NULL DEFAULT 0
+         );
+         CREATE TABLE IF NOT EXISTS ctb_contribuyente_historial (
+            id       INTEGER PRIMARY KEY AUTOINCREMENT,
+            rut      TEXT NOT NULL,
+            version  INTEGER NOT NULL DEFAULT 1,
+            accion   TEXT NOT NULL DEFAULT 'guardar',
+            datos    TEXT NOT NULL DEFAULT '{}',
+            ts       INTEGER NOT NULL DEFAULT 0,
+            origen   TEXT NOT NULL DEFAULT 'app'
+         );
+         CREATE INDEX IF NOT EXISTS idx_ctb_hist_rut
+            ON ctb_contribuyente_historial(rut);
+         CREATE TABLE IF NOT EXISTS ctb_auditoria (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            entidad     TEXT NOT NULL DEFAULT 'contribuyente',
+            entidad_id  TEXT NOT NULL DEFAULT '',
+            accion      TEXT NOT NULL DEFAULT '',
+            datos       TEXT NOT NULL DEFAULT '{}',
+            ts          INTEGER NOT NULL DEFAULT 0
+         );",
+    )
+}
+
+fn ctb_txt(v: &Value, clave: &str) -> String {
+    v.get(clave)
+        .and_then(|x| x.as_str())
+        .unwrap_or("")
+        .trim()
+        .to_string()
+}
+
+fn ctb_json(v: &Value, clave: &str, defecto: &str) -> String {
+    match v.get(clave) {
+        Some(Value::String(s)) => {
+            let t = s.trim();
+            if t.is_empty() {
+                defecto.to_string()
+            } else {
+                t.chars().take(8000).collect()
+            }
+        }
+        Some(x) if x.is_object() || x.is_array() => x.to_string(),
+        _ => defecto.to_string(),
+    }
+}
+
+/// Normaliza el RUT: sin puntos, con guion y dígito verificador en mayúscula.
+fn ctb_rut_limpio(rut: &str) -> String {
+    let crudo: String = rut
+        .chars()
+        .filter(|c| c.is_ascii_alphanumeric())
+        .collect::<String>()
+        .to_uppercase();
+    if crudo.len() < 2 {
+        return crudo;
+    }
+    let (cuerpo, dv) = crudo.split_at(crudo.len() - 1);
+    format!("{}-{}", cuerpo, dv)
+}
+
+fn ctb_fila(r: &rusqlite::Row) -> rusqlite::Result<Value> {
+    Ok(json!({
+        "id": r.get::<_, i64>(0)?,
+        "rut": r.get::<_, String>(1)?,
+        "razon_social": r.get::<_, String>(2)?,
+        "nombre_fantasia": r.get::<_, String>(3)?,
+        "giro": r.get::<_, String>(4)?,
+        "actividades": serde_json::from_str::<Value>(&r.get::<_, String>(5)?).unwrap_or(json!([])),
+        "direccion": r.get::<_, String>(6)?,
+        "comuna": r.get::<_, String>(7)?,
+        "region": r.get::<_, String>(8)?,
+        "email": r.get::<_, String>(9)?,
+        "telefono": r.get::<_, String>(10)?,
+        "situacion": r.get::<_, String>(11)?,
+        "regimen": r.get::<_, String>(12)?,
+        "inicio_actividades": r.get::<_, String>(13)?,
+        "extra": serde_json::from_str::<Value>(&r.get::<_, String>(14)?).unwrap_or(json!({})),
+        "origen": r.get::<_, String>(15)?,
+        "creado": r.get::<_, i64>(16)?,
+        "actualizado": r.get::<_, i64>(17)?,
+        "borrado": r.get::<_, i64>(18)? != 0,
+        "borrado_ts": r.get::<_, i64>(19)?,
+        "versiones": r.get::<_, i64>(20).unwrap_or(0)
+    }))
+}
+
+const CTB_SELECT: &str =
+    "SELECT c.id,c.rut,c.razon_social,c.nombre_fantasia,c.giro,c.actividades,c.direccion,
+            c.comuna,c.region,c.email,c.telefono,c.situacion,c.regimen,c.inicio_actividades,
+            c.extra,c.origen,c.creado,c.actualizado,c.borrado,c.borrado_ts,
+            (SELECT COUNT(*) FROM ctb_contribuyente_historial h WHERE h.rut = c.rut)
+       FROM ctb_contribuyentes c";
+
+fn ctb_por_rut(db: &Connection, rut: &str) -> Result<Option<Value>, String> {
+    let sql = format!("{} WHERE c.rut = ?1", CTB_SELECT);
+    let mut st = db.prepare(&sql).map_err(|e| e.to_string())?;
+    st.query_row(params![rut], ctb_fila)
+        .optional()
+        .map_err(|e| e.to_string())
+}
+
+fn ctb_auditar(db: &Connection, rut: &str, accion: &str, datos: &Value, ts: i64) {
+    let _ = db.execute(
+        "INSERT INTO ctb_auditoria (entidad,entidad_id,accion,datos,ts)
+         VALUES ('contribuyente', ?1, ?2, ?3, ?4)",
+        params![rut, accion, datos.to_string(), ts],
+    );
+}
+
+fn ctb_historial(db: &Connection, rut: &str, limite: i64) -> Result<Vec<Value>, String> {
+    let mut st = db
+        .prepare(
+            "SELECT id,version,accion,datos,ts,origen
+               FROM ctb_contribuyente_historial
+              WHERE rut = ?1 ORDER BY id DESC LIMIT ?2",
+        )
+        .map_err(|e| e.to_string())?;
+    let filas = st
+        .query_map(params![rut, limite.clamp(1, 200)], |r| {
+            Ok(json!({
+                "id": r.get::<_, i64>(0)?,
+                "version": r.get::<_, i64>(1)?,
+                "accion": r.get::<_, String>(2)?,
+                "datos": serde_json::from_str::<Value>(&r.get::<_, String>(3)?).unwrap_or(json!({})),
+                "ts": r.get::<_, i64>(4)?,
+                "origen": r.get::<_, String>(5)?
+            }))
+        })
+        .map_err(|e| e.to_string())?
+        .filter_map(|x| x.ok())
+        .collect();
+    Ok(filas)
+}
+
+fn op_contabilidad(payload: &Value, db: &Connection) -> Result<Value, String> {
+    if !CTB_ESQUEMA_LISTO.load(std::sync::atomic::Ordering::Relaxed) {
+        ctb_esquema(db).map_err(|e| format!("no se pudo crear el esquema contable: {}", e))?;
+        CTB_ESQUEMA_LISTO.store(true, std::sync::atomic::Ordering::Relaxed);
+    }
+    let accion = payload
+        .get("accion")
+        .and_then(|v| v.as_str())
+        .unwrap_or("listar");
+
+    match accion {
+        // ---------------------------------------------------------- guardar
+        "guardar" => {
+            let p = payload
+                .get("contribuyente")
+                .cloned()
+                .unwrap_or_else(|| payload.clone());
+            let rut = ctb_rut_limpio(&ctb_txt(&p, "rut"));
+            if rut.len() < 3 {
+                return Err("el RUT es obligatorio (ej: 12.345.678-9)".into());
+            }
+            let ts = ahora();
+            let existente: Option<(i64, i64)> = db
+                .query_row(
+                    "SELECT id, creado FROM ctb_contribuyentes WHERE rut = ?1",
+                    params![rut],
+                    |r| Ok((r.get(0)?, r.get(1)?)),
+                )
+                .optional()
+                .map_err(|e| e.to_string())?;
+
+            // `origen` se resuelve fuera del macro: un bloque con `let` dentro
+            // de `json!` rompe la expansión.
+            let origen = {
+                let o = ctb_txt(&p, "origen");
+                if o.is_empty() {
+                    "manual".to_string()
+                } else {
+                    o
+                }
+            };
+            let datos = json!({
+                "rut": rut,
+                "razon_social": ctb_txt(&p, "razon_social"),
+                "nombre_fantasia": ctb_txt(&p, "nombre_fantasia"),
+                "giro": ctb_txt(&p, "giro"),
+                "actividades": ctb_json(&p, "actividades", "[]"),
+                "direccion": ctb_txt(&p, "direccion"),
+                "comuna": ctb_txt(&p, "comuna"),
+                "region": ctb_txt(&p, "region"),
+                "email": ctb_txt(&p, "email"),
+                "telefono": ctb_txt(&p, "telefono"),
+                "situacion": ctb_txt(&p, "situacion"),
+                "regimen": ctb_txt(&p, "regimen"),
+                "inicio_actividades": ctb_txt(&p, "inicio_actividades"),
+                "extra": ctb_json(&p, "extra", "{}"),
+                "origen": origen
+            });
+
+            let existia = existente.is_some();
+            let creado = existente.map(|(_, c)| c).unwrap_or(ts);
+            db.execute(
+                "INSERT INTO ctb_contribuyentes
+                    (rut,razon_social,nombre_fantasia,giro,actividades,direccion,comuna,region,
+                     email,telefono,situacion,regimen,inicio_actividades,extra,origen,
+                     creado,actualizado,borrado,borrado_ts)
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,0,0)
+                 ON CONFLICT(rut) DO UPDATE SET
+                    razon_social=excluded.razon_social,
+                    nombre_fantasia=excluded.nombre_fantasia,
+                    giro=excluded.giro,
+                    actividades=excluded.actividades,
+                    direccion=excluded.direccion,
+                    comuna=excluded.comuna,
+                    region=excluded.region,
+                    email=excluded.email,
+                    telefono=excluded.telefono,
+                    situacion=excluded.situacion,
+                    regimen=excluded.regimen,
+                    inicio_actividades=excluded.inicio_actividades,
+                    extra=excluded.extra,
+                    origen=excluded.origen,
+                    actualizado=excluded.actualizado,
+                    borrado=0,
+                    borrado_ts=0",
+                params![
+                    rut,
+                    datos["razon_social"].as_str().unwrap_or(""),
+                    datos["nombre_fantasia"].as_str().unwrap_or(""),
+                    datos["giro"].as_str().unwrap_or(""),
+                    datos["actividades"].as_str().unwrap_or("[]"),
+                    datos["direccion"].as_str().unwrap_or(""),
+                    datos["comuna"].as_str().unwrap_or(""),
+                    datos["region"].as_str().unwrap_or(""),
+                    datos["email"].as_str().unwrap_or(""),
+                    datos["telefono"].as_str().unwrap_or(""),
+                    datos["situacion"].as_str().unwrap_or(""),
+                    datos["regimen"].as_str().unwrap_or(""),
+                    datos["inicio_actividades"].as_str().unwrap_or(""),
+                    datos["extra"].as_str().unwrap_or("{}"),
+                    datos["origen"].as_str().unwrap_or("manual"),
+                    creado,
+                    ts
+                ],
+            )
+            .map_err(|e| e.to_string())?;
+
+            let version: i64 = db
+                .query_row(
+                    "SELECT COALESCE(MAX(version),0)+1 FROM ctb_contribuyente_historial WHERE rut = ?1",
+                    params![rut],
+                    |r| r.get(0),
+                )
+                .unwrap_or(1);
+            db.execute(
+                "INSERT INTO ctb_contribuyente_historial (rut,version,accion,datos,ts,origen)
+                 VALUES (?1,?2,?3,?4,?5,?6)",
+                params![rut, version, if existia { "actualizar" } else { "crear" },
+                        datos.to_string(), ts, datos["origen"].as_str().unwrap_or("manual")],
+            )
+            .map_err(|e| e.to_string())?;
+            ctb_auditar(db, &rut, if existia { "actualizar" } else { "crear" }, &datos, ts);
+
+            let guardado = ctb_por_rut(db, &rut)?.unwrap_or(Value::Null);
+            Ok(json!({ "ok": true, "contribuyente": guardado, "version": version }))
+        }
+
+        // ----------------------------------------------------------- listar
+        "listar" => {
+            let incluir = payload
+                .get("incluir_borrados")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+            let texto = ctb_txt(payload, "texto").to_lowercase();
+            let sql = format!(
+                "{} WHERE (?1 = 1 OR c.borrado = 0) AND (?2 = '' OR
+                    lower(c.rut) LIKE '%'||?2||'%' OR
+                    lower(c.razon_social) LIKE '%'||?2||'%' OR
+                    lower(c.nombre_fantasia) LIKE '%'||?2||'%' OR
+                    lower(c.giro) LIKE '%'||?2||'%')
+                  ORDER BY c.razon_social COLLATE NOCASE LIMIT 300",
+                CTB_SELECT
+            );
+            let mut st = db.prepare(&sql).map_err(|e| e.to_string())?;
+            let filas: Vec<Value> = st
+                .query_map(params![if incluir { 1 } else { 0 }, texto], ctb_fila)
+                .map_err(|e| e.to_string())?
+                .filter_map(|x| x.ok())
+                .collect();
+            let activos = filas.iter().filter(|f| f["borrado"] == json!(false)).count();
+            Ok(json!({
+                "contribuyentes": filas,
+                "total": filas.len(),
+                "activos": activos
+            }))
+        }
+
+        // ---------------------------------------------------------- obtener
+        "obtener" => {
+            let rut = ctb_rut_limpio(&ctb_txt(payload, "rut"));
+            if rut.is_empty() {
+                return Err("falta el RUT".into());
+            }
+            let c = ctb_por_rut(db, &rut)?;
+            let historial = ctb_historial(db, &rut, 50)?;
+            Ok(json!({ "contribuyente": c, "historial": historial }))
+        }
+
+        // ----------------------------------------------------------- borrar
+        "borrar" => {
+            let rut = ctb_rut_limpio(&ctb_txt(payload, "rut"));
+            if rut.is_empty() {
+                return Err("falta el RUT".into());
+            }
+            let ts = ahora();
+            let n = db
+                .execute(
+                    "UPDATE ctb_contribuyentes SET borrado = 1, borrado_ts = ?2 WHERE rut = ?1",
+                    params![rut, ts],
+                )
+                .map_err(|e| e.to_string())?;
+            if n == 0 {
+                return Err("no existe ese RUT en el registro".into());
+            }
+            let anterior = ctb_por_rut(db, &rut)?.unwrap_or(json!({}));
+            let version: i64 = db
+                .query_row(
+                    "SELECT COALESCE(MAX(version),0)+1 FROM ctb_contribuyente_historial WHERE rut = ?1",
+                    params![rut],
+                    |r| r.get(0),
+                )
+                .unwrap_or(1);
+            db.execute(
+                "INSERT INTO ctb_contribuyente_historial (rut,version,accion,datos,ts,origen)
+                 VALUES (?1,?2,'borrar',?3,?4,'app')",
+                params![rut, version, anterior.to_string(), ts],
+            )
+            .map_err(|e| e.to_string())?;
+            ctb_auditar(db, &rut, "borrar", &anterior, ts);
+            Ok(json!({ "ok": true, "rut": rut, "eliminado": true }))
+        }
+
+        // -------------------------------------------------------- restaurar
+        "restaurar" => {
+            let rut = ctb_rut_limpio(&ctb_txt(payload, "rut"));
+            if rut.is_empty() {
+                return Err("falta el RUT".into());
+            }
+            let ts = ahora();
+            let n = db
+                .execute(
+                    "UPDATE ctb_contribuyentes SET borrado = 0, borrado_ts = 0, actualizado = ?2
+                     WHERE rut = ?1",
+                    params![rut, ts],
+                )
+                .map_err(|e| e.to_string())?;
+            if n == 0 {
+                return Err("no existe ese RUT en el registro".into());
+            }
+            let c = ctb_por_rut(db, &rut)?.unwrap_or(json!({}));
+            let version: i64 = db
+                .query_row(
+                    "SELECT COALESCE(MAX(version),0)+1 FROM ctb_contribuyente_historial WHERE rut = ?1",
+                    params![rut],
+                    |r| r.get(0),
+                )
+                .unwrap_or(1);
+            db.execute(
+                "INSERT INTO ctb_contribuyente_historial (rut,version,accion,datos,ts,origen)
+                 VALUES (?1,?2,'restaurar',?3,?4,'app')",
+                params![rut, version, c.to_string(), ts],
+            )
+            .map_err(|e| e.to_string())?;
+            ctb_auditar(db, &rut, "restaurar", &c, ts);
+            Ok(json!({ "ok": true, "contribuyente": c }))
+        }
+
+        // -------------------------------------------------------- historial
+        "historial" => {
+            let rut = ctb_rut_limpio(&ctb_txt(payload, "rut"));
+            if rut.is_empty() {
+                return Err("falta el RUT".into());
+            }
+            let limite = payload.get("limite").and_then(|v| v.as_i64()).unwrap_or(50);
+            Ok(json!({ "rut": rut, "historial": ctb_historial(db, &rut, limite)? }))
+        }
+
+        // --------------------------------------------------------- importar
+        "importar" => {
+            // Acepta {contribuyente:{...}}, {contribuyentes:[...]} o el JSON
+            // crudo de una consulta externa: se mapean los alias conocidos
+            // (RUT, razón social, giro, domicilio, situación, régimen…).
+            let mut lista: Vec<Value> = Vec::new();
+            if let Some(arr) = payload.get("contribuyentes").and_then(|v| v.as_array()) {
+                lista.extend(arr.iter().cloned());
+            }
+            if let Some(c) = payload.get("contribuyente") {
+                lista.push(c.clone());
+            }
+            if lista.is_empty() {
+                lista.push(payload.clone());
+            }
+
+            let mut guardados = 0i64;
+            let mut errores: Vec<String> = Vec::new();
+
+            for item in lista {
+                let mut p = item.clone();
+                if let Some(o) = p.as_object_mut() {
+                    let buscar = |claves: &[&str]| -> Option<Value> {
+                        for k in claves {
+                            if let Some(v) = o.get(*k) {
+                                if !v.is_null() && v.as_str().map(|x| !x.trim().is_empty()).unwrap_or(true) {
+                                    return Some(v.clone());
+                                }
+                            }
+                        }
+                        None
+                    };
+                    // Se leen todos los alias ANTES de mutar el objeto.
+                    let rut = buscar(&["rut", "RUT", "rut_contribuyente", "taxpayer_id"]);
+                    let razon = buscar(&["razon_social", "razonSocial", "nombre", "nombre_contribuyente", "name"]);
+                    let fantasia = buscar(&["nombre_fantasia", "fantasia", "trade_name"]);
+                    let giro = buscar(&["giro", "actividad", "actividad_economica", "economic_activity"]);
+                    let actividades = buscar(&["actividades", "activities", "codigos_actividad"]);
+                    let dir = buscar(&["direccion", "domicilio", "address"]);
+                    let comuna = buscar(&["comuna", "city"]);
+                    let region = buscar(&["region", "state"]);
+                    let email = buscar(&["email", "correo"]);
+                    let tel = buscar(&["telefono", "phone"]);
+                    let situacion = buscar(&["situacion", "estado", "situacion_tributaria", "status", "tax_status"]);
+                    let regimen = buscar(&["regimen", "regimen_tributario", "tax_regime"]);
+                    let inicio = buscar(&["inicio_actividades", "fecha_inicio_actividades", "start_date"]);
+
+                    if let Some(v) = rut { o.insert("rut".into(), v); }
+                    if let Some(v) = razon { o.insert("razon_social".into(), v); }
+                    if let Some(v) = fantasia { o.insert("nombre_fantasia".into(), v); }
+                    if let Some(v) = giro { o.insert("giro".into(), v); }
+                    if let Some(v) = actividades { o.insert("actividades".into(), v); }
+                    if let Some(v) = dir { o.insert("direccion".into(), v); }
+                    if let Some(v) = comuna { o.insert("comuna".into(), v); }
+                    if let Some(v) = region { o.insert("region".into(), v); }
+                    if let Some(v) = email { o.insert("email".into(), v); }
+                    if let Some(v) = tel { o.insert("telefono".into(), v); }
+                    if let Some(v) = situacion { o.insert("situacion".into(), v); }
+                    if let Some(v) = regimen { o.insert("regimen".into(), v); }
+                    if let Some(v) = inicio { o.insert("inicio_actividades".into(), v); }
+                    o.insert("origen".into(), json!("importado"));
+                    // Lo que no mapeamos se conserva en `extra`.
+                    o.insert("extra".into(), item.clone());
+                }
+                let sub = json!({ "accion": "guardar", "contribuyente": p });
+                match op_contabilidad(&sub, db) {
+                    Ok(_) => guardados += 1,
+                    Err(e) => errores.push(e),
+                }
+            }
+            Ok(json!({ "ok": true, "guardados": guardados, "errores": errores }))
+        }
+
+        // -------------------------------------------------------- auditoria
+        "auditoria" => {
+            let limite = payload.get("limite").and_then(|v| v.as_i64()).unwrap_or(100);
+            let mut st = db
+                .prepare(
+                    "SELECT id,entidad,entidad_id,accion,datos,ts
+                       FROM ctb_auditoria ORDER BY id DESC LIMIT ?1",
+                )
+                .map_err(|e| e.to_string())?;
+            let filas: Vec<Value> = st
+                .query_map(params![limite.clamp(1, 500)], |r| {
+                    Ok(json!({
+                        "id": r.get::<_, i64>(0)?,
+                        "entidad": r.get::<_, String>(1)?,
+                        "entidad_id": r.get::<_, String>(2)?,
+                        "accion": r.get::<_, String>(3)?,
+                        "datos": serde_json::from_str::<Value>(&r.get::<_, String>(4)?).unwrap_or(json!({})),
+                        "ts": r.get::<_, i64>(5)?
+                    }))
+                })
+                .map_err(|e| e.to_string())?
+                .filter_map(|x| x.ok())
+                .collect();
+            Ok(json!({ "auditoria": filas }))
+        }
+
+        otra => Err(format!("acción contable no soportada: {}", otra)),
     }
 }
 

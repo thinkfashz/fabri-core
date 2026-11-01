@@ -37,6 +37,86 @@ const IMP_FUENTES = [
   { titulo: "ChileAtiende · Impuestos", detalle: "Guías paso a paso y requisitos oficiales.", url: "https://www.chileatiende.gob.cl/" }
 ];
 
+/* ── contenido educativo (lenguaje simple) ────────────────────────────── */
+const IMP_EDU = [
+  {
+    icono: "documento",
+    titulo: "¿Qué es el F29?",
+    texto: "Es la declaración mensual de IVA. Se presenta al SII entre el día 1 y el 20 del mes siguiente, " +
+      "aunque el sitio abre antes. Declara lo que vendiste, el IVA que cobraste y el que pagaste en compras."
+  },
+  {
+    icono: "iva",
+    titulo: "IVA débito y crédito",
+    texto: "Débito es el IVA que cobras al vender. Crédito es el IVA que pagaste al comprar con factura. " +
+      "Al SII le pagas la diferencia: débito menos crédito. Si el crédito es mayor, no pagas y queda a favor."
+  },
+  {
+    icono: "sello",
+    titulo: "Remanente de crédito",
+    texto: "Si tu crédito supera al débito, esa diferencia no se pierde: se arrastra al mes siguiente. " +
+      "En este módulo aparece como «remanente» y se descuenta solo."
+  },
+  {
+    icono: "calendario",
+    titulo: "PPM (pago provisional)",
+    texto: "Es un adelanto mensual del impuesto a la renta. En Pro Pyme suele ser 0,2 % de las ventas. " +
+      "Se declara junto al F29 y se descuenta después en la renta anual (F22)."
+  },
+  {
+    icono: "libro",
+    titulo: "¿Por qué importan tus boletas?",
+    texto: "Cada boleta que emites en la app es una venta declarada. El módulo las suma por mes para " +
+      "calcular el débito real, no una estimación."
+  },
+  {
+    icono: "banco",
+    titulo: "Cómo se paga",
+    texto: "El F29 se paga en línea en el SII con clave tributaria, o con el giro en Tesorería o en un banco. " +
+      "Guarda siempre el comprobante: es tu respaldo por 6 años."
+  }
+];
+
+/* Formularios reales del SII (enlaces verificados) */
+const IMP_FORMULARIOS = [
+  {
+    nombre: "F29 · IVA mensual",
+    que: "Ventas, compras, IVA determinado, PPM y retenciones del mes.",
+    cuando: "Todos los meses, hasta el día 20 del mes siguiente.",
+    url: "https://www.sii.cl/servicios_online/1042-3264.html"
+  },
+  {
+    nombre: "F50 · Declaración mensual",
+    que: "Para contribuyentes de segunda categoría y rentas sin IVA.",
+    cuando: "Mensual, según el calendario del SII.",
+    url: "https://www.sii.cl/servicios_online/1042-3265.html"
+  },
+  {
+    nombre: "F22 · Renta anual",
+    que: "Resumen del año: rentas, gastos, PPM y créditos. Aquí se devuelve o se paga la diferencia.",
+    cuando: "Una vez al año, en abril.",
+    url: "https://www2.sii.cl/navegacionf22/"
+  },
+  {
+    nombre: "F24 · Timbres y estampillas",
+    que: "Impuesto a documentos y créditos (por ejemplo, cheques o pagarés).",
+    cuando: "Mensual, cuando corresponda.",
+    url: "https://www.sii.cl/servicios_online/1042-3744.html"
+  },
+  {
+    nombre: "Boletas electrónicas",
+    que: "Emisión y validación de boletas de ventas y servicios.",
+    cuando: "En cada venta al público.",
+    url: "https://www.sii.cl/servicios_online/3532-.html"
+  },
+  {
+    nombre: "Registro de compras y ventas",
+    que: "Detalle de documentos que respaldan el débito y el crédito fiscal.",
+    cuando: "Mensual, antes de declarar el F29.",
+    url: "https://www.sii.cl/servicios_online/1039-3256.html"
+  }
+];
+
 const IMP_RUTA = [
   { t: "Cierra la caja de cada día", d: "Cada boleta emitida en Inventario queda como cierre del día; aquí se suman por mes." },
   { t: "Revisa compras con factura", d: "Sólo el IVA de compras con factura a tu RUT es crédito fiscal." },
@@ -47,6 +127,25 @@ const IMP_RUTA = [
 ];
 
 /* ── utilidades ───────────────────────────────────────────────────────── */
+const IMP_ICO = {
+  documento: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h6"/>',
+  iva: '<path d="M12 2v20"/><path d="M17 6.5a4.5 4.5 0 0 0-4.5-2.5h-1a4 4 0 0 0 0 8h1a4 4 0 0 1 0 8h-1A4.5 4.5 0 0 1 7 17.5"/>',
+  sello: '<circle cx="12" cy="9" r="6"/><path d="m9 14-1 8 4-2 4 2-1-8"/>',
+  calendario: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 11h18"/>',
+  libro: '<path d="M4 5a2 2 0 0 1 2-2h12v18H6a2 2 0 0 1-2-2z"/><path d="M8 7h8M8 11h8"/>',
+  banco: '<path d="m3 10 9-6 9 6"/><path d="M5 10v9h14v-9"/><path d="M3 21h18"/>',
+  calculo: '<rect x="4" y="3" width="16" height="18" rx="3"/><path d="M8 7h8"/><path d="M8 12h.01M12 12h.01M16 12h.01M8 16h.01M12 16h.01M16 16h.01"/>',
+  enlace: '<path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/>'
+};
+
+function impIcono(nombre, tam) {
+  const d = IMP_ICO[nombre] || IMP_ICO.documento;
+  const t = tam || 20;
+  return '<svg viewBox="0 0 24 24" width="' + t + '" height="' + t +
+    '" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" ' +
+    'stroke-linejoin="round" aria-hidden="true">' + d + '</svg>';
+}
+
 function impClp(n) {
   const v = Math.round(Number(n || 0));
   return "$" + v.toLocaleString("es-CL");
@@ -131,6 +230,9 @@ function impIniciar() {
   if (rem && !rem.value) rem.value = "0";
   impPintarRuta();
   impPintarFuentes();
+  impPintarEducacion();
+  impPintarFormularios();
+  impCalculadora(0);
   impCargarTodo();
 }
 
@@ -395,6 +497,48 @@ function impPintarFormulario(d) {
       'Los códigos y casillas definitivos los asigna el F29 del SII al declarar.</p>';
 }
 
+function impPintarEducacion() {
+  const caja = document.getElementById("impEdu");
+  if (!caja || caja.dataset.listo) return;
+  caja.dataset.listo = "1";
+  caja.innerHTML = IMP_EDU.map(function (e) {
+    return '<article class="imp-edu">' +
+      '<span class="imp-edu-ico">' + impIcono(e.icono, 20) + '</span>' +
+      '<b>' + esc(e.titulo) + '</b>' +
+      '<p>' + esc(e.texto) + '</p></article>';
+  }).join("");
+}
+
+function impPintarFormularios() {
+  const caja = document.getElementById("impFormularios");
+  if (!caja || caja.dataset.listo) return;
+  caja.dataset.listo = "1";
+  caja.innerHTML = IMP_FORMULARIOS.map(function (f) {
+    return '<button class="imp-form-item" type="button" data-url="' + esc(f.url) + '">' +
+      '<span class="imp-form-ico">' + impIcono("documento", 18) + '</span>' +
+      '<span class="imp-form-txt">' +
+        '<b>' + esc(f.nombre) + '</b>' +
+        '<small>' + esc(f.que) + '</small>' +
+        '<em>' + esc(f.cuando) + '</em>' +
+      '</span>' +
+      '<span class="imp-form-flecha">↗</span></button>';
+  }).join("");
+  caja.querySelectorAll("[data-url]").forEach(function (b) {
+    b.addEventListener("click", function () { impAbrir(b.dataset.url); });
+  });
+}
+
+/** Calculadora rápida con el mismo motor: monto con IVA → neto + IVA. */
+function impCalculadora(valor) {
+  const v = Math.max(0, Number(String(valor || "").replace(/[^\d]/g, "")) || 0);
+  const neto = Math.round(v / 1.19);
+  const iva = v - neto;
+  const set = function (id, txt) { const el = document.getElementById(id); if (el) el.textContent = txt; };
+  set("impCalcNeto", impClp(neto));
+  set("impCalcIva", impClp(iva));
+  set("impCalcTotal", impClp(v));
+}
+
 function impPintarRuta() {
   const caja = document.getElementById("impRuta");
   if (!caja || caja.dataset.listo) return;
@@ -565,6 +709,7 @@ function impAbrir(url) {
   document.addEventListener("input", function (ev) {
     const id = ev.target && ev.target.id;
     if (id === "impPeriodo") IMP.periodo = ev.target.value;
+    if (id === "impCalcMonto") impCalculadora(ev.target.value);
     if (["impVentasManual", "impRemanente", "impTasaPpm", "impPeriodo",
          "impRazon", "impRut", "impGiro", "impDireccion"].indexOf(id) >= 0) {
       impRecalcular();

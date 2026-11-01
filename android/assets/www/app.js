@@ -493,6 +493,7 @@ const RAMAS_VISTA = {
   chat: () => chatIniciar(),
   inventario: () => { if (typeof invIniciar === "function") invIniciar(); },
   impuestos: () => { if (typeof impIniciar === "function") impIniciar(); },
+  contabilidad: () => { if (typeof ctbIniciar === "function") ctbIniciar(); },
   catalogo: () => { if (typeof catIniciar === "function") catIniciar(); },
   flujo: () => { if (typeof flujoIniciar === "function") flujoIniciar(); },
   termux: () => { cargarTermux(); puenteIniciar(); },
@@ -7158,9 +7159,20 @@ function conectarRendimiento() {
     if (!el || !el.getBoundingClientRect) return;
     const alto = vv ? vv.height : window.innerHeight;
     const r = el.getBoundingClientRect();
+    const caja = contenedorScrollable(el);
+
+    // En formularios largos (impuestos, inventario) el campo se lleva a un
+    // tercio de la altura visible: así se ve el campo, su ayuda y lo que viene
+    // debajo, aunque el teclado ocupe media pantalla.
+    if (el.closest && el.closest("#v-impuestos, #v-inventario")) {
+      const objetivo = Math.max(90, alto * 0.32);
+      const dy = r.top - objetivo;
+      if (Math.abs(dy) > 36) desplazar(caja, dy);
+      return;
+    }
+
     const margen = 16;
     const visibleAbajo = alto - margen;
-    const caja = contenedorScrollable(el);
     if (r.bottom > visibleAbajo) {
       desplazar(caja, r.bottom - visibleAbajo + 14);
     } else if (r.top < 72) {

@@ -523,3 +523,103 @@
 #v-impuestos .imp-form-cab,
 #v-impuestos .imp-fila-form { min-width: 0; }
 #v-impuestos .imp-fila-form b { max-width: 60%; }
+
+/* ==========================================================================
+   F29 0.9.51 · educación, formularios y calculadora
+   ========================================================================== */
+.imp-calc-res {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+.imp-calc-res div {
+  display: grid;
+  gap: 2px;
+  padding: 10px;
+  border-radius: 13px;
+  border: 1px solid var(--imp-borde);
+  background: var(--imp-sup-2);
+  min-width: 0;
+}
+.imp-calc-res span {
+  font-size: 9px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--imp-txt-3);
+}
+.imp-calc-res b {
+  font-size: 14px;
+  color: var(--imp-txt);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.imp-calc-res div:last-child b { color: var(--imp-lima); }
+
+.imp-edu-lista { display: grid; gap: 9px; }
+.imp-edu {
+  display: grid;
+  gap: 3px;
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid var(--imp-borde);
+  background: var(--imp-sup-2);
+}
+.imp-edu-ico {
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  display: grid;
+  place-items: center;
+  background: rgba(200, 255, 0, 0.1);
+  border: 1px solid rgba(200, 255, 0, 0.28);
+  color: var(--imp-lima);
+  margin-bottom: 2px;
+}
+.imp-edu b { font-size: 13px; color: var(--imp-txt); }
+.imp-edu p { margin: 0; font-size: 11.5px; line-height: 1.5; color: var(--imp-txt-2); }
+
+.imp-form-lista { display: grid; gap: 8px; margin-top: 8px; }
+.imp-form-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 12px;
+  border-radius: 15px;
+  border: 1px solid var(--imp-borde);
+  background: var(--imp-sup-2);
+  color: var(--imp-txt);
+  text-align: left;
+  cursor: pointer;
+}
+.imp-form-item:active { border-color: rgba(200, 255, 0, 0.4); }
+.imp-form-ico {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--imp-txt-2);
+}
+.imp-form-txt { flex: 1 1 auto; min-width: 0; display: grid; gap: 1px; }
+.imp-form-txt b { font-size: 12.5px; color: var(--imp-txt); }
+.imp-form-txt small { font-size: 10.5px; line-height: 1.4; color: var(--imp-txt-3); }
+.imp-form-txt em {
+  font-style: normal;
+  font-size: 10px;
+  color: var(--imp-lima);
+  margin-top: 2px;
+}
+.imp-form-flecha { color: var(--imp-lima); font-size: 14px; flex: 0 0 auto; }
+
+/* El campo enfocado nunca queda bajo el teclado. */
+#v-impuestos input,
+#v-impuestos select {
+  scroll-margin-top: 90px;
+  scroll-margin-bottom: 45vh;
+}

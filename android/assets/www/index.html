@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="identidad.css" />
   <link rel="stylesheet" href="catalogo.css" />
   <link rel="stylesheet" href="impuestos.css" />
+  <link rel="stylesheet" href="contabilidad.css" />
 </head>
 <body>
   <!-- ===================== ACCESO · HUELLA + PIN ===================== -->
@@ -122,6 +123,7 @@
       <button class="nav-drawer" data-vista="chat"><span>✦</span>Chat</button>
       <button class="nav-drawer" data-vista="inventario"><span>▦</span>Inventario</button>
       <button class="nav-drawer" data-vista="impuestos"><span>％</span>Impuestos F29</button>
+      <button class="nav-drawer" data-vista="contabilidad"><span>▤</span>Contribuyentes</button>
       <button class="nav-drawer" data-vista="catalogo"><span>◈</span>Catálogo</button>
       <button class="nav-drawer" data-vista="flujo"><span>⇄</span>Flujo en tiempo real</button>
       <button class="nav-drawer" data-vista="modulos"><span>⬡</span>Módulos</button>
@@ -1748,6 +1750,66 @@ npx -y omniroute@latest
     </div>
   </section>
 
+  <!-- ===================== CONTABILIDAD · CONTRIBUYENTES ================== -->
+  <section class="vista" id="v-contabilidad">
+    <div class="ctb-cuerpo">
+      <div class="ctb-hero">
+        <div>
+          <p class="ctb-eyebrow">Módulo · contabilidad</p>
+          <h2>Contribuyentes <em>locales</em></h2>
+          <p>Ficha tributaria de cada RUT en tu SQLite. Cada cambio deja una versión y
+            nada se borra de verdad: puedes restaurar.</p>
+        </div>
+        <div class="ctb-hero-datos">
+          <span id="ctbCuenta">0 contribuyentes</span>
+          <span id="ctbTotalVersiones">0 versiones</span>
+        </div>
+        <p class="cat-vacio" id="ctbAviso"></p>
+      </div>
+
+      <div class="ctb-caja">
+        <div class="ctb-busca">
+          <input id="ctbBuscar" placeholder="Buscar por RUT, nombre o giro…" autocomplete="off" />
+          <button class="ctb-btn-filtro" id="btnCtbVerBorrados" type="button">Borrados</button>
+        </div>
+        <div class="ctb-lista" id="ctbLista"></div>
+        <button class="ctb-btn" id="btnCtbRefrescar" type="button">Actualizar</button>
+      </div>
+
+      <div class="ctb-caja" id="ctbFormularioCaja">
+        <h3 id="ctbFormTitulo">Nuevo contribuyente</h3>
+        <div class="ctb-form" id="ctbFormulario"></div>
+        <div class="ctb-acciones">
+          <button class="ctb-btn principal" id="btnCtbGuardar" type="button">Guardar</button>
+          <button class="ctb-btn" id="btnCtbIdentidad" type="button">Copiar de mi identidad</button>
+          <button class="ctb-btn" id="btnCtbLimpiar" type="button">Limpiar</button>
+        </div>
+        <p class="ctb-nota">Guardar crea una versión nueva. Si editas, la anterior queda en el historial.</p>
+      </div>
+
+      <div class="ctb-caja">
+        <h3>Importar consulta</h3>
+        <div class="ctb-importar">
+          <textarea id="ctbImportarTexto" placeholder='{"rut":"12.345.678-9","razon_social":"Mi negocio","giro":"Comercio al por menor"}'></textarea>
+          <button class="ctb-btn" id="btnCtbImportar" type="button">Importar y guardar</button>
+        </div>
+        <p class="ctb-nota">Acepta un objeto o una lista. Reconoce alias (RUT, razonSocial, nombre…)
+          y guarda el resto en «extra» sin perderlo.</p>
+      </div>
+    </div>
+
+    <div class="ctb-hoja" id="ctbHistHoja" hidden>
+      <div class="ctb-hoja-fondo" data-cerrar-hist="1"></div>
+      <div class="ctb-hoja-panel">
+        <header class="ctb-hoja-cab">
+          <b id="ctbHistTitulo">Historial</b>
+          <button class="ctb-hoja-x" type="button" data-cerrar-hist="1" aria-label="Cerrar">✕</button>
+        </header>
+        <div class="ctb-hist-lista" id="ctbHistorial"></div>
+      </div>
+    </div>
+  </section>
+
   <!-- ===================== IMPUESTOS · F29 ================================ -->
   <section class="vista" id="v-impuestos">
     <div class="imp-cuerpo">
@@ -1895,6 +1957,31 @@ npx -y omniroute@latest
           <button class="cat-btn fantasma" id="btnImpActualizar" type="button">Actualizar datos</button>
         </div>
         <p class="imp-monto-inline">Monto a pagar: <b id="impComprobanteMonto">$0</b></p>
+      </div>
+
+      <div class="imp-ruta-card">
+        <h3>Calculadora rápida de IVA</h3>
+        <div class="imp-campo">
+          <span>Monto con IVA</span>
+          <input id="impCalcMonto" inputmode="numeric" placeholder="Ej: 19.990" />
+          <small class="imp-ayuda">Escribe un precio de venta y mira cuánto es neto y cuánto es IVA.</small>
+        </div>
+        <div class="imp-calc-res">
+          <div><span>Neto</span><b id="impCalcNeto">$0</b></div>
+          <div><span>IVA 19 %</span><b id="impCalcIva">$0</b></div>
+          <div><span>Total</span><b id="impCalcTotal">$0</b></div>
+        </div>
+      </div>
+
+      <div class="imp-ruta-card">
+        <h3>Cómo funciona el sistema</h3>
+        <div class="imp-edu-lista" id="impEdu"></div>
+      </div>
+
+      <div class="imp-ruta-card">
+        <h3>Formularios del SII</h3>
+        <p class="imp-nota imp-nota-corta">Cada uno abre el trámite oficial. Necesitas clave tributaria.</p>
+        <div class="imp-form-lista" id="impFormularios"></div>
       </div>
 
       <div class="imp-ruta-card">
@@ -2917,6 +3004,7 @@ CREATE INDEX IF NOT EXISTS idx_inv_productos_actualizado
   <script src="inventario.js"></script>
   <script src="catalogo.js"></script>
   <script src="impuestos.js"></script>
+  <script src="contabilidad.js"></script>
   <script src="impresora.js"></script>
   <script src="lector-red.js"></script>
   <script src="importar-base.js"></script>
