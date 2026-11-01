@@ -3417,3 +3417,170 @@ input[type="range"]:active { opacity: 0.9; }
   font-weight: 800;
   box-shadow: 0 0 14px rgba(200, 255, 0, 0.22);
 }
+
+/* ==========================================================================
+   CHAT 0.9.48 · ajustes desplazables + selectores con logo real
+   ========================================================================== */
+/* El panel de ajustes no podía encogerse: al abrir «IA» o «Datos» se cortaba
+   y no había scroll. Ahora tiene su propio scroll. */
+.chat-config {
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: 64vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+.chat-selector {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  border-radius: 14px;
+  border: 1px solid var(--borde, #2A2A2A);
+  background: var(--elevado, #171817);
+  color: var(--texto, #fff);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 140ms ease;
+}
+.chat-selector:active { border-color: rgba(200, 255, 0, 0.4); }
+.chat-selector-ico {
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--texto, #fff);
+  flex: 0 0 auto;
+}
+.chat-selector-ico svg { width: 21px; height: 21px; }
+.chat-selector-txt { flex: 1 1 auto; min-width: 0; display: grid; gap: 1px; }
+.chat-selector-txt b {
+  font-size: 13.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.chat-selector-txt small {
+  font-size: 10.5px;
+  color: var(--texto-3, #7A7F76);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.chat-selector-flecha { color: var(--texto-3, #7A7F76); font-size: 19px; flex: 0 0 auto; }
+
+/* Hoja inferior de selección */
+.chat-hoja { position: fixed; inset: 0; z-index: 60; display: flex; align-items: flex-end; }
+.chat-hoja[hidden] { display: none; }
+.chat-hoja-fondo {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.62);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+.chat-hoja-panel {
+  position: relative;
+  width: 100%;
+  max-height: 74vh;
+  display: flex;
+  flex-direction: column;
+  background: #0F100E;
+  border-radius: 22px 22px 0 0;
+  border-top: 1px solid var(--borde, #2A2A2A);
+  box-shadow: 0 -20px 50px rgba(0, 0, 0, 0.7);
+  animation: chat-hoja-sube 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes chat-hoja-sube {
+  from { transform: translateY(24px); opacity: 0.7; }
+  to   { transform: none; opacity: 1; }
+}
+.chat-hoja-cab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--borde, #2A2A2A);
+}
+.chat-hoja-cab b { font-size: 15px; letter-spacing: -0.01em; }
+.chat-hoja-x {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid var(--borde, #2A2A2A);
+  background: transparent;
+  color: var(--texto-2, #B9BDB4);
+  font-size: 14px;
+  cursor: pointer;
+}
+.chat-hoja-lista {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 8px 12px calc(18px + env(safe-area-inset-bottom));
+  display: grid;
+  gap: 4px;
+}
+.chat-hoja-item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--texto, #fff);
+  text-align: left;
+  cursor: pointer;
+}
+.chat-hoja-item:active { background: rgba(255, 255, 255, 0.05); }
+.chat-hoja-item.activo {
+  border-color: rgba(200, 255, 0, 0.4);
+  background: rgba(200, 255, 0, 0.06);
+}
+.chat-hoja-item-ico {
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.06);
+  flex: 0 0 auto;
+}
+.chat-hoja-item-ico svg { width: 21px; height: 21px; }
+.chat-hoja-item-txt { flex: 1 1 auto; min-width: 0; display: grid; gap: 1px; }
+.chat-hoja-item-txt b {
+  font-size: 13.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.chat-hoja-item-txt small { font-size: 10.5px; color: var(--texto-3, #7A7F76); }
+.chat-hoja-pista {
+  padding: 26px 18px;
+  text-align: center;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--texto-3, #7A7F76);
+}
+.chat-chip-modelo { display: inline-flex; align-items: center; gap: 5px; }
+.chat-chip-modelo svg { width: 13px; height: 13px; flex: 0 0 auto; }
+
+/* Texto de los mensajes: nada se sale del ancho. */
+.mensaje .burbuja,
+.mensaje .msg-texto {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  min-width: 0;
+}
+.mensaje .msg-texto pre,
+.mensaje .msg-texto code { max-width: 100%; overflow-x: auto; }
+.mensaje .msg-texto table { display: block; overflow-x: auto; max-width: 100%; }

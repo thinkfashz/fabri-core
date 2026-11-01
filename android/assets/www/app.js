@@ -1713,8 +1713,137 @@ function chatLlenarProveedores() {
   sel.innerHTML = PROVEEDORES_CHAT.map((p) =>
     `<option value="${esc(p.id)}">${esc(p.nombre)} · ${esc(p.tipo)}</option>`
   ).join("");
-  sel.value = "omniroute";
-  chatAplicarProveedor("omniroute", false);
+  sel.value = "openai";
+  chatAplicarProveedor("openai", false);
+  chatPintarSelectorProveedor();
+  chatPintarSelectorModelo();
+}
+
+/* ── iconos y selectores del proveedor ─────────────────────────────────── */
+const CHAT_ICONO_PROV = {
+  openai: "openai", anthropic: "anthropic", google: "gemini", deepseek: "deepseek",
+  groq: "groq", xai: "xai", mistral: "mistral", openrouter: "openrouter",
+  together: "together", perplexity: "perplexity", fireworks: "fireworks",
+  cerebras: "cerebras", huggingface: "huggingface", ollama: "ollama",
+  lmstudio: "lmstudio", omniroute: "omniroute", custom: "custom"
+};
+
+let CHAT_MODELOS = [];
+let CHAT_MODELOS_AUTO = false;
+
+function chatIconoProveedor(id, tam) {
+  const k = CHAT_ICONO_PROV[id] || "custom";
+  return (typeof marcaIco === "function") ? marcaIco(k, tam || 21) : "";
+}
+
+function chatPintarSelectorProveedor() {
+  const sel = document.getElementById("chatProveedor");
+  const id = (sel && sel.value) || "openai";
+  const p = PROVEEDORES_CHAT.find((x) => x.id === id) || PROVEEDORES_CHAT[0];
+  const ico = document.getElementById("chatProvIco");
+  const nom = document.getElementById("chatProvNombre");
+  const tipo = document.getElementById("chatProvTipo");
+  if (ico) ico.innerHTML = chatIconoProveedor(p.id, 21);
+  if (nom) nom.textContent = p.nombre;
+  if (tipo) tipo.textContent = p.tipo;
+}
+
+function chatPintarSelectorModelo() {
+  const inp = document.getElementById("chatModeloRemoto");
+  const sel = document.getElementById("chatProveedor");
+  const id = (sel && sel.value) || "openai";
+  const modelo = (inp && inp.value) || "";
+  const ico = document.getElementById("chatModeloIco");
+  const nom = document.getElementById("chatModeloNombre");
+  const pista = document.getElementById("chatModeloPista");
+  if (ico) ico.innerHTML = chatIconoProveedor(id, 21);
+  if (nom) nom.textContent = modelo || "Elegir modelo";
+  if (pista) {
+    pista.textContent = modelo
+      ? "Toca para cambiar de modelo"
+      : (CHAT_MODELOS.length ? CHAT_MODELOS.length + " modelos disponibles" : "Guarda la clave y aparecerá el catálogo");
+  }
+}
+
+/* ── hoja inferior de selección ────────────────────────────────────────── */
+function chatHojaCerrar() {
+  const h = document.getElementById("chatHoja");
+  if (h) h.hidden = true;
+}
+
+function chatHojaAbrir(titulo, items, alElegir) {
+  const h = document.getElementById("chatHoja");
+  const lista = document.getElementById("chatHojaLista");
+  const tit = document.getElementById("chatHojaTitulo");
+  if (!h || !lista) return;
+  if (tit) tit.textContent = titulo;
+  if (!items.length) {
+    lista.innerHTML = '<div class="chat-hoja-pista">' + esc(tituloPista(titulo)) + "</div>";
+  } else {
+    lista.innerHTML = items.map(function (it, i) {
+      return '<button class="chat-hoja-item' + (it.activo ? " activo" : "") + '" type="button" data-hoja-item="' + i + '">' +
+        '<span class="chat-hoja-item-ico">' + (it.ico || "") + "</span>" +
+        '<span class="chat-hoja-item-txt"><b>' + esc(it.titulo) + "</b>" +
+          (it.sub ? "<small>" + esc(it.sub) + "</small>" : "") + "</span>" +
+        "</button>";
+    }).join("");
+    lista.querySelectorAll("[data-hoja-item]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        const it = items[Number(b.dataset.hojaItem)];
+        chatHojaCerrar();
+        if (it && alElegir) alElegir(it);
+      });
+    });
+  }
+  h.hidden = false;
+  const panel = lista.parentElement;
+  if (lista.scrollTo) lista.scrollTo({ top: 0 });
+}
+
+function tituloPista(titulo) {
+  if (/modelo/i.test(titulo)) {
+    return "Todavía no hay catálogo. Pulsa «Guardar» con tu clave y luego «Traer modelos».";
+  }
+  return "Sin opciones.";
+}
+
+function chatHojaProveedores() {
+  const sel = document.getElementById("chatProveedor");
+  const actual = sel ? sel.value : "";
+  const items = PROVEEDORES_CHAT.map(function (p) {
+    return {
+      id: p.id,
+      titulo: p.nombre,
+      sub: p.tipo,
+      ico: chatIconoProveedor(p.id, 21),
+      activo: p.id === actual
+    };
+  });
+  chatHojaAbrir("Proveedor de IA", items, function (it) {
+    if (sel) sel.value = it.id;
+    chatAplicarProveedor(it.id, true);
+  });
+}
+
+function chatHojaModelos() {
+  const sel = document.getElementById("chatProveedor");
+  const id = (sel && sel.value) || "openai";
+  const actual = (document.getElementById("chatModeloRemoto") || {}).value || "";
+  if (!CHAT_MODELOS.length) {
+    chatHojaAbrir("Modelos", [], null);
+    return;
+  }
+  const items = CHAT_MODELOS.map(function (m) {
+    return { titulo: m, sub: "Toca para usar este modelo", ico: chatIconoProveedor(id, 20), activo: m === actual };
+  });
+  chatHojaAbrir("Modelos · " + CHAT_MODELOS.length, items, function (it) {
+    const inp = document.getElementById("chatModeloRemoto");
+    if (inp) inp.value = it.titulo;
+    chatPintarSelectorModelo();
+    chatPintarChipModelo();
+    const nota = document.getElementById("chatRemotoEstado");
+    if (nota) nota.textContent = "Modelo elegido: " + it.titulo + ". Pulsa «Guardar» para fijarlo.";
+  });
 }
 
 function chatAplicarProveedor(id, escribir) {
@@ -1726,9 +1855,12 @@ function chatAplicarProveedor(id, escribir) {
   if (lista && Array.isArray(p.modelos)) {
     lista.innerHTML = p.modelos.map((m) => `<option value="${esc(m)}"></option>`).join("");
   }
+  chatPintarSelectorProveedor();
   if (escribir) {
     document.getElementById("chatUrl").value = p.url;
-    document.getElementById("chatModeloRemoto").value = p.modelo || "";
+    const inpModelo = document.getElementById("chatModeloRemoto");
+    if (inpModelo) inpModelo.value = p.modelo || "";
+    chatPintarSelectorModelo();
     const estado = document.getElementById("chatRemotoEstado");
     if (estado) {
       estado.textContent = p.modelos && p.modelos.length
@@ -1813,7 +1945,10 @@ function chatPintarChipModelo() {
     const p = PROVEEDORES_CHAT.find((x) => x.id === prov);
     txt = m ? ((p ? p.nombre.split("·")[0].trim() + " · " : "") + m) : "Proveedor sin modelo";
   }
-  el.textContent = txt;
+  const prov = c.modo === "remoto"
+    ? ((document.getElementById("chatProveedor") || {}).value || "openai")
+    : "";
+  el.innerHTML = (prov ? chatIconoProveedor(prov, 13) : "") + "<span>" + esc(txt) + "</span>";
   el.title = txt + " · " + ((CHAT_VELOCIDADES[c.velocidad] || {}).etq || "");
 }
 
@@ -2106,6 +2241,8 @@ function chatCargarEstado() {
       ? "Configurado" + (r.tieneClave ? " con clave." : " sin clave.") + " Pulsa «Traer modelos» o «Probar»."
       : "Sin configurar. Elige un proveedor, guarda URL/modelo/clave y trae el catálogo.";
   }
+  chatPintarSelectorProveedor();
+  chatPintarSelectorModelo();
   chatActualizarCabecera();
 }
 
@@ -2126,7 +2263,16 @@ function chatGuardarRemoto() {
   }
   document.getElementById("chatClave").value = "";
   estadoApp.chat.remotoConfigurado = true;
+  chatPreconectar();
+  chatPintarSelectorProveedor();
+  chatPintarSelectorModelo();
   chatActualizarCabecera();
+  // Si aún no hay modelo, se consulta el catálogo y se abre la lista.
+  const inpM = document.getElementById("chatModeloRemoto");
+  if (!inpM || !inpM.value.trim()) {
+    CHAT_MODELOS_AUTO = true;
+    chatTraerModelos();
+  }
   if (nota) nota.textContent = "Guardado en " + r.url + ". Ahora puedes traer modelos o enviar.";
   toast("Proveedor guardado");
 }
@@ -3354,6 +3500,18 @@ function chatPintarTokens() {
 }
 
 function chatFormatear(texto) {
+  // Si el modelo devolvió JSON crudo, se muestra ordenado en un bloque de
+  // código en vez de un párrafo ilegible.
+  const limpio = String(texto || "").trim();
+  if (/^[\[{]/.test(limpio) && limpio.length > 2) {
+    try {
+      const obj = JSON.parse(limpio);
+      return '<div class="code-bloque"><div class="code-bloque-cab">' +
+        '<span class="code-bloque-lengua">json</span>' +
+        '<button type="button" data-copiar-codigo>Copiar</button></div>' +
+        '<pre><code>' + esc(JSON.stringify(obj, null, 2)) + '</code></pre></div>';
+    } catch (e) { /* no era JSON: sigue el formato normal */ }
+  }
   const crudo = esc(texto);
   const partes = crudo.split(/```/);
   return partes.map((p, i) => {
@@ -3869,6 +4027,12 @@ window.FabriChat = {
     }
     const lista = document.getElementById("chatModelosLista");
     const modelos = r.modelos || [];
+    CHAT_MODELOS = modelos.slice();
+    chatPintarSelectorModelo();
+    if (CHAT_MODELOS_AUTO && modelos.length) {
+      CHAT_MODELOS_AUTO = false;
+      chatHojaModelos();
+    }
     if (lista) lista.innerHTML = modelos.map((m) => `<option value="${esc(m)}"></option>`).join("");
     if (modelos.length) {
       const input = document.getElementById("chatModeloRemoto");
@@ -4846,6 +5010,10 @@ document.addEventListener("click", (ev) => {
 
   const est = ev.target.closest("[data-estilo]");
   if (est) { chatAplicarEstilo(est.dataset.estilo); return; }
+
+  if (ev.target.closest("[data-cerrar-hoja]")) { chatHojaCerrar(); return; }
+  if (ev.target.closest("#btnChatProveedor")) { chatHojaProveedores(); return; }
+  if (ev.target.closest("#btnChatModelo")) { chatHojaModelos(); return; }
 
   const sugerencia = ev.target.closest("[data-sugerencia]");
   if (sugerencia) {
