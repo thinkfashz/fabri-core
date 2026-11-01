@@ -1789,6 +1789,15 @@ npx -y omniroute@latest
 
       <div class="ctb-caja">
         <h3>Consulta al SII (opcional)</h3>
+        <div class="ctb-modos" role="group" aria-label="Modo de consulta">
+          <button class="ctb-modo activo" data-ctb-modo="demo" type="button">
+            <b>Demo</b><small>sin claves</small>
+          </button>
+          <button class="ctb-modo" data-ctb-modo="real" type="button">
+            <b>Real</b><small>con tu clave</small>
+          </button>
+        </div>
+        <p class="ctb-api-estado" id="ctbModoNota">Modo demo: respuestas simuladas, sin internet ni claves.</p>
         <p class="ctb-api-estado" id="ctbApiEstado">Sin clave: solo registro local</p>
         <div class="ctb-api-fila">
           <input id="ctbApiClave" type="password" placeholder="Clave de la API (X-API-Key)"
@@ -1802,6 +1811,46 @@ npx -y omniroute@latest
         <div id="ctbApiResultado"></div>
         <p class="ctb-nota">Situación tributaria pública del SII. La clave queda en este teléfono.
           Sin clave, el módulo sigue funcionando con tus datos locales.</p>
+      </div>
+
+      <div class="ctb-caja">
+        <h3>Modo demo</h3>
+        <p class="ctb-nota">Carga 4 contribuyentes de ejemplo con la misma forma que devuelve
+          la API real (actividades, documentos y alertas). Quedan marcados como demo y puedes
+          borrarlos cuando quieras.</p>
+        <div class="ctb-acciones">
+          <button class="ctb-btn principal" id="btnCtbDemoCargar" type="button">Cargar ejemplos</button>
+          <button class="ctb-btn" id="btnCtbDemoBorrar" type="button">Borrar ejemplos</button>
+        </div>
+      </div>
+
+      <div class="ctb-caja">
+        <h3>Cómo obtener tu clave</h3>
+        <ol class="ctb-pasos">
+          <li>
+            <b>1 · Cuenta en la API</b>
+            <p>Regístrate en <strong>api.baseapi.cl</strong> y copia tu <em>API Key</em>
+              (se envía en la cabecera X-API-Key). Es gratis para probar.</p>
+            <button class="ctb-enlace" type="button" data-url="https://api.baseapi.cl">Abrir api.baseapi.cl ↗</button>
+            <button class="ctb-enlace" type="button" data-url="https://api.baseapi.cl/docs/client">Ver documentación ↗</button>
+          </li>
+          <li>
+            <b>2 · Clave tributaria del SII</b>
+            <p>La consulta de <strong>situación tributaria</strong> es pública y solo necesita la
+              API Key. Para la <strong>ficha completa</strong> (representantes, socios, timbrajes)
+              se usa el RUT y la clave del representante legal.</p>
+            <button class="ctb-enlace" type="button" data-url="https://www.sii.cl/servicios_online/1943-1945.html">Obtener clave tributaria ↗</button>
+            <button class="ctb-enlace" type="button" data-url="https://misiir.sii.cl/cgi_misii/siihome.cgi">Entrar a Mi SII ↗</button>
+          </li>
+          <li>
+            <b>3 · Pega la clave y consulta</b>
+            <p>Guarda la clave en la tarjeta de arriba, escribe el RUT y consulta. La clave
+              queda solo en este teléfono y el resultado se guarda en tu registro local.</p>
+          </li>
+        </ol>
+        <p class="ctb-nota">El SII no publica una API abierta de situación tributaria: la consulta
+          oficial existe en sii.cl y los servicios que la automatizan usan su propia clave.
+          Sin ninguna clave, todo el registro local sigue funcionando.</p>
       </div>
 
       <div class="ctb-caja">

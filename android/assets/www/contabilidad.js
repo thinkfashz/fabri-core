@@ -15,7 +15,9 @@ const CTB = {
   filtro: "",
   editando: null,
   incluirBorrados: false,
-  cargando: false
+  cargando: false,
+  demo: true,
+  sii: null
 };
 
 const CTB_CAMPOS = [
@@ -39,6 +41,7 @@ function ctbClp(n) { return "$" + Math.round(Number(n || 0)).toLocaleString("es-
 function ctbIniciar() {
   CTB.activo = true;
   ctbPintarFormulario();
+  ctbModo(CTB.demo);
   ctbEstadoClave();
   ctbCargar();
 }
@@ -321,11 +324,126 @@ function ctbGuardarClaveSii() {
   }
 }
 
+/* ── modo demo ────────────────────────────────────────────────────────── */
+const CTB_DEMO_NEGOCIOS = [
+  { nombre: "ALMACÉN DOÑA ROSA SPA", giro: "VENTA AL POR MENOR EN ALMACENES", comuna: "PROVIDENCIA", region: "REGIÓN METROPOLITANA", menor: true, iva: true, alertas: 0, cumple: "SI" },
+  { nombre: "DISTRIBUIDORA SUR LIMITADA", giro: "VENTA AL POR MAYOR DE ALIMENTOS", comuna: "MAIPÚ", region: "REGIÓN METROPOLITANA", menor: false, iva: true, alertas: 1, cumple: "SI" },
+  { nombre: "COMERCIAL ANTIGUA EIRL", giro: "FERRETERÍA Y MATERIALES", comuna: "ÑUÑOA", region: "REGIÓN METROPOLITANA", menor: true, iva: true, alertas: 2, cumple: "NO" },
+  { nombre: "SERVICIOS ANDINOS SPA", giro: "CONSULTORÍA INFORMÁTICA", comuna: "CONCEPCIÓN", region: "REGIÓN DEL BIOBÍO", menor: true, iva: false, alertas: 0, cumple: "SI" }
+];
+
+/** Respuesta simulada con la MISMA forma que la API real. */
+function ctbDemoSii(rut, indice) {
+  let h = indice != null ? Number(indice) : 0;
+  if (indice == null) {
+    for (let i = 0; i < rut.length; i++) h = (h * 31 + rut.charCodeAt(i)) >>> 0;
+  }
+  const n = CTB_DEMO_NEGOCIOS[Math.abs(h) % CTB_DEMO_NEGOCIOS.length];
+  const alertas = [];
+  for (let i = 0; i < n.alertas; i++) {
+    alertas.push({
+      titulo: i === 0 && n.cumple === "NO" ? "Alerta:" : "Observación:",
+      grave: n.cumple === "NO" && i === 0,
+      grupo: "0" + (25 + i),
+      texto: i === 0 && n.cumple === "NO"
+        ? "No registra pago de impuestos del período."
+        : "Recomendación general de cumplimiento.",
+      motivo: "Dato simulado del modo demo."
+    });
+  }
+  return {
+    rut: rut,
+    nombre: n.nombre,
+    fechaConsulta: new Date().toLocaleString("es-CL"),
+    inicioActividades: true,
+    fechaInicioActividades: "01-01-" + (2015 + (h % 9)),
+    terminoGiro: false,
+    empresaMenorTamano: n.menor,
+    obligadoFacturaElectronica: true,
+    primeraCategoria: n.iva,
+    monedaExtranjera: false,
+    cumpleObligacionTributaria: n.cumple,
+    actividadesEconomicas: [
+      { codigo: "620200", descripcion: n.giro, categoriaTributaria: "1", afectaIva: n.iva, fechaInicio: "01-01-2015" }
+    ],
+    documentosAutorizados: [
+      { codigo: "0033", descripcion: "Factura Electrónica", ultimoAnioAutorizacion: "2026" },
+      { codigo: "0039", descripcion: "Boleta Electrónica", ultimoAnioAutorizacion: "2026" }
+    ],
+    documentosElectronicos: true,
+    alertas: alertas,
+    demo: true
+  };
+}
+
+/** Carga 4 fichas de ejemplo en el registro local (marcadas como demo). */
+function ctbCargarDemo() {
+  const hoy = new Date();
+  const ejemplos = CTB_DEMO_NEGOCIOS.map(function (n, i) {
+    const rut = ["76.543.210-3", "77.123.456-8", "78.987.654-2", "79.111.222-5"][i];
+    const sim = ctbDemoSii(rut, i);
+    return ctbMapearSii(sim);
+  });
+  let hechos = 0;
+  const paso = function (i) {
+    if (i >= ejemplos.length) {
+      if (typeof toast === "function") toast("Ejemplos demo cargados: " + hechos);
+      ctbCargar();
+      return;
+    }
+    apiTarde("contabilidad", { accion: "guardar", contribuyente: ejemplos[i] }, { maxMs: 15000 })
+      .then(function (r) { if (r.ok) hechos++; paso(i + 1); })
+      .catch(function () { paso(i + 1); });
+  };
+  paso(0);
+}
+
+/** Borra (lógicamente) las fichas que vinieron del modo demo. */
+function ctbBorrarDemo() {
+  const demo = CTB.lista.filter(function (c) { return c.origen === "api-sii-demo" || c.origen === "demo"; });
+  if (!demo.length) {
+    if (typeof toast === "function") toast("No hay ejemplos demo en el registro");
+    return;
+  }
+  let hechos = 0;
+  const paso = function (i) {
+    if (i >= demo.length) {
+      if (typeof toast === "function") toast("Ejemplos demo eliminados: " + hechos);
+      ctbCargar();
+      return;
+    }
+    apiTarde("contabilidad", { accion: "borrar", rut: demo[i].rut }, { maxMs: 12000 })
+      .then(function () { hechos++; paso(i + 1); })
+      .catch(function () { paso(i + 1); });
+  };
+  paso(0);
+}
+
+function ctbModo(demo) {
+  CTB.demo = !!demo;
+  document.querySelectorAll("[data-ctb-modo]").forEach(function (b) {
+    b.classList.toggle("activo", (b.dataset.ctbModo === "demo") === CTB.demo);
+  });
+  const el = document.getElementById("ctbModoNota");
+  if (el) {
+    el.textContent = CTB.demo
+      ? "Modo demo: respuestas simuladas, sin internet ni claves. Ideal para probar el flujo."
+      : "Modo real: consulta la API con tu clave. Sin clave, el registro local sigue funcionando.";
+  }
+  ctbEstadoClave();
+}
+
 function ctbConsultarSii() {
   const input = document.getElementById("ctbApiRut");
   const rut = input ? input.value.trim() : "";
   const caja = document.getElementById("ctbApiResultado");
   if (!rut) { if (typeof toast === "function") toast("Escribe el RUT a consultar", "error"); return; }
+  if (CTB.demo) {
+    if (caja) caja.innerHTML = '<div class="ctb-api-cargando">Simulando consulta (demo)…</div>';
+    const sim = ctbDemoSii(rut);
+    setTimeout(function () { window.FabriSii.resultado({ ok: true, data: sim }); }, 700);
+    return;
+  }
   if (!ctbEsApi()) return;
   if (caja) caja.innerHTML = '<div class="ctb-api-cargando">Consultando al SII…</div>';
   let r;
@@ -409,7 +527,7 @@ function ctbMapearSii(d) {
     regimen: "",
     inicio_actividades: d.fechaInicioActividades || "",
     extra: JSON.stringify(d),
-    origen: "api-sii"
+    origen: (d && d.demo) ? "api-sii-demo" : "api-sii"
   };
 }
 
@@ -438,6 +556,17 @@ function ctbGuardarSii() {
     if (t.closest("#btnCtbGuardarClave")) { ctbGuardarClaveSii(); return; }
     if (t.closest("#btnCtbConsultarSii")) { ctbConsultarSii(); return; }
     if (t.closest("#btnCtbGuardarSii")) { ctbGuardarSii(); return; }
+    if (t.closest("#btnCtbDemoCargar")) { ctbCargarDemo(); return; }
+    if (t.closest("#btnCtbDemoBorrar")) { ctbBorrarDemo(); return; }
+    const modo = t.closest("[data-ctb-modo]");
+    if (modo) { ctbModo(modo.dataset.ctbModo === "demo"); return; }
+    const enlace = t.closest("[data-url]");
+    if (enlace && enlace.dataset.url) {
+      try { window.FabrickNative.abrirUrl(enlace.dataset.url); } catch (e) {
+        if (typeof toast === "function") toast("No se pudo abrir el enlace");
+      }
+      return;
+    }
     if (t.closest("#btnCtbVerBorrados")) {
       CTB.incluirBorrados = !CTB.incluirBorrados;
       t.closest("#btnCtbVerBorrados").classList.toggle("activo", CTB.incluirBorrados);
