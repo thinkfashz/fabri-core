@@ -1943,3 +1943,28 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
 - Build EXIT=0 · 4.309 KB · VC 60 / 0.9.45 · `apksigner` v2 ✔ v3 ✔.
 - SHA-256: `e4d2edc2aaf81569479c4a5f7594b592198d6eca7d61333b69399b1cf3532769` · 4.408.766 B.
 - Entregada en `/storage/emulated/0/Download/FORGE-CORE-STOCK-0.9.45.apk` y `/tmp/opencode/`.
+
+## Sesión 2026-11-01 · APK 0.9.46 (61) — chat con streaming y 17 proveedores
+
+- Commit `c201561` (push `fb58ad5..c201561`).
+- **Causa del «se queda pegado»**: `chatRemoto` esperaba la respuesta completa
+  (timeout de lectura 180 s), sin primer token y sin cancelación posible para
+  remoto (`chatDetener` sólo actuaba en local). El botón quedaba bloqueado.
+- **NativeBridge**: nuevo `chatRemoto(prompt, maxTokens, ajustesJson)` con
+  `stream:true`, emisión por `FabriChat.token(...)`, historial, temperatura y
+  top_p; `chatRemotoCancelar()` desconecta la conexión; timeouts 15 s/90 s;
+  adaptador de Anthropic (`x-api-key`, `anthropic-version`, SSE
+  `content_block_delta`) y catálogo fijo de modelos (no publica `/models`).
+- **JS**: burbuja parcial también en remoto, `chatPintarTokens()` con freno de
+  70 ms, `FabriChat.remoto()` finaliza la burbuja existente (antes duplicaba),
+  `chatHistorialParaApi()` (últimos 8 turnos), `detenida` visible.
+- **Proveedores**: 17 entradas con URL, modelos sugeridos y nota de clave:
+  OpenAI, Anthropic, Google Gemini, DeepSeek, Groq, xAI, Mistral, OpenRouter,
+  Together, Perplexity, Fireworks, Cerebras, Hugging Face, OmniRoute, Ollama,
+  LM Studio y personalizado.
+- **Velocidad**: Rápido (320 tok, 0.4, sin RAG), Equilibrado (640, 0.7) y
+  Preciso (1200, 0.5, con RAG); se guarda en `forge.chat.velocidad`. Chip con
+  el modelo activo en la cabecera.
+- Build EXIT=0 · 4.309 KB · VC 61 / 0.9.46 · `apksigner` v2 ✔ v3 ✔.
+- SHA-256: `befc2d027bb340ea2b6e7d3a240d327bcd1dd3ba454831c476fe89233999b656` · 4.412.862 B.
+- Entregada en `/storage/emulated/0/Download/FORGE-CORE-STOCK-0.9.46.apk` y `/tmp/opencode/`.
