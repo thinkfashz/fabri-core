@@ -2055,14 +2055,21 @@ npx -y omniroute@latest
       <!-- 6 · acciones de pago -->
       <div class="imp-acciones-pago">
         <button class="cat-btn lima bloque" id="btnImpPagar" type="button">
-          Ir a pagar en el SII
+          Declarar en el SII
         </button>
         <div class="imp-acciones-fila">
-          <button class="cat-btn" id="btnImpDescargar" type="button">Descargar formulario</button>
+          <button class="cat-btn" id="btnImpPreview" type="button">Vista previa PDF</button>
+          <button class="cat-btn" id="btnImpDescargar" type="button">Descargar PDF</button>
+        </div>
+        <div class="imp-acciones-fila">
+          <button class="cat-btn" id="btnImpCompartir" type="button">Compartir resumen</button>
           <button class="cat-btn" id="btnImpImprimir" type="button">Comprobante</button>
         </div>
         <div class="imp-acciones-fila">
-          <button class="cat-btn fantasma" id="btnImpTgr" type="button">Pagar en Tesorería</button>
+          <button class="cat-btn fantasma" id="btnImpSeguimiento" type="button">Consultar folio</button>
+          <button class="cat-btn fantasma" id="btnImpGiros" type="button">Pagar giro</button>
+        </div>
+        <div class="imp-acciones-fila">
           <button class="cat-btn fantasma" id="btnImpActualizar" type="button">Actualizar datos</button>
         </div>
         <p class="imp-monto-inline">Monto a pagar: <b id="impComprobanteMonto">$0</b></p>
@@ -2106,6 +2113,29 @@ npx -y omniroute@latest
       <p class="imp-nota">Estimación referencial con el inventario y los cierres de caja de este teléfono.
         No constituye asesoría tributaria ni reemplaza el F29 oficial. Verifica las cifras en el SII:
         la tasa de PPM depende de tu régimen y el crédito fiscal exige factura a tu RUT.</p>
+
+      <div class="imp-barra-pago">
+        <div class="imp-barra-info">
+          <span>F29 · <em id="impBarraPeriodo">—</em></span>
+          <b id="impBarraMonto">$0</b>
+        </div>
+        <button class="imp-barra-btn" id="btnImpPagarYa" type="button">Ir a pagar</button>
+      </div>
+    </div>
+
+    <div class="imp-hoja" id="impPreviewHoja" hidden>
+      <div class="imp-hoja-fondo" data-cerrar-preview="1"></div>
+      <div class="imp-hoja-panel">
+        <header class="imp-hoja-cab">
+          <b>Vista previa · F29</b>
+          <button class="imp-hoja-x" type="button" data-cerrar-preview="1" aria-label="Cerrar">✕</button>
+        </header>
+        <iframe id="impPreview" title="Vista previa del F29"></iframe>
+        <footer class="imp-hoja-pie">
+          <button class="cat-btn" id="btnImpDescargar2" type="button">Descargar PDF</button>
+          <button class="cat-btn lima" id="btnImpCompartir2" type="button">Compartir</button>
+        </footer>
+      </div>
     </div>
   </section>
 

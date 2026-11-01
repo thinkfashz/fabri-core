@@ -289,7 +289,24 @@ function impCargarPanel() {
   if (typeof invApiTarde !== "function") return;
   invApiTarde("panel", {}, { maxMs: 12000 }).then(function (r) {
     if (!r.ok || !r.data || !r.data.ok) {
-      impAviso("No pude leer el inventario: " + (r.error || "error"));
+      // Respaldo: si el panel falla, se suman los productos uno a uno.
+      impAviso("El panel falló; calculando desde la lista de productos…");
+      invApiTarde("listar", { limite: 500 }, { maxMs: 15000 }).then(function (rl) {
+        if (!rl.ok || !rl.data || !Array.isArray(rl.data.productos)) {
+          impAviso("No pude leer el inventario: " + (r.error || "error"));
+          return;
+        }
+        let venta = 0, costo = 0;
+        rl.data.productos.forEach(function (p) {
+          const st = Number(p.stock || 0);
+          venta += Number(p.precio || 0) * st;
+          costo += Number(p.costo || 0) * st;
+        });
+        IMP.panel = { resumen: { valor_venta: venta, valor_costo: costo, total: rl.data.productos.length } };
+        IMP.cargado = true;
+        impAviso("");
+        impRecalcular();
+      });
       return;
     }
     IMP.panel = r.data;
@@ -388,6 +405,10 @@ function impPintar(d, delMes) {
   impPintarFormulario(d);
   const monto = document.getElementById("impComprobanteMonto");
   if (monto) monto.textContent = impClp(d.total);
+  const barra = document.getElementById("impBarraMonto");
+  if (barra) barra.textContent = impClp(d.total);
+  const per = document.getElementById("impBarraPeriodo");
+  if (per) per.textContent = impPeriodoLindo(IMP.periodo);
 }
 
 function impPintarBarra(d) {
@@ -463,8 +484,10 @@ function impPintarFormulario(d) {
   const rut = (document.getElementById("impRut") || {}).value || "—";
   const giro = (document.getElementById("impGiro") || {}).value || "—";
   const dir = (document.getElementById("impDireccion") || {}).value || "—";
-  const fila = function (etq, valor, clase) {
-    return '<div class="imp-fila-form ' + (clase || "") + '"><span>' + esc(etq) + '</span><b>' +
+  const fila = function (etq, valor, clase, cod) {
+    return '<div class="imp-fila-form ' + (clase || "") + '">' +
+      (cod ? '<span class="cod">' + esc(cod) + "</span>" : '<span class="cod"></span>') +
+      '<span>' + esc(etq) + '</span><b>' +
       (typeof valor === "number" ? impClp(valor) : esc(valor)) + '</b></div>';
   };
   caja.innerHTML =
@@ -481,16 +504,16 @@ function impPintarFormulario(d) {
     '<div class="imp-form-cuerpo">' +
       '<h4>IVA débito fiscal</h4>' +
       fila("Ventas netas del giro", d.neto) +
-      fila("IVA débito fiscal (19 %)", d.debito) +
+      fila("IVA débito fiscal (19 %)", d.debito, "", "501") +
       '<h4>IVA crédito fiscal</h4>' +
       fila("Compras con factura (con IVA)", d.costos) +
-      fila("IVA crédito fiscal", d.credito) +
+      fila("IVA crédito fiscal", d.credito, "", "510") +
       fila("Remanente del período anterior", d.remanente) +
       '<h4>Determinación</h4>' +
-      fila("IVA determinado", d.determinado, "destacada") +
+      fila("IVA determinado", d.determinado, "destacada", "537") +
       fila("Remanente para el próximo período", d.nuevoRemanente) +
       '<h4>Otros impuestos</h4>' +
-      fila("PPM (" + d.tasaPpm + " %)", d.ppm) +
+      fila("P.P.M. (" + d.tasaPpm + " %)", d.ppm, "", "90") +
       '<div class="imp-form-total"><span>TOTAL A PAGAR</span><b>' + impClp(d.total) + '</b></div>' +
     '</div>' +
     '<p class="imp-form-nota">Borrador generado con tus datos y tus cierres de caja. ' +
@@ -595,6 +618,10 @@ function impEstilosDocumento() {
 
 /** Descarga el borrador del F29 (diálogo de impresión → Guardar como PDF). */
 function impDescargarFormulario() {
+  impImprimirHtml(impFormularioHtml());
+}
+
+function impDescargarFormularioViejo() {
   const d = IMP.datos || impCalcular({});
   const c = impDatosCabecera();
   const fila = function (e, v, cls) {
@@ -632,6 +659,115 @@ function impDescargarFormulario() {
       'Verifica los montos y la tasa de PPM según tu régimen (Pro Pyme 14 D N°8 o N°3).</div>' +
     '</body></html>';
   impImprimirHtml(html);
+}
+
+/** HTML del borrador (se usa para imprimir, PDF y vista previa). */
+function impFormularioHtml() {
+  const d = IMP.datos || impCalcular({});
+  const c = impDatosCabecera();
+  const fila = function (cod, etq, v, cls) {
+    return '<tr class="' + (cls || "") + '"><td class="cod">' + (cod ? esc(cod) : "") + "</td>" +
+      "<td>" + esc(etq) + '</td><td class="num">' + impClp(v) + "</td></tr>";
+  };
+  return '<!doctype html><html><head><meta charset="utf-8">' + impEstilosDocumento() + '</head><body>' +
+    '<div class="cab"><div><h1>Formulario 29</h1>' +
+      '<div class="sub">Declaración mensual y pago simultáneo de impuestos · borrador</div></div>' +
+      '<div class="per">' + esc(impPeriodoLindo(IMP.periodo)).toUpperCase() + "</div></div>" +
+    '<table class="datos">' +
+      '<tr><td>Razón social</td><td class="num">' + esc(c.razon || "—") + "</td></tr>" +
+      '<tr><td>RUT</td><td class="num">' + esc(c.rut || "—") + "</td></tr>" +
+      '<tr><td>Giro</td><td class="num">' + esc(c.giro || "—") + "</td></tr>" +
+      '<tr><td>Domicilio</td><td class="num">' + esc(c.dir || "—") + "</td></tr>" +
+    "</table>" +
+    "<h4>IVA débito fiscal</h4><table>" +
+      fila("501", "IVA débito fiscal (ventas netas " + impClp(d.neto) + ")", d.debito) +
+    "</table>" +
+    "<h4>IVA crédito fiscal</h4><table>" +
+      fila("510", "IVA crédito fiscal (compras " + impClp(d.costos) + ")", d.credito) +
+      fila("", "Remanente del período anterior", d.remanente) +
+    "</table>" +
+    "<h4>Determinación</h4><table>" +
+      fila("537", "IVA determinado", d.determinado, "dst") +
+      fila("", "Remanente para el próximo período", d.nuevoRemanente) +
+    "</table>" +
+    "<h4>Otros impuestos</h4><table>" +
+      fila("90", "P.P.M. (" + d.tasaPpm + " %)", d.ppm) +
+    "</table>" +
+    '<div class="tot"><span>TOTAL A PAGAR</span><span>' + impClp(d.total) + "</span></div>" +
+    '<div class="nota">Borrador generado por FORGE CORE STOCK con tu inventario y tus cierres de caja. ' +
+      "Los códigos son de referencia: el F29 definitivo los asigna el SII al declarar. " +
+      "Presenta en sii.cl y paga en tgr.cl o en el banco. Verifica montos y tasa de PPM según tu régimen.</div>" +
+    "</body></html>";
+}
+
+function impVistaPrevia() {
+  const hoja = document.getElementById("impPreviewHoja");
+  const marco = document.getElementById("impPreview");
+  if (!hoja || !marco) return;
+  marco.srcdoc = impFormularioHtml();
+  hoja.hidden = false;
+}
+
+function impCerrarVista() {
+  const hoja = document.getElementById("impPreviewHoja");
+  if (hoja) hoja.hidden = true;
+  const marco = document.getElementById("impPreview");
+  if (marco) marco.srcdoc = "";
+}
+
+/** Texto para compartir por WhatsApp, correo o donde quieras. */
+function impTextoResumen() {
+  const d = IMP.datos || impCalcular({});
+  const c = impDatosCabecera();
+  return [
+    "F29 · " + impPeriodoLindo(IMP.periodo).toUpperCase(),
+    "Razón social: " + (c.razon || "—"),
+    "RUT: " + (c.rut || "—"),
+    "",
+    "IVA débito: " + impClp(d.debito),
+    "IVA crédito: " + impClp(d.credito),
+    "Remanente anterior: " + impClp(d.remanente),
+    "IVA determinado: " + impClp(d.determinado),
+    "PPM (" + d.tasaPpm + " %): " + impClp(d.ppm),
+    "TOTAL ESTIMADO: " + impClp(d.total),
+    "",
+    "Estimación generada con FORGE CORE STOCK."
+  ].join("\n");
+}
+
+function impCompartir() {
+  const texto = impTextoResumen();
+  const asunto = "F29 " + impPeriodoLindo(IMP.periodo);
+  try {
+    if (window.FabrickNative && typeof window.FabrickNative.compartir === "function") {
+      const r = JSON.parse(window.FabrickNative.compartir(texto, asunto));
+      if (r && r.ok) return;
+    }
+  } catch (e) { /* sigue con el respaldo */ }
+  if (navigator.share) {
+    navigator.share({ title: asunto, text: texto }).catch(function () {});
+    return;
+  }
+  try {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(texto);
+      if (typeof toast === "function") toast("Resumen copiado al portapapeles");
+    }
+  } catch (e) {
+    if (typeof toast === "function") toast("No se pudo compartir", "error");
+  }
+}
+
+/** Abre el trámite correcto en el navegador. */
+function impIrA(cual) {
+  const urls = {
+    declarar: "https://www.sii.cl/servicios_online/1042-3264.html",
+    seguimiento: "https://www.sii.cl/servicios_online/1042-3266.html",
+    tesoreria: "https://www.tgr.cl/",
+    giros: "https://www2.sii.cl/pagogiro-ui/"
+  };
+  const url = urls[cual];
+  if (url) impAbrir(url);
 }
 
 function impImprimir() {
@@ -689,7 +825,14 @@ function impAbrir(url) {
   document.addEventListener("click", function (ev) {
     const t = ev.target;
     if (!(t instanceof Element)) return;
-    if (t.closest("#btnImpPagar")) { impAbrir("https://www.sii.cl/destacados/f29/"); return; }
+    if (t.closest("#btnImpPagar") || t.closest("#btnImpPagarYa")) { impIrA("declarar"); return; }
+    if (t.closest("#btnImpDescargar2")) { impDescargarFormulario(); return; }
+    if (t.closest("#btnImpCompartir2")) { impCompartir(); return; }
+    if (t.closest("#btnImpSeguimiento")) { impIrA("seguimiento"); return; }
+    if (t.closest("#btnImpGiros")) { impIrA("giros"); return; }
+    if (t.closest("#btnImpPreview")) { impVistaPrevia(); return; }
+    if (t.closest("#btnImpCompartir")) { impCompartir(); return; }
+    if (t.closest("[data-cerrar-preview]")) { impCerrarVista(); return; }
     if (t.closest("#btnImpDescargar")) { impDescargarFormulario(); return; }
     if (t.closest("#btnImpImprimir")) { impImprimir(); return; }
     if (t.closest("#btnImpTgr")) { impAbrir("https://www.tgr.cl/"); return; }

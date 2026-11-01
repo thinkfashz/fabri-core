@@ -2262,6 +2262,25 @@ public final class NativeBridge {
         return contexto instanceof Activity ? (Activity) contexto : null;
     }
 
+    /** Comparte texto con cualquier app (WhatsApp, correo, etc.). */
+    @JavascriptInterface
+    public String compartir(String texto, String asunto) {
+        try {
+            Intent i = new Intent(Intent.ACTION_SEND);
+            i.setType("text/plain");
+            i.putExtra(Intent.EXTRA_TEXT, texto == null ? "" : texto);
+            if (asunto != null && !asunto.isEmpty()) {
+                i.putExtra(Intent.EXTRA_SUBJECT, asunto);
+            }
+            Intent chooser = Intent.createChooser(i, "Compartir");
+            chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            contexto.startActivity(chooser);
+            return "{\"ok\":true}";
+        } catch (Throwable t) {
+            return error(t.getMessage() == null ? t.toString() : t.getMessage());
+        }
+    }
+
     /** Abre un enlace externo en el navegador; sólo http(s). */
     @JavascriptInterface
     public String abrirUrl(String url) {
