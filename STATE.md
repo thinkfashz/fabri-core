@@ -1921,3 +1921,25 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
 - Build EXIT=0 · 4.300 KB · VC 59 / 0.9.44 · `apksigner` v2 ✔ v3 ✔.
 - SHA-256: `c8ea73d7819184e11dfeb5fbfcb2661f330c31ad5f9b51959c58823d94ada691` · 4.404.670 B.
 - Entregada en `/storage/emulated/0/Download/FORGE-CORE-STOCK-0.9.44.apk` y `/tmp/opencode/`.
+
+## Sesión 2026-11-01 · APK 0.9.45 (60) — wiki por código y precios de mercado
+
+- Commit `c450094` (push `ea0cd34..c450094`).
+- **Wiki**: `catWikiCargar()` reutiliza `invConsultarApiLibre()` (Open Food/Beauty/
+  Products Facts, libres y sin clave) y cachea 30 días en
+  `forge.wiki.<codigo>` de localStorage. `catPintarWikiApi()` pinta imagen,
+  descripción, ingredientes, Nutri-Score, NOVA, alérgenos y etiquetas.
+- **Precios de mercado** (`catPreciosMercado`): «Tu precio», promedio/mín/máx de
+  la misma categoría en la base local con % vs promedio, y observaciones de
+  Open Prices (`prices.openfoodfacts.org/api/v1/prices?product_code=`), con
+  filtro Chile y aviso cuando sólo hay datos de otros países. Verificado: la API
+  responde (`{"items":[]}` para códigos sin datos; OFF tiene 6.939 productos CL).
+  No existe API pública gratuita de precios de retail chileno, así que la
+  referencia local es la fuente fiable y Open Prices el extra colaborativo.
+- **Banners**: 6 temas con 6 paletas, carrusel automático 5,2 s y puntos
+  sincronizados. Corregido el avance (se medía por ancho de contenedor y
+  desalineaba; ahora por `offsetLeft` del primer hijo).
+- Animaciones escalonadas en banners y tarjetas, con `prefers-reduced-motion`.
+- Build EXIT=0 · 4.309 KB · VC 60 / 0.9.45 · `apksigner` v2 ✔ v3 ✔.
+- SHA-256: `e4d2edc2aaf81569479c4a5f7594b592198d6eca7d61333b69399b1cf3532769` · 4.408.766 B.
+- Entregada en `/storage/emulated/0/Download/FORGE-CORE-STOCK-0.9.45.apk` y `/tmp/opencode/`.
