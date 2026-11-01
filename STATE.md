@@ -2028,3 +2028,25 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
 - Build EXIT=0 · 4.334 KB · VC 64 / 0.9.49 · `apksigner` v2 ✔ v3 ✔.
 - SHA-256: `2cb9b6c566cb54539862dc124ec118ac71057d455beb2ab90a83fcaf178df965` · 4.437.646 B.
 - Entregada en `/storage/emulated/0/Download/FORGE-CORE-STOCK-0.9.49.apk` y `/tmp/opencode/`.
+
+## Sesión 2026-11-01 · APK 0.9.50 (65) — F29 con cierres, ayudas y descarga
+
+- Commit `d6f5500` (push `f97ba23..d6f5500`).
+- **Modos de ventas**: `auto` (cierres de caja), `stock` (proyección) y
+  `manual`. `impCargarBoletas()` usa la acción `boletas` (límite 200) y agrupa
+  por período con `impMesDe()`; tabla con fecha/folio/neto/IVA/total + totales.
+- **Autocompletado** desde «Mi identidad» (`fabrick.identidad` + acción
+  `perfil`): razón social, RUT, giro y domicilio.
+- **Ayudas** en los 10 campos, con ejemplo y explicación simple.
+- **Borrador F29** en pantalla y `impDescargarFormulario()` para el diálogo de
+  impresión (Guardar como PDF); `impImprimir()` para el comprobante.
+- **Acciones** reordenadas: «Ir a pagar en el SII» principal + Descargar,
+  Comprobante, TGR y Actualizar.
+- **FIX**: `.cat-btn.lima` no se pintaba en este módulo porque `--cat-*` sólo
+  existía en `#v-catalogo`; ahora se declaran en `#v-impuestos`.
+- **FIX**: desborde horizontal por la tabla de cierres (`min-width: 0`).
+- Verificado con captura 393×3100: modos, ayudas, cierres con totales,
+  datos autocompletados, borrador y botones.
+- Build EXIT=0 · 4.338 KB · VC 65 / 0.9.50 · `apksigner` v2 ✔ v3 ✔.
+- SHA-256: `bf2299205e2184bdcb06a671da72ea035e87f7fe6baaf00624e6884d84b1fa58` · 4.437.646 B.
+- Entregada en `/storage/emulated/0/Download/FORGE-CORE-STOCK-0.9.50.apk` y `/tmp/opencode/`.
