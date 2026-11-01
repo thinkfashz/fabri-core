@@ -2050,3 +2050,26 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
 - Build EXIT=0 · 4.338 KB · VC 65 / 0.9.50 · `apksigner` v2 ✔ v3 ✔.
 - SHA-256: `bf2299205e2184bdcb06a671da72ea035e87f7fe6baaf00624e6884d84b1fa58` · 4.437.646 B.
 - Entregada en `/storage/emulated/0/Download/FORGE-CORE-STOCK-0.9.50.apk` y `/tmp/opencode/`.
+
+## Sesión 2026-11-01 · APK 0.9.53 (68) — API del SII integrada al registro local
+
+- Commit `1c38b63` (push `b2357bd..1c38b63`).
+- **Contrato real** (obtenido del OpenAPI embebido en api.baseapi.cl):
+  `POST /api/v1/sii/contribuyente/situacion-tributaria`, cabecera `X-API-Key`,
+  cuerpo `{"rut":"12345678-9"}`. Respuesta: nombre, inicioActividades,
+  fechaInicioActividades, terminoGiro, empresaMenorTamano,
+  obligadoFacturaElectronica, primeraCategoria, monedaExtranjera,
+  cumpleObligacionTributaria, actividadesEconomicas[], documentosAutorizados[],
+  documentosElectronicos y alertas[] (con `grave`).
+- **NativeBridge**: `siiGuardarClave`, `siiEstadoClave`, `siiConsultar`.
+  Clave en la configuración del núcleo; consulta en hilo con timeout 15 s/45 s;
+  respuesta por `FabriSii.resultado`.
+- **UI**: tarjeta «Consulta al SII (opcional)» con clave, RUT, resultado con
+  chips y alertas, y «Guardar en el registro».
+- **Mapeo** (`ctbMapearSii`): nombre→razón social, primera actividad→giro,
+  cumplimiento→situación, fecha→inicio de actividades y la respuesta completa
+  en `extra`; entra al historial y a la auditoría como cualquier cambio.
+- Sin clave, el módulo funciona 100 % local.
+- Build EXIT=0 · 4.340 KB · VC 68 / 0.9.53 · `apksigner` v2 ✔ v3 ✔.
+- SHA-256: `1882f300f0aebdede0fc66d213e4b6a059986c2cd63b21b37ce053711539ab65` · 4.466.463 B.
+- Entregada en `/storage/emulated/0/Download/FORGE-CORE-STOCK-0.9.53.apk` y `/tmp/opencode/`.
