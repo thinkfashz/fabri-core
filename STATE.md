@@ -1898,3 +1898,26 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
 - Build EXIT=0 · 4.300 KB · VC 58 / 0.9.43 · `apksigner` v2 ✔ v3 ✔.
 - SHA-256: `d143bf23af7359cbb6aa44deb91a9f2fc64743d65132fbd794282f912a2169ac` · 4.400.574 B.
 - Entregada en `/storage/emulated/0/Download/FORGE-CORE-STOCK-0.9.43.apk` y `/tmp/opencode/`.
+
+## Sesión 2026-11-01 · APK 0.9.44 (59) — editor con scroll, QR y pulido
+
+- Commit `6c5f3ef` (push `1fe494b..6c5f3ef`).
+- **Bug del editor**: `.inv-editor` es una capa fija; sólo `.inv-ed-campos` tenía
+  scroll (~248 px visibles). Al deslizar sobre la ficha del margen no pasaba nada
+  y el formulario parecía cortado. Ahora scroll único del editor (`overflow-y:auto`
+  + `.inv-ed-campos` sin scroll propio), cabecera y pie sticky, y ficha del margen
+  más compacta (precio 32 px, celdas 9 px/13,5 px).
+- **Teclado**: `tecladoVisible()` busca el contenedor con scroll propio y desplaza
+  ese (el editor), no sólo la ventana.
+- **QR**: `invCodigoDeTexto()` extrae el código de un QR con URL (`?codigo=`),
+  JSON o número con separadores; aplicado en `invLecBucle` (pasos 1-5) y en
+  `catEscLeido()` del catálogo. `invNotaLector(paso)` muestra «código o QR» en la
+  boleta.
+- **Pulido**: KPIs con acento superior por estado; tablas con cabecera sticky,
+  filas alternas y hover; `.inv-tabla-scroll` con scroll horizontal; tarjetas de
+  producto con código de barras discreto.
+- Verificado con arnés headless: editor desplaza 1035 px sobre 722 visibles y
+  muestra todos los campos; paso 5 con lector y carrito.
+- Build EXIT=0 · 4.300 KB · VC 59 / 0.9.44 · `apksigner` v2 ✔ v3 ✔.
+- SHA-256: `c8ea73d7819184e11dfeb5fbfcb2661f330c31ad5f9b51959c58823d94ada691` · 4.404.670 B.
+- Entregada en `/storage/emulated/0/Download/FORGE-CORE-STOCK-0.9.44.apk` y `/tmp/opencode/`.
