@@ -3388,3 +3388,32 @@ input[type="range"]:active { opacity: 0.9; }
   .chat-hilo { scroll-behavior: auto; }
   .mensaje, .mensaje.mensaje-parcial .msg-texto::after { animation: none; }
 }
+
+/* Estilos de respuesta: segmentado compacto. */
+.chat-estilos {
+  display: flex;
+  gap: 6px;
+  padding: 4px;
+  margin-bottom: 12px;
+  border-radius: 999px;
+  border: 1px solid var(--borde, #2A2A2A);
+  background: var(--elevado, #171817);
+}
+.chat-estilo {
+  flex: 1;
+  min-height: 34px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--texto-3, #7A7F76);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 140ms ease, color 140ms ease;
+}
+.chat-estilo.activo {
+  background: #C8FF00;
+  color: #050505;
+  font-weight: 800;
+  box-shadow: 0 0 14px rgba(200, 255, 0, 0.22);
+}

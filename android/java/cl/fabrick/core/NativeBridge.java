@@ -965,6 +965,49 @@ public final class NativeBridge {
         return "{\"ok\":true,\"estado\":\"CONSULTANDO\"}";
     }
 
+    /**
+     * Precalienta DNS + TLS del proveedor en segundo plano. El primer mensaje
+     * suele pagar 150-600 ms sólo en abrir la conexión; así ya está lista.
+     * No avisa a la página: si falla, se ignora en silencio.
+     */
+    @JavascriptInterface
+    public String chatPreconectar() {
+        final String url = leerConfig("chat.url");
+        if (url == null || url.isEmpty()) {
+            return "{\"ok\":false}";
+        }
+        Thread hilo = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                HttpURLConnection con = null;
+                try {
+                    con = (HttpURLConnection) new URL(url).openConnection();
+                    con.setRequestMethod("HEAD");
+                    con.setConnectTimeout(6000);
+                    con.setReadTimeout(6000);
+                    con.setRequestProperty("Connection", "keep-alive");
+                    con.setRequestProperty("User-Agent", "FORGE CORE STOCK/0.9.0 (Android)");
+                    int codigo = con.getResponseCode();
+                    if (codigo >= 200 && codigo < 400) {
+                        // No se desconecta: la conexión queda en el pool para
+                        // que el primer turno la reutilice.
+                        InputStream in = con.getInputStream();
+                        if (in != null) in.close();
+                    } else {
+                        con.disconnect();
+                    }
+                } catch (Throwable ignorado) {
+                    if (con != null) {
+                        try { con.disconnect(); } catch (Throwable t2) { }
+                    }
+                }
+            }
+        }, "chat-preconectar");
+        hilo.setDaemon(true);
+        hilo.start();
+        return "{\"ok\":true}";
+    }
+
     /** Cancelación del turno remoto en curso (streaming). */
     private volatile boolean chatCancelado = false;
     private volatile HttpURLConnection chatConexion = null;
@@ -1017,12 +1060,15 @@ public final class NativeBridge {
 
         double temperatura = 0.7;
         double topP = 0.9;
+        String sistema = "Eres FORGE, el asistente del negocio. Responde en español de Chile, claro y breve.";
         JSONArray historial = new JSONArray();
         try {
             if (ajustesJson != null && !ajustesJson.trim().isEmpty()) {
                 JSONObject aj = new JSONObject(ajustesJson);
                 temperatura = aj.optDouble("temperatura", 0.7);
                 topP = aj.optDouble("top_p", 0.9);
+                String sis = aj.optString("sistema", "");
+                if (!sis.trim().isEmpty()) sistema = sis.trim();
                 JSONArray h = aj.optJSONArray("historial");
                 if (h != null) historial = h;
             }
@@ -1030,6 +1076,7 @@ public final class NativeBridge {
 
         final double tempFinal = temperatura;
         final double topPFinal = topP;
+        final String sistemaFinal = sistema;
         final JSONArray historialFinal = historial;
         chatCancelado = false;
 
@@ -1051,7 +1098,7 @@ public final class NativeBridge {
                     JSONArray mensajes = new JSONArray();
                     if (anthropic) {
                         // Anthropic separa el sistema de los mensajes.
-                        req.put("system", "Eres el asistente de FORGE CORE STOCK. Responde en español, claro y breve.");
+                        req.put("system", sistemaFinal);
                         for (int i = 0; i < historialFinal.length(); i++) {
                             JSONObject m = historialFinal.optJSONObject(i);
                             if (m == null) continue;
@@ -1067,7 +1114,7 @@ public final class NativeBridge {
                     } else {
                         JSONObject sys = new JSONObject();
                         sys.put("role", "system");
-                        sys.put("content", "Eres el asistente de FORGE CORE STOCK. Responde en español, claro y breve.");
+                        sys.put("content", sistemaFinal);
                         mensajes.put(sys);
                         for (int i = 0; i < historialFinal.length(); i++) {
                             JSONObject m = historialFinal.optJSONObject(i);

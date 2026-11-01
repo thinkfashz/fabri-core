@@ -161,7 +161,8 @@ const estadoApp = {
     topK: 40,
     repeticion: 1.1,
     maxTokens: 640,
-    velocidad: "equilibrado"
+    velocidad: "equilibrado",
+    estilo: "natural"
   }
 };
 
@@ -1607,6 +1608,8 @@ function chatIniciar() {
     try {
       const v = localStorage.getItem("forge.chat.velocidad") || "equilibrado";
       if (CHAT_VELOCIDADES[v]) chatAplicarVelocidad(v);
+      const e = localStorage.getItem("forge.chat.estilo") || "natural";
+      if (CHAT_ESTILOS[e]) chatAplicarEstilo(e);
     } catch (e) { /* sin preferencia guardada */ }
     // Si el modelo ya está cargado, la configuración no tiene por qué ocupar
     // espacio: queda a un toque en el engranaje.
@@ -1630,6 +1633,17 @@ function chatIniciar() {
   chatInicializarAjustesIA();
   chatInicializarPestanas();
   chatPintarFamilia();
+  // Precalienta la conexión del proveedor: el primer mensaje sale antes.
+  chatPreconectar();
+}
+
+/** Abre DNS+TLS del proveedor en segundo plano (si está configurado). */
+function chatPreconectar() {
+  try {
+    if (window.FabrickNative && typeof window.FabrickNative.chatPreconectar === "function") {
+      window.FabrickNative.chatPreconectar();
+    }
+  } catch (e) { /* cosmético */ }
 }
 
 /** Refresca el pill de estado y el avatar según el modo y el modelo. */
@@ -1725,11 +1739,50 @@ function chatAplicarProveedor(id, escribir) {
 }
 
 /* ── velocidad de respuesta ─────────────────────────────────────────────── */
+/* ── estilos de respuesta ────────────────────────────────────────────────
+   Cambian el system prompt y el muestreo. Un prompt corto y con rol explícito
+   produce respuestas más naturales y coherentes que uno largo y genérico. */
+const CHAT_ESTILOS = {
+  natural: {
+    etq: "Natural",
+    temperatura: 0.70,
+    sistema: "Eres FORGE, el asistente del negocio. Hablas español de Chile, cercano y claro, como un colega experto. " +
+      "Respondes en 2 a 4 frases salvo que te pidan detalle. No repites la pregunta, no saludas de más y no inventas datos: " +
+      "si no sabes algo, lo dices y propones cómo averiguarlo."
+  },
+  conciso: {
+    etq: "Conciso",
+    temperatura: 0.45,
+    sistema: "Eres FORGE. Respondes en español de Chile con la menor cantidad de palabras posible: una o dos frases, " +
+      "con el dato concreto primero. Sin relleno, sin repetir la pregunta, sin disculpas. Si falta un dato, dilo en una línea."
+  },
+  tecnico: {
+    etq: "Técnico",
+    temperatura: 0.30,
+    sistema: "Eres FORGE, asistente técnico de inventario y ventas. Respondes en español de Chile con precisión: " +
+      "cifras, unidades y pasos concretos. Máximo 6 líneas. Si hay que calcular, muestra el resultado y la fórmula en una línea. " +
+      "Nunca inventes números: si no están en los datos, dilo."
+  }
+};
+
 const CHAT_VELOCIDADES = {
   rapido:      { maxTokens: 320,  temperatura: 0.40, rag: false, etq: "Rápido" },
   equilibrado: { maxTokens: 640,  temperatura: 0.70, rag: false, etq: "Equilibrado" },
   preciso:     { maxTokens: 1200, temperatura: 0.50, rag: true,  etq: "Preciso" }
 };
+
+/** Cambia el estilo de respuesta (system prompt + muestreo). */
+function chatAplicarEstilo(e) {
+  const est = CHAT_ESTILOS[e] ? e : "natural";
+  estadoApp.chat.estilo = est;
+  estadoApp.chat.temperatura = CHAT_ESTILOS[est].temperatura;
+  document.querySelectorAll("#chatEstilo [data-estilo]").forEach(function (b) {
+    b.classList.toggle("activo", b.dataset.estilo === est);
+  });
+  chatPintarAjustesIA();
+  try { localStorage.setItem("forge.chat.estilo", est); } catch (err) {}
+  chatActualizarCabecera();
+}
 
 function chatAplicarVelocidad(v) {
   const conf = CHAT_VELOCIDADES[v] || CHAT_VELOCIDADES.equilibrado;
@@ -2357,9 +2410,10 @@ function chatArmarPlantilla(sistema, bloques, familia) {
  */
 function chatPromptLocal(contexto) {
   const c = estadoApp.chat;
+  const estilo = CHAT_ESTILOS[c.estilo] || CHAT_ESTILOS.natural;
   const maxSalida = c.maxTokens || 256;
   const presupuesto = Math.max(320, (c.nCtx || 2048) - maxSalida - 32);
-  const sistema = `Eres FORGE CORE STOCK, el asistente de inventario y ventas del negocio. Respondes en español chileno, corto y directo.
+  const sistema = `${estilo.sistema}
 Reglas obligatorias:
 - Si la pregunta es de productos, stock, precios, márgenes o ventas, usa los DATOS REALES que vienen en el mensaje. Nunca inventes números.
 - Máximo 4 o 5 líneas. Sin listas largas, sin repetir la pregunta, sin símbolos raros.
@@ -2466,14 +2520,18 @@ function esPreguntaBD(texto) {
 }
 
 
+/**
+ * Prompt del turno remoto. La conversación YA viaja como mensajes al proveedor,
+ * así que aquí sólo va el mensaje actual y, si existe, el contexto de negocio.
+ * Antes se repetía todo el historial en texto: gastaba el doble de tokens,
+ * tardaba más y confundía al modelo con turnos duplicados.
+ */
 function chatPromptRemoto(contexto) {
-  const historial = estadoApp.chat.mensajes
-    .filter((m) => m.rol === "user" || m.rol === "ia")
-    .slice(-10)
-    .map((m) => (m.rol === "user" ? "Usuario: " : "Asistente: ") + m.texto)
-    .join("\n")
-    .slice(-8000);
-  return `${chatSistemaContexto()}\n\n${contexto || ""}Conversación:\n${historial}\n\nResponde al último mensaje del usuario en 2 o 3 líneas.`;
+  const ultimo = estadoApp.chat.ultimoUsuario || "";
+  const ctx = String(contexto || "").trim();
+  if (!ctx) return ultimo;
+  return "Datos reales de mi negocio (úsalos sólo si vienen al caso):\n" +
+    ctx.slice(0, 2500) + "\n\n" + ultimo;
 }
 
 
@@ -2697,7 +2755,9 @@ function chatLeerAjustesIA() {
     top_k: c.topK,
     repetir: c.repeticion,
     semilla: (Math.random() * 2147483647) | 0,
-    max_tokens: c.maxTokens
+    max_tokens: c.maxTokens,
+    estilo: c.estilo || "natural",
+    sistema: (CHAT_ESTILOS[c.estilo] || CHAT_ESTILOS.natural).sistema
   };
 }
 
@@ -3196,7 +3256,8 @@ async function chatEnviar() {
       const ajustesRemoto = JSON.stringify({
         temperatura: cfg.temperatura,
         top_p: cfg.top_p,
-        historial: chatHistorialParaApi()
+        historial: chatHistorialParaApi(),
+        sistema: cfg.sistema
       });
       r = JSON.parse(window.FabrickNative.chatRemoto(
         chatPromptRemoto(contextoCombinado), cfg.max_tokens, ajustesRemoto));
@@ -3766,8 +3827,12 @@ window.FabriChat = {
       burbuja.texto = textoFinal || burbuja.texto || "";
       burbuja.parcial = false;
       burbuja.detenida = !!(r && r.cancelado);
-      if (r && r.ms) {
-        burbuja.meta = (r.modelo || "modelo") + " · " + Math.round(r.ms) + " ms";
+      if (burbuja) {
+        const partes = [];
+        if (r && r.modelo) partes.push(r.modelo);
+        if (c.primerTokenMs) partes.push("1er token " + Math.round(c.primerTokenMs) + " ms");
+        if (r && r.ms) partes.push("total " + (r.ms / 1000).toFixed(1) + " s");
+        if (partes.length) burbuja.meta = partes.join(" · ");
       }
     } else if (textoFinal) {
       chatAgregarRespuesta(textoFinal, (r && r.modelo) || "remoto", false, "remoto");
@@ -4778,6 +4843,9 @@ document.addEventListener("click", (ev) => {
 
   const vel = ev.target.closest("[data-vel]");
   if (vel) { chatAplicarVelocidad(vel.dataset.vel); return; }
+
+  const est = ev.target.closest("[data-estilo]");
+  if (est) { chatAplicarEstilo(est.dataset.estilo); return; }
 
   const sugerencia = ev.target.closest("[data-sugerencia]");
   if (sugerencia) {
