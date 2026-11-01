@@ -2147,3 +2147,21 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
 - Build EXIT=0 · 4.345 KB · VC 72 / 0.9.57 · `apksigner` v2 ✔ v3 ✔.
 - SHA-256: `65cce3de18d57fdf5793a39ee3317f06813c9cdea923c9435b528a8d9daa343e` · 4.478.751 B.
 - Entregada en `/storage/emulated/0/Download/FORGE-CORE-STOCK-0.9.57.apk` y `/tmp/opencode/`.
+
+## Sesión 2026-11-01 · APK 0.9.58 (73) — F29 oficial, PDF y barra de pago
+
+- Commit `b197425` (push `83a3ea1..b197425`).
+- **Formulario**: F29 compacto con códigos de referencia (501/510/537/90),
+  remanente anterior y siguiente, TOTAL destacado; mismo HTML para pantalla,
+  vista previa y PDF (`impFormularioHtml()`).
+- **Vista previa**: hoja con iframe + Descargar PDF + Compartir.
+- **Compartir**: `NativeBridge.compartir` (ACTION_SEND), respaldo con
+  `navigator.share` y portapapeles.
+- **Botones**: declarar (1042-3264), consultar folio (1042-3266), pagar giro
+  (pagogiro-ui), comprobante y actualizar; todos con URL oficial verificada.
+- **Barra fija** de pago con período, monto y CTA, con blur y safe-area.
+- **Inventario robusto**: fallback a `listar` cuando el panel falla.
+- FIX: estructura HTML reparada (sección duplicada al insertar barra/modal).
+- Build EXIT=0 · 4.346 KB · VC 73 / 0.9.58 · `apksigner` v2 ✔ v3 ✔.
+- SHA-256: `b832c89df6ff626c490907dd7d4a28ec7d721fa2ea49fcdd7ea6fbbdb4399e3e` · 4.482.847 B.
+- Entregada en `/storage/emulated/0/Download/FORGE-CORE-STOCK-0.9.58.apk` y `/tmp/opencode/`.
