@@ -2108,3 +2108,24 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
 - Build EXIT=0 · 4.344 KB · VC 70 / 0.9.55 · `apksigner` v2 ✔ v3 ✔.
 - SHA-256: `4f81ac665ffd180eca9c8d93234d88f5d68a4cb2fb775b8b14850d825d30b324` · 4.470.559 B.
 - Entregada en `/storage/emulated/0/Download/FORGE-CORE-STOCK-0.9.55.apk` y `/tmp/opencode/`.
+
+## Sesión 2026-11-01 · APK 0.9.56 (71) — sesión SII propia (sin terceros)
+
+- Commit `ab34cd6` (push `f900c25..ab34cd6`).
+- **Login nativo**: `siiLogin` hace el POST real a
+  `zeusr.sii.cl/cgi_AUT2000/CAutInicio.cgi` con rut/dv/rutcntr/clave/code=411
+  (el formulario no tiene captcha). Verificado leyendo el HTML del login.
+- **Sesión persistente**: CookieManager + serialización de cookies en SQLite
+  (`sii.cookies`), restauradas al iniciar. `siiCerrarSesion` las borra.
+- **Clave cifrada opcional** con AndroidKeyStore (AES/GCM, llave en el TEE);
+  `siiReconectar` permite volver a entrar sin escribirla.
+- **Consulta autenticada** `siiGet` (sólo dominios sii.cl, https) con URL
+  editable desde la interfaz y parseo tolerante del HTML (RUT, razón social,
+  inicio, actividades, estado) + visor del HTML recibido.
+- Limitación conocida: varias páginas del SII son apps JS y no se pueden leer
+  con un GET simple; por eso la URL es configurable y la API queda como
+  alternativa opcional.
+- FIX: `android.util.Base64` (no java.util) y try/catch en `siiCerrarSesion`.
+- Build EXIT=0 · 4.345 KB · VC 71 / 0.9.56 · `apksigner` v2 ✔ v3 ✔.
+- SHA-256: `171a8d14adab3d6230136ac3b84fff77e9c4b59a780dae4c287ae902d0117fae` · 4.474.655 B.
+- Entregada en `/storage/emulated/0/Download/FORGE-CORE-STOCK-0.9.56.apk` y `/tmp/opencode/`.
