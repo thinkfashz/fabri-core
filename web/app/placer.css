@@ -688,3 +688,93 @@ body.mp-abierto .nav { transform: translateY(112%); transition: transform .24s v
   background: rgba(6,9,18,.92); border: 1px solid rgba(255,194,75,.35);
   color: #ffc24b; font-size: 11.5px; line-height: 1.5; z-index: 450;
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Buscador de direcciones y negocios · GPS con estados
+   ══════════════════════════════════════════════════════════════════════════ */
+.mp-buscar-caja { position: relative; z-index: 620; }
+.mp-buscador {
+  display: flex; align-items: center; gap: 9px;
+  padding: 0 6px 0 12px; min-height: 46px;
+  border-radius: 15px; border: 1px solid var(--line-2);
+  background: rgba(255,255,255,.045);
+  transition: border-color .16s, background .16s;
+}
+.mp-buscador:focus-within { border-color: rgba(200,255,0,.45); background: rgba(255,255,255,.06); }
+.mp-buscador-ico svg {
+  display: block; width: 17px; height: 17px;
+  fill: none; stroke: var(--tx3); stroke-width: 1.9; stroke-linecap: round;
+}
+.mp-buscador input {
+  flex: 1; min-width: 0; border: 0; background: transparent; outline: none;
+  color: var(--tx); font: inherit; font-size: 13.5px; padding: 12px 0;
+}
+.mp-buscador input::placeholder { color: var(--tx4); }
+.mp-buscador input::-webkit-search-cancel-button { -webkit-appearance: none; }
+.mp-buscador-go {
+  flex: 0 0 auto; min-width: 42px; height: 34px; padding: 0 12px;
+  border: 0; border-radius: 10px; cursor: pointer;
+  background: rgba(255,255,255,.08); color: var(--tx2);
+  font: inherit; font-size: 12px; font-weight: 700;
+}
+.mp-buscador-go:hover { background: rgba(200,255,0,.16); color: #d8ff5c; }
+.mp-buscador-go:active { transform: scale(.95); }
+
+.mp-sugerencias {
+  position: absolute; left: 0; right: 0; top: calc(100% + 6px);
+  max-height: 44vh; overflow-y: auto;
+  padding: 5px; border-radius: 15px;
+  border: 1px solid var(--line-2);
+  background: rgba(9,12,20,.97);
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 24px 50px -24px rgba(0,0,0,.95);
+}
+.mp-sugerencias[hidden] { display: none; }
+.mp-sug {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 9px 10px; border: 0; border-radius: 10px; background: transparent;
+  color: var(--tx); font: inherit; text-align: left; cursor: pointer;
+}
+.mp-sug:hover, .mp-sug:focus-visible { background: rgba(255,255,255,.07); }
+.mp-sug-ico {
+  width: 30px; height: 30px; flex: 0 0 auto; border-radius: 9px;
+  display: grid; place-items: center; color: #c8ff00; background: rgba(200,255,0,.1);
+}
+.mp-sug-ico svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+.mp-sug-txt { min-width: 0; display: grid; gap: 1px; }
+.mp-sug-txt b { font-size: 12.8px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mp-sug-txt small { font-size: 10.8px; color: var(--tx3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mp-sug-vacia { padding: 12px; font-size: 12px; color: var(--tx4); text-align: center; }
+
+.mp-volver {
+  margin-left: auto; flex: 0 0 auto;
+  padding: 4px 9px; border-radius: 999px; cursor: pointer;
+  border: 1px solid rgba(200,255,0,.35); background: rgba(200,255,0,.1);
+  color: #d8ff5c; font: inherit; font-size: 10.5px; font-weight: 650;
+}
+.mp-volver[hidden] { display: none; }
+
+/* Objetivo buscado: anillo que late distinto del punto «estás aquí». */
+.mp-objetivo { background: none; border: 0; }
+.mp-objetivo-anillo {
+  position: absolute; inset: 0; border-radius: 50%;
+  border: 2px solid rgba(200,255,0,.85);
+  box-shadow: 0 0 18px rgba(200,255,0,.55), inset 0 0 12px rgba(200,255,0,.25);
+  animation: mp-objetivo-late 2.2s ease-in-out infinite;
+}
+.mp-objetivo-punto {
+  position: absolute; inset: 16px; border-radius: 50%;
+  background: #c8ff00; box-shadow: 0 0 12px rgba(200,255,0,.9);
+}
+@keyframes mp-objetivo-late {
+  0%,100% { transform: scale(.94); opacity: .75; }
+  50% { transform: scale(1.06); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) { .mp-objetivo-anillo { animation: none; } }
+
+/* Botón de ubicación con estados reales. */
+.mp-ubi.girando svg { animation: mp-gira 1s linear infinite; }
+.mp-ubi.activo { border-color: rgba(200,255,0,.5); background: rgba(200,255,0,.12); color: #d8ff5c; }
+@keyframes mp-gira { to { transform: rotate(360deg); } }
+
+.mp-live.buscado { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }

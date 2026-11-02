@@ -37,7 +37,12 @@ window.Placer = (function () {
     circulo: null,
     usuario: null,
     precision: null,
-    pos: null,
+    pos: null,          // centro de búsqueda (mi GPS o un lugar buscado)
+    yo: null,           // posición real del GPS, si existe
+    objetivo: null,     // marcador del lugar buscado
+    manual: false,      // true cuando el centro lo eligió el usuario
+    texto: "",          // filtro por nombre/dirección
+    buscandoLugar: false,
     mercados: [],
     filtro: "",
     radio: Number(localStorage.getItem(CLAVE_RADIO) || 1500),
@@ -282,24 +287,39 @@ window.Placer = (function () {
 
   /* ── ubicación ─────────────────────────────────────────────────────────── */
   function textoUbicacion() {
-    const p = ESTADO.pos;
-    if (!p) return "Sin ubicación todavía";
-    if (ESTADO.modoUbi === "real") return "Tu ubicación · ±" + Math.round(p.precision || 0) + " m";
-    return "Ubicación de referencia: " + p.nombre;
+    if (ESTADO.manual && ESTADO.pos) return "Buscando en " + ESTADO.pos.nombre;
+    if (!ESTADO.yo) {
+      if (ESTADO.pos && ESTADO.modoUbi === "negada") return "Ubicación de referencia: " + ESTADO.pos.nombre;
+      return "Sin ubicación todavía";
+    }
+    return "Tu ubicación · ±" + Math.round(ESTADO.yo.precision || 0) + " m";
   }
 
   function pintarEstado() {
     const live = $("mpLive");
     const txt = $("mpUbiTexto");
     if (txt) txt.textContent = textoUbicacion();
+    const volver = $("mpVolver");
+    if (volver) volver.hidden = !(ESTADO.manual && ESTADO.yo);
+    const ubi = $("mpUbicar");
+    if (ubi) {
+      ubi.classList.toggle("activo", ESTADO.modoUbi === "real" && !ESTADO.manual);
+      ubi.classList.toggle("girando", ESTADO.modoUbi === "esperando");
+      ubi.setAttribute("aria-label", ESTADO.manual ? "Volver a mi ubicación" : "Centrar en mi ubicación");
+    }
     if (live) {
-      live.className = "mp-live " + (ESTADO.modoUbi === "real" ? "ok" : ESTADO.modoUbi === "negada" ? "warn" : "");
-      live.innerHTML = "<i></i>" + (ESTADO.modoUbi === "real" ? "en vivo" : ESTADO.modoUbi === "negada" ? "referencia" : "ubicando");
+      const estado = ESTADO.manual ? "buscado"
+        : ESTADO.modoUbi === "real" ? "ok"
+        : ESTADO.modoUbi === "negada" ? "warn" : "";
+      live.className = "mp-live " + estado;
+      live.innerHTML = "<i></i>" + (ESTADO.manual ? "lugar buscado"
+        : ESTADO.modoUbi === "real" ? "en vivo"
+        : ESTADO.modoUbi === "negada" ? "referencia" : "ubicando");
     }
   }
 
   function marcarUsuario(p) {
-    if (!ESTADO.mapa) return;
+    if (!ESTADO.mapa || !p) return;
     const punto = [p.lat, p.lon];
     if (!ESTADO.usuario) {
       ESTADO.usuario = L.marker(punto, {
@@ -320,6 +340,24 @@ window.Placer = (function () {
       ESTADO.precision.setLatLng(punto);
       ESTADO.precision.setRadius(Math.max(25, p.precision || 40));
       if (ESTADO.circulo) ESTADO.circulo.setLatLng(punto);
+    }
+  }
+
+  function pintarObjetivo() {
+    if (!ESTADO.mapa) return;
+    if (!ESTADO.manual || !ESTADO.pos) {
+      if (ESTADO.objetivo) { ESTADO.mapa.removeLayer(ESTADO.objetivo); ESTADO.objetivo = null; }
+      return;
+    }
+    const ico = L.divIcon({
+      className: "mp-objetivo",
+      html: '<span class="mp-objetivo-anillo"></span><span class="mp-objetivo-punto"></span>',
+      iconSize: [40, 40], iconAnchor: [20, 20]
+    });
+    if (!ESTADO.objetivo) {
+      ESTADO.objetivo = L.marker([ESTADO.pos.lat, ESTADO.pos.lon], { icon: ico, interactive: false, zIndexOffset: 700 }).addTo(ESTADO.mapa);
+    } else {
+      ESTADO.objetivo.setLatLng([ESTADO.pos.lat, ESTADO.pos.lon]).setIcon(ico);
     }
   }
 
@@ -354,7 +392,9 @@ window.Placer = (function () {
         cargar();
       },
       (err) => {
-        usarRespaldo(err && err.code === 1 ? "No diste permiso de ubicación" : "No se pudo obtener tu ubicación");
+        usarRespaldo(err && err.code === 1
+          ? "Bloqueaste la ubicación (o el navegador la tiene bloqueada)"
+          : "No se pudo obtener tu ubicación");
         cargar();
       },
       opciones
@@ -373,28 +413,50 @@ window.Placer = (function () {
   }
 
   function aplicarPosicion(pos, primera) {
-    const antes = ESTADO.pos;
+    const antes = ESTADO.yo;
     const p = { lat: pos.coords.latitude, lon: pos.coords.longitude, precision: pos.coords.accuracy };
-    ESTADO.pos = p;
+    ESTADO.yo = p;
     ESTADO.modoUbi = "real";
-    guardar(CLAVE_UBI, { lat: p.lat, lon: p.lon, t: Date.now() });
     marcarUsuario(p);
+    guardar(CLAVE_UBI, { lat: p.lat, lon: p.lon, t: Date.now() });
+
+    // Si el usuario buscó una dirección a mano, el GPS no le mueve el mapa:
+    // sólo actualiza el punto azul de «estás aquí».
+    if (!ESTADO.manual) {
+      ESTADO.pos = p;
+      pintarEstado();
+      pintarRadio();
+      if (!primera && antes) {
+        const d = metrosc(antes.lat, antes.lon, p.lat, p.lon);
+        if (d > 150 && !ESTADO.cargando) cargar(true);
+      }
+      return;
+    }
+
     pintarEstado();
-    if (!primera && antes) {
-      const d = metrosc(antes.lat, antes.lon, p.lat, p.lon);
-      if (d > 150) cargar(true);
+    // Si el GPS llega después de un fallo y no hay mercados, se usa igual.
+    if (!ESTADO.mercados.length && !ESTADO.cargando) {
+      ESTADO.pos = p;
+      cargar();
     }
   }
 
   function usarRespaldo(motivo) {
-    ESTADO.pos = { lat: RESPALDO.lat, lon: RESPALDO.lon, precision: 0, nombre: RESPALDO.nombre };
+    ESTADO.yo = null;
     ESTADO.modoUbi = "negada";
-    marcarUsuario(ESTADO.pos);
+    if (!ESTADO.manual) {
+      ESTADO.pos = { lat: RESPALDO.lat, lon: RESPALDO.lon, precision: 0, nombre: RESPALDO.nombre };
+      pintarRadio();
+    }
     pintarEstado();
     const aviso = $("mpAviso");
     if (aviso) {
-      aviso.innerHTML = "<b>" + esc(motivo) + ".</b> Mostrando " + esc(RESPALDO.nombre) +
-        ' y sus mercados. <button type="button" id="mpReintentar">Reintentar</button>';
+      aviso.innerHTML = "<b>" + esc(motivo) + ".</b> " +
+        (/bloqueaste/i.test(motivo)
+          ? "Actívala en el candado de la barra de direcciones o escribe tu calle arriba. "
+          : "") +
+        "Mientras tanto: " + esc(RESPALDO.nombre) + " y sus mercados." +
+        ' <button type="button" id="mpReintentar">Reintentar</button>';
       const b = $("mpReintentar");
       if (b) b.onclick = () => ubicar(true);
     }
@@ -544,6 +606,112 @@ window.Placer = (function () {
     }).sort((a, b) => a.dist - b.dist);
   }
 
+  /* ── buscador de direcciones y negocios ────────────────────────────────── */
+  let relojBusqueda = null;
+
+  function ocultarSugerencias() {
+    const caja = $("mpSugerencias");
+    if (caja) { caja.hidden = true; caja.innerHTML = ""; }
+  }
+
+  function pintarSugerencias(lista) {
+    const caja = $("mpSugerencias");
+    if (!caja) return;
+    if (!lista.length) {
+      caja.hidden = false;
+      caja.innerHTML = '<div class="mp-sug-vacia">Sin resultados. Prueba con «calle + número» o el nombre del local.</div>';
+      return;
+    }
+    caja.hidden = false;
+    caja.innerHTML = lista.map((l, i) =>
+      '<button type="button" class="mp-sug" data-i="' + i + '">' +
+        '<span class="mp-sug-ico"><svg viewBox="0 0 24 24"><path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z"/><circle cx="12" cy="10" r="2.4"/></svg></span>' +
+        '<span class="mp-sug-txt"><b>' + esc(l.nombre) + "</b><small>" + esc(l.direccion || l.tipo || "") + "</small></span>" +
+      "</button>").join("");
+    caja.querySelectorAll(".mp-sug").forEach((b) => {
+      b.onclick = () => elegirLugar(lista[Number(b.dataset.i)]);
+    });
+  }
+
+  async function buscarLugares(texto) {
+    const q = texto.trim();
+    if (q.length < 3) { ocultarSugerencias(); return; }
+    const caja = $("mpSugerencias");
+    if (caja) { caja.hidden = false; caja.innerHTML = '<div class="mp-sug-vacia">Buscando…</div>'; }
+    try {
+      const ctrl = new AbortController();
+      const reloj = setTimeout(() => ctrl.abort(), 12000);
+      let url = "/api/lugares?q=" + encodeURIComponent(q);
+      if (ESTADO.yo) url += "&lat=" + ESTADO.yo.lat.toFixed(4) + "&lon=" + ESTADO.yo.lon.toFixed(4);
+      const r = await fetch(url, { signal: ctrl.signal, cache: "no-store" });
+      clearTimeout(reloj);
+      const d = await r.json();
+      if (d && d.ok) {
+        pintarSugerencias(d.lugares || []);
+      } else {
+        pintarSugerencias(await nominatimDirecto(q));
+      }
+    } catch (e) {
+      try { pintarSugerencias(await nominatimDirecto(q)); }
+      catch (_) { if (caja) caja.innerHTML = '<div class="mp-sug-vacia">No pude buscar. Revisa la conexión.</div>'; }
+    } finally {
+      ESTADO.buscandoLugar = false;
+    }
+  }
+
+  // Si /api/lugares no responde (despliegue viejo, 502), se pregunta directo.
+  async function nominatimDirecto(q) {
+    const ctrl = new AbortController();
+    const reloj = setTimeout(() => ctrl.abort(), 10000);
+    const url = "https://nominatim.openstreetmap.org/search?format=jsonv2&limit=7&addressdetails=1" +
+      "&accept-language=es&countrycodes=cl&q=" + encodeURIComponent(q);
+    const r = await fetch(url, { signal: ctrl.signal });
+    clearTimeout(reloj);
+    if (!r.ok) throw new Error("nominatim " + r.status);
+    const lote = await r.json();
+    return (lote || []).map((it) => ({
+      nombre: it.name || (it.display_name || "").split(",")[0],
+      direccion: it.display_name || "",
+      tipo: it.type || "",
+      lat: Number(it.lat), lon: Number(it.lon)
+    })).filter((l) => isFinite(l.lat) && isFinite(l.lon));
+  }
+
+  function elegirLugar(l) {
+    if (!l) return;
+    ESTADO.manual = true;
+    ESTADO.pos = { lat: l.lat, lon: l.lon, precision: 0, nombre: l.nombre };
+    ESTADO.filtro = "";
+    ESTADO.texto = "";
+    const q = $("mpBuscarQ");
+    if (q) q.value = l.nombre;
+    ocultarSugerencias();
+    const volver = $("mpVolver");
+    if (volver) volver.hidden = !ESTADO.yo;
+    pintarEstado();
+    if (ESTADO.mapa) ESTADO.mapa.setView([l.lat, l.lon], 16, { animate: true });
+    pintarRadio();
+    pintarObjetivo();
+    cargar();
+  }
+
+  function volverAMi() {
+    const q = $("mpBuscarQ");
+    if (q) q.value = "";
+    ESTADO.texto = "";
+    ocultarSugerencias();
+    if (!ESTADO.yo) { ESTADO.manual = false; ubicar(true); return; }
+    ESTADO.manual = false;
+    ESTADO.pos = ESTADO.yo;
+    const volver = $("mpVolver");
+    if (volver) volver.hidden = true;
+    pintarEstado();
+    if (ESTADO.mapa) ESTADO.mapa.setView([ESTADO.yo.lat, ESTADO.yo.lon], 16, { animate: true });
+    pintarRadio();
+    pintarObjetivo();
+    cargar();
+  }
+
   /* ── mapa ──────────────────────────────────────────────────────────────── */
   const CAPAS = {
     calles: [
@@ -582,6 +750,7 @@ window.Placer = (function () {
 
     ponerCapa(ESTADO.modo);
     L.control.zoom({ position: "bottomright" }).addTo(ESTADO.mapa);
+    L.control.scale({ imperial: false, position: "bottomleft", maxWidth: 90 }).addTo(ESTADO.mapa);
 
     ESTADO.mapa.on("zoomend", marcarZoom);
     ESTADO.mapa.on("dragend", alMoverMapa);
@@ -714,6 +883,7 @@ window.Placer = (function () {
       ESTADO.mapa.fitBounds(puntos, { padding: [34, 34], maxZoom: 17, animate: true });
     }
     pintarRadio();
+    pintarObjetivo();
     marcarZoom();
     marcarActivo();
   }
@@ -727,7 +897,13 @@ window.Placer = (function () {
   }
 
   function filtrados() {
-    return ESTADO.mercados.filter((m) => !ESTADO.filtro || m.ico === ESTADO.filtro);
+    const t = ESTADO.texto.trim().toLowerCase();
+    return ESTADO.mercados.filter((m) => {
+      if (ESTADO.filtro && m.ico !== ESTADO.filtro) return false;
+      if (!t) return true;
+      return (m.nombre + " " + m.rubro + " " + (m.direccion || "") + " " + (m.comuna || ""))
+        .toLowerCase().includes(t);
+    });
   }
 
   /* ── lista ─────────────────────────────────────────────────────────────── */
@@ -767,8 +943,12 @@ window.Placer = (function () {
     pintarFiltros();
 
     if (!lista.length) {
-      caja.innerHTML = '<div class="mp-vacio"><b>Sin mercados en este radio</b>' +
-        "<p>Prueba con un radio más grande o mueve el mapa y toca «Buscar acá».</p></div>";
+      const t = ESTADO.texto.trim();
+      caja.innerHTML = t
+        ? '<div class="mp-vacio"><b>Ningún local coincide con «' + esc(acortar(t, 24)) + '»</b>' +
+          "<p>Arriba puedes buscar esa dirección y mover el mapa hasta ahí.</p></div>"
+        : '<div class="mp-vacio"><b>Sin mercados en este radio</b>' +
+          "<p>Prueba con un radio más grande o mueve el mapa y toca «Buscar acá».</p></div>";
       return;
     }
 
@@ -1154,7 +1334,39 @@ window.Placer = (function () {
     if (ESTADO.montado) return;
     ESTADO.montado = true;
 
-    $("mpUbicar").onclick = () => ubicar(true);
+    $("mpUbicar").onclick = () => {
+      if (ESTADO.manual && ESTADO.yo) { volverAMi(); return; }
+      ubicar(true);
+    };
+    const volver = $("mpVolver");
+    if (volver) volver.onclick = volverAMi;
+
+    const form = $("mpBuscador");
+    const campo = $("mpBuscarQ");
+    if (form) {
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const q = (campo && campo.value || "").trim();
+        if (!q) return;
+        await buscarLugares(q);
+        const primero = document.querySelector("#mpSugerencias .mp-sug");
+        if (primero) primero.click();
+      });
+    }
+    if (campo) {
+      campo.addEventListener("input", () => {
+        ESTADO.texto = campo.value.trim();
+        pintarLista();
+        clearTimeout(relojBusqueda);
+        relojBusqueda = setTimeout(() => buscarLugares(campo.value), 380);
+      });
+      campo.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") { campo.value = ""; ESTADO.texto = ""; ocultarSugerencias(); pintarLista(); }
+      });
+    }
+    document.addEventListener("click", (e) => {
+      if (!(e.target instanceof Element) || !e.target.closest(".mp-buscar-caja")) ocultarSugerencias();
+    });
     $("mpRefrescar").onclick = () => cargar();
     $("mpHojaX").onclick = cerrarHoja;
     $("mpHojaFondo").onclick = cerrarHoja;

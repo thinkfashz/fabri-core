@@ -135,9 +135,22 @@
             </button>
           </header>
 
+          <div class="mp-buscar-caja">
+            <form class="mp-buscador" id="mpBuscador" role="search">
+              <span class="mp-buscador-ico" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.2-3.2"/></svg>
+              </span>
+              <input id="mpBuscarQ" type="search" placeholder="Buscar dirección o negocio" autocomplete="off"
+                     aria-label="Buscar dirección o negocio" enterkeyhint="search">
+              <button type="submit" class="mp-buscador-go" aria-label="Buscar">Ir</button>
+            </form>
+            <div class="mp-sugerencias" id="mpSugerencias" hidden></div>
+          </div>
+
           <div class="mp-estado">
             <span class="mp-live" id="mpLive"><i></i>ubicando</span>
             <span id="mpUbiTexto">Pidiendo permiso de ubicación…</span>
+            <button class="mp-volver" id="mpVolver" type="button" hidden>Volver a mi ubicación</button>
           </div>
 
           <div class="mp-mapa-caja">

@@ -18,6 +18,9 @@
     },
     "api/mercados/index.go": {
       "maxDuration": 25
+    },
+    "api/lugares/index.go": {
+      "maxDuration": 15
     }
   },
   "headers": [
