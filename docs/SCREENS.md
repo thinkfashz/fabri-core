@@ -1,6 +1,6 @@
-# FABRI-CORE · Contrato de pantallas (FABRI-CORE Autonomous Sandbox v1.0.0-spec)
+# FORGE CORE STOCK · Contrato de pantallas (FORGE CORE STOCK v1.0.0-spec)
 
-> Generado desde `spec/fabri_core_android_screen_spec.json` el 2026-10-22 04:24 UTC. No editar a mano: se regenera con `python3 docs/generar-docs.py`.
+> Generado desde `spec/fabri_core_android_screen_spec.json` el 2026-11-02 03:34 UTC. No editar a mano: se regenera con `python3 docs/generar-docs.py`.
 
 - **Plataforma**: Android-first native APK
 - **Idioma / zona**: es-CL · America/Santiago
@@ -31,7 +31,7 @@
 ## Panel principal
 
 - **id**: `dashboard`  ·  **ruta**: `/home`
-- **Propósito**: Vista general del estado de FABRI-CORE.
+- **Propósito**: Vista general del estado de FORGE CORE STOCK.
 
 ### Layout
 - Header with logo and theme accent

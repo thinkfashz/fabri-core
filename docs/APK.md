@@ -1,4 +1,4 @@
-# FABRI-CORE · la APK
+# FORGE CORE STOCK · la APK
 
 Qué es, por qué está hecha así, con qué tecnologías y cómo se compila —en el
 teléfono y en la nube—. Este documento es la referencia única de la app; el
@@ -24,7 +24,7 @@ Una app Android ARM64 que funciona **sin internet** y sin cuenta en la nube:
 | **Sincronización** | Opcional y manual: sube los productos pendientes a InsForge por `POST /api/inventario` (upsert por código). |
 | **IA** | Apagada por defecto. Se enciende desde la app (runtime llama.cpp empaquetado). El arranque y el login **no dependen** de ella. |
 
-Instalación: `adb install -r FABRI-CORE-x.y.z.apk` o abrir el archivo desde
+Instalación: `adb install -r FORGE CORE STOCK-x.y.z.apk` o abrir el archivo desde
 Descargas. Firma de depuración; minSdk 24, target 34.
 
 ---
@@ -119,7 +119,7 @@ clang del NDK o de Termux.
 ```sh
 cd ~/fabrick-core
 CARGO_BUILD_JOBS=2 bash scripts/compilar.sh
-# → dist/FABRI-CORE-<versión>.apk
+# → dist/FORGE-CORE-STOCK-<versión>.apk
 ```
 
 Tarda ~3 min (el núcleo Rust es casi todo). El script:
@@ -142,7 +142,7 @@ Tarda ~3 min (el núcleo Rust es casi todo). El script:
 - Rust estable con target `aarch64-linux-android` y caché de Cargo;
 - genera el `debug.keystore` si no existe;
 - corre las pruebas (`tests/arranque/correr.sh`, `tests/inventario/ean.js`);
-- compila y publica el APK como artefacto `FABRI-CORE-apk` (30 días), con
+- compila y publica el APK como artefacto `FORGE-CORE-STOCK-apk` (30 días), con
   tamaño y SHA-256 en el resumen del job.
 
 Se dispara con cambios en `android/`, `src-tauri/`, `runtime/`, `scripts/`,

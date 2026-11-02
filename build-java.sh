@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# FABRI-CORE · build en Java puro (sin Kotlin).
+# FORGE CORE STOCK · build en Java puro (sin Kotlin).
 # aapt2 link → javac → d8 → zip/zipalign → apksigner, midiendo cada paso.
 set -euo pipefail
 

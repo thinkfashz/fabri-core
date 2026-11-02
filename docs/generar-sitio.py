@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Genera el sitio documental de FABRI-CORE (un solo HTML, autocontenido):
+Genera el sitio documental de FORGE CORE STOCK (un solo HTML, autocontenido):
 - 4 temas intercambiables (los de la app)
 - el diagrama de arquitectura embebido (base64)
 - las 17 pantallas, el esquema de datos y los errores→mejoras
@@ -19,6 +19,12 @@ spec = json.loads((ROOT / "spec" / "fabri_core_android_screen_spec.json").read_t
 
 png = ROOT / "diagrams" / "fabri-core-arquitectura.png"
 b64 = base64.b64encode(png.read_bytes()).decode() if png.exists() else ""
+
+# el logo vive fuera del repo (motor de video); si no está, se usa el del proyecto
+LOGO = next((p for p in (pathlib.Path("/root/video-engine/assets/logo-fabrick.svg"),
+                         ROOT / "android" / "assets" / "www" / "logo-f.svg")
+             if p.exists()), None)
+LOGO_B64 = base64.b64encode(LOGO.read_bytes()).decode() if LOGO else ""
 
 THEMES = [("lime", "#C8FF00", "Verde limón"), ("purple", "#A855F7", "Morado"),
           ("blue", "#3B82F6", "Azul"), ("gold", "#EAB308", "Amarillo oro")]
@@ -97,7 +103,7 @@ HTML = f"""<!doctype html>
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>FABRI-CORE · Documentación</title>
+<title>FORGE CORE STOCK · Documentación</title>
 <style>
   :root {{
     --bg:#050505; --surface:#101010; --card:#171717; --border:#282828;
@@ -145,15 +151,15 @@ HTML = f"""<!doctype html>
 <body>
 <div class="wrap">
 <header>
-  <img src="data:image/svg+xml;base64,{base64.b64encode(pathlib.Path('/root/video-engine/assets/logo-fabrick.svg').read_bytes()).decode()}" alt="Soluciones Fabrick" />
-  <span class="kicker">FABRI-CORE · documentación</span>
+  <img src="data:image/svg+xml;base64,{LOGO_B64}" alt="Soluciones Fabrick" />
+  <span class="kicker">FORGE CORE STOCK · documentación</span>
   <div class="themes" id="themes">
     {"".join(f'<button data-c="{c}" title="{n}" style="background:{c}"></button>' for c, n, _ in THEMES)}
   </div>
 </header>
 
 <div class="kicker">Producto · Android autónomo</div>
-<h1>FABRI-CORE Autonomous Sandbox</h1>
+<h1>FORGE CORE STOCK</h1>
 <p class="lead">Aplicación Android con sandbox privado, terminal, entorno Linux opcional, agente IA,
 memoria híbrida (SQLite + FTS5 + embeddings), catálogos, facturación, exportaciones y visualización
 de flujos en vivo. <b>Todo esto se compila y se ejecuta en el propio teléfono.</b></p>
@@ -176,7 +182,7 @@ de flujos en vivo. <b>Todo esto se compila y se ejecuta en el propio teléfono.<
 
 <h2>El diagrama: Cerebro IA y flujos en vivo</h2>
 <figure>
-  <img alt="Arquitectura FABRI-CORE" src="data:image/png;base64,{b64}" />
+  <img alt="Arquitectura FORGE CORE STOCK" src="data:image/png;base64,{b64}" />
   <figcaption>Cadena real: Android UI → Backend Go → SQLite → FTS5/Embeddings → RAG → Agente IA → Resultados → Memoria.
   El grafo de la app muestra <b>eventos reales</b>: sin backend, la pantalla queda en «desconectado».</figcaption>
 </figure>

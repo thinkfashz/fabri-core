@@ -1,4 +1,4 @@
-# UI_COMPONENTS.md — FABRI-CORE PRO
+# UI_COMPONENTS.md — FORGE CORE STOCK PRO
 
 Catálogo de componentes reutilizables del sistema de diseño.
 

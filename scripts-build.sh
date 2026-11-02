@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build de FABRI-CORE en el teléfono.
+# Build de FORGE CORE STOCK en el teléfono.
 #   scripts-build.sh assembleDebug        → un intento
 #   scripts-build.sh --loop              → reintenta hasta que exista la APK
 #                (el contenedor se reinicia a menudo y se lleva el daemon)

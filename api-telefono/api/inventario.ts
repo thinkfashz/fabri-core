@@ -1,4 +1,4 @@
-// FABRI-CORE · /api/inventario
+// FORGE CORE STOCK · /api/inventario
 // ---------------------------------------------------------------------------
 // Puente de inventario entre la APK (SQLite local) y la base en InsForge.
 //

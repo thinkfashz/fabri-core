@@ -1,6 +1,6 @@
-# APP_WEB_GUIDE.md — FABRI-CORE PRO
+# APP_WEB_GUIDE.md — FORGE CORE STOCK PRO
 
-Guía de implementación para la versión WEB de FABRI-CORE PRO.
+Guía de implementación para la versión WEB de FORGE CORE STOCK PRO.
 
 ## Diseño por dispositivo
 

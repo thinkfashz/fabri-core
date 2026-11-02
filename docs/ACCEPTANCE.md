@@ -1,4 +1,4 @@
-# FABRI-CORE · Criterios de aceptación
+# FORGE CORE STOCK · Criterios de aceptación
 
 > Generado desde el spec. Cada criterio es binario: pasa o no pasa.
 

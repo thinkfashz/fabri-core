@@ -1,4 +1,4 @@
-// FABRI-CORE · /api/health
+// FORGE CORE STOCK · /api/health
 // Salud PÚBLICA y barata de la puerta que usa el teléfono.
 //
 // Reglas:

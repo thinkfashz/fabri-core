@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Genera la imagen social (Open Graph) de la nube FABRI-CORE.
+"""Genera la imagen social (Open Graph) de la nube FORGE CORE STOCK.
 
 1200x630, la marca Aurora y el titular de la landing. Sin dependencias más
 allá de Pillow y de las fuentes del sistema (Roboto Flex, variable).
@@ -117,7 +117,7 @@ def main() -> None:
     # marca + wordmark
     img.alpha_composite(marca(60), (72, 62))
     f_logo = fuente(19, "Bold")
-    texto_espaciado(d, (150, 82), "FABRI-CORE", f_logo, TX, 3.2)
+    texto_espaciado(d, (150, 82), "FORGE CORE STOCK", f_logo, TX, 3.2)
 
     # eyebrow
     f_eyebrow = fuente(15, "Medium")

@@ -1,4 +1,4 @@
-# FABRI-CORE · Arquitectura y datos (v1.0.0-spec)
+# FORGE CORE STOCK · Arquitectura y datos (v1.0.0-spec)
 
 > Sección de esquema generada desde el spec. El resto del documento (decisiones, IPC, grafo en vivo) está en `ARCHITECTURE.md`.
 

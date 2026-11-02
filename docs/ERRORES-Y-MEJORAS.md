@@ -1,4 +1,4 @@
-# FABRI-CORE · Errores encontrados y mejoras aplicadas
+# FORGE CORE STOCK · Errores encontrados y mejoras aplicadas
 
 > Catálogo vivo: cada error que aparece en una etapa se documenta aquí con **síntoma →
 > causa → arreglo → regla para que no se repita**. Es la bitácora técnica del proyecto y
@@ -166,7 +166,7 @@ Leyenda: ✅ resuelto y verificado · 🟡 mitigado/pendiente de prueba · 📌 
 
 ---
 
-## D. Riesgos de FABRI-CORE por verificar (🟡 pendiente de prueba)
+## D. Riesgos de FORGE CORE STOCK por verificar (🟡 pendiente de prueba)
 
 Cada uno tiene su método de verificación. **No se afirma nada hasta que la prueba pase.**
 

@@ -1,6 +1,6 @@
-# BRAND_GUIDELINES.md — FABRI-CORE PRO
+# BRAND_GUIDELINES.md — FORGE CORE STOCK PRO
 
-Guía de marca canónica. Fuente de verdad para la identidad visual de FABRI-CORE PRO.
+Guía de marca canónica. Fuente de verdad para la identidad visual de FORGE CORE STOCK PRO.
 
 ## 1. Paleta oficial
 

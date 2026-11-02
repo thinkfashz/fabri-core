@@ -1,6 +1,6 @@
-# APP_ANDROID_GUIDE.md — FABRI-CORE PRO
+# APP_ANDROID_GUIDE.md — FORGE CORE STOCK PRO
 
-Guía de implementación para la APK Android de FABRI-CORE PRO.
+Guía de implementación para la APK Android de FORGE CORE STOCK PRO.
 
 ## Diseño nativo móvil
 

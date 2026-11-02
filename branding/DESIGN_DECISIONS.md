@@ -1,4 +1,4 @@
-# DESIGN_DECISIONS.md — FABRI-CORE PRO
+# DESIGN_DECISIONS.md — FORGE CORE STOCK PRO
 
 Registro de decisiones de diseño tomadas durante la implementación.
 

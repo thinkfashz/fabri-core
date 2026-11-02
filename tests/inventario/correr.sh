@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-#  Pruebas del inventario de FABRI-CORE
+#  Pruebas del inventario de FORGE CORE STOCK
 #  ---------------------------------------------------------------------------
 #  Lo que se comprueba:
 #   1. Lector de códigos: 404/500 se saltan, mensajes honestos, presupuesto de

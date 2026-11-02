@@ -1,5 +1,5 @@
 /* ============================================================================
-   FABRI-CORE PRO — tokens.css
+   FORGE CORE STOCK PRO — tokens.css
    Generado a partir de branding/tokens.json (fuente canónica).
    No editar a mano sin actualizar tokens.json.
    ============================================================================ */
@@ -337,6 +337,6 @@ body {
 
 /* ── Marcador de versión del sistema de diseño ── */
 .fb-diseno-version::before {
-  content: "FABRI-CORE PRO Design System v1.0.0";
+  content: "FORGE CORE STOCK PRO Design System v1.0.0";
   display: none;
 }

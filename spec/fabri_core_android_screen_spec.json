@@ -1,6 +1,6 @@
 {
   "project": {
-    "name": "FABRI-CORE Autonomous Sandbox",
+    "name": "FORGE CORE STOCK",
     "version": "1.0.0-spec",
     "platform": "Android-first native APK",
     "language": "es-CL",
@@ -110,7 +110,7 @@
         "id": "dashboard",
         "route": "/home",
         "title": "Panel principal",
-        "purpose": "Vista general del estado de FABRI-CORE.",
+        "purpose": "Vista general del estado de FORGE CORE STOCK.",
         "layout": [
           "Header with logo and theme accent",
           "Particle wave visual",

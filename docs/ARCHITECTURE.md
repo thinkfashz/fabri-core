@@ -1,4 +1,4 @@
-# FABRI-CORE · Arquitectura
+# FORGE CORE STOCK · Arquitectura
 
 > Decisiones de diseño, módulos, flujo de datos y el mecanismo de eventos reales.
 > El esquema de tablas está en `SCHEMA.md` (generado desde el spec) y el contrato de

@@ -1,4 +1,4 @@
-# CHANGELOG.md — FABRI-CORE PRO
+# CHANGELOG.md — FORGE CORE STOCK PRO
 
 Registro de cambios del sistema de diseño y branding.
 

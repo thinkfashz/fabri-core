@@ -1,4 +1,4 @@
-// FABRI-CORE · /api/estado
+// FORGE CORE STOCK · /api/estado
 // Malla del ecosistema vista desde la capa que usa el teléfono.
 //
 // Sondea el /api/health de las cuatro capas y devuelve un contrato único.

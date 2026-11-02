@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "tipo": "pagina",
   "estado": "PARCIAL",
-  "descripcion": "Implementado en código; falta verificar Termux, TTS y la descarga en pantalla. Página de Termux con comandos copiables, apertura de la app y biblioteca de componentes descargables. No simula una shell: Android bloquea execve en el sandbox (W^X), así que los comandos se ejecutan en Termux, no dentro de FABRI-CORE.",
+  "descripcion": "Implementado en código; falta verificar Termux, TTS y la descarga en pantalla. Página de Termux con comandos copiables, apertura de la app y biblioteca de componentes descargables. No simula una shell: Android bloquea execve en el sandbox (W^X), así que los comandos se ejecutan en Termux, no dentro de FORGE CORE STOCK.",
   "secciones": [
     {
       "titulo": "Qué resuelve",

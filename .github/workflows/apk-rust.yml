@@ -1,7 +1,7 @@
 name: APK Rust
 
 # =============================================================================
-#  FABRI-CORE · APK real (Rust + Java + WebView), sin Gradle
+#  FORGE CORE STOCK · APK real (Rust + Java + WebView), sin Gradle
 #  ---------------------------------------------------------------------------
 #  Este flujo compila el proyecto que de verdad se instala:
 #
@@ -134,7 +134,7 @@ jobs:
       - name: Resumen y hash
         run: |
           set -euo pipefail
-          APK=$(ls dist/FABRI-CORE-*.apk | tail -1)
+          APK=$(ls dist/FORGE-CORE-STOCK-*.apk | tail -1)
           echo "### APK generada" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "| Campo | Valor |" >> "$GITHUB_STEP_SUMMARY"
@@ -147,7 +147,7 @@ jobs:
       - name: Publicar artefacto
         uses: actions/upload-artifact@v4
         with:
-          name: FABRI-CORE-apk
-          path: dist/FABRI-CORE-*.apk
+          name: FORGE-CORE-STOCK-apk
+          path: dist/FORGE-CORE-STOCK-*.apk
           if-no-files-found: error
           retention-days: 30

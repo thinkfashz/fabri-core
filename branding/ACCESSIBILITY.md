@@ -1,4 +1,4 @@
-# ACCESSIBILITY.md — FABRI-CORE PRO
+# ACCESSIBILITY.md — FORGE CORE STOCK PRO
 
 Reglas de accesibilidad para WEB y APP ANDROID.
 

@@ -1,8 +1,8 @@
 # fabricore-brand-system
 
-Skill persistente para mantener la identidad visual de **FABRI-CORE PRO** en WEB y APP ANDROID.
+Skill persistente para mantener la identidad visual de **FORGE CORE STOCK PRO** en WEB y APP ANDROID.
 
-> **Ubicación:** `branding/SKILL.md` (dentro del repositorio de FABRI-CORE)
+> **Ubicación:** `branding/SKILL.md` (dentro del repositorio de FORGE CORE STOCK)
 > **Versión:** 1.0.0
 > **Estado:** Activa
 

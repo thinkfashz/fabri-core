@@ -1,4 +1,4 @@
-# TAURI_ANDROID_GUIDE.md — FABRI-CORE PRO
+# TAURI_ANDROID_GUIDE.md — FORGE CORE STOCK PRO
 
 Nota: El proyecto actual **no usa Tauri v2**. Es un APK Android nativo con WebView + Rust/JNI.
 

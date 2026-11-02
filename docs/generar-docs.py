@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Genera la documentación de FABRI-CORE a partir del contrato funcional
+Genera la documentación de FORGE CORE STOCK a partir del contrato funcional
 (spec/fabri_core_android_screen_spec.json): pantallas, esquema de datos y
 tests de aceptación en Markdown. Así la documentación nunca se desincroniza
 del spec: si el JSON cambia, se regenera.
@@ -31,7 +31,7 @@ def b(x) -> str:
 
 # ─────────────────────────── SCREENS.md ───────────────────────────
 L = []
-L.append(f"# FABRI-CORE · Contrato de pantallas ({proj['name']} v{proj['version']})")
+L.append(f"# FORGE CORE STOCK · Contrato de pantallas ({proj['name']} v{proj['version']})")
 L.append("")
 L.append(f"> Generado desde `spec/{SPEC.name}` el "
          f"{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')} UTC. "
@@ -93,7 +93,7 @@ for s in proj["screens"]:
 
 # ───────────────────── ARCHITECTURE.md (esquema) ─────────────────────
 A = []
-A.append(f"# FABRI-CORE · Arquitectura y datos (v{proj['version']})")
+A.append(f"# FORGE CORE STOCK · Arquitectura y datos (v{proj['version']})")
 A.append("")
 A.append("> Sección de esquema generada desde el spec. El resto del documento "
          "(decisiones, IPC, grafo en vivo) está en `ARCHITECTURE.md`.")
@@ -119,7 +119,7 @@ if proj["data_model"].get("principles"):
 (OUT / "SCHEMA.md").write_text("\n".join(A) + "\n", encoding="utf-8")
 
 # ───────────────────── ACCEPTANCE.md ─────────────────────
-T = ["# FABRI-CORE · Criterios de aceptación", "",
+T = ["# FORGE CORE STOCK · Criterios de aceptación", "",
      "> Generado desde el spec. Cada criterio es binario: pasa o no pasa.", ""]
 for i, t in enumerate(proj["acceptance_tests"], 1):
     T.append(f"{i}. {t}")

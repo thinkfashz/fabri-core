@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # =============================================================================
-#  FABRI-CORE · puente local Termux <-> APK
+#  FORGE CORE STOCK · puente local Termux <-> APK
 #  ---------------------------------------------------------------------------
 #  Por qué existe: el permiso `com.termux.permission.RUN_COMMAND` de Termux
 #  0.119 tiene protectionLevel="signature". Una APK firmada con otra clave
@@ -102,7 +102,7 @@ COMANDOS = {
         ["bash", "-lc", "du -sh \"$HOME\"/* 2>/dev/null | sort -h | tail -n 10"],
     ),
     "fabrick": (
-        "Estado de FABRI-CORE en Termux",
+        "Estado de FORGE CORE STOCK en Termux",
         ["bash", "-lc", "pgrep -af 'termux-puente|opencode|everos' | head -n 12; echo; ls -la \"$HOME/fabrick-core\" 2>/dev/null | head -n 8"],
     ),
     "probar-llm": (
@@ -142,9 +142,9 @@ class Manejador(BaseHTTPRequestHandler):
         ruta = self.path.split("?")[0]
         if ruta == "/":
             cuerpo = (
-                "<!doctype html><meta charset=utf-8><title>FABRI-CORE puente</title>"
+                "<!doctype html><meta charset=utf-8><title>FORGE CORE STOCK puente</title>"
                 "<body style='background:#050505;color:#C8FF00;font-family:monospace;padding:24px'>"
-                "<h1>FABRI-CORE · puente Termux</h1><p>Activo en 127.0.0.1:%d</p>"
+                "<h1>FORGE CORE STOCK · puente Termux</h1><p>Activo en 127.0.0.1:%d</p>"
                 "<p>Comandos: %s</p></body>"
             ) % (PUERTO, ", ".join(sorted(COMANDOS)))
             datos = cuerpo.encode("utf-8")
@@ -328,7 +328,7 @@ class Manejador(BaseHTTPRequestHandler):
 def main():
     servidor = ThreadingHTTPServer(("127.0.0.1", PUERTO), Manejador)
     servidor.daemon_threads = True
-    print("FABRI-CORE puente v%s en http://127.0.0.1:%d" % (VERSION, PUERTO), flush=True)
+    print("FORGE CORE STOCK puente v%s en http://127.0.0.1:%d" % (VERSION, PUERTO), flush=True)
     print("comandos: %s" % ", ".join(sorted(COMANDOS)), flush=True)
     try:
         servidor.serve_forever()

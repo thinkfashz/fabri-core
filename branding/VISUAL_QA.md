@@ -1,4 +1,4 @@
-# VISUAL_QA.md — FABRI-CORE PRO
+# VISUAL_QA.md — FORGE CORE STOCK PRO
 
 Procedimiento de revisión visual y checklist de calidad.
 

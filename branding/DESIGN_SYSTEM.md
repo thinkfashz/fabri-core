@@ -1,4 +1,4 @@
-# DESIGN_SYSTEM.md — FABRI-CORE PRO
+# DESIGN_SYSTEM.md — FORGE CORE STOCK PRO
 
 Sistema de diseño versionado, centralizado y reutilizable.
 

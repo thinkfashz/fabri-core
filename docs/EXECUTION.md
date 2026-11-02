@@ -1,6 +1,6 @@
-# FABRI-CORE · Documento de ejecución
+# FORGE CORE STOCK · Documento de ejecución
 
-> Cómo se construye FABRI-CORE de verdad: fases, dependencias, puntos de control y
+> Cómo se construye FORGE CORE STOCK de verdad: fases, dependencias, puntos de control y
 > artefactos verificables. Pensado para ejecutarse **desde el propio teléfono** y para que
 > cualquier persona (o agente) pueda retomar el trabajo sin leer todo el código.
 

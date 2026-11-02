@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-#  FABRI-CORE · compilación de la APK sin Gradle
+#  FORGE CORE STOCK · compilación de la APK sin Gradle
 #  ---------------------------------------------------------------------------
 #  Pipeline: Rust → javac → d8 → aapt2 → zip → zipalign → apksigner
 #

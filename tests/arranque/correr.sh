@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-#  Pruebas del arranque y del acceso de FABRI-CORE
+#  Pruebas del arranque y del acceso de FORGE CORE STOCK
 #  ---------------------------------------------------------------------------
 #  Lo que se comprueba (ver docs/ARRANQUE-Y-ACCESO.md):
 #   1. Ningún id ausente del HTML puede cortar app.js.

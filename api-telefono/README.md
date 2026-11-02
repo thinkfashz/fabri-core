@@ -1,7 +1,7 @@
 # api-telefono — la puerta HTTPS de la APK (fabri-api)
 
 Este directorio es la **copia versionada** del código que se despliega en
-`https://fabri-api.vercel.app`, el proyecto de Vercel que usa la APK FABRI-CORE.
+`https://fabri-api.vercel.app`, el proyecto de Vercel que usa la APK FORGE CORE STOCK.
 
 > El despliegue real se hace desde el proyecto local del teléfono
 > (`/data/data/com.termux/files/home/fabrick-core`), que es donde vive la APK.

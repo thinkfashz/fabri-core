@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-#  FABRI-CORE · pruebas de seguridad del descargador (Fase 3)
+#  FORGE CORE STOCK · pruebas de seguridad del descargador (Fase 3)
 #  ---------------------------------------------------------------------------
 #  Todo corre contra 127.0.0.1: no toca GitHub, Hugging Face ni el dispositivo.
 #  Usa la MISMA clase Descargador.java que se empaqueta en la APK.

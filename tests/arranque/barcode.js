@@ -86,7 +86,7 @@ console.log("▸ Texto normalizado");
   const c = g('fabrickCode128("fab-abcd-1234")');
   igual(c.texto, "FAB-ABCD-1234", "se normaliza a mayúsculas");
   const d = g('fabrickCode128("  ")');
-  igual(d.texto, "FABRI-CORE", "un texto vacío no rompe la credencial");
+  igual(d.texto, "FORGE CORE STOCK", "un texto vacío no rompe la credencial");
 }
 
 console.log("▸ SVG");
@@ -111,7 +111,7 @@ console.log("▸ Uso compartido");
 {
   const login = app.includes('fabrickBarcodePintar($("loginBarcode"), texto, 30)');
   const ident = fs.readFileSync(WWW + "/identidad.js", "utf8")
-    .includes('window.fabrickBarcodePintar(idEl("idBarcode"), cliente || "FABRI-CORE", 34)');
+    .includes('window.fabrickBarcodePintar(idEl("idBarcode"), cliente || "FORGE CORE STOCK", 34)');
   if (login) ok("el login pinta Code128 real");
   else mal("el login no usa el codificador compartido");
   if (ident) ok("«Mi identidad» pinta el mismo Code128");

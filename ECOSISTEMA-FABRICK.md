@@ -1,6 +1,6 @@
 # ECOSISTEMA FABRICK — lógica, capas y estado real
 
-> Documento maestro del ecosistema que sostiene **FABRI-CORE**.
+> Documento maestro del ecosistema que sostiene **FORGE CORE STOCK**.
 > Actualizado: **2026-10-26** · Autor: Fabrick / Soluciones Fabrick.
 > Este archivo es la fuente única de verdad de la arquitectura en la nube.
 > Si algo no está aquí, no está verificado.
@@ -9,7 +9,7 @@
 
 ## 1. Qué es esto en una frase
 
-**FABRI-CORE es una consola de operador con IA local-first para Android**, y este
+**FORGE CORE STOCK es una consola de operador con IA local-first para Android**, y este
 ecosistema es lo que la rodea: una **API** que autentica y sincroniza al teléfono,
 un **cerebro** que rota modelos y recuerda, una **capa de nube** que pone la voz y
 el panel, y una **capa web** que publica el producto y la PWA.
@@ -549,7 +549,7 @@ creatividad, ambición técnica y que funcione — exactamente lo que hay.
 ### 12.2 Tema principal: Build for Your World
 
 El problema es de primera mano: pequeños negocios en Chile que trabajan con
-planillas, WhatsApp y memoria, en lugares con mala señal. FABRI-CORE les da
+planillas, WhatsApp y memoria, en lugares con mala señal. FORGE CORE STOCK les da
 inventario, precios, márgenes y boletas **en el teléfono**, con IA que no necesita
 internet.
 
@@ -582,7 +582,7 @@ todo en un dispositivo de bolsillo y con auditoría.
 
 ### 12.6 Frase de postulación (inglés)
 
-> FABRI-CORE is a local-first AI operator console for small businesses in Latin
+> FORGE CORE STOCK is a local-first AI operator console for small businesses in Latin
 > America. A 4 MB Android app that runs open-weight models on-device, scans
 > inventory, computes margins, issues receipts, and falls back to Meta's models in
 > the cloud when connectivity allows. Private by default, useful offline,
@@ -718,7 +718,7 @@ index.html                     figura 3D + botón Estado
 
 ## 17. Contacto y propiedad
 
-- **Producto:** FABRI-CORE · Soluciones Fabrick
+- **Producto:** FORGE CORE STOCK · Soluciones Fabrick
 - **GitHub:** [thinkfashz](https://github.com/thinkfashz)
 - **Panel público:** `https://fabrick-cloud.faubricioedms.workers.dev`
 - **Web:** `https://fabri-core-web.vercel.app`

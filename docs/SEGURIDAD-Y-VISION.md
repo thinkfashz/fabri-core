@@ -35,7 +35,7 @@ que haya que proteger con la misma sesión; en ese momento el camino es
 
 **Lo que sí se tomó de su modelo**, aplicado a la app:
 
-| Idea de Authelia | Cómo está en FABRI-CORE |
+| Idea de Authelia | Cómo está en FORGE CORE STOCK |
 |---|---|
 | Sesión con caducidad | Bloqueo por inactividad a los 5 min dentro de la interfaz, además del bloqueo de Android |
 | Verificación en el servidor, no en el cliente | La clave de la nube se valida con `Bearer` en `fabri-api`; el navegador nunca ve credenciales de base |
@@ -53,7 +53,7 @@ corrige la perspectiva, mejora la imagen y exporta PDF — todo en el dispositiv
 sin subir nada.
 
 **¿Es una librería?** No: es una **aplicación completa**, no un SDK. No se puede
-"importar" en FABRI-CORE. Y su licencia GPL-3.0 es incompatible con copiar
+"importar" en FORGE CORE STOCK. Y su licencia GPL-3.0 es incompatible con copiar
 código a un proyecto que no sea GPL.
 
 **Qué sí aporta.** Tres ideas que ya están en la app:
@@ -63,7 +63,7 @@ código a un proyecto que no sea GPL.
 2. **Procesamiento con visión clásica antes que IA**: detectar el papel con
    contornos y umbral adaptativo es más barato y determinista que un modelo.
    El lector EAN propio sigue esa línea (tramos negro/blanco, no una red).
-3. **Una acción, un resultado**: escanear produce un PDF; en FABRI-CORE,
+3. **Una acción, un resultado**: escanear produce un PDF; en FORGE CORE STOCK,
    escanear produce un código y una ficha, sin pasos intermedios.
 
 **Decisión.** No se integra (es una app, no una librería). Si más adelante hace

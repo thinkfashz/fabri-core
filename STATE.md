@@ -1,6 +1,12 @@
-# STATE — FABRI-CORE
+# STATE — FORGE CORE STOCK
 
-Última actualización: 2026-10-27
+> **Marca:** visible desde 2026-10-29 (commit `8f23efc`) el producto se llama
+> **FORGE CORE STOCK** (antes FABRI-CORE). Las sesiones anteriores conservan el
+> nombre de la época. Los identificadores técnicos **no** cambian: package
+> `cl.fabrick.core`, crate `fabrick-core`, dominio `fabri-core-web.vercel.app`,
+> repo `thinkfashz/fabri-core`.
+
+Última actualización: 2026-11-02
 
 ## Sesión 2026-10-27 (20) · Nube: escáner con cámara y wiki de productos
 

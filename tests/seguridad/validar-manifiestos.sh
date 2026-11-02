@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-#  FABRI-CORE · pruebas del validador de manifiestos (Fase 3)
+#  FORGE CORE STOCK · pruebas del validador de manifiestos (Fase 3)
 #  ---------------------------------------------------------------------------
 #  Compila tools/validador (misma fuente que el núcleo) y comprueba que acepta
 #  el manifiesto correcto y rechaza cada variante peligrosa.

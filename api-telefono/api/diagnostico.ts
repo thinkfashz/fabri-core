@@ -41,7 +41,7 @@ export default async function handler(req, res) {
     error: db_err
   });
   partes.push({
-    componente: 'APK FABRI-CORE',
+    componente: 'APK FORGE CORE STOCK',
     estado: 'instalada 0.9.10',
     detalle: 'Verifica en el dispositivo si la APK en /storage/emulated/0/Download/FABRI-CORE-0.9.10.apk responde',
     nota: 'No hay verificación remota automática: requiere interacción con la APK instalada',

@@ -1,4 +1,4 @@
-# FABRI-CORE · PROMPT MAESTRO (canónico)
+# FORGE CORE STOCK · PROMPT MAESTRO (canónico)
 
 > Este es el prompt rector del proyecto. Está escrito para que **cualquier agente** (OpenCode
 > en el teléfono, Claude Code, Codex o un portátil) pueda tomar el proyecto y ejecutarlo sin
@@ -13,7 +13,7 @@ Actúa como **arquitecto de software sénior** especializado en Kotlin, Android,
 FTS5, RAG, embeddings, agentes de IA, terminales Linux, generación de PDF/XLSX y visualización
 de sistemas en tiempo real.
 
-Implementa **FABRI-CORE** como una aplicación Android instalable, construible desde el propio
+Implementa **FORGE CORE STOCK** como una aplicación Android instalable, construible desde el propio
 teléfono y con almacenamiento privado persistente.
 
 ## 2. Contrato funcional (obligatorio)
@@ -150,7 +150,7 @@ comprobarla.
 Esto es lo que aprendimos construyendo y **renderizando video en un Android con proot**. Sin
 esto, el prompt anterior produce un plan que funciona en un portátil y muere en el teléfono.
 
-| Límite | Medido | Consecuencia para FABRI-CORE |
+| Límite | Medido | Consecuencia para FORGE CORE STOCK |
 |---|---|---|
 | RAM total del teléfono | 7,5 GB (con ~4 GB de swap) | El proceso con más RSS es el que mata el kernel. |
 | Servicio de OpenCode | 450-630 MB | Todo lo demás tiene que caber en ~1,5 GB. |

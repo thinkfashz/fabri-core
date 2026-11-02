@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /* ============================================================================
-   Generador de animaciones Lottie de la nube FABRI-CORE
+   Generador de animaciones Lottie de la nube FORGE CORE STOCK
    ----------------------------------------------------------------------------
    La APK no lleva lottie (250 KB de runtime): allí las animaciones son CSS.
    La nube sí puede permitírselo, así que estas piezas se generan como JSON

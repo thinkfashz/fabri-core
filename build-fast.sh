@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# FABRI-CORE · build RÁPIDO sin Gradle.
+# FORGE CORE STOCK · build RÁPIDO sin Gradle.
 #
 # Por qué: en el teléfono, Gradle+Compose se eterniza (fase de configuración de
 # 20+ min) y el kernel mata el daemon. Este pipeline no levanta daemon, no resuelve
@@ -139,9 +139,9 @@ if [ ! -f "$KS" ]; then
 fi
 "$BT/apksigner" sign \
   --ks "$KS" --ks-pass pass:android --ks-key-alias debug --key-pass pass:android \
-  --out "$OUT/fabri-core-lite.apk" "$OUT/aligned.apk" 2>/dev/null || die "apksigner falló"
-[ "${VERIFY:-0}" = "1" ] && "$BT/apksigner" verify --verbose "$OUT/fabri-core-lite.apk" | head -4
+  --out "$OUT/forge-core-stock-lite.apk" "$OUT/aligned.apk" 2>/dev/null || die "apksigner falló"
+[ "${VERIFY:-0}" = "1" ] && "$BT/apksigner" verify --verbose "$OUT/forge-core-stock-lite.apk" | head -4
 
 mkdir -p "$PROJECT/out"
-cp "$OUT/fabri-core-lite.apk" "$PROJECT/out/fabri-core-lite.apk"
-say "APK lista: $PROJECT/out/fabri-core-lite.apk ($(du -h "$PROJECT/out/fabri-core-lite.apk" | cut -f1)) · total $(( $(date +%s) - T0 ))s"
+cp "$OUT/forge-core-stock-lite.apk" "$PROJECT/out/forge-core-stock-lite.apk"
+say "APK lista: $PROJECT/out/forge-core-stock-lite.apk ($(du -h "$PROJECT/out/forge-core-stock-lite.apk" | cut -f1)) · total $(( $(date +%s) - T0 ))s"
