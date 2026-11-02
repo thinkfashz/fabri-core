@@ -18,7 +18,7 @@
   const fmtSize = b => b < 1024 ? b + ' B' : b < 1048576 ? (b / 1024).toFixed(1) + ' KB' : (b / 1048576).toFixed(1) + ' MB';
 
   /* ── estado ───────────────────────────────────────────────────────────── */
-  const S = { db: null, ftsModo: 'like', theme: localStorage.getItem('fcore.theme') || 'aurora', events: [],
+  const S = { db: null, ftsModo: 'like', theme: localStorage.getItem('fcore.theme') || 'lima', events: [],
               installEvt: null, saveTimer: null, kind: 'hecho', busy: false };
 
   /* Acentos de la nube. `c` es el acento principal y `d` el secundario: los dos
@@ -375,7 +375,8 @@
   function go(id) {
     $$('.screen').forEach(s => s.classList.toggle('on', s.id === 's-' + id));
     $$('.nav button').forEach(b => b.classList.toggle('on', b.dataset.go === id));
-    if (id === 'panel') renderPanel();
+    if (id === 'panel' && window.Placer) Placer.render();
+    if (id === 'nucleo') renderPanel();
     if (id === 'mem') renderMem($('#memQ').value);
     if (id === 'flow') { Graph.init(); Graph.wake(); }
     if (id === 'sql') { $('#sqlIn').focus(); }
@@ -386,7 +387,7 @@
     if (id === 'hoja') Sheet.mount($('#pro-hoja'));
     if (id === 'cuenta') Pro.renderCuenta();
     if (id === 'wiki' && window.Wiki) Wiki.render();
-    history.replaceState(null, '', '#' + id);
+    history.replaceState(null, '', location.pathname + location.search + '#' + id);
   }
 
   function refreshAll() {

@@ -1,0 +1,524 @@
+/* ============================================================================
+   MERCADOPLACER · estilos
+   ----------------------------------------------------------------------------
+   Mapa 2D con textura y profundidad: teselas oscuras, grano, viñeta y pines
+   con sombra y perspectiva. Nada de WebGL para que cargue rápido en el
+   teléfono y no se coma la batería.
+   ========================================================================== */
+
+#s-panel { padding-bottom: 96px; }
+
+.mp {
+  --mp-lima: #c8ff00;
+  --mp-radio: 20px;
+  display: grid;
+  gap: 12px;
+}
+
+/* ── cabecera ───────────────────────────────────────────────────────────── */
+.mp-cab {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 2px 0 0;
+}
+.mp-cab > div { flex: 1; min-width: 0; }
+.mp-cab h1 {
+  margin: 3px 0 0;
+  font-size: clamp(24px, 6.4vw, 32px);
+  line-height: 1.04;
+  letter-spacing: -.035em;
+  font-weight: 700;
+}
+.mp-cab h1 em { font-style: normal; color: var(--accent); }
+.mp-ubi {
+  flex: 0 0 auto;
+  width: 44px; height: 44px;
+  display: grid; place-items: center;
+  border-radius: 14px;
+  border: 1px solid var(--line-2);
+  background: rgba(255,255,255,.05);
+  color: var(--tx);
+  cursor: pointer;
+  transition: transform .16s var(--ease), background .16s, border-color .16s;
+}
+.mp-ubi svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+.mp-ubi:hover { background: rgba(255,255,255,.09); border-color: var(--accent); }
+.mp-ubi:active { transform: scale(.94); }
+
+/* ── estado de la ubicación ─────────────────────────────────────────────── */
+.mp-estado {
+  display: flex; align-items: center; gap: 9px;
+  font-size: 12.2px; color: var(--tx3);
+  margin-top: -4px;
+}
+.mp-live {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 9px; border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(255,255,255,.04);
+  font-family: var(--mono); font-size: 10px; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--tx3);
+  white-space: nowrap;
+}
+.mp-live i {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: currentColor; opacity: .55;
+}
+.mp-live.ok { color: var(--mp-lima); border-color: rgba(200,255,0,.35); background: rgba(200,255,0,.08); }
+.mp-live.ok i { opacity: 1; animation: mp-pulso 1.8s ease-out infinite; }
+.mp-live.warn { color: #ffc24b; border-color: rgba(255,194,75,.3); background: rgba(255,194,75,.07); }
+@keyframes mp-pulso { 0% { box-shadow: 0 0 0 0 rgba(200,255,0,.5); } 70% { box-shadow: 0 0 0 7px rgba(200,255,0,0); } 100% { box-shadow: 0 0 0 0 rgba(200,255,0,0); } }
+
+/* ── mapa ───────────────────────────────────────────────────────────────── */
+.mp-mapa-caja {
+  position: relative;
+  border-radius: var(--mp-radio);
+  overflow: hidden;
+  border: 1px solid var(--line-2);
+  background: #070a14;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.09) inset,
+    0 26px 60px -34px rgba(0,0,0,.95),
+    0 0 0 1px rgba(0,0,0,.4);
+}
+.mp-mapa {
+  height: clamp(268px, 40vh, 400px);
+  width: 100%;
+  background: #070a14;
+  z-index: 0;
+}
+/* Textura: grano + viñeta + línea de barrido. Es decorativa y no captura toques. */
+.mp-textura {
+  position: absolute; inset: 0; pointer-events: none; z-index: 400;
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(200,255,0,.05), transparent 55%),
+    radial-gradient(100% 80% at 50% 120%, rgba(0,0,0,.55), transparent 60%),
+    linear-gradient(180deg, rgba(4,6,13,.42), transparent 24%, transparent 78%, rgba(4,6,13,.5));
+  mix-blend-mode: normal;
+}
+.mp-textura::after {
+  content: ""; position: absolute; inset: 0; opacity: .5;
+  background-image:
+    repeating-linear-gradient(0deg, rgba(255,255,255,.028) 0 1px, transparent 1px 3px);
+}
+.mp-mapa-hud {
+  position: absolute; top: 10px; left: 10px; right: 10px; z-index: 500;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  pointer-events: none;
+}
+.mp-modos {
+  display: flex; gap: 2px; padding: 3px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.14);
+  background: rgba(6,9,18,.72);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  pointer-events: auto;
+}
+.mp-modos button {
+  border: 0; background: transparent; color: var(--tx3);
+  font: inherit; font-size: 11.5px; font-weight: 650;
+  padding: 6px 11px; border-radius: 9px; cursor: pointer;
+}
+.mp-modos button.on { background: rgba(255,255,255,.12); color: #fff; }
+.mp-btn-3d {
+  pointer-events: auto;
+  width: 36px; height: 36px; border-radius: 11px;
+  border: 1px solid rgba(255,255,255,.14);
+  background: rgba(6,9,18,.72);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: var(--tx); font-size: 16px; line-height: 1; cursor: pointer;
+}
+.mp-btn-3d:active { transform: scale(.94); }
+
+.mp-leyenda {
+  position: absolute; left: 10px; right: 10px; bottom: 10px; z-index: 500;
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 11px; border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.1);
+  background: rgba(6,9,18,.76);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  font-size: 11px; color: var(--tx3);
+  pointer-events: auto;
+}
+.mp-leyenda-ojo {
+  flex: 0 0 auto;
+  padding: 2px 7px; border-radius: 999px;
+  background: rgba(255,194,75,.14); color: #ffc24b;
+  font-size: 9.5px; font-weight: 750; letter-spacing: .08em; text-transform: uppercase;
+}
+.mp-leyenda button {
+  margin-left: auto;
+  border: 1px solid var(--line-2); background: rgba(255,255,255,.07);
+  color: var(--tx); font: inherit; font-size: 11px; font-weight: 650;
+  padding: 5px 10px; border-radius: 9px; cursor: pointer; white-space: nowrap;
+}
+
+/* ── pines ──────────────────────────────────────────────────────────────── */
+.mp-pin { background: none; border: 0; }
+.mp-pin-cuerpo {
+  position: absolute; left: 50%; top: 0; transform: translateX(-50%);
+  width: 34px; height: 34px; border-radius: 11px;
+  display: grid; place-items: center;
+  color: #0b0d05;
+  background: linear-gradient(160deg, var(--mp-lima), #9ed400);
+  border: 1px solid rgba(255,255,255,.4);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.55) inset,
+    0 10px 18px -8px rgba(0,0,0,.9),
+    0 0 22px -6px rgba(200,255,0,.55);
+  transition: transform .18s var(--ease), box-shadow .18s;
+}
+.mp-pin-pata {
+  position: absolute; left: 50%; top: 30px;
+  width: 0; height: 0; transform: translateX(-50%);
+  border-left: 5px solid transparent; border-right: 5px solid transparent;
+  border-top: 8px solid #9ed400;
+  filter: drop-shadow(0 4px 3px rgba(0,0,0,.55));
+}
+.mp-pin-dist {
+  position: absolute; left: 50%; top: 42px; transform: translateX(-50%);
+  padding: 1px 6px; border-radius: 999px;
+  background: rgba(6,9,18,.82); color: #e9f0ff;
+  border: 1px solid rgba(255,255,255,.14);
+  font-family: var(--mono); font-size: 9px; letter-spacing: .02em;
+  white-space: nowrap;
+}
+.mp-pin:hover .mp-pin-cuerpo,
+.leaflet-marker-icon.mp-pin:active .mp-pin-cuerpo {
+  transform: translateX(-50%) translateY(-2px) scale(1.06);
+  box-shadow: 0 1px 0 rgba(255,255,255,.6) inset, 0 16px 26px -10px rgba(0,0,0,.95), 0 0 30px -4px rgba(200,255,0,.8);
+}
+.mp-yo { background: none; border: 0; }
+.mp-yo-halo {
+  position: absolute; inset: -9px; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(200,255,0,.28), transparent 72%);
+  animation: mp-latido 2.4s ease-in-out infinite;
+}
+.mp-yo-punto {
+  position: absolute; inset: 9px; border-radius: 50%;
+  background: var(--mp-lima);
+  border: 2.5px solid #05070e;
+  box-shadow: 0 0 18px rgba(200,255,0,.9);
+}
+@keyframes mp-latido { 0%,100% { transform: scale(.86); opacity: .6; } 50% { transform: scale(1.22); opacity: 1; } }
+
+/* Leaflet: se integra al tema oscuro. */
+.leaflet-container { background: #070a14; font-family: inherit; font-size: 12px; }
+.leaflet-control-attribution {
+  background: rgba(6,9,18,.72) !important; color: #7a8499 !important;
+  font-size: 9.5px !important; padding: 2px 6px !important; border-radius: 6px 0 0 0;
+}
+.leaflet-control-attribution a { color: #aab4c9 !important; }
+.leaflet-control-zoom { border: 0 !important; box-shadow: none !important; margin: 0 10px 10px 0 !important; }
+.leaflet-control-zoom a {
+  width: 32px !important; height: 32px !important; line-height: 30px !important;
+  background: rgba(6,9,18,.78) !important; color: #eef2ff !important;
+  border: 1px solid rgba(255,255,255,.14) !important;
+  backdrop-filter: blur(10px);
+}
+.leaflet-control-zoom a:first-child { border-radius: 10px 10px 0 0 !important; }
+.leaflet-control-zoom a:last-child { border-radius: 0 0 10px 10px !important; border-top: 0 !important; }
+
+/* ── filtros ────────────────────────────────────────────────────────────── */
+.mp-filtros, .mp-chips {
+  display: flex; gap: 7px;
+  overflow-x: auto; scrollbar-width: none;
+  padding: 1px 0 2px;
+  -webkit-overflow-scrolling: touch;
+}
+.mp-filtros::-webkit-scrollbar { display: none; }
+.mp-chip {
+  flex: 0 0 auto;
+  padding: 7px 12px; border-radius: 999px;
+  border: 1px solid var(--line); background: rgba(255,255,255,.035);
+  color: var(--tx2); font: inherit; font-size: 12px; font-weight: 600;
+  cursor: pointer; white-space: nowrap;
+  transition: background .16s, border-color .16s, color .16s;
+}
+.mp-chip:hover { background: rgba(255,255,255,.06); }
+.mp-chip.on { background: var(--accent-soft); border-color: var(--accent); color: var(--tx); }
+
+/* ── lista ──────────────────────────────────────────────────────────────── */
+.mp-lista-cab {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+  margin-top: 2px;
+}
+.mp-lista-cab h2 {
+  margin: 0; font-size: 13px; font-weight: 700; letter-spacing: .02em;
+  color: var(--tx2);
+}
+.mp-lista-cab h2 b { color: var(--tx); font-size: 17px; margin-right: 2px; }
+.mp-refrescar {
+  border: 0; background: transparent; color: var(--accent);
+  font: inherit; font-size: 12px; font-weight: 650; cursor: pointer;
+  padding: 6px 2px;
+}
+.mp-refrescar:hover { text-decoration: underline; }
+
+.mp-lista { display: grid; gap: 8px; }
+
+.mp-item {
+  display: flex; align-items: center; gap: 11px;
+  width: 100%; text-align: left;
+  padding: 11px 12px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.018));
+  color: var(--tx); font: inherit;
+  cursor: pointer;
+  transition: border-color .16s, transform .16s var(--ease), background .16s;
+}
+.mp-item:hover { border-color: var(--line-2); background: rgba(255,255,255,.06); }
+.mp-item:active { transform: scale(.985); }
+.mp-item-ico {
+  flex: 0 0 auto; width: 40px; height: 40px; border-radius: 13px;
+  display: grid; place-items: center;
+  color: var(--tx);
+  background: rgba(255,255,255,.055);
+  border: 1px solid rgba(255,255,255,.1);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.14);
+}
+.mp-item-txt { flex: 1; min-width: 0; display: grid; gap: 1px; }
+.mp-item-txt b {
+  font-size: 13.6px; font-weight: 650; letter-spacing: -.01em;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mp-item-txt small {
+  font-size: 11.4px; color: var(--tx3);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mp-item-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; }
+.mp-tag {
+  font-style: normal;
+  padding: 1.5px 6px; border-radius: 5px;
+  font-size: 9.5px; font-weight: 650; letter-spacing: .02em;
+  background: rgba(255,255,255,.06); color: var(--tx3);
+  border: 1px solid rgba(255,255,255,.06);
+}
+.mp-tag.muestra { background: rgba(255,194,75,.14); color: #ffc24b; border-color: rgba(255,194,75,.2); }
+.mp-tag.ref { background: rgba(200,255,0,.1); color: #c8ff00; border-color: rgba(200,255,0,.2); }
+.mp-tag.carrito { background: rgba(63,224,201,.12); color: #3fe0c9; border-color: rgba(63,224,201,.2); }
+.mp-item-dist {
+  flex: 0 0 auto; display: grid; justify-items: end; gap: 0;
+  padding-left: 4px;
+}
+.mp-item-dist b { font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.mp-item-dist small { font-size: 9.5px; color: var(--tx4); }
+
+/* esqueleto de carga */
+.mp-esqueleto {
+  display: flex; gap: 11px; align-items: center;
+  padding: 12px; border-radius: 16px;
+  border: 1px solid var(--line); background: rgba(255,255,255,.025);
+}
+.mp-esqueleto span {
+  width: 40px; height: 40px; border-radius: 13px;
+  background: rgba(255,255,255,.06);
+  animation: mp-brillo 1.4s ease-in-out infinite;
+}
+.mp-esqueleto div { flex: 1; display: grid; gap: 7px; }
+.mp-esqueleto i {
+  height: 10px; border-radius: 5px; background: rgba(255,255,255,.06);
+  animation: mp-brillo 1.4s ease-in-out infinite;
+}
+.mp-esqueleto i:last-child { width: 55%; }
+@keyframes mp-brillo { 0%,100% { opacity: .5; } 50% { opacity: 1; } }
+
+.mp-vacio {
+  padding: 26px 18px; text-align: center;
+  border: 1px dashed var(--line-2); border-radius: 16px;
+  background: rgba(255,255,255,.02);
+}
+.mp-vacio b { display: block; font-size: 14px; margin-bottom: 4px; }
+.mp-vacio p { margin: 0; font-size: 12px; color: var(--tx3); line-height: 1.55; }
+
+/* ── hoja del local ─────────────────────────────────────────────────────── */
+.mp-hoja { position: fixed; inset: 0; z-index: 1200; display: flex; align-items: flex-end; }
+.mp-hoja[hidden] { display: none; }
+.mp-hoja-fondo {
+  position: absolute; inset: 0;
+  background: rgba(2,4,10,.62);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  animation: mp-fade .22s ease both;
+}
+.mp-hoja-panel {
+  position: relative;
+  width: 100%;
+  max-height: 88vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 8px 16px calc(18px + env(safe-area-inset-bottom));
+  border-radius: 24px 24px 0 0;
+  border: 1px solid var(--line-2);
+  border-bottom: 0;
+  background: linear-gradient(180deg, #0b0f1b, #070a14 60%);
+  box-shadow: 0 -30px 80px -30px rgba(0,0,0,.95);
+  animation: mp-sube .3s var(--ease) both;
+}
+@keyframes mp-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes mp-sube { from { transform: translateY(28px); opacity: .6; } to { transform: none; opacity: 1; } }
+.mp-hoja-asa {
+  width: 42px; height: 4px; border-radius: 99px;
+  background: rgba(255,255,255,.22);
+  margin: 2px auto 10px;
+}
+.mp-hoja-cab { display: flex; align-items: center; gap: 11px; margin-bottom: 12px; }
+.mp-hoja-ico {
+  width: 44px; height: 44px; border-radius: 14px;
+  display: grid; place-items: center;
+  color: #0b0d05;
+  background: linear-gradient(160deg, #c8ff00, #9ed400);
+  box-shadow: 0 8px 20px -10px rgba(200,255,0,.8), inset 0 1px 0 rgba(255,255,255,.4);
+}
+.mp-hoja-tit { flex: 1; min-width: 0; }
+.mp-hoja-tit h2 { margin: 0; font-size: 18px; line-height: 1.15; letter-spacing: -.02em; }
+.mp-hoja-tit p { margin: 2px 0 0; font-size: 11.8px; color: var(--tx3); }
+
+.mp-meta { display: grid; gap: 1px; margin-bottom: 14px; }
+.mp-fila {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 14px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255,255,255,.05);
+  font-size: 12.2px;
+}
+.mp-fila span { color: var(--tx3); flex: 0 0 auto; }
+.mp-fila b { font-weight: 550; text-align: right; color: var(--tx2); }
+.mp-fila a { color: var(--accent); text-decoration: none; }
+
+.mp-cat-cab { display: flex; align-items: center; gap: 8px; margin: 4px 0 6px; }
+.mp-cat-cab h3 { margin: 0; font-size: 13px; font-weight: 700; letter-spacing: .01em; }
+.mp-cat-nota { margin: 0 0 10px; font-size: 11px; line-height: 1.5; color: var(--tx4); }
+
+.mp-productos { display: grid; gap: 6px; }
+.mp-prod {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 11px; border-radius: 13px;
+  border: 1px solid var(--line);
+  background: rgba(255,255,255,.03);
+  transition: border-color .16s, background .16s;
+}
+.mp-prod.en-carrito { border-color: rgba(200,255,0,.28); background: rgba(200,255,0,.05); }
+.mp-prod-txt { flex: 1; min-width: 0; display: grid; gap: 1px; }
+.mp-prod-txt b { font-size: 12.8px; font-weight: 600; }
+.mp-prod-txt small { font-size: 10.8px; color: var(--tx3); }
+.mp-prod-acc { display: flex; align-items: center; gap: 8px; }
+.mp-cant { font-size: 13px; font-variant-numeric: tabular-nums; min-width: 14px; text-align: center; }
+.mp-mas {
+  width: 30px; height: 30px; border-radius: 10px;
+  border: 1px solid var(--line-2); background: rgba(255,255,255,.07);
+  color: var(--tx); font-size: 16px; line-height: 1; cursor: pointer;
+  display: grid; place-items: center;
+}
+.mp-mas:hover { background: rgba(255,255,255,.12); }
+.mp-mas:active { transform: scale(.92); }
+
+.mp-hoja-pie { position: sticky; bottom: 0; padding-top: 10px; background: linear-gradient(180deg, transparent, #070a14 38%); }
+.mp-pedido {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 12px; border-radius: 14px;
+  border: 1px solid rgba(200,255,0,.28);
+  background: rgba(200,255,0,.08);
+  font-size: 12.5px;
+}
+.mp-pedido b { font-size: 15px; color: #d8ff5c; }
+.mp-limpiar {
+  display: block; margin: 8px auto 0;
+  border: 0; background: transparent; color: var(--tx4);
+  font: inherit; font-size: 11px; cursor: pointer; text-decoration: underline;
+}
+
+#mpAviso button {
+  border: 1px solid var(--line-2); background: rgba(255,255,255,.08);
+  color: var(--tx); font: inherit; font-size: 11px; font-weight: 650;
+  padding: 4px 10px; border-radius: 8px; cursor: pointer; margin-left: 4px;
+}
+#mpAviso b { color: #ffc24b; font-weight: 650; }
+
+/* En escritorio el mapa crece y la hoja se vuelve tarjeta centrada. */
+@media (min-width: 960px) {
+  .mp-mapa { height: clamp(340px, 46vh, 480px); }
+  .mp-lista { grid-template-columns: 1fr 1fr; }
+  .mp-hoja { align-items: center; justify-content: center; padding: 24px; }
+  .mp-hoja-panel {
+    width: min(560px, 92vw); max-height: 84vh; border-radius: 24px; border-bottom: 1px solid var(--line-2);
+    animation: mp-fade .22s ease both;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mp-live.ok i, .mp-yo-halo, .mp-esqueleto span, .mp-esqueleto i { animation: none; }
+  .mp-hoja-panel, .mp-hoja-fondo { animation: none; }
+}
+
+/* ── radio de búsqueda ─────────────────────────────────────────────────── */
+.mp-radios {
+  display: flex; align-items: center; gap: 6px;
+  overflow-x: auto; scrollbar-width: none;
+  margin-top: -2px;
+}
+.mp-radios::-webkit-scrollbar { display: none; }
+.mp-radios > span {
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--tx4); margin-right: 2px;
+}
+.mp-radios button {
+  flex: 0 0 auto;
+  padding: 5px 11px; border-radius: 999px;
+  border: 1px solid var(--line); background: transparent;
+  color: var(--tx3); font: inherit; font-size: 11.5px; font-weight: 600;
+  cursor: pointer;
+}
+.mp-radios button.on {
+  border-color: rgba(200,255,0,.42); color: #d8ff5c;
+  background: rgba(200,255,0,.1);
+}
+
+/* ── aviso flotante sobre el mapa ──────────────────────────────────────── */
+.mp-aviso {
+  position: absolute; left: 10px; right: 10px; bottom: 52px; z-index: 600;
+  padding: 8px 11px; border-radius: 11px;
+  border: 1px solid rgba(255,194,75,.28);
+  background: rgba(18,14,4,.9);
+  backdrop-filter: blur(10px);
+  font-size: 11.5px; line-height: 1.45; color: var(--tx2);
+  pointer-events: auto;
+}
+.mp-aviso:empty { display: none; }
+.mp-aviso a { color: var(--accent); }
+
+/* ── teselas oscuras ───────────────────────────────────────────────────── */
+/* OpenStreetMap llega en claro; se invierte y se desatura para que el mapa
+   viva en el mismo negro que la consola. El satélite va sin filtro. */
+.mp-mapa:not(.modo-satelite) .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(185deg) brightness(.86) contrast(.92) saturate(.55);
+}
+.mp-mapa.modo-satelite .leaflet-tile-pane {
+  filter: brightness(.78) contrast(1.06) saturate(.85);
+}
+.mp-credito {
+  position: absolute; right: 10px; bottom: 46px; z-index: 500;
+  font-size: 9px; color: rgba(210,220,240,.55);
+  background: rgba(6,9,18,.55); padding: 2px 7px; border-radius: 6px;
+  backdrop-filter: blur(6px);
+}
+.mp-credito a { color: inherit; }
+/* Con poco zoom los pines se achican y pierden la etiqueta de distancia. */
+.pines-compactos .mp-pin-dist { display: none; }
+.pines-compactos .mp-pin-cuerpo { width: 28px; height: 28px; border-radius: 9px; }
+.pines-compactos .mp-pin-pata { top: 25px; border-top-width: 7px; }
+
+/* Grupo de locales: un solo pin con el número, no seis encimados. */
+.mp-grupo .mp-pin-cuerpo {
+  width: 38px; height: 38px; border-radius: 13px;
+  color: #0b0d05; font-size: 14px; font-weight: 800;
+  box-shadow: 0 1px 0 rgba(255,255,255,.5) inset, 0 12px 22px -10px rgba(0,0,0,.95), 0 0 26px -6px rgba(200,255,0,.7);
+}
+.mp-grupo .mp-pin-pata { top: 34px; }
+
+/* La barra inferior se retira mientras hay una ficha abierta. */
+body.mp-abierto .nav { transform: translateY(112%); transition: transform .24s var(--ease); }

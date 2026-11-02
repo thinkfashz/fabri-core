@@ -12,6 +12,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="stylesheet" href="./styles.css">
+<link rel="stylesheet" href="./vendor/leaflet.css">
+<link rel="stylesheet" href="./placer.css">
 </head>
 <body>
 
@@ -50,7 +52,8 @@
 
       <div class="nav-group">
         <span class="nav-lbl">Núcleo</span>
-        <button class="on" data-go="panel" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="2"/><rect x="14" y="3" width="7" height="5" rx="2"/><rect x="14" y="12" width="7" height="9" rx="2"/><rect x="3" y="16" width="7" height="5" rx="2"/></svg><span>Panel</span></button>
+        <button class="on" data-go="panel" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z"/><circle cx="12" cy="10" r="2.6"/></svg><span>Placer</span></button>
+        <button data-go="nucleo" data-mas type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="2"/><rect x="14" y="3" width="7" height="5" rx="2"/><rect x="14" y="12" width="7" height="9" rx="2"/><rect x="3" y="16" width="7" height="5" rx="2"/></svg><span>Panel</span></button>
         <button data-go="chat" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a8 8 0 0 1-8 8H8l-4 2 1.5-4.5A8 8 0 1 1 21 12Z"/></svg><span>Chat</span></button>
         <button data-go="sql" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 6 8 4 8-4-8-4-8 4Z"/><path d="m4 12 8 4 8-4"/><path d="m4 18 8 4 8-4"/></svg><span>SQL</span></button>
         <button data-go="mem" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a4 4 0 0 0-4 4v1a4 4 0 0 0 0 8v1a4 4 0 0 0 8 0v-1a4 4 0 0 0 0-8V7a4 4 0 0 0-4-4Z"/></svg><span>Memoria</span></button>
@@ -115,7 +118,62 @@
       <div class="offline-bar" id="offBar">Sin conexión — la app sigue funcionando con los datos locales.</div>
 
       <!-- ══════════════ PANEL ══════════════ -->
+      <!-- ══════════════ MERCADOPLACER · mercados cerca de ti ══════════════ -->
       <section class="screen on" id="s-panel">
+        <div class="mp" id="mp">
+          <header class="mp-cab">
+            <div>
+              <p class="eyebrow">MercadoPlacer · cerca de ti</p>
+              <h1>Mercados <em>a tu alrededor</em></h1>
+            </div>
+            <button class="mp-ubi" id="mpUbicar" type="button" aria-label="Centrar en mi ubicación" title="Centrar en mi ubicación">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 2v3.2M12 18.8V22M2 12h3.2M18.8 12H22"/></svg>
+            </button>
+          </header>
+
+          <div class="mp-estado">
+            <span class="mp-live" id="mpLive"><i></i>ubicando</span>
+            <span id="mpUbiTexto">Pidiendo permiso de ubicación…</span>
+          </div>
+
+          <div class="mp-mapa-caja">
+            <div class="mp-mapa" id="mpMapa"></div>
+            <div class="mp-textura" aria-hidden="true"></div>
+            <div class="mp-mapa-hud">
+              <div class="mp-modos" id="mpModos">
+                <button type="button" data-modo="calles" class="on">Calles</button>
+                <button type="button" data-modo="satelite">Satélite</button>
+              </div>
+              <button class="mp-btn-3d" id="mpCentrar" type="button" aria-label="Centrar el mapa">◎</button>
+            </div>
+            <div class="mp-leyenda" id="mpLeyenda">Cargando mercados cercanos…</div>
+            <div class="mp-credito" id="mpCredito"></div>
+            <div class="mp-aviso" id="mpAviso"></div>
+          </div>
+
+          <div class="mp-radios" id="mpRadios" aria-label="Radio de búsqueda">
+            <span>Radio</span>
+            <button type="button" data-r="500">500 m</button>
+            <button type="button" data-r="1500" class="on">1,5 km</button>
+            <button type="button" data-r="3000">3 km</button>
+            <button type="button" data-r="5000">5 km</button>
+          </div>
+
+          <div class="mp-filtros" id="mpFiltros"></div>
+
+          <div class="mp-lista-cab">
+            <h2><b id="mpTotal">—</b> mercados</h2>
+            <button class="mp-refrescar" id="mpRefrescar" type="button">Actualizar</button>
+          </div>
+
+          <div class="mp-lista" id="mpLista"></div>
+
+        </div>
+
+      </section>
+
+      <!-- ══════════════ NÚCLEO · panel técnico ══════════════ -->
+      <section class="screen" id="s-nucleo">
 
         <div class="hero-card">
           <div class="hero-copy">
@@ -184,6 +242,7 @@
             </div>
           </div>
         </div>
+      
       </section>
 
       <!-- ══════════════ CHAT ══════════════ -->
@@ -538,8 +597,27 @@
 <script src="./core-sheet.js"></script>
 <script src="./core-scan.js"></script>
 <script src="./core-wiki.js"></script>
+<script src="./vendor/leaflet.js"></script>
+<script src="./placer.js"></script>
 <script src="./app.js"></script>
 <script src="./cloud.js"></script>
 <script src="./mercado.js"></script>
+        <div class="mp-hoja" id="mpHoja" hidden>
+          <div class="mp-hoja-fondo" id="mpHojaFondo"></div>
+          <div class="mp-hoja-panel" role="dialog" aria-modal="true" aria-labelledby="mpHojaNombre">
+            <div class="mp-hoja-asa"></div>
+            <header class="mp-hoja-cab">
+              <div class="mp-hoja-ico" id="mpHojaIco"></div>
+              <div class="mp-hoja-tit">
+                <h2 id="mpHojaNombre">—</h2>
+                <p id="mpHojaSub">—</p>
+              </div>
+              <button class="mp-ubi" id="mpHojaX" type="button" aria-label="Cerrar">✕</button>
+            </header>
+            <div id="mpHojaCuerpo"></div>
+            <footer class="mp-hoja-pie" id="mpHojaPie"></footer>
+          </div>
+        </div>
+
 </body>
 </html>
