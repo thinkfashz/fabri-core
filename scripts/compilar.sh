@@ -16,12 +16,31 @@ RAIZ="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SDK="${SDK:-/data/data/com.termux/files/home/android-sdk}"
 BT="$SDK/build-tools/34.0.0"
 ANDROID_JAR="$SDK/platforms/android-34/android.jar"
+# Firma: por defecto la de depuración, para poder instalar ENCIMA de la app
+# existente (Android exige la misma clave). Con FORGE_FIRMA=release usa la
+# clave propia; ese APK NO se instala encima del actual: hay que respaldar,
+# desinstalar e instalar de nuevo.
 KS="$SDK/debug.keystore"
+KSPASS="android"
+RELEASE=0
+if [ "${FORGE_FIRMA:-}" = "release" ]; then
+  RK="${FORGE_KS:-$HOME/.config/opencode/secrets/forge-release.jks}"
+  RP="${FORGE_KSPASS_FILE:-$HOME/.config/opencode/secrets/forge-release.pass}"
+  if [ -f "$RK" ] && [ -f "$RP" ]; then
+    KS="$RK"
+    KSPASS="$(cat "$RP")"
+    RELEASE=1
+  else
+    echo "aviso: no encontré la firma de release; se usa la de depuración" >&2
+  fi
+fi
 CACHE_CARGO="${CACHE_CARGO:-/data/data/com.termux/files/home/.cargo}"
 
 B="$RAIZ/build"
 DIST="$RAIZ/dist"
-NOMBRE="FORGE-CORE-STOCK-0.9.61"
+NOMBRE="FORGE-CORE-STOCK-0.9.62"
+# Con firma de release el archivo se distingue para no confundir las versiones.
+if [ "$RELEASE" = "1" ]; then NOMBRE="$NOMBRE-release"; fi
 
 # La versión vive en tres sitios (Cargo.toml, manifiesto y NOMBRE). aapt2 sólo
 # inyecta --version-code si el manifiesto no lo trae, pero se pasa igual para
@@ -131,12 +150,13 @@ zip -q sin-firmar.apk lib/arm64-v8a/*.so
 log "6/7 alineando y firmando"
 zipalign -f -p 4 sin-firmar.apk alineado.apk
 
-ALIAS=$(keytool -list -keystore "$KS" -storepass android 2>/dev/null \
+ALIAS=$(keytool -list -keystore "$KS" -storepass "$KSPASS" 2>/dev/null \
         | grep -o '^[a-zA-Z0-9_-]*,' | head -1 | tr -d ',' || true)
+if [ "$KS" != "$SDK/debug.keystore" ]; then ALIAS="forge"; fi
 [ -n "${ALIAS:-}" ] || fallo "no se pudo leer el alias del keystore"
 
 apksigner sign \
-  --ks "$KS" --ks-pass pass:android --key-pass pass:android \
+  --ks "$KS" --ks-pass "pass:$KSPASS" --key-pass "pass:$KSPASS" \
   --ks-key-alias "$ALIAS" \
   --min-sdk-version 24 \
   --out "$DIST/$NOMBRE.apk" alineado.apk

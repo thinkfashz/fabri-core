@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="catalogo.css" />
   <link rel="stylesheet" href="impuestos.css" />
   <link rel="stylesheet" href="contabilidad.css" />
+  <link rel="stylesheet" href="dte.css" />
 </head>
 <body>
   <!-- ===================== ACCESO · HUELLA + PIN ===================== -->
@@ -124,6 +125,7 @@
       <button class="nav-drawer" data-vista="inventario"><span>▦</span>Inventario</button>
       <button class="nav-drawer" data-vista="impuestos"><span>％</span>Impuestos F29</button>
       <button class="nav-drawer" data-vista="contabilidad"><span>▤</span>Contribuyentes</button>
+      <button class="nav-drawer" data-vista="dte"><span>▧</span>Boletas electrónicas</button>
       <button class="nav-drawer" data-vista="catalogo"><span>◈</span>Catálogo</button>
       <button class="nav-drawer" data-vista="flujo"><span>⇄</span>Flujo en tiempo real</button>
       <button class="nav-drawer" data-vista="modulos"><span>⬡</span>Módulos</button>
@@ -1923,6 +1925,60 @@ npx -y omniroute@latest
     </div>
   </section>
 
+  <!-- ===================== DTE · DOCUMENTOS TRIBUTARIOS =================== -->
+  <section class="vista" id="v-dte">
+    <div class="dte-cuerpo">
+      <div class="dte-hero">
+        <p class="dte-eyebrow">Módulo · tributario</p>
+        <h2>Boletas <em>electrónicas</em></h2>
+        <p class="dte-sub">Certificado, folios (CAF) y emisión firmada. Todo queda en el
+          teléfono; el envío al SII se hace con tu certificado.</p>
+        <p class="dte-aviso" id="dteAviso"></p>
+      </div>
+
+      <div class="dte-caja">
+        <div class="dte-cab">
+          <h3>Certificado digital</h3>
+          <span class="dte-chip" id="dteCertEstado">Sin certificado cargado</span>
+        </div>
+        <p class="dte-nota">Archivo .pfx o .p12 con su clave. Se usa para firmar en el
+          teléfono y no se envía a ningún servidor.</p>
+        <div class="dte-fila">
+          <div class="dte-campo"><span>Clave del certificado</span>
+            <input id="dteCertClave" type="password" autocomplete="off" placeholder="••••••" /></div>
+          <button class="dte-btn principal" id="btnDteCert" type="button">Cargar .pfx</button>
+        </div>
+        <input type="file" id="dteCertArchivo" accept=".pfx,.p12,application/x-pkcs12" hidden />
+      </div>
+
+      <div class="dte-caja">
+        <div class="dte-cab">
+          <h3>Folios autorizados (CAF)</h3>
+          <button class="dte-btn" id="btnDteCaf" type="button">Cargar CAF</button>
+        </div>
+        <div id="dteCafs" class="dte-cafs"></div>
+        <input type="file" id="dteCafArchivo" accept=".xml,text/xml" hidden />
+      </div>
+
+      <div class="dte-caja">
+        <h3>Emitir documento</h3>
+        <div id="dteForm" class="dte-form"></div>
+        <button class="dte-btn principal" id="btnDteEmitir" type="button">Emitir y firmar</button>
+        <p class="dte-nota">Sin certificado y CAF el documento queda como borrador local;
+          no es válido ante el SII.</p>
+      </div>
+
+      <div class="dte-caja">
+        <div class="dte-cab">
+          <h3>Documentos</h3>
+          <button class="dte-btn" id="btnDteRefrescar" type="button">Actualizar</button>
+        </div>
+        <div class="dte-resumen" id="dteResumen"></div>
+        <div id="dteDocs" class="dte-docs"></div>
+      </div>
+    </div>
+  </section>
+
   <!-- ===================== IMPUESTOS · F29 ================================ -->
   <section class="vista" id="v-impuestos">
     <div class="imp-cuerpo">
@@ -3167,6 +3223,7 @@ CREATE INDEX IF NOT EXISTS idx_inv_productos_actualizado
   <script src="catalogo.js"></script>
   <script src="impuestos.js"></script>
   <script src="contabilidad.js"></script>
+  <script src="dte.js"></script>
   <script src="impresora.js"></script>
   <script src="lector-red.js"></script>
   <script src="importar-base.js"></script>

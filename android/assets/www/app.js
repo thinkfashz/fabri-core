@@ -494,6 +494,7 @@ const RAMAS_VISTA = {
   inventario: () => { if (typeof invIniciar === "function") invIniciar(); },
   impuestos: () => { if (typeof impIniciar === "function") impIniciar(); },
   contabilidad: () => { if (typeof ctbIniciar === "function") ctbIniciar(); },
+  dte: () => { if (typeof dteIniciar === "function") dteIniciar(); },
   catalogo: () => { if (typeof catIniciar === "function") catIniciar(); },
   flujo: () => { if (typeof flujoIniciar === "function") flujoIniciar(); },
   termux: () => { cargarTermux(); puenteIniciar(); },

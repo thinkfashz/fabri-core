@@ -1020,6 +1020,82 @@ public final class NativeBridge {
         return "{\"ok\":true}";
     }
 
+    // ========================================================== MOTOR DTE
+    // El certificado llega en Base64 desde la interfaz, se usa en memoria y
+    // NO se guarda en disco. Todo el trabajo pesado va en hilos aparte.
+
+    @JavascriptInterface
+    public String dteEstado() {
+        return Dte.estado();
+    }
+
+    @JavascriptInterface
+    public String dteCertificado(String p12Base64, String clave) {
+        try {
+            if (p12Base64 == null || p12Base64.trim().isEmpty()) {
+                return error("falta el certificado (.p12)");
+            }
+            byte[] p12 = Base64.decode(p12Base64, Base64.DEFAULT);
+            return Dte.certificadoInfo(p12, clave);
+        } catch (Throwable t) {
+            return error(mensaje(t));
+        }
+    }
+
+    @JavascriptInterface
+    public String dteCaf(String xmlCaf, int ultimoFolio) {
+        try {
+            String info = Dte.cafInfo(xmlCaf);
+            String folio = Dte.folioSiguiente(xmlCaf, ultimoFolio);
+            return "{\"ok\":" + (info.contains("\"ok\":true") && folio.contains("\"ok\":true"))
+                    + ",\"caf\":" + info + ",\"folio\":" + folio + "}";
+        } catch (Throwable t) {
+            return error(mensaje(t));
+        }
+    }
+
+    @JavascriptInterface
+    public String dteEmitir(final String datosJson, final String p12Base64, final String clave) {
+        Thread hilo = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                String r;
+                try {
+                    JSONObject datos = new JSONObject(
+                            datosJson == null || datosJson.trim().isEmpty() ? "{}" : datosJson);
+                    byte[] p12 = Base64.decode(p12Base64 == null ? "" : p12Base64, Base64.DEFAULT);
+                    r = Dte.dteXml(datos, p12, clave);
+                } catch (Throwable t) {
+                    r = error(mensaje(t));
+                }
+                notificar("window.FabriDte && FabriDte.documento(" + r + ");");
+            }
+        }, "dte-emitir");
+        hilo.setDaemon(true);
+        hilo.start();
+        return "{\"ok\":true,\"estado\":\"EMITIENDO\"}";
+    }
+
+    @JavascriptInterface
+    public String dteFirmar(final String texto, final String p12Base64, final String clave) {
+        Thread hilo = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                String r;
+                try {
+                    byte[] p12 = Base64.decode(p12Base64 == null ? "" : p12Base64, Base64.DEFAULT);
+                    r = Dte.firmar(texto, p12, clave);
+                } catch (Throwable t) {
+                    r = error(mensaje(t));
+                }
+                notificar("window.FabriDte && FabriDte.firma(" + r + ");");
+            }
+        }, "dte-firmar");
+        hilo.setDaemon(true);
+        hilo.start();
+        return "{\"ok\":true,\"estado\":\"FIRMANDO\"}";
+    }
+
     // ============================================================ SESIÓN SII
     // Login real contra el SII con RUT y clave tributaria, guardando la sesión
     // (cookies) en este teléfono para consultar después sin abrir navegador.

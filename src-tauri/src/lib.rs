@@ -2912,6 +2912,7 @@ pub extern "system" fn Java_cl_fabrick_core_NativeBridge_exec<'local>(
         "inventario" => con_estado(|e| op_inventario(&payload_json, &e.db)),
         "perfil" => con_estado(|e| op_perfil(&payload_json, &e.db)),
         "contabilidad" => con_estado(|e| op_contabilidad(&payload_json, &e.db)),
+        "dte" => con_estado(|e| op_dte(&payload_json, &e.db)),
         "usuarios" => con_estado(|e| op_usuarios(&payload_json, &e.db)),
         "modulos" => con_estado(|e| modulos::op(&payload_json, &e.db, &e.data_dir)),
         "tarea" => op_tarea(&payload_json),
@@ -5028,5 +5029,687 @@ fn op_inventario(payload: &Value, db: &Connection) -> Result<Value, String> {
         }
 
         otro => Err(format!("acción de inventario desconocida: {}", otro)),
+    }
+}
+
+// ===========================================================================
+//  DTE · documentos tributarios electrónicos
+//  -------------------------------------------------------------------------
+//  Persistencia local de los documentos (boleta 39, factura 33, nota de
+//  crédito 61, nota de débito 56 y factura exenta 41), de los CAF autorizados
+//  y de la bitácora de eventos. NO firma ni envía al SII: eso lo hace el
+//  cliente. Aquí solo se guarda, se controla el folio y se deja rastro.
+//
+//  Tablas (se crean solas la primera vez):
+//    · dte_documentos  un folio por (tipo, folio), con XML y TED
+//    · dte_caf         rangos autorizados y cuál es el próximo folio
+//    · dte_eventos     bitácora de cada acción (guardar, marcar, borrar…)
+// ===========================================================================
+static DTE_ESQUEMA_LISTO: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+
+fn dte_esquema(db: &Connection) -> rusqlite::Result<()> {
+    db.execute_batch(
+        "CREATE TABLE IF NOT EXISTS dte_documentos (
+            id             INTEGER PRIMARY KEY AUTOINCREMENT,
+            folio          INTEGER NOT NULL,
+            tipo           INTEGER NOT NULL,
+            rut_emisor     TEXT NOT NULL DEFAULT '',
+            rut_receptor   TEXT NOT NULL DEFAULT '',
+            razon_receptor TEXT NOT NULL DEFAULT '',
+            neto           REAL NOT NULL DEFAULT 0,
+            iva            REAL NOT NULL DEFAULT 0,
+            total          REAL NOT NULL DEFAULT 0,
+            xml            TEXT NOT NULL DEFAULT '',
+            ted            TEXT NOT NULL DEFAULT '',
+            estado         TEXT NOT NULL DEFAULT 'borrador',
+            track_id       TEXT NOT NULL DEFAULT '',
+            glosa          TEXT NOT NULL DEFAULT '',
+            creado         INTEGER NOT NULL DEFAULT 0,
+            actualizado    INTEGER NOT NULL DEFAULT 0,
+            UNIQUE(tipo, folio)
+         );
+         CREATE INDEX IF NOT EXISTS idx_dte_documentos_estado
+            ON dte_documentos(estado);
+         CREATE INDEX IF NOT EXISTS idx_dte_documentos_receptor
+            ON dte_documentos(rut_receptor);
+         CREATE TABLE IF NOT EXISTS dte_caf (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            tipo       INTEGER NOT NULL,
+            desde      INTEGER NOT NULL,
+            hasta      INTEGER NOT NULL,
+            siguiente  INTEGER NOT NULL,
+            xml        TEXT NOT NULL DEFAULT '',
+            activo     INTEGER NOT NULL DEFAULT 1,
+            creado     INTEGER NOT NULL DEFAULT 0
+         );
+         CREATE INDEX IF NOT EXISTS idx_dte_caf_tipo
+            ON dte_caf(tipo, activo, siguiente);
+         CREATE TABLE IF NOT EXISTS dte_eventos (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            documento_id INTEGER NOT NULL DEFAULT 0,
+            folio        INTEGER NOT NULL DEFAULT 0,
+            tipo         INTEGER NOT NULL DEFAULT 0,
+            accion       TEXT NOT NULL DEFAULT '',
+            detalle      TEXT NOT NULL DEFAULT '',
+            ts           INTEGER NOT NULL DEFAULT 0
+         );
+         CREATE INDEX IF NOT EXISTS idx_dte_eventos_documento
+            ON dte_eventos(documento_id);",
+    )
+}
+
+fn dte_txt(v: &Value, clave: &str) -> String {
+    v.get(clave)
+        .and_then(|x| x.as_str())
+        .unwrap_or("")
+        .trim()
+        .to_string()
+}
+
+/// Número tolerante: acepta 1234.5, "1234,5" y "".
+fn dte_num(v: &Value, clave: &str) -> f64 {
+    v.get(clave)
+        .and_then(|x| {
+            x.as_f64().or_else(|| {
+                x.as_str()
+                    .map(|s| s.replace(',', ".").trim().parse::<f64>().unwrap_or(0.0))
+            })
+        })
+        .unwrap_or(0.0)
+}
+
+/// Entero tolerante: acepta 39, "39" y "39,0".
+fn dte_entero(v: &Value, clave: &str) -> i64 {
+    v.get(clave)
+        .and_then(|x| {
+            x.as_i64()
+                .or_else(|| x.as_f64().map(|f| f as i64))
+                .or_else(|| {
+                    x.as_str()
+                        .map(|s| s.replace(',', ".").trim().parse::<f64>().unwrap_or(0.0) as i64)
+                })
+        })
+        .unwrap_or(0)
+}
+
+/// Estados permitidos por el esquema: vacío cae en «borrador».
+fn dte_estado_normal(estado: &str) -> Result<String, String> {
+    let e = estado.trim().to_lowercase();
+    if e.is_empty() {
+        return Ok("borrador".to_string());
+    }
+    const VALIDOS: [&str; 6] = ["borrador", "firmado", "enviado", "aceptado", "rechazado", "error"];
+    if VALIDOS.contains(&e.as_str()) {
+        Ok(e)
+    } else {
+        Err(format!(
+            "estado desconocido: {} (válidos: borrador, firmado, enviado, aceptado, rechazado, error)",
+            e
+        ))
+    }
+}
+
+const DTE_SELECT: &str = "SELECT d.id,d.folio,d.tipo,d.rut_emisor,d.rut_receptor,d.razon_receptor,
+        d.neto,d.iva,d.total,d.xml,d.ted,d.estado,d.track_id,d.glosa,d.creado,d.actualizado
+   FROM dte_documentos d";
+
+fn dte_fila(r: &rusqlite::Row) -> rusqlite::Result<Value> {
+    Ok(json!({
+        "id": r.get::<_, i64>(0)?,
+        "folio": r.get::<_, i64>(1)?,
+        "tipo": r.get::<_, i64>(2)?,
+        "rut_emisor": r.get::<_, String>(3)?,
+        "rut_receptor": r.get::<_, String>(4)?,
+        "razon_receptor": r.get::<_, String>(5)?,
+        "neto": r.get::<_, f64>(6)?,
+        "iva": r.get::<_, f64>(7)?,
+        "total": r.get::<_, f64>(8)?,
+        "xml": r.get::<_, String>(9)?,
+        "ted": r.get::<_, String>(10)?,
+        "estado": r.get::<_, String>(11)?,
+        "track_id": r.get::<_, String>(12)?,
+        "glosa": r.get::<_, String>(13)?,
+        "creado": r.get::<_, i64>(14)?,
+        "actualizado": r.get::<_, i64>(15)?
+    }))
+}
+
+fn dte_doc_por(db: &Connection, tipo: i64, folio: i64) -> Result<Option<Value>, String> {
+    let sql = format!("{} WHERE d.tipo = ?1 AND d.folio = ?2", DTE_SELECT);
+    let mut st = db.prepare(&sql).map_err(|e| e.to_string())?;
+    st.query_row(params![tipo, folio], dte_fila)
+        .optional()
+        .map_err(|e| e.to_string())
+}
+
+fn dte_evento(
+    db: &Connection,
+    documento_id: i64,
+    folio: i64,
+    tipo: i64,
+    accion: &str,
+    detalle: &str,
+) -> Result<(), String> {
+    db.execute(
+        "INSERT INTO dte_eventos (documento_id,folio,tipo,accion,detalle,ts)
+         VALUES (?1,?2,?3,?4,?5,?6)",
+        params![documento_id, folio, tipo, accion, detalle, ahora()],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+fn dte_eventos_lista(
+    db: &Connection,
+    documento_id: i64,
+    folio: i64,
+    tipo: i64,
+) -> Result<Vec<Value>, String> {
+    let mut st = db
+        .prepare(
+            "SELECT id,documento_id,folio,tipo,accion,detalle,ts
+               FROM dte_eventos
+              WHERE (?1 > 0 AND documento_id = ?1)
+                 OR (?1 = 0 AND folio = ?2 AND tipo = ?3)
+              ORDER BY id DESC LIMIT 200",
+        )
+        .map_err(|e| e.to_string())?;
+    let filas = st
+        .query_map(params![documento_id, folio, tipo], |r| {
+            Ok(json!({
+                "id": r.get::<_, i64>(0)?,
+                "documento_id": r.get::<_, i64>(1)?,
+                "folio": r.get::<_, i64>(2)?,
+                "tipo": r.get::<_, i64>(3)?,
+                "accion": r.get::<_, String>(4)?,
+                "detalle": r.get::<_, String>(5)?,
+                "ts": r.get::<_, i64>(6)?
+            }))
+        })
+        .map_err(|e| e.to_string())?
+        .filter_map(|x| x.ok())
+        .collect();
+    Ok(filas)
+}
+
+/// Conteo de documentos por estado. Se devuelve como objeto para que el
+/// cliente pinte las tarjetas sin recorrer la lista completa.
+fn dte_conteos(db: &Connection) -> Value {
+    let mut conteos = serde_json::Map::new();
+    if let Ok(mut st) = db.prepare("SELECT estado, COUNT(*) FROM dte_documentos GROUP BY estado") {
+        if let Ok(rows) = st.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?))) {
+            for (estado, n) in rows.filter_map(|x| x.ok()) {
+                conteos.insert(estado, json!(n));
+            }
+        }
+    }
+    Value::Object(conteos)
+}
+
+fn dte_caf_fila(r: &rusqlite::Row) -> rusqlite::Result<Value> {
+    let desde: i64 = r.get(2)?;
+    let hasta: i64 = r.get(3)?;
+    let siguiente: i64 = r.get(4)?;
+    let activo: i64 = r.get(6)?;
+    // `siguiente` es el folio que se entregará: restantes incluye ese folio.
+    let restantes = if activo != 0 {
+        (hasta - siguiente + 1).max(0)
+    } else {
+        0
+    };
+    Ok(json!({
+        "id": r.get::<_, i64>(0)?,
+        "tipo": r.get::<_, i64>(1)?,
+        "desde": desde,
+        "hasta": hasta,
+        "siguiente": siguiente,
+        "xml": r.get::<_, String>(5)?,
+        "activo": activo != 0,
+        "creado": r.get::<_, i64>(7)?,
+        "restantes": restantes
+    }))
+}
+
+fn dte_caf_por(db: &Connection, id: i64) -> Result<Option<Value>, String> {
+    let mut st = db
+        .prepare(
+            "SELECT id,tipo,desde,hasta,siguiente,xml,activo,creado
+               FROM dte_caf WHERE id = ?1",
+        )
+        .map_err(|e| e.to_string())?;
+    st.query_row(params![id], dte_caf_fila)
+        .optional()
+        .map_err(|e| e.to_string())
+}
+
+fn op_dte(payload: &Value, db: &Connection) -> Result<Value, String> {
+    if !DTE_ESQUEMA_LISTO.load(std::sync::atomic::Ordering::Relaxed) {
+        dte_esquema(db).map_err(|e| format!("no se pudo crear el esquema DTE: {}", e))?;
+        DTE_ESQUEMA_LISTO.store(true, std::sync::atomic::Ordering::Relaxed);
+    }
+    let accion = payload
+        .get("accion")
+        .and_then(|v| v.as_str())
+        .unwrap_or("listar");
+
+    match accion {
+        // ---------------------------------------------------------- guardar
+        "guardar" => {
+            let p = payload
+                .get("documento")
+                .cloned()
+                .unwrap_or_else(|| payload.clone());
+            let folio = dte_entero(&p, "folio");
+            let tipo = dte_entero(&p, "tipo");
+            if folio <= 0 {
+                return Err("el folio es obligatorio y debe ser mayor que 0".into());
+            }
+            if tipo <= 0 {
+                return Err("el tipo de documento es obligatorio (39, 33, 61, 56 o 41)".into());
+            }
+            let estado = dte_estado_normal(&dte_txt(&p, "estado"))?;
+            let total = dte_num(&p, "total");
+            let ts = ahora();
+
+            let existente: Option<(i64, i64)> = db
+                .query_row(
+                    "SELECT id, creado FROM dte_documentos WHERE tipo = ?1 AND folio = ?2",
+                    params![tipo, folio],
+                    |r| Ok((r.get(0)?, r.get(1)?)),
+                )
+                .optional()
+                .map_err(|e| e.to_string())?;
+            let habia = existente.is_some();
+            let creado = existente.map(|(_, c)| c).unwrap_or(ts);
+
+            db.execute(
+                "INSERT INTO dte_documentos
+                    (folio,tipo,rut_emisor,rut_receptor,razon_receptor,neto,iva,total,
+                     xml,ted,estado,track_id,glosa,creado,actualizado)
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15)
+                 ON CONFLICT(tipo,folio) DO UPDATE SET
+                    rut_emisor=excluded.rut_emisor,
+                    rut_receptor=excluded.rut_receptor,
+                    razon_receptor=excluded.razon_receptor,
+                    neto=excluded.neto,
+                    iva=excluded.iva,
+                    total=excluded.total,
+                    xml=excluded.xml,
+                    ted=excluded.ted,
+                    estado=excluded.estado,
+                    track_id=excluded.track_id,
+                    glosa=excluded.glosa,
+                    actualizado=excluded.actualizado",
+                params![
+                    folio,
+                    tipo,
+                    ctb_rut_limpio(&dte_txt(&p, "rut_emisor")),
+                    ctb_rut_limpio(&dte_txt(&p, "rut_receptor")),
+                    dte_txt(&p, "razon_receptor"),
+                    dte_num(&p, "neto"),
+                    dte_num(&p, "iva"),
+                    total,
+                    dte_txt(&p, "xml"),
+                    dte_txt(&p, "ted"),
+                    estado,
+                    dte_txt(&p, "track_id"),
+                    dte_txt(&p, "glosa"),
+                    creado,
+                    ts
+                ],
+            )
+            .map_err(|e| e.to_string())?;
+
+            let guardado = dte_doc_por(db, tipo, folio)?.unwrap_or(Value::Null);
+            let id = guardado["id"].as_i64().unwrap_or(0);
+            let accion_evento = if habia { "actualizar" } else { "crear" };
+            let detalle = json!({
+                "estado": estado.clone(),
+                "total": total,
+                "actualizado": habia
+            })
+            .to_string();
+            dte_evento(db, id, folio, tipo, accion_evento, &detalle)?;
+            Ok(json!({
+                "ok": true,
+                "documento": guardado,
+                "creado": !habia,
+                "evento": accion_evento
+            }))
+        }
+
+        // ---------------------------------------------------- registrar_caf
+        "registrar_caf" => {
+            let tipo = dte_entero(payload, "tipo");
+            let desde = dte_entero(payload, "desde");
+            let hasta = dte_entero(payload, "hasta");
+            if tipo <= 0 {
+                return Err("el tipo del CAF es obligatorio (39, 33, 61, 56 o 41)".into());
+            }
+            if desde <= 0 || hasta <= 0 {
+                return Err("el rango del CAF necesita desde y hasta mayores que 0".into());
+            }
+            if hasta < desde {
+                return Err(format!(
+                    "rango de CAF inválido: desde {} es mayor que hasta {}",
+                    desde, hasta
+                ));
+            }
+            let ts = ahora();
+            db.execute(
+                "INSERT INTO dte_caf (tipo,desde,hasta,siguiente,xml,activo,creado)
+                 VALUES (?1,?2,?3,?4,?5,1,?6)",
+                params![tipo, desde, hasta, desde, dte_txt(payload, "xml"), ts],
+            )
+            .map_err(|e| e.to_string())?;
+            let id = db.last_insert_rowid();
+            let caf = dte_caf_por(db, id)?.unwrap_or(Value::Null);
+            Ok(json!({ "ok": true, "caf": caf }))
+        }
+
+        // --------------------------------------------------- siguiente_folio
+        "siguiente_folio" => {
+            let tipo = dte_entero(payload, "tipo");
+            if tipo <= 0 {
+                return Err("el tipo del folio es obligatorio (39, 33, 61, 56 o 41)".into());
+            }
+            // Transacción: leer el CAF, avanzar el contador y confirmar. Si dos
+            // llamadas coinciden, la segunda espera y ve el contador ya movido.
+            let tx = db.unchecked_transaction().map_err(|e| e.to_string())?;
+            let caf: Option<(i64, i64, i64)> = tx
+                .query_row(
+                    "SELECT id, siguiente, hasta
+                       FROM dte_caf
+                      WHERE tipo = ?1 AND activo = 1 AND siguiente <= hasta
+                      ORDER BY desde ASC, id ASC
+                      LIMIT 1",
+                    params![tipo],
+                    |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+                )
+                .optional()
+                .map_err(|e| e.to_string())?;
+
+            let (caf_id, folio, hasta) = match caf {
+                Some(f) => f,
+                None => {
+                    return Err(format!(
+                        "no hay folios disponibles para el tipo {}",
+                        tipo
+                    ))
+                }
+            };
+            let n = tx
+                .execute(
+                    "UPDATE dte_caf SET siguiente = ?2 WHERE id = ?1 AND siguiente = ?3",
+                    params![caf_id, folio + 1, folio],
+                )
+                .map_err(|e| e.to_string())?;
+            if n == 0 {
+                return Err("el CAF cambió mientras se asignaba el folio; reintenta".into());
+            }
+            tx.commit().map_err(|e| e.to_string())?;
+            Ok(json!({
+                "ok": true,
+                "tipo": tipo,
+                "folio": folio,
+                "restantes": (hasta - folio).max(0),
+                "caf_id": caf_id,
+                "hasta": hasta
+            }))
+        }
+
+        // ----------------------------------------------------------- listar
+        "listar" => {
+            let limite = payload
+                .get("limite")
+                .and_then(|v| v.as_i64())
+                .unwrap_or(200)
+                .clamp(1, 500);
+            // Sin xml/ted: la lista viaja liviana. El documento completo se
+            // pide con la acción «estado».
+            let mut st = db
+                .prepare(
+                    "SELECT d.id,d.folio,d.tipo,d.rut_emisor,d.rut_receptor,d.razon_receptor,
+                            d.neto,d.iva,d.total,d.estado,d.track_id,d.glosa,d.creado,d.actualizado
+                       FROM dte_documentos d
+                      ORDER BY d.id DESC LIMIT ?1",
+                )
+                .map_err(|e| e.to_string())?;
+            let documentos: Vec<Value> = st
+                .query_map(params![limite], |r| {
+                    Ok(json!({
+                        "id": r.get::<_, i64>(0)?,
+                        "folio": r.get::<_, i64>(1)?,
+                        "tipo": r.get::<_, i64>(2)?,
+                        "rut_emisor": r.get::<_, String>(3)?,
+                        "rut_receptor": r.get::<_, String>(4)?,
+                        "razon_receptor": r.get::<_, String>(5)?,
+                        "neto": r.get::<_, f64>(6)?,
+                        "iva": r.get::<_, f64>(7)?,
+                        "total": r.get::<_, f64>(8)?,
+                        "estado": r.get::<_, String>(9)?,
+                        "track_id": r.get::<_, String>(10)?,
+                        "glosa": r.get::<_, String>(11)?,
+                        "creado": r.get::<_, i64>(12)?,
+                        "actualizado": r.get::<_, i64>(13)?
+                    }))
+                })
+                .map_err(|e| e.to_string())?
+                .filter_map(|x| x.ok())
+                .collect();
+            let total: i64 = db
+                .query_row("SELECT COUNT(*) FROM dte_documentos", [], |r| r.get(0))
+                .unwrap_or(0);
+            let mostrados = documentos.len();
+            Ok(json!({
+                "documentos": documentos,
+                "total": total,
+                "mostrados": mostrados,
+                "limite": limite,
+                "conteos": dte_conteos(db)
+            }))
+        }
+
+        // ---------------------------------------------------------- estado
+        "estado" => {
+            let tipo = dte_entero(payload, "tipo");
+            let folio = dte_entero(payload, "folio");
+            if tipo <= 0 || folio <= 0 {
+                return Err("hacen falta tipo y folio para consultar el documento".into());
+            }
+            let documento = dte_doc_por(db, tipo, folio)?;
+            let encontrado = documento.is_some();
+            let documento_id = documento
+                .as_ref()
+                .and_then(|d| d["id"].as_i64())
+                .unwrap_or(0);
+            let eventos = dte_eventos_lista(db, documento_id, folio, tipo)?;
+            Ok(json!({
+                "documento": documento,
+                "eventos": eventos,
+                "encontrado": encontrado,
+                "tipo": tipo,
+                "folio": folio
+            }))
+        }
+
+        // ---------------------------------------------------------- marcar
+        "marcar" => {
+            let tipo = dte_entero(payload, "tipo");
+            let folio = dte_entero(payload, "folio");
+            if tipo <= 0 || folio <= 0 {
+                return Err("hacen falta tipo y folio para marcar el documento".into());
+            }
+            let estado_crudo = dte_txt(payload, "estado");
+            if estado_crudo.is_empty() {
+                return Err("falta el estado al que se quiere marcar el documento".into());
+            }
+            let estado = dte_estado_normal(&estado_crudo)?;
+            let actual = dte_doc_por(db, tipo, folio)?.ok_or_else(|| {
+                format!(
+                    "no existe el documento tipo {} folio {}",
+                    tipo, folio
+                )
+            })?;
+            let documento_id = actual["id"].as_i64().unwrap_or(0);
+            // Si el payload no trae el campo se conserva lo que ya estaba.
+            let track_id = match payload.get("track_id").and_then(|v| v.as_str()) {
+                Some(t) => t.trim().to_string(),
+                None => actual["track_id"].as_str().unwrap_or("").to_string(),
+            };
+            let glosa = match payload.get("glosa").and_then(|v| v.as_str()) {
+                Some(g) => g.trim().to_string(),
+                None => actual["glosa"].as_str().unwrap_or("").to_string(),
+            };
+            let ts = ahora();
+            db.execute(
+                "UPDATE dte_documentos
+                    SET estado = ?3, track_id = ?4, glosa = ?5, actualizado = ?6
+                  WHERE tipo = ?1 AND folio = ?2",
+                params![tipo, folio, estado, track_id, glosa, ts],
+            )
+            .map_err(|e| e.to_string())?;
+            let detalle = json!({
+                "estado": estado.clone(),
+                "track_id": track_id.clone(),
+                "glosa": glosa.clone()
+            })
+            .to_string();
+            dte_evento(
+                db,
+                documento_id,
+                folio,
+                tipo,
+                &format!("marcar:{}", estado),
+                &detalle,
+            )?;
+            let documento = dte_doc_por(db, tipo, folio)?.unwrap_or(Value::Null);
+            Ok(json!({ "ok": true, "documento": documento, "estado": estado }))
+        }
+
+        // ------------------------------------------------------ caf_listar
+        "caf_listar" => {
+            let tipo = dte_entero(payload, "tipo");
+            let mut st = db
+                .prepare(
+                    "SELECT id,tipo,desde,hasta,siguiente,xml,activo,creado
+                       FROM dte_caf
+                      WHERE (?1 = 0 OR tipo = ?1)
+                      ORDER BY tipo ASC, desde ASC, id ASC
+                      LIMIT 500",
+                )
+                .map_err(|e| e.to_string())?;
+            let cafs: Vec<Value> = st
+                .query_map(params![tipo], dte_caf_fila)
+                .map_err(|e| e.to_string())?
+                .filter_map(|x| x.ok())
+                .collect();
+            let restantes: i64 = cafs
+                .iter()
+                .filter_map(|c| c["restantes"].as_i64())
+                .sum();
+            let total_cafs = cafs.len();
+            Ok(json!({
+                "cafs": cafs,
+                "total": total_cafs,
+                "restantes": restantes,
+                "tipo": tipo
+            }))
+        }
+
+        // --------------------------------------------------------- resumen
+        "resumen" => {
+            let total: i64 = db
+                .query_row("SELECT COUNT(*) FROM dte_documentos", [], |r| r.get(0))
+                .unwrap_or(0);
+            let (neto, iva, monto): (f64, f64, f64) = db
+                .query_row(
+                    "SELECT COALESCE(SUM(neto),0), COALESCE(SUM(iva),0), COALESCE(SUM(total),0)
+                       FROM dte_documentos",
+                    [],
+                    |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+                )
+                .unwrap_or((0.0, 0.0, 0.0));
+
+            // Folios que quedan por tipo: se suman los rangos activos sin agotar.
+            let mut folios: Vec<Value> = Vec::new();
+            if let Ok(mut st) = db.prepare(
+                "SELECT tipo, COUNT(*),
+                        COALESCE(SUM(CASE WHEN activo <> 0
+                                          THEN MAX(hasta - siguiente + 1, 0)
+                                          ELSE 0 END), 0)
+                   FROM dte_caf GROUP BY tipo ORDER BY tipo",
+            ) {
+                if let Ok(rows) = st.query_map([], |r| {
+                    Ok((
+                        r.get::<_, i64>(0)?,
+                        r.get::<_, i64>(1)?,
+                        r.get::<_, i64>(2)?,
+                    ))
+                }) {
+                    for (tipo, cafs, restantes) in rows.filter_map(|x| x.ok()) {
+                        folios.push(json!({
+                            "tipo": tipo,
+                            "cafs": cafs,
+                            "restantes": restantes
+                        }));
+                    }
+                }
+            }
+
+            Ok(json!({
+                "total": total,
+                "por_estado": dte_conteos(db),
+                "montos": { "neto": neto, "iva": iva, "total": monto },
+                "folios": folios,
+                "ts": ahora()
+            }))
+        }
+
+        // ---------------------------------------------------------- borrar
+        "borrar" => {
+            let tipo = dte_entero(payload, "tipo");
+            let folio = dte_entero(payload, "folio");
+            if tipo <= 0 || folio <= 0 {
+                return Err("hacen falta tipo y folio para borrar el documento".into());
+            }
+            let actual = dte_doc_por(db, tipo, folio)?.ok_or_else(|| {
+                format!("no existe el documento tipo {} folio {}", tipo, folio)
+            })?;
+            let estado = actual["estado"].as_str().unwrap_or("");
+            if estado != "borrador" {
+                return Err(format!(
+                    "solo se puede borrar un documento en borrador (estado actual: {})",
+                    estado
+                ));
+            }
+            let documento_id = actual["id"].as_i64().unwrap_or(0);
+            let n = db
+                .execute(
+                    "DELETE FROM dte_documentos WHERE id = ?1 AND estado = 'borrador'",
+                    params![documento_id],
+                )
+                .map_err(|e| e.to_string())?;
+            if n == 0 {
+                return Err("no se pudo borrar el documento (¿cambió de estado?)".into());
+            }
+            let detalle = json!({
+                "estado": estado,
+                "tipo": tipo,
+                "folio": folio
+            })
+            .to_string();
+            dte_evento(db, documento_id, folio, tipo, "borrar", &detalle)?;
+            Ok(json!({
+                "ok": true,
+                "eliminado": true,
+                "id": documento_id,
+                "tipo": tipo,
+                "folio": folio
+            }))
+        }
+
+        otra => Err(format!("acción DTE no soportada: {}", otra)),
     }
 }
