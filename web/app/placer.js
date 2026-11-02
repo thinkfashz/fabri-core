@@ -1422,8 +1422,15 @@ window.Placer = (function () {
     montarMapa();
     pintarEstado();
     pintarCarritoBtn();
-    if (ESTADO.pos) setTimeout(() => { marcarUsuario(ESTADO.pos); cargar(); }, 60);
-    else ubicar(true);
+
+    if (ESTADO.pos) {
+      // Se abre con la última ubicación conocida para no mostrar un mapa vacío…
+      setTimeout(() => { pintarRadio(); cargar(); }, 60);
+      // …pero se pide el GPS igual: la última ubicación puede ser de ayer.
+      setTimeout(() => { if (!ESTADO.manual) ubicar(false); }, 700);
+    } else {
+      ubicar(true);
+    }
 
     // El GPS se apaga cuando la pestaña queda en segundo plano: gasta batería.
     document.addEventListener("visibilitychange", () => {
