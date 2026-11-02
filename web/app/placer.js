@@ -334,7 +334,6 @@ window.Placer = (function () {
         radius: p.precision || 40, color: "#c8ff00", weight: 1, opacity: 0.5,
         fillColor: "#c8ff00", fillOpacity: 0.07, interactive: false
       }).addTo(ESTADO.mapa);
-      pintarRadio();
     } else {
       ESTADO.usuario.setLatLng(punto);
       ESTADO.precision.setLatLng(punto);
