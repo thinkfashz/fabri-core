@@ -2319,3 +2319,27 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
   preguntas), `robots.txt` y `sitemap.xml` (4 URLs). `og.png` regenerada
   1200x630 con la paleta nueva.
 - Pendiente de indexación: enviar `sitemap.xml` en Search Console / Bing Webmaster.
+
+## Sesión 2026-11-02 · MercadoPlacer en `/app/#panel` — commits `b023fba`, `c495f34`, `3e7b09d`
+
+- La entrada de la consola pasa a ser **MercadoPlacer**: mapa Leaflet 1.9.4
+  vendorizado con teselas OSM oscurecidas por CSS y satélite de Esri, pines
+  agrupados por celda, halo en vivo de la posición y lista ordenada por
+  distancia con filtros por rubro y radio (500 m → 5 km).
+- **Ubicación real**: `getCurrentPosition` + `watchPosition`; si se niega el
+  permiso cae a Santiago centro y lo dice en pantalla.
+- **Datos**: nuevo `/api/mercados` (Go). Overpass y **Nominatim** corren en
+  paralelo, gana la primera fuente con datos y se suma la otra en 1,2 s.
+  Carrera de 4 espejos de Overpass, `unir()` descarta duplicados por nombre +
+  60 m, caché de 5 min y `s-maxage=300`. Medido: 6,4 s en frío, 0,45 s en caché,
+  41 mercados reales en Santiago centro.
+- **Catálogo**: al tocar un local se abre su ficha con productos por rubro,
+  precios CLP referenciales (rotulados «referencial»), carrito por local en
+  `localStorage`, total y pedido por WhatsApp / compartir, más «Abrir ruta».
+- El panel técnico anterior sigue intacto en `#s-nucleo` (menú «Panel», dentro
+  de «más» en móvil). Tema por defecto pasa a **lima**.
+- Service worker **v10** con Leaflet y los archivos nuevos.
+- Limitación real: las instancias de Overpass se saturan (502) y kumi/private
+  coffee solo resuelven por IPv6 (agujero negro en esta red). Por eso Nominatim
+  es la fuente que responde; si ambas fallan se muestran locales de referencia
+  marcados como «muestra».
