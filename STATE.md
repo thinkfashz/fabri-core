@@ -2191,3 +2191,35 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
   Verificado dentro del APK: permisos biométricos y clase `Biometria` en el dex.
 - SHA-256: `d3da36d7287ac39d5f1fcf637e7224d2faa60493c13211e7a6ff2eba23c38a75` · 4.491.039 B.
 - Entregada en `/storage/emulated/0/Download/FORGE-CORE-STOCK-0.9.59.apk` y `/tmp/opencode/`.
+
+## Sesión 2026-11-02 · Unificación de marca FABRI-CORE → FORGE CORE STOCK
+
+- Commit `b2bfa3c` (push `d673683..b2bfa3c`), 54 archivos.
+- El rebrand oficial (`8f23efc`, 29 oct) había quedado **a medio camino**: la APK
+  y la web ya decían FORGE CORE STOCK, pero docs, branding, CI y scripts seguían
+  con el nombre anterior, y los tests de credencial estaban en rojo por eso.
+- **Tests**: `tests/arranque/barcode.js` esperaba `FABRI-CORE` (2 aserciones) →
+  bloque 9/9 vuelve a verde. Baterías: arranque 1 fallo preexistente del puente
+  (no relacionado con marca), inventario ✔, seguridad 23/23 ✔, ean ✔, boleta ✔,
+  diseno ✔.
+- **CI (fix real)**: `apk-rust.yml` hacía `ls dist/FABRI-CORE-*.apk` cuando
+  `scripts/compilar.sh` ya emite `FORGE-CORE-STOCK-*.apk` → el paso «Resumen y
+  hash» fallaba en cada corrida. Artefactos renombrados a `FORGE-CORE-STOCK-apk`
+  y `forge-core-stock-lite.apk` (ambos lados: `build-fast.sh` + `apk.yml`).
+- **Docs por fuente**: `generar-sitio.py`, `generar-docs.py` y el `spec` se
+  editaron y se regeneraron (`docs/index.html`, SCREENS/SCHEMA/ACCEPTANCE);
+  7 `.md` a mano. `generar-sitio.py` ganó fallback de logo (el original vive
+  fuera del repo, en `/root/video-engine/assets/`).
+- **branding/**: guías, `SKILL`, `tokens.json` (`brand`) y `tokens.css` →
+  `FORGE CORE STOCK PRO`; el `CHANGELOG` sólo cambió de título.
+- **Superficie visible**: wordmark de la imagen social (`scripts/og-nube.py` +
+  `web/og.png` regenerado y verificado), títulos del puente Termux (scripts/ y
+  `android/assets/`), etiqueta `componente` de `/api/diagnostico`, títulos de
+  `diagrams/`, cabeceras de scripts y tests.
+- **No tocado, a propósito**: package `cl.fabrick.core`, crate `fabrick-core`,
+  dominios `fabri-core-web.vercel.app` / `fabri-api.vercel.app`, rutas
+  `fabri_core_*`, repo `thinkfashz/fabri-core`, `rootProject.name`,
+  certificado `CN=FABRI-CORE Debug` (rompería instalar encima), nombres de
+  respaldo/DB, y los registros históricos (sesiones de STATE.md, entradas del
+  CHANGELOG, APKs `0.9.x`).
+- Deploy: `vercel --prod` desde `web/`; `og.png` en vivo idéntica a la local.
