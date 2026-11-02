@@ -2223,3 +2223,25 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
   respaldo/DB, y los registros históricos (sesiones de STATE.md, entradas del
   CHANGELOG, APKs `0.9.x`).
 - Deploy: `vercel --prod` desde `web/`; `og.png` en vivo idéntica a la local.
+
+## Sesión 2026-11-02 · APK 0.9.60 (75) — UI: menú neón, dock flotante e Inicio nuevo
+
+- Commit `53bd551` (push `2c82c11..53bd551`).
+- **Menú lateral**: glass (`rgba(18,18,18,.78)` + `blur(20px)`), 85vw, texto
+  opaco, iconos SVG reales de `ui-icons.js` (20 glifos Lucide), ítem activo con
+  pastilla verde y punto. Borde luminoso `#00FF88` con gradiente cónico rotando
+  dentro de un anillo enmascarado; el elemento vive fuera del drawer porque su
+  `overflow` lo recortaba. Se descartó `@property` (no anima en esta WebView).
+- **Barra inferior**: dock flotante (92%, 72px, radio 28, glass), 5 posiciones,
+  pastilla activa, FAB central 56px con degradado y glow; al abrir el menú se
+  difumina y se retira (`body.menu-abierto`).
+- **Inicio (agente en paralelo)**: portada con fondo SVG animado, chip de estado,
+  6 KPIs con contador y tendencias, gráfico de 14 días con las boletas reales
+  (`ts` en segundos → `*1000`), salud del inventario, top categorías/margen y
+  estados vacíos honestos.
+- `navegar()` marca también el ítem activo del menú lateral.
+- Verificado con capturas: menú con luz, dock con FAB, Inicio con datos.
+- Build EXIT=0 · 4.357 KB · VC 75 / 0.9.60 · `apksigner` v2 ✔ v3 ✔.
+  Sin archivos de arnés dentro del APK.
+- SHA-256: `16c886a3591f66d0eecd8523af862d6e6362c6b4b4af7873bfdbc3fb78573598` · 4.503.395 B.
+- Entregada en `/storage/emulated/0/Download/FORGE-CORE-STOCK-0.9.60.apk` y `/tmp/opencode/`.
