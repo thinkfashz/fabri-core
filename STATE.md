@@ -2303,3 +2303,19 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
   del titular suelto en otra línea; `<nav>` interno heredaba el sticky del nav.
 - Desplegado en producción: `https://fabri-core-web.vercel.app` (READY,
   verificado en vivo) y push a `master`.
+
+## Sesión 2026-11-02 · landing 2.1 (paleta lima/oro, APK directa, SEO) — `654e333`
+
+- Paleta: lima `#C8FF00`, oro/crema `#E8C87A`, negro `#050604`. Ambiente con
+  focos en las esquinas (el halo ya no tiñe toda la página) y texto en crema.
+- APK servida desde `web/descargas/FORGE-CORE-STOCK.apk` (4,5 MB, 0.9.62).
+  `.gitignore` tiene `*.apk`, así que se añadió la excepción `web/descargas/*.apk`.
+  Vercel la entrega con `Content-Type: application/vnd.android.package-archive`
+  y `Content-Disposition: attachment`; verificado con `curl -I` (200, 4.540.386 B).
+- Los 7 enlaces de descarga y el QR apuntan al archivo (antes a GitHub Releases).
+- SEO: `lang="es-CL"`, title/description con intención de búsqueda, keywords,
+  canonical, hreflang, robots/googlebot/bingbot, Open Graph y Twitter completos,
+  JSON-LD `@graph` (WebSite, Organization, SoftwareApplication, FAQPage con 4
+  preguntas), `robots.txt` y `sitemap.xml` (4 URLs). `og.png` regenerada
+  1200x630 con la paleta nueva.
+- Pendiente de indexación: enviar `sitemap.xml` en Search Console / Bing Webmaster.
