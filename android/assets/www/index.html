@@ -163,7 +163,7 @@
         <div class="in-hero-contenido">
           <div class="in-hero-marca">
             <img src="logo-f.svg" alt="" />
-            <span class="in-hero-nombre">FABRI<span>-CORE</span></span>
+            <span class="in-hero-nombre">FORGE CORE<span> STOCK</span></span>
           </div>
           <p class="etiqueta">GESTIÓN DE LOCAL · DATOS TUYOS, EN TU TELÉFONO</p>
           <h2 id="heroTitulo">Verificando...</h2>
@@ -2320,6 +2320,7 @@ npx -y omniroute@latest
           <button class="btn" id="btnInvRefrescar" type="button"><span data-ico="refrescar"></span> Refrescar</button>
           <button class="btn" id="btnInvSincronizar" type="button"><span data-ico="sync"></span> Sincronizar</button>
           <button class="btn" id="btnInvNubeResumen" type="button"><span data-ico="nube"></span> Mi nube</button>
+          <button class="btn" id="btnInvDemoCatalogo" type="button"><span data-ico="caja"></span> Catálogo ejemplo</button>
         </div>
         <div id="invNubeResumen" class="inv-nube-resumen"></div>
 
@@ -2676,6 +2677,7 @@ CREATE INDEX IF NOT EXISTS idx_inv_productos_actualizado
           <label class="campo"><span>Margen objetivo %</span><input id="invMobjetivo" inputmode="decimal" placeholder="30" /></label>
           <label class="campo"><span>IVA %</span><input id="invMiva" inputmode="numeric" value="19" /></label>
         </div>
+        <div class="inv-gauge" id="invGauge"></div>
         <div class="inv-calc-salida" id="invCalcSalida"></div>
         <div class="inv-toolbar-acciones">
           <button class="btn btn-primario" id="btnInvExportar" type="button">Descargar Excel (CSV)</button>

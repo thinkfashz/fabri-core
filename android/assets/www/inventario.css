@@ -3238,3 +3238,199 @@ img.inv-mini { object-fit: cover; }
 /* Margen: el selector de producto y la referencia respiran mejor. */
 #invPaso4 > .campo { margin-bottom: 4px; }
 #invPaso4 .inv-calc { margin-top: 12px; }
+
+/* ==========================================================================
+   Inventario 0.9.61 · interfaz premium (widgets, dock, gauge, escáner)
+   ========================================================================== */
+#v-inventario {
+  --fb-verde: #00FF88;
+  --fb-amarillo: #FFD60A;
+  --fb-rojo: #FF3B30;
+}
+
+/* ── Tarjetas de producto estilo widget ────────────────────────────────── */
+.inv-card {
+  position: relative;
+  overflow: hidden;
+  padding: 14px;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background:
+    radial-gradient(120% 120% at 100% 0%, rgba(0, 255, 136, 0.07), transparent 55%),
+    linear-gradient(180deg, #141614, #0E100E);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.45);
+  transition: transform 160ms cubic-bezier(0.22, 1, 0.36, 1), border-color 160ms ease;
+}
+.inv-card:active { transform: scale(0.985); border-color: rgba(0, 255, 136, 0.35); }
+.inv-card::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(0, 255, 136, 0.5), transparent 65%);
+}
+.inv-card-cab { gap: 12px; }
+.inv-card-mini {
+  width: 62px;
+  height: 62px;
+  border-radius: 18px;
+  border: 1px solid rgba(0, 255, 136, 0.18);
+  background: rgba(0, 255, 136, 0.07);
+  color: var(--fb-verde);
+}
+.inv-card-id h4 { font-size: 14.5px; color: #F5F7F3; letter-spacing: -0.01em; }
+.inv-card-id p { font-size: 11px; color: #8C938B; }
+.inv-card-precio strong {
+  font-size: 19px;
+  font-weight: 800;
+  color: var(--fb-verde);
+  text-shadow: 0 0 14px rgba(0, 255, 136, 0.25);
+}
+.inv-card-precio span {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(0, 255, 136, 0.1);
+  color: var(--fb-verde);
+  border: 1px solid rgba(0, 255, 136, 0.22);
+}
+.inv-card.bajo .inv-card-precio span {
+  background: rgba(255, 214, 10, 0.12);
+  color: var(--fb-amarillo);
+  border-color: rgba(255, 214, 10, 0.3);
+}
+.inv-chip.baja { color: var(--fb-amarillo); border-color: rgba(255, 214, 10, 0.35); background: rgba(255, 214, 10, 0.08); }
+
+/* ── Dock de paginación ────────────────────────────────────────────────── */
+.inv-pager {
+  position: sticky;
+  bottom: calc(var(--nav-alto, 96px) + 8px);
+  z-index: 8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  width: max-content;
+  margin: 12px auto 4px;
+  padding: 8px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(24, 26, 24, 0.86);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.55);
+}
+.inv-pager-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 255, 136, 0.3);
+  background: rgba(0, 255, 136, 0.1);
+  color: var(--fb-verde);
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+}
+.inv-pager-btn:active { transform: scale(0.92); }
+.inv-pager-btn:disabled { opacity: 0.3; pointer-events: none; }
+.inv-pager-info {
+  font-size: 12px;
+  color: #9AA096;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.inv-pager-info b { color: #F5F7F3; font-size: 13px; }
+
+/* ── Gauge de margen ───────────────────────────────────────────────────── */
+.inv-gauge {
+  display: grid;
+  justify-items: center;
+  margin: 6px 0 2px;
+  padding: 10px 8px 4px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: linear-gradient(180deg, #131512, #0E100E);
+}
+.inv-gauge-svg { width: 210px; height: auto; display: block; }
+
+/* ── Escáner: marco verde con láser ────────────────────────────────────── */
+.inv-lector-video {
+  position: relative;
+  border: 1.5px solid rgba(0, 255, 136, 0.45);
+  box-shadow: 0 0 22px rgba(0, 255, 136, 0.18), inset 0 0 26px rgba(0, 0, 0, 0.6);
+  border-radius: 16px;
+}
+.inv-lector-video::before {
+  content: "";
+  position: absolute;
+  inset: 10px;
+  border-radius: 10px;
+  pointer-events: none;
+  background:
+    linear-gradient(#00FF88, #00FF88) left top / 22px 2px no-repeat,
+    linear-gradient(#00FF88, #00FF88) left top / 2px 22px no-repeat,
+    linear-gradient(#00FF88, #00FF88) right top / 22px 2px no-repeat,
+    linear-gradient(#00FF88, #00FF88) right top / 2px 22px no-repeat,
+    linear-gradient(#00FF88, #00FF88) left bottom / 22px 2px no-repeat,
+    linear-gradient(#00FF88, #00FF88) left bottom / 2px 22px no-repeat,
+    linear-gradient(#00FF88, #00FF88) right bottom / 22px 2px no-repeat,
+    linear-gradient(#00FF88, #00FF88) right bottom / 2px 22px no-repeat;
+  filter: drop-shadow(0 0 5px rgba(0, 255, 136, 0.7));
+  z-index: 2;
+}
+.inv-lector-video .inv-lector-mira { display: none; }
+.inv-lector-video::after {
+  content: "";
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  top: 10%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #00FF88, transparent);
+  box-shadow: 0 0 14px rgba(0, 255, 136, 0.9);
+  animation: inv-laser 2s ease-in-out infinite;
+  z-index: 2;
+  pointer-events: none;
+}
+@keyframes inv-laser {
+  0%, 100% { top: 12%; opacity: 0.45; }
+  50% { top: 86%; opacity: 1; }
+}
+.inv-lector-btn[aria-pressed="true"] {
+  background: var(--fb-verde);
+  border-color: var(--fb-verde);
+  color: #06210F;
+  box-shadow: 0 0 18px rgba(0, 255, 136, 0.45);
+}
+
+/* ── Boleta: totales grandes ───────────────────────────────────────────── */
+.ticket-termico .tk-total,
+.ticket-termico .tk-totales strong,
+#invBoletaVista .tk-total { font-size: 20px; font-weight: 800; letter-spacing: -0.02em; }
+
+/* ── Inputs premium ────────────────────────────────────────────────────── */
+#v-inventario .campo input,
+#v-inventario .campo select {
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+#v-inventario .campo input:focus,
+#v-inventario .campo select:focus {
+  background: rgba(0, 255, 136, 0.05);
+  border-color: rgba(0, 255, 136, 0.55) !important;
+  box-shadow: 0 0 0 3px rgba(0, 255, 136, 0.12);
+}
+#v-inventario .btn-primario {
+  background: linear-gradient(135deg, #00FF88, #00CC6A);
+  border-color: transparent;
+  color: #06210F;
+  box-shadow: 0 8px 22px rgba(0, 255, 136, 0.25);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .inv-lector-video::after { animation: none; }
+  .inv-card, .inv-pager-btn { transition: none; }
+}

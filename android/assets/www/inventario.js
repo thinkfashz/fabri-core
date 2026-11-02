@@ -532,6 +532,7 @@ function invConectarEventos() {
   }
   if ($("btnInvSincronizar")) $("btnInvSincronizar").addEventListener("click", invSincronizar);
   if ($("btnInvNubeResumen")) $("btnInvNubeResumen").addEventListener("click", invNubeResumenPintar);
+  if ($("btnInvDemoCatalogo")) $("btnInvDemoCatalogo").addEventListener("click", invDemoCatalogo);
 
   ["invBuscar", "invFiltroCategoria", "invFiltroFree", "invSoloBajo"].forEach(function (id) {
     const el = $(id);
@@ -2907,6 +2908,54 @@ function invPintarProductos() {
 }
 
 /** Pinta el catálogo en tarjetas (miniatura + código de barras + acciones). */
+/* ── catálogo de ejemplo (botillería chilena) ────────────────────────────
+   Datos de referencia para probar la interfaz: se cargan como origen "demo"
+   y se pueden borrar uno a uno. No se mezclan con los del negocio si luego
+   se filtran por origen. */
+const INV_DEMO = [
+  ["7801610001196", "Coca-Cola 1.5 L", "Coca-Cola", "bebidas", 1490, 1990, 36],
+  ["7801610001202", "Coca-Cola Zero 1.5 L", "Coca-Cola", "bebidas", 1490, 1990, 24],
+  ["7801610001219", "Sprite 1.5 L", "Sprite", "bebidas", 1400, 1890, 18],
+  ["7801610001226", "Fanta Naranja 1.5 L", "Fanta", "bebidas", 1400, 1890, 15],
+  ["7801610001233", "Cerveza Cristal 470 ml", "Cristal", "alcohol", 890, 1290, 48],
+  ["7801610001240", "Cerveza Escudo 470 ml", "Escudo", "alcohol", 890, 1290, 42],
+  ["7801610001257", "Cerveza Becker 470 ml", "Becker", "alcohol", 820, 1190, 30],
+  ["7801610001264", "Corona 330 ml", "Corona", "alcohol", 1850, 2490, 12],
+  ["7801610001271", "Papas Lays Clásicas 150 g", "Lays", "abarrotes", 1650, 2290, 20],
+  ["7801610001288", "Ramitas Saladas 110 g", "Ramitas", "abarrotes", 750, 1090, 32],
+  ["7801610001295", "Pan marraqueta 1 kg", "Panadería", "abarrotes", 1400, 2200, 10],
+  ["7801610001301", "Pan de molde Ideal 500 g", "Ideal", "abarrotes", 1800, 2490, 14],
+  ["7801610001318", "Pisco Capel 700 ml", "Capel", "alcohol", 7500, 9990, 6],
+  ["7801610001325", "Vino Casillero del Diablo 750 ml", "Casillero", "alcohol", 5200, 6990, 8],
+  ["7801610001332", "Agua Cachantun 1.5 L", "Cachantun", "bebidas", 850, 1290, 40],
+  ["7801610001349", "Hielo 2 kg", "Hielo Sur", "congelados", 1200, 1990, 16],
+  ["7801610001356", "Jugo Watts 1 L", "Watts", "bebidas", 1250, 1790, 22],
+  ["7801610001363", "Chocolate Sahne-Nuss 100 g", "Sahne-Nuss", "dulces", 900, 1290, 26]
+];
+
+function invDemoCatalogo() {
+  if (typeof confirm === "function" &&
+      !confirm("¿Agregar " + INV_DEMO.length + " productos de ejemplo de botillería chilena?\n" +
+               "Quedan marcados como demo y puedes borrarlos uno a uno.")) return;
+  const productos = INV_DEMO.map(function (p) {
+    const margen = p[5] > 0 ? Math.round(((p[5] - p[4]) / p[5]) * 100) : 0;
+    return {
+      codigo: p[0], nombre: p[1], marca: p[2], categoria: p[3], unidad: "unidad",
+      costo: p[4], precio: p[5], stock: p[6], stock_minimo: Math.max(2, Math.round(p[6] * 0.2)),
+      iva: 19, origen: "demo", ficha: {}, margen: margen
+    };
+  });
+  invAviso("Cargando catálogo de ejemplo…");
+  invApiTarde("importar", { productos: productos, origen: "demo" }, { maxMs: 30000 })
+    .then(function (r) {
+      if (!r.ok) { invAviso("No se pudo cargar: " + (r.error || "error"), "error"); return; }
+      const d = r.data || {};
+      invAviso("Ejemplo cargado · " + (d.nuevos || 0) + " nuevos · " + (d.actualizados || 0) + " actualizados");
+      if (typeof toast === "function") toast("Catálogo de ejemplo listo");
+      invRefrescar();
+    });
+}
+
 function invPintarCatalogo() {
   const caja = document.getElementById("invLista");
   if (!caja) return;
@@ -2917,12 +2966,24 @@ function invPintarCatalogo() {
       : "Todavía no hay productos. Escanea un código, impórtalos o crea uno con «Nuevo producto»."}</div>`;
     return;
   }
-  const hasta = Math.min(lista.length, INV._catMostrar || INV_CAT_LOTE);
-  const restantes = lista.length - hasta;
+  // Paginación en dock flotante (‹ 2/4 ›) en vez de un botón largo.
+  const lote = INV_CAT_LOTE;
+  const total = lista.length;
+  const paginas = Math.max(1, Math.ceil(total / lote));
+  let pag = Number(INV._catPagina || 0);
+  if (pag > paginas - 1) pag = paginas - 1;
+  if (pag < 0) pag = 0;
+  const desde = pag * lote;
+  const hasta = Math.min(total, desde + lote);
+  INV._catMostrar = hasta;
   caja.innerHTML = `<div class="inv-catalogo">` +
-    lista.slice(0, hasta).map(invCardHtml).join("") + `</div>` +
-    (restantes > 0
-      ? `<button class="btn inv-cat-mas" id="invCatMas" type="button">${ico("mas", 15)} Ver ${restantes} más</button>`
+    lista.slice(desde, hasta).map(invCardHtml).join("") + `</div>` +
+    (paginas > 1
+      ? `<div class="inv-pager">
+           <button class="inv-pager-btn" data-inv-pag="-1" type="button" ${pag === 0 ? "disabled" : ""} aria-label="Anterior">‹</button>
+           <span class="inv-pager-info"><b>${pag + 1}</b> / ${paginas} · ${total} prod.</span>
+           <button class="inv-pager-btn" data-inv-pag="1" type="button" ${pag >= paginas - 1 ? "disabled" : ""} aria-label="Siguiente">›</button>
+         </div>`
       : "");
 
   // Miniaturas: se dibujan en el siguiente cuadro para no bloquear el toque.
@@ -2932,10 +2993,13 @@ function invPintarCatalogo() {
     });
   });
 
-  const mas = document.getElementById("invCatMas");
-  if (mas) mas.addEventListener("click", function () {
-    INV._catMostrar = (INV._catMostrar || INV_CAT_LOTE) + INV_CAT_LOTE;
-    invPintarCatalogo();
+  caja.querySelectorAll("[data-inv-pag]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      INV._catPagina = Math.max(0, Number(INV._catPagina || 0) + Number(b.dataset.invPag));
+      invPintarCatalogo();
+      const lista2 = document.getElementById("invLista");
+      if (lista2) lista2.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
   });
 
   caja.querySelectorAll("[data-inv-seleccionar]").forEach(function (el) {
@@ -3688,6 +3752,7 @@ function invCalcularMargen() {
       const d = r.data || {};
       // Nunca «undefined%»: si el núcleo no devolvió un campo, se muestra 0.
       const num = function (v) { const n = Number(v); return isFinite(n) ? n : 0; };
+      invPintarGauge(num(d.margen_venta));
       caja.innerHTML = [
         `<div class="inv-comp-caja ${d.rentable ? "mejor" : ""}"><span>Utilidad</span><strong>${invClp(num(d.utilidad))}</strong></div>`,
         `<div class="inv-comp-caja"><span>Margen s/ venta</span><strong>${num(d.margen_venta)}%</strong></div>`,
@@ -3732,6 +3797,27 @@ function invPintarRefMargen() {
   if (!codigo) { caja.innerHTML = ""; return; }
   const html = invRefHtml(codigo);
   caja.innerHTML = html || '<div class="inv-ref-vacio">Sin otros productos en la misma categoría para comparar.</div>';
+}
+
+/** Gauge semicircular del margen (estilo medidor). */
+function invPintarGauge(margen) {
+  const caja = document.getElementById("invGauge");
+  if (!caja) return;
+  const m = Math.max(0, Math.min(100, Number(margen) || 0));
+  const largo = 251;                     // perímetro del arco (r=80, media vuelta)
+  const usado = largo * (m / 100);
+  const color = m >= 35 ? "#00FF88" : (m >= 20 ? "#FFD60A" : "#FF3B30");
+  caja.innerHTML =
+    '<svg viewBox="0 0 200 116" class="inv-gauge-svg" role="img" aria-label="Margen ' + m + ' por ciento">' +
+      '<path d="M20 100 A80 80 0 0 1 180 100" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="14" stroke-linecap="round"/>' +
+      '<path d="M20 100 A80 80 0 0 1 180 100" fill="none" stroke="' + color + '" stroke-width="14" ' +
+        'stroke-linecap="round" stroke-dasharray="' + usado.toFixed(1) + ' ' + largo + '" ' +
+        'style="filter:drop-shadow(0 0 8px ' + color + '88); transition: stroke-dasharray 600ms cubic-bezier(.22,1,.36,1)"/>' +
+      '<text x="100" y="86" text-anchor="middle" fill="' + color + '" font-size="30" font-weight="800" ' +
+        'font-family="system-ui,sans-serif">' + m + '%</text>' +
+      '<text x="100" y="104" text-anchor="middle" fill="#6F746C" font-size="9" ' +
+        'font-family="system-ui,sans-serif" letter-spacing="1.5">MARGEN S/ VENTA</text>' +
+    '</svg>';
 }
 
 function invPintarMargenes() {
