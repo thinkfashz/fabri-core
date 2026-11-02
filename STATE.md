@@ -2343,3 +2343,19 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
   coffee solo resuelven por IPv6 (agujero negro en esta red). Por eso Nominatim
   es la fuente que responde; si ambas fallan se muestran locales de referencia
   marcados como «muestra».
+
+## Sesión 2026-11-02 · MercadoPlacer 2.0 (catálogo + mapa) — `54ba054`
+
+- **Catálogo**: categoría por palabra clave, formato (kg/L/u), precio de lista y
+  ~20 % de productos con oferta determinista (precio tachado + %), buscador
+  interno, chips por categoría con conteo y orden por precio. Tarjeta con
+  pastilla de color por rubro y contador.
+- **Pedido**: hoja «Mi pedido» con cliente (nombre, teléfono), retiro/delivery,
+  nota, grupos por local con subtotales y total; el carrito guarda nombre e
+  ícono del local para sobrevivir a una recarga. Botón con contador en la
+  cabecera. El mensaje de WhatsApp lleva cliente, entrega, nota y total.
+- **Mapa**: círculo del radio, pin activo resaltado, fallback entre dos
+  proveedores de teselas, mensaje si ninguna carga (o si falta Leaflet offline),
+  memoria de la última ubicación y GPS apagado en segundo plano.
+- Service worker **v11**. Verificado en producción: `/api/mercados` 41 locales
+  (6,5 s en frío, luego caché) y `placer.js` 55 KB servido.
