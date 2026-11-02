@@ -13,6 +13,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -26,15 +27,19 @@ import (
 	"time"
 )
 
-// Espejos de Overpass. Se prueban en orden; el primero que responde bien gana.
+// Espejos de Overpass. Se consultan EN PARALELO y gana el primero que responde:
+// en serie, con un espejo caído, el usuario esperaba 20 s. osm.ch es el que
+// responde desde las redes móviles de acá; el resto son respaldo.
 var espejos = []string{
+	"https://overpass.osm.ch/api/interpreter",
 	"https://overpass-api.de/api/interpreter",
 	"https://overpass.kumi.systems/api/interpreter",
 	"https://overpass.private.coffee/api/interpreter",
+	"https://overpass.osm.jp/api/interpreter",
 }
 
 const (
-	topePorEspejo = 9 * time.Second
+	topePorEspejo = 11 * time.Second
 	ttlCache      = 5 * time.Minute
 	maxMercados   = 60
 	userAgent     = "FORGE-CORE-STOCK/1.0 (mercado cercano; contacto: solucionesfabrick.com)"
@@ -153,10 +158,10 @@ func consulta(lat, lon float64, radio int) string {
 out center tags %d;`, radio, lat, lon, radio, lat, lon, maxMercados*2)
 }
 
-func pedir(cliente *http.Client, base, q string) (*osmRespuesta, error) {
+func pedir(ctx context.Context, cliente *http.Client, base, q string) (*osmRespuesta, error) {
 	v := url.Values{}
 	v.Set("data", q)
-	req, err := http.NewRequest(http.MethodPost, base, strings.NewReader(v.Encode()))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, base, strings.NewReader(v.Encode()))
 	if err != nil {
 		return nil, err
 	}
@@ -298,11 +303,38 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	cliente := &http.Client{Timeout: topePorEspejo}
 	q := consulta(lat, lon, radio)
 
+	// Carrera: todos los espejos a la vez, gana el más rápido, los demás se
+	// cancelan. El tope total es el del cliente, no la suma de los espejos.
+	tipo, cancelar := context.WithTimeout(r.Context(), topePorEspejo)
+	defer cancelar()
+	type salida struct {
+		res *osmRespuesta
+		err error
+	}
+	canal := make(chan salida, len(espejos))
+	for _, espejo := range espejos {
+		go func(base string) {
+			res, err := pedir(tipo, cliente, base, q)
+			canal <- salida{res, err}
+		}(espejo)
+	}
 	var osm *osmRespuesta
 	var ultimo error
-	for _, espejo := range espejos {
-		osm, ultimo = pedir(cliente, espejo, q)
-		if ultimo == nil {
+	for i := 0; i < len(espejos); i++ {
+		select {
+		case s := <-canal:
+			if s.err == nil && s.res != nil {
+				if osm == nil {
+					osm = s.res
+					cancelar()
+				}
+			} else if s.err != nil {
+				ultimo = s.err
+			}
+		case <-tipo.Done():
+			i = len(espejos)
+		}
+		if osm != nil {
 			break
 		}
 	}

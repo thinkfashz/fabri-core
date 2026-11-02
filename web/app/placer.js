@@ -383,18 +383,21 @@ window.Placer = (function () {
   }
 
   const ESPEJOS = [
+    "https://overpass.osm.ch/api/interpreter",
     "https://overpass-api.de/api/interpreter",
     "https://overpass.kumi.systems/api/interpreter",
-    "https://overpass.private.coffee/api/interpreter"
+    "https://overpass.private.coffee/api/interpreter",
+    "https://overpass.osm.jp/api/interpreter"
   ];
 
+  // En paralelo: el primero que conteste gana. En serie, con un espejo caído,
+  // la espera se hacía insoportable en datos móviles.
   async function overpassDirecto(lat, lon, radio) {
-    let ultimo = null;
-    for (const espejo of ESPEJOS) {
-      try { return await unOverpass(espejo, lat, lon, radio); }
-      catch (e) { ultimo = e; }
+    try {
+      return await Promise.any(ESPEJOS.map((e) => unOverpass(e, lat, lon, radio)));
+    } catch (e) {
+      throw new Error("Overpass no respondió");
     }
-    throw ultimo || new Error("Overpass no respondió");
   }
 
   async function unOverpass(base, lat, lon, radio) {
@@ -403,7 +406,7 @@ window.Placer = (function () {
       'nwr["amenity"="marketplace"](around:' + radio + ',' + lat + ',' + lon + ');' +
       ');out center tags 80;';
     const ctrl = new AbortController();
-    const reloj = setTimeout(() => ctrl.abort(), 9000);
+    const reloj = setTimeout(() => ctrl.abort(), 11000);
     const r = await fetch(base, {
       method: "POST",
       body: new URLSearchParams({ data: q }),
