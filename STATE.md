@@ -2245,3 +2245,23 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
   Sin archivos de arnés dentro del APK.
 - SHA-256: `16c886a3591f66d0eecd8523af862d6e6362c6b4b4af7873bfdbc3fb78573598` · 4.503.395 B.
 - Entregada en `/storage/emulated/0/Download/FORGE-CORE-STOCK-0.9.60.apk` y `/tmp/opencode/`.
+
+## Sesión 2026-11-02 · APK 0.9.61 (76) — inventario premium y marca Forge
+
+- Commit `ea6fada` (push `5c35412..ea6fada`).
+- **Marca**: `<span class="in-hero-nombre">FABRI-CORE</span>` → `FORGE CORE STOCK`
+  (logo intacto).
+- **Tarjetas widget**: halo verde, miniatura con iniciales, precio grande,
+  chip de margen, micro-interacción.
+- **Escáner**: marco neón con esquinas y láser animado (`.inv-lector-video`).
+- **Gauge**: `invPintarGauge()` dibuja un semicírculo SVG con el % de margen
+  (verde ≥35, ámbar ≥20, rojo <20) en el paso 4.
+- **Paginación**: dock flotante `‹ n/m ›` (`INV._catPagina`), reemplaza el
+  botón «Ver más».
+- **Catálogo demo**: `INV_DEMO` con 18 productos chilenos y `invDemoCatalogo()`
+  (origen "demo", borrables). No se autoinserta.
+- **Inputs/botones**: foco verde, primario con degradado.
+- Verificado con capturas (tarjetas, gauge 25 %, botones).
+- Build EXIT=0 · 4.359 KB · VC 76 / 0.9.61 · `apksigner` v2 ✔ v3 ✔.
+- SHA-256: `7f628671df52f9f0706120615d17ed624b69145e9f576209bfc856e5349fb3b6` · 4.507.491 B.
+- Entregada en `/storage/emulated/0/Download/FORGE-CORE-STOCK-0.9.61.apk` y `/tmp/opencode/`.
