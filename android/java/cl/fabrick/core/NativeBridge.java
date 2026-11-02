@@ -2194,6 +2194,41 @@ public final class NativeBridge {
 
     // -------------------------------------------------------- acceso con huella
 
+    // Biometría moderna (BiometricPrompt en API 28+, FingerprintManager antes).
+    // Se usa para confirmar identidad en acciones sensibles; el login sigue
+    // usando `Huella` (llave AES del Keystore atada a la huella).
+
+    @JavascriptInterface
+    public String bioEstado() {
+        return Biometria.estado(contexto);
+    }
+
+    @JavascriptInterface
+    public String bioPedir(String titulo, String subtitulo, String negativo) {
+        Activity a = actividad();
+        if (a == null) {
+            return error("la biometría necesita una actividad en primer plano");
+        }
+        Biometria.pedir(a, titulo, subtitulo, negativo, new Biometria.Callback() {
+            @Override
+            public void resultado(boolean ok, String err, String metodo) {
+                Notificador n = notificador;
+                if (n == null) return;
+                String json = "{\"ok\":" + ok
+                        + ",\"error\":" + (err == null ? "null" : JSONObject.quote(err))
+                        + ",\"metodo\":\"" + metodo + "\"}";
+                n.js("window.FabriBio && FabriBio.resultado(" + json + ");");
+            }
+        });
+        return "{\"ok\":true,\"estado\":\"ESPERANDO_HUELLA\"}";
+    }
+
+    @JavascriptInterface
+    public String bioCancelar() {
+        Biometria.cancelar();
+        return "{\"ok\":true}";
+    }
+
     @JavascriptInterface
     public String huellaEstado() {
         return Huella.estado(contexto);

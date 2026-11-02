@@ -564,6 +564,10 @@
           <button class="btn" id="btnIdCambiarPin" type="button">Cambiar PIN</button>
           <button class="btn btn-peligro" id="btnIdDesactivarHuella" type="button" hidden>Desactivar huella</button>
         </div>
+        <div class="fila-botones">
+          <button class="btn" id="btnIdProbarHuella" type="button">Probar lector de huella</button>
+        </div>
+        <p class="nota" id="idBioEstado">Comprobando el sensor…</p>
         <p class="nota" id="idSegNota"></p>
       </div>
 
@@ -2659,6 +2663,12 @@ CREATE INDEX IF NOT EXISTS idx_inv_productos_actualizado
           </div>
           <div id="invLecResultado4" class="inv-lector-resultado"></div>
         </div>
+
+        <label class="campo">
+          <span>Producto a analizar</span>
+          <select id="invMproducto"></select>
+        </label>
+        <div id="invMargenRef"></div>
 
         <div class="inv-calc">
           <label class="campo"><span>Costo</span><input id="invMcosto" inputmode="decimal" /></label>

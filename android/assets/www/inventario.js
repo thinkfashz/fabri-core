@@ -546,6 +546,18 @@ function invConectarEventos() {
   });
   if ($("btnInvPrecioAgregar")) $("btnInvPrecioAgregar").addEventListener("click", invPrecioAgregar);
 
+  const selMargen = $("invMproducto");
+  if (selMargen) selMargen.addEventListener("change", function () {
+    const p = invPorCodigo(selMargen.value);
+    if (p) {
+      if ($("invMcosto")) $("invMcosto").value = p.costo != null ? p.costo : "";
+      if ($("invMprecio")) $("invMprecio").value = p.precio != null ? p.precio : "";
+    }
+    INV.sel = selMargen.value;
+    invCalcularMargen();
+    invPintarRefMargen();
+  });
+
   ["invMcosto", "invMprecio", "invMobjetivo", "invMiva"].forEach(function (id) {
     const el = $(id);
     if (el) el.addEventListener("input", invCalcularMargen);
@@ -642,8 +654,10 @@ function invPaso(n) {
     b.classList.toggle("activo", paso === n);
     b.classList.toggle("hecho", paso < n);
   });
+  const info2 = document.getElementById("invScanInfo2");
+  if (info2 && n !== 2) info2.hidden = true;
   if (n === 3) invPintarPrecios();
-  if (n === 4) { invCalcularMargen(); invPintarMargenes(); }
+  if (n === 4) { invPoblarSelectMargen(); invCalcularMargen(); invPintarMargenes(); invPintarRefMargen(); }
   if (n === 5) { invPintarCarrito(); invBoletasHistorial(); }
   if (n >= 1 && n <= 5) invLectorIniciar(n);
   // El paso activo se centra en la barra: en móvil los 5 no caben.
@@ -1652,11 +1666,33 @@ function invPintarScanInfo2(p, codigo) {
   if (!caja) return;
   if (!p) {
     caja.hidden = false;
-    caja.innerHTML = `<div class="inv-scan-info-vacio">No encontré <b>${esc(codigo)}</b>.<br>Puedes crearlo con «Nuevo producto».</div>`;
+    caja.innerHTML = `
+      <div class="inv-scan-info-cab">
+        <div class="inv-scan-info-titulo">
+          <strong>Código ${esc(codigo)}</strong>
+          <span>no está en tu base</span>
+        </div>
+        <button class="inv-scan-info-x" data-cerrar-info="1" type="button" aria-label="Cerrar">✕</button>
+      </div>
+      <p class="inv-scan-info-vacio">No lo encontré en tus lectores ni en tu base.
+        Puedes darlo de alta ahora con este código ya cargado.</p>
+      <div class="inv-item-acciones">
+        <button class="btn btn-primario" data-crear-codigo="${esc(codigo)}" type="button">Crear este producto</button>
+      </div>`;
+    const crear = caja.querySelector("[data-crear-codigo]");
+    if (crear) crear.addEventListener("click", function () {
+      caja.hidden = true;
+      invFormulario({ codigo: codigo, origen: "manual" });
+    });
+    const x0 = caja.querySelector("[data-cerrar-info]");
+    if (x0) x0.addEventListener("click", function () { caja.hidden = true; });
     return;
   }
   caja.hidden = false;
-  caja.innerHTML = invScanInfoHtml(p);
+  caja.innerHTML = `<button class="inv-scan-info-x" data-cerrar-info="1" type="button" aria-label="Cerrar">✕</button>` +
+    invScanInfoHtml(p);
+  const cerrar = caja.querySelector("[data-cerrar-info]");
+  if (cerrar) cerrar.addEventListener("click", function () { caja.hidden = true; });
   const ed = caja.querySelector("[data-inv-info-editar]");
   if (ed) ed.addEventListener("click", function () { invFormulario(invPorCodigo(p.codigo) || p); });
   caja.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -3040,6 +3076,9 @@ function invEditorAbrir(p) {
   const codigo = (p && p.codigo) || "";
   INV_ED.codigo = codigo;
   INV_ED.origen = (p && p.origen) || "manual";
+  // Copia del producto tal como estaba: al guardar se conservan los campos que
+  // el formulario no muestra (ficha/wiki, unidad, stock mínimo, notas).
+  INV_ED.original = p ? JSON.parse(JSON.stringify(p)) : null;
 
   document.getElementById("invEdTitulo").textContent = codigo ? "Editar producto" : "Nuevo producto";
   document.getElementById("invEdSubtitulo").textContent = codigo
@@ -3267,18 +3306,18 @@ function invEdGuardar() {
     nombre: document.getElementById("invEdNombre").value.trim(),
     marca: document.getElementById("invEdMarca").value.trim(),
     categoria: document.getElementById("invEdCategoria").value,
-    unidad: "unidad",
+    unidad: (INV_ED.original && INV_ED.original.unidad) || "unidad",
     costo: invNum(document.getElementById("invEdCosto").value),
     precio: invNum(document.getElementById("invEdPrecio").value),
     stock: Math.round(invNum(document.getElementById("invEdStock").value)),
-    stock_minimo: 0,
+    stock_minimo: (INV_ED.original && Number(INV_ED.original.stock_minimo)) || 0,
     iva: Math.round(invNum(document.getElementById("invEdIva").value)),
     proveedor: document.getElementById("invEdProveedor").value.trim(),
     nombre_proveedor: document.getElementById("invEdProveedor").value.trim(),
     precio_proveedor: invNum(document.getElementById("invEdPrecioProveedor").value),
     precio_mercado: invNum(document.getElementById("invEdPrecioMercado").value),
-    notas: "",
-    ficha: "{}",
+    notas: (INV_ED.original && INV_ED.original.notas) || "",
+    ficha: (INV_ED.original && INV_ED.original.ficha) || {},
     origen: INV_ED.origen || "manual"
   };
   if (!producto.nombre) {
@@ -3519,6 +3558,67 @@ function invPintarPrecios() {
 }
 
 /** Pinta la comparativa ya leída. Separado para no bloquear al pedirla. */
+/** Referencia de mercado con tu propio catálogo (misma categoría). */
+function invRefMercado(codigo) {
+  const p = invPorCodigo(codigo);
+  if (!p) return null;
+  const todos = INV.productos.filter(function (x) {
+    return x.codigo !== codigo && x.categoria === p.categoria && Number(x.precio || 0) > 0;
+  });
+  if (!todos.length) return null;
+  // Se comparan precios del mismo orden de magnitud: un aceite de $6.990 no
+  // se compara con fideos de $1.490 aunque sean de la misma categoría.
+  const precioBase = Number(p.precio || 0);
+  const cercanos = precioBase > 0
+    ? todos.filter(function (x) {
+        const v = Number(x.precio);
+        return v >= precioBase * 0.4 && v <= precioBase * 2.5;
+      })
+    : [];
+  // Si no hay al menos dos productos en un rango parecido, no se inventa
+  // un porcentaje: se avisa que no hay comparables.
+  if (cercanos.length < 2) {
+    return { sinComparables: true, n: 0, categoria: p.categoria };
+  }
+  const pares = cercanos;
+  const vals = pares.map(function (x) { return Number(x.precio); });
+  const min = Math.min.apply(null, vals);
+  const max = Math.max.apply(null, vals);
+  const prom = vals.reduce(function (a, b) { return a + b; }, 0) / vals.length;
+  const precio = Number(p.precio || 0);
+  const dif = precio > 0 && prom > 0 ? Math.round(((precio - prom) / prom) * 100) : 0;
+  // Si la categoría es muy dispersa el porcentaje engaña: se omite.
+  const disperso = min > 0 && max / min > 3.5;
+  return {
+    min: min, max: max, prom: prom, n: vals.length,
+    dif: disperso ? 0 : dif, disperso: disperso, categoria: p.categoria
+  };
+}
+
+function invRefHtml(codigo) {
+  const r = invRefMercado(codigo);
+  if (!r) return "";
+  if (r.sinComparables) {
+    return '<div class="inv-ref">' +
+      '<div class="inv-ref-cab"><span>Referencia de tu catálogo</span><b>sin comparables</b></div>' +
+      '<p class="inv-ref-dif">No hay otros productos de precio parecido en esta categoría.</p>' +
+      "</div>";
+  }
+  const clase = r.dif > 0 ? "caro" : "barato";
+  return '<div class="inv-ref">' +
+    '<div class="inv-ref-cab"><span>Referencia de tu catálogo</span>' +
+      '<b>' + r.n + " similares</b></div>" +
+    '<div class="inv-ref-cifras">' +
+      "<span>mín " + invClp(r.min) + "</span>" +
+      "<span>prom " + invClp(r.prom) + "</span>" +
+      "<span>máx " + invClp(r.max) + "</span>" +
+    "</div>" +
+    (r.dif ? '<p class="inv-ref-dif ' + clase + '">Tu precio está ' +
+      (r.dif > 0 ? "+" : "") + r.dif + "% respecto al promedio</p>" :
+      (r.disperso ? '<p class="inv-ref-dif">Precios muy dispersos en la categoría: revisa caso a caso.</p>' : "")) +
+    "</div>";
+}
+
 function invPintarPreciosCon(codigo, d) {
   const caja = document.getElementById("invComparativa");
   if (!caja) return;
@@ -3535,6 +3635,7 @@ function invPintarPreciosCon(codigo, d) {
   }).join("") : `<tr><td colspan="4">Sin precios registrados todavía.</td></tr>`;
 
   caja.innerHTML = `
+    ${!lista.length ? invRefHtml(codigo) : ""}
     <div class="inv-comp-resumen">
       <div class="inv-comp-caja mejor"><span>Mejor precio</span><strong>${invClp(d.mejor)}</strong></div>
       <div class="inv-comp-caja"><span>Promedio</span><strong>${invClp(d.promedio)}</strong></div>
@@ -3596,6 +3697,41 @@ function invCalcularMargen() {
       ].join("");
     });
   }, 140);
+}
+
+/** Referencia de mercado del producto elegido, mostrada en Márgenes. */
+function invPoblarSelectMargen() {
+  const sel = document.getElementById("invMproducto");
+  if (!sel) return;
+  const anterior = sel.value;
+  sel.innerHTML = INV.productos.length
+    ? INV.productos.slice(0, 500).map(function (p) {
+        return '<option value="' + esc(p.codigo) + '">' + esc(p.nombre) +
+          " · " + invClp(p.precio) + "</option>";
+      }).join("")
+    : '<option value="">Sin productos</option>';
+  if (anterior && INV.productos.some(function (p) { return p.codigo === anterior; })) {
+    sel.value = anterior;
+  } else if (INV.productos.length) {
+    sel.value = INV.productos[0].codigo;
+  }
+  const p = invPorCodigo(sel.value);
+  if (p) {
+    const c = document.getElementById("invMcosto");
+    const pr = document.getElementById("invMprecio");
+    if (c && !c.value) c.value = p.costo != null ? p.costo : "";
+    if (pr && !pr.value) pr.value = p.precio != null ? p.precio : "";
+  }
+}
+
+function invPintarRefMargen() {
+  const caja = document.getElementById("invMargenRef");
+  if (!caja) return;
+  const sel = document.getElementById("invMproducto");
+  const codigo = (sel && sel.value) || INV.sel || "";
+  if (!codigo) { caja.innerHTML = ""; return; }
+  const html = invRefHtml(codigo);
+  caja.innerHTML = html || '<div class="inv-ref-vacio">Sin otros productos en la misma categoría para comparar.</div>';
 }
 
 function invPintarMargenes() {

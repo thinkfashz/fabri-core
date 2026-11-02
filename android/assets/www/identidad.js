@@ -892,3 +892,69 @@ window.FabriIdentidad = {
   recargar: idCargar,
   pintar: idPintarCredencial
 };
+
+/* ── sensor de huella del dispositivo (BiometricPrompt) ───────────────────
+   Muestra el estado real del lector y permite probarlo sin tocar el PIN.
+   El login con huella sigue usando `Huella` (llave AES del Keystore). */
+window.FabriBio = {
+  resultado: function (r) {
+    const el = document.getElementById("idBioEstado");
+    const ok = !!(r && r.ok);
+    if (el) {
+      if (ok) {
+        el.textContent = "Huella verificada · " + ((r && r.metodo) || "biométrico");
+        el.style.color = "var(--ok, #4ade80)";
+      } else {
+        const motivo = (r && r.error) || "no se pudo verificar";
+        el.textContent = "No verificado: " + motivo;
+        el.style.color = "var(--alerta, #fbbf24)";
+      }
+    }
+    if (typeof toast === "function") {
+      toast(ok ? "Huella verificada" : ("Huella: " + ((r && r.error) || "cancelado")), ok ? "" : "error");
+    }
+  }
+};
+
+function idBioPintarEstado() {
+  const el = document.getElementById("idBioEstado");
+  if (!el) return;
+  if (!window.FabrickNative || typeof window.FabrickNative.bioEstado !== "function") {
+    el.textContent = "Este build no trae el lector biométrico.";
+    return;
+  }
+  let r = {};
+  try { r = JSON.parse(window.FabrickNative.bioEstado()) || {}; } catch (e) { r = {}; }
+  if (!r.hardware) {
+    el.textContent = "Este teléfono no tiene lector de huella disponible.";
+    return;
+  }
+  if (!r.enrolado) {
+    el.textContent = "Hay lector, pero no tienes huellas registradas. Regístralas en Ajustes → Seguridad.";
+    return;
+  }
+  el.textContent = "Lector listo · " + (r.metodo === "biometric" ? "biométrico del sistema" : "huella (API antigua)") +
+    " · " + (r.permiso ? "permiso concedido" : "falta permiso");
+}
+
+function idProbarHuella() {
+  if (!window.FabrickNative || typeof window.FabrickNative.bioPedir !== "function") {
+    if (typeof toast === "function") toast("Este build no trae el lector biométrico", "error");
+    return;
+  }
+  const el = document.getElementById("idBioEstado");
+  if (el) { el.textContent = "Esperando tu huella…"; el.style.color = ""; }
+  let r;
+  try { r = JSON.parse(window.FabrickNative.bioPedir("FORGE CORE STOCK", "Confirma que eres tú", "Usar PIN")); }
+  catch (e) { r = { ok: false, error: String(e) }; }
+  if (!r.ok && el) el.textContent = "No se pudo abrir el lector: " + (r.error || "error");
+}
+
+(function idBioMontar() {
+  document.addEventListener("click", function (ev) {
+    const t = ev.target;
+    if (t instanceof Element && t.closest("#btnIdProbarHuella")) idProbarHuella();
+  });
+  setTimeout(idBioPintarEstado, 1200);
+  setTimeout(idBioPintarEstado, 4000);
+})();
