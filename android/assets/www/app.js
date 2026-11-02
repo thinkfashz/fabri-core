@@ -529,6 +529,10 @@ function navegar(vista) {
   document.querySelectorAll(".nav").forEach((b) => {
     b.classList.toggle("activo", b.dataset.vista === vista);
   });
+  // El menú lateral marca también su ítem activo (pastilla verde + punto).
+  document.querySelectorAll(".nav-drawer").forEach((b) => {
+    b.classList.toggle("activo", b.dataset.vista === vista);
+  });
   window.scrollTo({ top: 0, behavior: "instant" });
   // Cada rama se aísla: si una vista falla, la navegación ocurre igual y el
   // fallo queda en `revision` con nombre de función, mensaje y stack.

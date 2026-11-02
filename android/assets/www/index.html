@@ -2909,12 +2909,22 @@ CREATE INDEX IF NOT EXISTS idx_inv_productos_actualizado
   </main>
 
   <!-- ===================== NAVEGACIÓN ===================== -->
-  <nav class="bottomnav">
-    <button class="nav activo" data-vista="inicio"><span>◉</span>Inicio</button>
-    <button class="nav" data-vista="chat"><span>✦</span>Chat</button>
-    <button class="nav" data-vista="inventario"><span>▦</span>Inventario</button>
-    <button class="nav" data-vista="flujo"><span>⇄</span>Flujo</button>
-    <button class="nav" data-vista="consola"><span>▸</span>Consola</button>
+  <nav class="bottomnav" id="bottomnav" aria-label="Navegación rápida">
+    <button class="nav activo" data-vista="inicio" type="button">
+      <span class="nav-ico"></span><span class="nav-txt">Inicio</span>
+    </button>
+    <button class="nav" data-vista="chat" type="button">
+      <span class="nav-ico"></span><span class="nav-txt">Chat</span>
+    </button>
+    <button class="nav-fab" id="btnNavFab" type="button" aria-label="Escanear producto">
+      <span class="nav-fab-ico"></span>
+    </button>
+    <button class="nav" data-vista="inventario" type="button">
+      <span class="nav-ico"></span><span class="nav-txt">Inventario</span>
+    </button>
+    <button class="nav" data-vista="flujo" type="button">
+      <span class="nav-ico"></span><span class="nav-txt">Flujo</span>
+    </button>
   </nav>
 
     <!-- ===================== MODAL DE COMPONENTE ===================== -->
@@ -3148,6 +3158,7 @@ CREATE INDEX IF NOT EXISTS idx_inv_productos_actualizado
   <script src="diagnostico.js"></script>
   <script src="marcas-ia.js"></script>
   <script src="app.js"></script>
+  <script src="ui-icons.js"></script>
   <script src="datos.js"></script>
   <script src="conexiones.js"></script>
   <script src="inventario.js"></script>
