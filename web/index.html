@@ -1,20 +1,143 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es-CL">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>FORGE CORE STOCK · la consola que vive en tu navegador</title>
-<meta name="description" content="FORGE CORE STOCK: consola autónoma en el navegador. SQLite WASM con FTS5, panel con gráficos reales, chat con agente, consola SQL, inventario en la nube y planilla. Funciona sin conexión.">
-<meta name="theme-color" content="#04060d">
-<meta property="og:title" content="FORGE CORE STOCK · la consola que vive en tu navegador">
-<meta property="og:description" content="SQLite real, agente, consola SQL e inventario. Sin cuentas y sin nube obligatoria: tus datos quedan en tu navegador.">
+<title>FORGE CORE STOCK · inventario, boletas electrónicas y F29 en tu teléfono</title>
+<meta name="description" content="App chilena de inventario, punto de venta, boletas electrónicas con CAF, impuestos F29 y catálogo con escáner. Funciona sin internet, sin cuentas y con tus datos en el dispositivo. Descarga directa de la APK.">
+<meta name="keywords" content="inventario, punto de venta, boletas electrónicas, DTE, F29, SII, Chile, app de inventario, control de stock, escáner de códigos, software para almacén, botillería, minimarket, app Android Chile, FORGE CORE STOCK">
+<meta name="author" content="Soluciones Fabrick">
+<meta name="publisher" content="Soluciones Fabrick">
+<meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
+<meta name="googlebot" content="index, follow">
+<meta name="bingbot" content="index, follow">
+<link rel="canonical" href="https://fabri-core-web.vercel.app/">
+<link rel="alternate" hreflang="es-cl" href="https://fabri-core-web.vercel.app/">
+<link rel="alternate" hreflang="x-default" href="https://fabri-core-web.vercel.app/">
+<meta name="theme-color" content="#050604">
+<meta name="color-scheme" content="dark">
+<meta name="application-name" content="FORGE CORE STOCK">
+<meta name="apple-mobile-web-app-title" content="FORGE CORE STOCK">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="format-detection" content="telephone=no">
+<meta name="rating" content="general">
+
+<!-- Open Graph (Facebook, WhatsApp, LinkedIn, Telegram) -->
+<meta property="og:site_name" content="FORGE CORE STOCK">
+<meta property="og:locale" content="es_CL">
 <meta property="og:type" content="website">
+<meta property="og:url" content="https://fabri-core-web.vercel.app/">
+<meta property="og:title" content="FORGE CORE STOCK · inventario, boletas y F29 en tu teléfono">
+<meta property="og:description" content="Inventario, punto de venta, boletas electrónicas, F29 y catálogo con escáner. Sin internet obligatorio, sin cuentas y con tus datos en el dispositivo. Descarga directa de la APK.">
 <meta property="og:image" content="https://fabri-core-web.vercel.app/og.png">
+<meta property="og:image:secure_url" content="https://fabri-core-web.vercel.app/og.png">
+<meta property="og:image:type" content="image/png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="FORGE CORE STOCK: tu núcleo de datos, sin instalar nada">
+<meta property="og:image:alt" content="FORGE CORE STOCK: inventario, boletas electrónicas y F29 en el teléfono">
+
+<!-- Twitter / X -->
 <meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="FORGE CORE STOCK · inventario, boletas y F29 en tu teléfono">
+<meta name="twitter:description" content="Inventario, punto de venta, boletas electrónicas, F29 y catálogo con escáner. Funciona sin internet y con tus datos en el dispositivo.">
 <meta name="twitter:image" content="https://fabri-core-web.vercel.app/og.png">
+<meta name="twitter:image:alt" content="FORGE CORE STOCK: inventario, boletas electrónicas y F29">
+
+<!-- Datos estructurados -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://fabri-core-web.vercel.app/#sitio",
+      "url": "https://fabri-core-web.vercel.app/",
+      "name": "FORGE CORE STOCK",
+      "inLanguage": "es-CL",
+      "publisher": { "@id": "https://fabri-core-web.vercel.app/#empresa" }
+    },
+    {
+      "@type": "Organization",
+      "@id": "https://fabri-core-web.vercel.app/#empresa",
+      "name": "Soluciones Fabrick",
+      "url": "https://fabri-core-web.vercel.app/",
+      "logo": "https://fabri-core-web.vercel.app/favicon.png",
+      "sameAs": ["https://github.com/thinkfashz/fabri-core"]
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://fabri-core-web.vercel.app/#app",
+      "name": "FORGE CORE STOCK",
+      "operatingSystem": "Android 7.0 o superior",
+      "applicationCategory": "BusinessApplication",
+      "applicationSubCategory": "Inventario y punto de venta",
+      "inLanguage": "es-CL",
+      "softwareVersion": "0.9.62",
+      "fileSize": "4.5MB",
+      "downloadUrl": "https://fabri-core-web.vercel.app/descargas/FORGE-CORE-STOCK.apk",
+      "installUrl": "https://fabri-core-web.vercel.app/descargas/FORGE-CORE-STOCK.apk",
+      "url": "https://fabri-core-web.vercel.app/",
+      "description": "Inventario con escáner, catálogo y tienda, boletas electrónicas con certificado y CAF, impuestos F29, contribuyentes y chat con IA. Funciona sin internet y guarda los datos en el teléfono.",
+      "featureList": [
+        "Inventario con escáner de códigos y stock mínimo",
+        "Boletas electrónicas: certificado, CAF y folios",
+        "Impuestos F29 con cierres de caja",
+        "Catálogo y tienda con carrito",
+        "Chat con modelos de IA",
+        "Funciona sin conexión"
+      ],
+      "publisher": { "@id": "https://fabri-core-web.vercel.app/#empresa" },
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "CLP",
+        "availability": "https://schema.org/InStock",
+        "url": "https://fabri-core-web.vercel.app/descargas/FORGE-CORE-STOCK.apk"
+      }
+    },
+    {
+      "@type": "FAQPage",
+      "@id": "https://fabri-core-web.vercel.app/#preguntas",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "¿Funciona sin internet?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Sí. La base de datos vive en el teléfono y la app sigue vendiendo, escaneando y consultando stock en modo avión. Solo el chat con IA y la consulta al SII necesitan conexión."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "¿Necesito crear una cuenta?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. No hay registro ni nube obligatoria: tus productos, ventas y documentos quedan en el dispositivo y el respaldo sale de tu propio equipo."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "¿Emite boletas electrónicas válidas ante el SII?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "La app genera el XML del DTE, lo firma con tu certificado digital y administra los folios del CAF. Para que un documento sea válido ante el SII necesitas tu certificado, un CAF autorizado y completar la certificación del SII; sin esos tres pasos el documento queda como borrador local y la app lo advierte."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "¿Cuánto pesa y en qué Android funciona?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "La APK pesa 4,5 MB y funciona desde Android 7.0. Se instala encima de la versión anterior sin borrar los datos."
+          }
+        }
+      ]
+    }
+  ]
+}
+</script>
 <link rel="icon" href="./favicon.png">
 <link rel="preload" href="./app/anim/core.json" as="fetch" crossorigin>
 <style>
@@ -23,10 +146,11 @@
    El acento se usa poco: una palabra, un borde, un botón. El resto es tinta.
    ========================================================================== */
 :root{
-  --void:#04060d;--bg:#070a14;--surf:rgba(255,255,255,.035);--surf2:rgba(255,255,255,.06);
-  --line:rgba(255,255,255,.08);--line2:rgba(255,255,255,.15);
-  --tx:#f2f5fd;--tx2:#aab4c9;--tx3:#7a8499;--tx4:#59617a;
-  --accent:#8c8cff;--accent2:#3fe0c9;--lime:#c8f542;--on:#06070f;
+  --void:#050604;--bg:#0a0c07;--surf:rgba(255,253,244,.04);--surf2:rgba(255,253,244,.065);
+  --line:rgba(255,250,235,.09);--line2:rgba(255,250,235,.17);
+  --tx:#f6f1e2;--tx2:#c3bda8;--tx3:#8b8574;--tx4:#615d50;
+  --accent:#c8ff00;--accent2:#e8c87a;--lime:#c8ff00;--on:#0b0d05;
+  --crema:#f6f1e2;--oro:#e8c87a;--oro-2:#f3dfae;
   --sans:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
   --mono:ui-monospace,SFMono-Regular,"JetBrains Mono",Menlo,Consolas,monospace;
   --ease:cubic-bezier(.16,1,.3,1);
@@ -43,9 +167,9 @@ a{color:inherit;text-decoration:none}
 /* ambiente */
 .ambiente{position:fixed;inset:0;z-index:-2;pointer-events:none;overflow:hidden;
   background:
-    radial-gradient(1100px 700px at 78% -14%,rgba(140,140,255,.22),transparent 62%),
-    radial-gradient(860px 560px at 2% 6%,rgba(63,224,201,.11),transparent 60%),
-    radial-gradient(900px 800px at 50% 116%,rgba(200,245,66,.06),transparent 62%),
+    radial-gradient(540px 400px at 108% -10%,rgba(200,255,0,.17),transparent 66%),
+    radial-gradient(500px 400px at -14% -6%,rgba(232,200,122,.11),transparent 64%),
+    radial-gradient(620px 500px at 50% 116%,rgba(232,200,122,.055),transparent 66%),
     linear-gradient(180deg,var(--bg),var(--void) 72%)}
 .ambiente::before{content:"";position:absolute;inset:0;
   background-image:linear-gradient(rgba(255,255,255,.03) 1px,transparent 1px),
@@ -54,7 +178,7 @@ a{color:inherit;text-decoration:none}
   -webkit-mask-image:radial-gradient(circle at 50% 10%,#000,transparent 76%);
   mask-image:radial-gradient(circle at 50% 10%,#000,transparent 76%)}
 .ambiente::after{content:"";position:absolute;inset:-20%;
-  background:radial-gradient(closest-side,rgba(140,140,255,.12),transparent);
+  background:radial-gradient(closest-side,rgba(232,200,122,.075),transparent);
   animation:flota 26s ease-in-out infinite alternate}
 @keyframes flota{from{transform:translate3d(-6%,-3%,0) scale(1)}to{transform:translate3d(9%,7%,0) scale(1.2)}}
 .grano{position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.15;mix-blend-mode:overlay;
@@ -62,13 +186,13 @@ a{color:inherit;text-decoration:none}
 
 .wrap{max-width:1140px;margin:0 auto;padding:0 20px}
 .eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:10.5px;font-weight:750;
-  letter-spacing:.18em;text-transform:uppercase;color:var(--tx3)}
+  letter-spacing:.18em;text-transform:uppercase;color:var(--oro)}
 .eyebrow::before{content:"";width:16px;height:1px;background:currentColor;opacity:.5}
 .lead{color:var(--tx2);font-size:clamp(15px,2vw,17.5px);line-height:1.68;max-width:36em}
 
 /* nav */
 nav{position:sticky;top:0;z-index:60;border-bottom:1px solid var(--line);
-  background:rgba(7,10,20,.78);backdrop-filter:blur(22px) saturate(1.2);-webkit-backdrop-filter:blur(22px)}
+  background:rgba(10,12,7,.78);backdrop-filter:blur(22px) saturate(1.2);-webkit-backdrop-filter:blur(22px)}
 nav .in{display:flex;align-items:center;gap:14px;height:66px;max-width:1140px;margin:0 auto;padding:0 20px}
 .logo{display:flex;align-items:center;gap:10px;font-size:11.5px;font-weight:750;letter-spacing:.18em;
   text-transform:uppercase;white-space:nowrap}
@@ -104,7 +228,7 @@ h1{font-size:clamp(38px,7.2vw,68px);line-height:.98;letter-spacing:-.045em;font-
   margin:16px 0 20px}
 h1 em{font-style:normal;position:relative;color:var(--accent)}
 h1 em::after{content:"";position:absolute;left:0;right:0;bottom:.06em;height:.36em;
-  background:linear-gradient(90deg,var(--accent-soft,rgba(140,140,255,.22)),transparent 92%);
+  background:linear-gradient(90deg,var(--accent-soft,rgba(200,255,0,.22)),transparent 92%);
   z-index:-1;border-radius:2px}
 .hero-cta{display:flex;flex-wrap:wrap;gap:10px;margin:26px 0 20px}
 .trust{display:flex;flex-wrap:wrap;gap:7px}
@@ -116,7 +240,7 @@ h1 em::after{content:"";position:absolute;left:0;right:0;bottom:.06em;height:.36
 /* orbe del héroe */
 .orbe{position:relative;display:grid;place-items:center;min-height:340px}
 .orbe::before{content:"";position:absolute;width:74%;aspect-ratio:1;border-radius:50%;
-  background:radial-gradient(closest-side,rgba(140,140,255,.22),transparent 72%);filter:blur(18px)}
+  background:radial-gradient(closest-side,rgba(200,255,0,.16),transparent 72%);filter:blur(24px)}
 .orbe::after{content:"";position:absolute;width:86%;aspect-ratio:1;border-radius:50%;
   border:1px solid rgba(255,255,255,.06)}
 .orbe-lot{width:min(300px,74vw);height:min(300px,74vw);position:relative;z-index:1}
@@ -124,7 +248,7 @@ h1 em::after{content:"";position:absolute;left:0;right:0;bottom:.06em;height:.36
 .orbe .lot-fallback{display:none}
 .orbe-chip{position:absolute;z-index:2;display:flex;flex-direction:column;gap:1px;
   padding:9px 13px;border-radius:12px;border:1px solid var(--line2);
-  background:rgba(14,19,34,.82);backdrop-filter:blur(14px);
+  background:rgba(17,19,12,.82);backdrop-filter:blur(14px);
   box-shadow:0 20px 50px -28px #000;animation:levita 7s ease-in-out infinite}
 .orbe-chip b{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
 .orbe-chip span{font-size:10.5px;color:var(--tx3)}
@@ -151,28 +275,28 @@ h2{font-size:clamp(26px,4.4vw,42px);line-height:1.06;letter-spacing:-.04em;font-
   transition:border-color .25s,transform .35s var(--ease)}
 .bcard:hover{border-color:var(--line2);transform:translateY(-3px)}
 .bcard::after{content:"";position:absolute;right:-40px;top:-40px;width:150px;height:150px;border-radius:50%;
-  background:radial-gradient(closest-side,rgba(140,140,255,.13),transparent);pointer-events:none}
+  background:radial-gradient(closest-side,rgba(200,255,0,.13),transparent);pointer-events:none}
 .ico{display:grid;place-items:center;width:38px;height:38px;border-radius:11px;margin-bottom:14px;
-  border:1px solid rgba(140,140,255,.26);background:rgba(140,140,255,.10);color:var(--accent);
+  border:1px solid rgba(200,255,0,.26);background:rgba(200,255,0,.10);color:var(--accent);
   transition:transform .45s var(--ease),background .25s}
-.bcard:hover .ico{transform:rotate(-7deg) scale(1.07);background:rgba(140,140,255,.17)}
+.bcard:hover .ico{transform:rotate(-7deg) scale(1.07);background:rgba(200,255,0,.17)}
 .ico svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
 .bcard h3{font-size:16.5px;letter-spacing:-.02em;margin-bottom:7px;font-weight:660}
 .bcard p{font-size:13.6px;line-height:1.62;color:var(--tx2)}
 .tag{display:inline-block;margin-top:14px;padding:3px 8px;border-radius:6px;
   border:1px solid var(--line);font-family:var(--mono);font-size:10.5px;color:var(--tx3)}
 .bcard.destacada{background:
-  radial-gradient(120% 130% at 88% 6%,rgba(140,140,255,.20),transparent 60%),
+  radial-gradient(120% 130% at 88% 6%,rgba(200,255,0,.20),transparent 60%),
   linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.015));
-  border-color:rgba(140,140,255,.3)}
+  border-color:rgba(200,255,0,.3)}
 
 /* dos versiones */
 .two{display:grid;grid-template-columns:1fr;gap:12px}
 @media(min-width:820px){.two{grid-template-columns:1fr 1fr}}
 .vcard{position:relative;overflow:hidden;padding:26px;border-radius:20px;
   border:1px solid var(--line);background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.012))}
-.vcard.hi{border-color:rgba(140,140,255,.36);
-  background:radial-gradient(110% 120% at 90% 4%,rgba(140,140,255,.18),transparent 58%),
+.vcard.hi{border-color:rgba(200,255,0,.36);
+  background:radial-gradient(110% 120% at 90% 4%,rgba(200,255,0,.18),transparent 58%),
     linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.015))}
 .lbl{display:flex;align-items:center;gap:9px;font-size:10px;font-weight:750;letter-spacing:.16em;
   text-transform:uppercase;color:var(--tx3)}
@@ -182,7 +306,7 @@ h2{font-size:clamp(26px,4.4vw,42px);line-height:1.06;letter-spacing:-.04em;font-
 .lista{list-style:none;display:flex;flex-direction:column;gap:9px;margin:14px 0 20px}
 .lista li{display:flex;gap:10px;align-items:flex-start;font-size:13.6px;color:var(--tx2)}
 .lista li::before{content:"";flex:0 0 auto;width:6px;height:6px;border-radius:50%;background:var(--accent);
-  margin-top:7px;box-shadow:0 0 10px rgba(140,140,255,.55)}
+  margin-top:7px;box-shadow:0 0 10px rgba(200,255,0,.55)}
 .vcard.hi .lista li::before{background:var(--accent2)}
 .nota{margin-top:14px;font-size:11.5px;line-height:1.6;color:var(--tx3)}
 
@@ -205,12 +329,12 @@ h2{font-size:clamp(26px,4.4vw,42px);line-height:1.06;letter-spacing:-.04em;font-
   transition:border-color .2s,transform .25s var(--ease)}
 .mcard:hover{border-color:var(--line2);transform:translateY(-2px)}
 .mcard::before{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--line2)}
-.mcard.ok::before{background:var(--accent2);box-shadow:0 0 16px rgba(63,224,201,.6)}
+.mcard.ok::before{background:var(--accent2);box-shadow:0 0 16px rgba(232,200,122,.6)}
 .mcard.warn::before{background:#ffc24b}
 .mcard.bad::before{background:#ff7a8a}
 .mcard .mh{display:flex;align-items:center;gap:8px;margin-bottom:4px}
 .mcard .md{width:7px;height:7px;border-radius:50%;background:var(--line2);flex:0 0 auto}
-.mcard.ok .md{background:var(--accent2);box-shadow:0 0 10px rgba(63,224,201,.7)}
+.mcard.ok .md{background:var(--accent2);box-shadow:0 0 10px rgba(232,200,122,.7)}
 .mcard.warn .md{background:#ffc24b}
 .mcard.bad .md{background:#ff7a8a}
 .mcard b{font-size:13.5px;letter-spacing:-.01em}
@@ -230,7 +354,10 @@ h2{font-size:clamp(26px,4.4vw,42px);line-height:1.06;letter-spacing:-.04em;font-
 /* cierre */
 .final{position:relative;text-align:center;padding:clamp(60px,8vw,100px) 0;
   border-top:1px solid var(--line);border-bottom:1px solid var(--line);
-  background:radial-gradient(640px 320px at 50% 0%,rgba(140,140,255,.14),transparent 72%)}
+  background:
+    radial-gradient(520px 230px at 50% -12%,rgba(200,255,0,.17),transparent 70%),
+    radial-gradient(620px 300px at 50% 112%,rgba(232,200,122,.07),transparent 72%),
+    linear-gradient(180deg,#0b0d08,#050604)}
 .final h2{max-width:15em;margin:14px auto 16px}
 .final .lead{margin:0 auto 26px;max-width:34em}
 .final .hero-cta{justify-content:center;margin-bottom:0}
@@ -256,7 +383,7 @@ body{padding-top:0}
   position:fixed;top:0;left:0;right:0;z-index:60;display:grid;
   grid-template-columns:1fr auto 1fr;align-items:center;gap:12px;
   padding:10px clamp(14px,3vw,28px);
-  background:rgba(7,10,20,.72);backdrop-filter:blur(18px) saturate(150%);
+  background:rgba(10,12,7,.72);backdrop-filter:blur(18px) saturate(150%);
   -webkit-backdrop-filter:blur(18px) saturate(150%);
   border-bottom:1px solid var(--line);
 }
@@ -297,12 +424,12 @@ section.land-sec{padding-left:20px;padding-right:20px}
 /* ── Drawer ─────────────────────────────────────────────────────────────── */
 .land-drawer{position:fixed;inset:0;z-index:80;display:flex}
 .land-drawer[hidden]{display:none}
-.land-drawer-fondo{position:absolute;inset:0;background:rgba(3,5,12,.62);
+.land-drawer-fondo{position:absolute;inset:0;background:rgba(4,5,3,.62);
   backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);animation:land-fade .24s ease}
 @keyframes land-fade{from{opacity:0}to{opacity:1}}
 .land-drawer-panel{
   position:relative;width:min(86vw,380px);height:100%;display:flex;flex-direction:column;
-  background:rgba(10,14,26,.78);backdrop-filter:blur(22px) saturate(160%);
+  background:rgba(13,15,9,.78);backdrop-filter:blur(22px) saturate(160%);
   -webkit-backdrop-filter:blur(22px) saturate(160%);
   border-right:1px solid rgba(255,255,255,.1);
   box-shadow:0 0 60px rgba(0,0,0,.7);
@@ -319,14 +446,14 @@ section.land-sec{padding-left:20px;padding-right:20px}
 .land-drawer-luz::before{
   content:"";position:absolute;left:50%;top:50%;width:200%;aspect-ratio:1;
   transform:translate(-50%,-50%) rotate(0);
-  background:conic-gradient(from 0deg,transparent 0 14deg,rgba(140,140,255,.55) 40deg,#8c8cff 62deg,#B9B8FF 78deg,#3fe0c9 96deg,rgba(63,224,201,.35) 122deg,transparent 150deg 360deg);
+  background:conic-gradient(from 0deg,transparent 0 14deg,rgba(200,255,0,.55) 40deg,#c8ff00 62deg,#f3dfae 78deg,#e8c87a 96deg,rgba(232,200,122,.35) 122deg,transparent 150deg 360deg);
   animation:land-giro 4.6s linear infinite;
 }
 @keyframes land-giro{to{transform:translate(-50%,-50%) rotate(360deg)}}
 .land-drawer-cab{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}
 .land-drawer-marca{display:flex;align-items:center;gap:9px;font-size:11px;letter-spacing:.2em;font-weight:700}
 .land-drawer-marca i{width:26px;height:26px;border-radius:9px;display:block;
-  background:linear-gradient(135deg,var(--accent),var(--accent2));box-shadow:0 0 18px rgba(140,140,255,.4)}
+  background:linear-gradient(135deg,var(--accent),var(--accent2));box-shadow:0 0 18px rgba(200,255,0,.4)}
 .land-drawer-x{width:38px;height:38px;border-radius:50%;border:1px solid var(--line);
   background:transparent;color:var(--tx2);cursor:pointer}
 .land-drawer-nav{display:grid;gap:3px;margin-top:6px;padding-bottom:14px;
@@ -337,24 +464,24 @@ section.land-sec{padding-left:20px;padding-right:20px}
   transition:background .16s var(--ease),color .16s var(--ease),border-color .16s var(--ease);
 }
 .land-drawer-nav a:hover{background:rgba(255,255,255,.05);color:var(--tx)}
-.land-drawer-nav a.activo{background:rgba(140,140,255,.14);border-color:rgba(140,140,255,.34);color:#fff}
+.land-drawer-nav a.activo{background:rgba(200,255,0,.14);border-color:rgba(200,255,0,.34);color:#fff}
 .land-ico{
   width:34px;height:34px;border-radius:11px;display:grid;place-items:center;flex:0 0 auto;
-  color:#B9B8FF;background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.08);
+  color:#f3dfae;background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.08);
   box-shadow:inset 0 1px 0 rgba(255,255,255,.12);
   transition:background .18s var(--ease),color .18s var(--ease),border-color .18s var(--ease);
 }
-.land-drawer-nav a:hover .land-ico{color:#E6E5FF;background:rgba(140,140,255,.18);border-color:rgba(140,140,255,.3)}
-.land-drawer-nav a.activo .land-ico{color:#fff;background:linear-gradient(160deg,rgba(140,140,255,.55),rgba(63,224,201,.35));
-  border-color:rgba(255,255,255,.24);box-shadow:0 8px 18px -12px rgba(140,140,255,.95),inset 0 1px 0 rgba(255,255,255,.3)}
+.land-drawer-nav a:hover .land-ico{color:#f8f3e4;background:rgba(200,255,0,.18);border-color:rgba(200,255,0,.3)}
+.land-drawer-nav a.activo .land-ico{color:#fff;background:linear-gradient(160deg,rgba(200,255,0,.55),rgba(232,200,122,.35));
+  border-color:rgba(255,255,255,.24);box-shadow:0 8px 18px -12px rgba(200,255,0,.95),inset 0 1px 0 rgba(255,255,255,.3)}
 .land-drawer-nav a.activo::after{content:"";width:7px;height:7px;border-radius:50%;
-  margin-left:auto;background:var(--accent);box-shadow:0 0 10px rgba(140,140,255,.9)}
+  margin-left:auto;background:var(--accent);box-shadow:0 0 10px rgba(200,255,0,.9)}
 .land-drawer-info{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px}
 .land-info-par{
   display:grid;gap:2px;padding:11px 12px;border-radius:14px;
   border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.035);
 }
-.land-info-k{font-family:var(--mono);font-size:9px;letter-spacing:.16em;color:var(--accent)}
+.land-info-k{font-family:var(--mono);font-size:9px;letter-spacing:.16em;color:var(--oro)}
 .land-info-par b{font-size:14px;letter-spacing:-.01em}
 .land-info-s{font-size:10.5px;color:var(--tx3);line-height:1.35}
 .land-drawer-pie{margin-top:auto;display:grid;gap:8px;padding-top:16px}
@@ -370,14 +497,14 @@ section.land-sec{padding-left:20px;padding-right:20px}
   box-shadow:var(--sh-1,0 22px 50px -40px rgba(0,0,0,.9));
   transition:transform .22s var(--ease),border-color .22s var(--ease);
 }
-.land-card:hover{transform:translateY(-3px);border-color:rgba(140,140,255,.3)}
+.land-card:hover{transform:translateY(-3px);border-color:rgba(232,200,122,.42)}
 .land-card-ico{
   width:44px;height:44px;border-radius:14px;display:grid;place-items:center;margin-bottom:12px;
-  color:#EAE9FF;position:relative;overflow:hidden;
-  background:linear-gradient(160deg,rgba(140,140,255,.42),rgba(110,90,240,.16) 55%,rgba(63,224,201,.18));
+  color:#f8f3e4;position:relative;overflow:hidden;
+  background:linear-gradient(160deg,rgba(200,255,0,.42),rgba(150,190,40,.16) 55%,rgba(232,200,122,.18));
   border:1px solid rgba(255,255,255,.16);
   box-shadow:inset 0 1px 0 rgba(255,255,255,.34), inset 0 -8px 14px -10px rgba(0,0,0,.7),
-             0 10px 22px -14px rgba(140,140,255,.95);
+             0 10px 22px -14px rgba(200,255,0,.95);
 }
 .land-card-ico::after{
   content:"";position:absolute;inset:0;pointer-events:none;
@@ -394,27 +521,27 @@ section.land-sec{padding-left:20px;padding-right:20px}
   border:1px solid var(--line);background:rgba(255,255,255,.03);
   transition:border-color .18s var(--ease),background .18s var(--ease),transform .18s var(--ease);
 }
-.land-mod:hover{border-color:rgba(63,224,201,.32);background:rgba(255,255,255,.05);transform:translateY(-2px)}
+.land-mod:hover{border-color:rgba(232,200,122,.32);background:rgba(255,255,255,.05);transform:translateY(-2px)}
 .land-mod-ico{width:40px;height:40px;border-radius:13px;display:grid;place-items:center;flex:0 0 auto;
-  position:relative;overflow:hidden;color:#E9FFFB;
-  background:linear-gradient(160deg,rgba(63,224,201,.42),rgba(63,224,201,.12) 58%,rgba(140,140,255,.22));
+  position:relative;overflow:hidden;color:#f8f3e4;
+  background:linear-gradient(160deg,rgba(232,200,122,.42),rgba(232,200,122,.12) 58%,rgba(200,255,0,.22));
   border:1px solid rgba(255,255,255,.14);
   box-shadow:inset 0 1px 0 rgba(255,255,255,.3), inset 0 -8px 14px -10px rgba(0,0,0,.6),
-             0 10px 20px -14px rgba(63,224,201,.9)}
+             0 10px 20px -14px rgba(232,200,122,.9)}
 .land-mod-ico::after{content:"";position:absolute;inset:0;pointer-events:none;
   background:linear-gradient(150deg,rgba(255,255,255,.26),transparent 45%);mix-blend-mode:overlay}
 .land-mod-ico svg{position:relative;z-index:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,.4))}
 .land-mod div{display:grid;gap:1px;min-width:0}
 .land-mod b{font-size:14px}
 .land-mod small{font-size:11.5px;color:var(--tx3)}
-.land-mod-n{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--tx4)}
+.land-mod-n{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--oro);opacity:.7}
 
 .land-descarga{
   display:grid;grid-template-columns:minmax(0,1fr) auto;gap:clamp(18px,4vw,46px);align-items:center;
   padding:clamp(22px,3.6vw,38px);border-radius:26px;border:1px solid var(--line);
   background:
-    radial-gradient(120% 140% at 100% 0%,rgba(140,140,255,.16),transparent 55%),
-    radial-gradient(90% 120% at 0% 100%,rgba(63,224,201,.1),transparent 60%),
+    radial-gradient(120% 140% at 100% 0%,rgba(200,255,0,.16),transparent 55%),
+    radial-gradient(90% 120% at 0% 100%,rgba(232,200,122,.1),transparent 60%),
     linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.015));
   box-shadow:var(--sh-2,0 40px 90px -50px rgba(0,0,0,.95));
 }
@@ -432,16 +559,16 @@ section.land-sec{padding-left:20px;padding-right:20px}
 .land-progreso{
   position:fixed;top:0;left:0;right:0;height:2px;z-index:90;transform:scaleX(0);
   transform-origin:left center;pointer-events:none;
-  background:linear-gradient(90deg,var(--accent),var(--accent2),#8C8CFF);
-  box-shadow:0 0 12px rgba(140,140,255,.7);
+  background:linear-gradient(90deg,var(--accent),var(--accent2),#c8ff00);
+  box-shadow:0 0 12px rgba(200,255,0,.7);
 }
 
 /* ── Barrido luminoso en el borde de cada sección ─────────────────────── */
 [data-barrido]{position:relative}
 [data-barrido]::before{
   content:"";position:absolute;top:0;left:20px;right:20px;height:1px;pointer-events:none;
-  background:linear-gradient(90deg,transparent,rgba(140,140,255,.55) 30%,
-             rgba(63,224,201,.6) 55%,rgba(140,140,255,.25) 75%,transparent);
+  background:linear-gradient(90deg,transparent,rgba(200,255,0,.55) 30%,
+             rgba(232,200,122,.6) 55%,rgba(200,255,0,.25) 75%,transparent);
   transform:scaleX(0);transform-origin:left center;opacity:0;
   transition:transform 1.15s cubic-bezier(.16,1,.3,1),opacity .55s ease;
 }
@@ -552,7 +679,7 @@ section.land-sec{padding-left:20px;padding-right:20px}
     </div>
     <div class="land-drawer-pie">
       <a class="btn primary block" href="./app/">Abrir la consola</a>
-      <a class="btn ghost block" href="#descargar" data-menu>Descargar APK</a>
+      <a class="btn ghost block" href="./descargas/FORGE-CORE-STOCK.apk" download="FORGE-CORE-STOCK.apk">Descargar APK</a>
       <p class="land-drawer-nota">Sin cuentas · tus datos quedan en tu dispositivo</p>
     </div>
   </aside>
@@ -568,7 +695,7 @@ section.land-sec{padding-left:20px;padding-right:20px}
         <strong style="color:var(--tx)">Tus datos no salen de tu dispositivo</strong> salvo que tú lo pidas.</p>
       <div class="hero-cta">
         <a class="btn primary" href="./app/">Abrir la consola</a>
-        <a class="btn ghost" href="https://github.com/thinkfashz/fabri-core/releases/latest" target="_blank" rel="noopener">Descargar APK</a>
+        <a class="btn ghost" href="./descargas/FORGE-CORE-STOCK.apk" download="FORGE-CORE-STOCK.apk">Descargar APK</a>
       </div>
       <div class="trust">
         <span class="pill"><b>SQLite</b> WASM</span>
@@ -669,8 +796,8 @@ section.land-sec{padding-left:20px;padding-right:20px}
         <li>Escáner de códigos con la cámara</li>
         <li>Se instala encima sin borrar tus datos</li>
       </ul>
-      <a class="btn primary" href="https://github.com/thinkfashz/fabri-core/releases/latest" target="_blank" rel="noopener">Descargar la APK</a>
-      <p class="nota">Android 8 o superior. Al instalar, permite «instalar apps desconocidas» para
+      <a class="btn primary" href="./descargas/FORGE-CORE-STOCK.apk" download="FORGE-CORE-STOCK.apk">Descargar la APK</a>
+      <p class="nota">Android 7 o superior. Al instalar, permite «instalar apps desconocidas» para
         el navegador o el gestor de archivos.</p>
     </div>
 
@@ -812,13 +939,14 @@ section.land-sec{padding-left:20px;padding-right:20px}
     <div class="land-descarga-copy">
       <p class="eyebrow">Llévalo en el bolsillo</p>
       <h2>Escanea el código y <em>tenlo hoy</em>.</h2>
-      <p class="sub">La APK se instala en tu teléfono y funciona sin conexión desde el primer minuto.
-        Tu base, tus boletas y tus márgenes quedan en el dispositivo.</p>
+      <p class="sub">Descarga directa, sin tiendas ni cuentas: el archivo se instala y funciona
+        sin conexión desde el primer minuto. Tu base, tus boletas y tus márgenes quedan
+        en el dispositivo.</p>
       <div class="hero-cta">
         <a class="btn primary" href="./app/">Abrir la consola</a>
-        <a class="btn ghost" href="https://github.com/thinkfashz/fabri-core/releases/latest" target="_blank" rel="noopener">Descargar APK</a>
+        <a class="btn ghost" href="./descargas/FORGE-CORE-STOCK.apk" download="FORGE-CORE-STOCK.apk">Descargar APK</a>
       </div>
-      <p class="land-mini">Android 7 o superior · sin cuentas · sin suscripción</p>
+      <p class="land-mini">4,5 MB · Android 7 o superior · sin cuentas</p>
     </div>
     <div class="land-qr">
       <img src="./qr-descarga.svg" alt="Código QR para abrir la página de descarga" width="220" height="220" />

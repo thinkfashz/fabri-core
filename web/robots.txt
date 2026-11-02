@@ -1,0 +1,11 @@
+# FORGE CORE STOCK · Soluciones Fabrick
+User-agent: *
+Allow: /
+Disallow: /api/
+
+# Rastreadores de imagen y vista previa
+User-agent: Googlebot-Image
+Allow: /
+
+Sitemap: https://fabri-core-web.vercel.app/sitemap.xml
+Host: fabri-core-web.vercel.app

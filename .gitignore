@@ -38,3 +38,7 @@ Thumbs.db
 
 # Los workflows viven en .github/workflows/ (apk.yml legacy + apk-rust.yml).
 # Copia de referencia para revisarlos desde el teléfono: docs/ci/.
+
+# La APK que se sirve desde la web se versiona a propósito (descarga directa).
+!web/descargas/
+!web/descargas/*.apk
