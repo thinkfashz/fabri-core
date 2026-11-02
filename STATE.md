@@ -2265,3 +2265,25 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
 - Build EXIT=0 · 4.359 KB · VC 76 / 0.9.61 · `apksigner` v2 ✔ v3 ✔.
 - SHA-256: `7f628671df52f9f0706120615d17ed624b69145e9f576209bfc856e5349fb3b6` · 4.507.491 B.
 - Entregada en `/storage/emulated/0/Download/FORGE-CORE-STOCK-0.9.61.apk` y `/tmp/opencode/`.
+
+## Sesión 2026-11-02 · APK 0.9.62 (77) — motor DTE y firma de release
+
+- Commit `74a0c55` (push `79736be..74a0c55`). Dos agentes en paralelo (Java y Rust).
+- **Rust**: `dte_documentos`, `dte_caf`, `dte_eventos` + `op_dte` con 9 acciones
+  (guardar upsert, registrar_caf, siguiente_folio transaccional, listar, estado,
+  marcar, caf_listar, resumen, borrar). 683 líneas, solo inserciones.
+- **Java**: `Dte.java` (53 KB) → PKCS12, CAF (XXE bloqueado), XML DTE, firma
+  RSA-SHA1 del documento y del TED, Base64 propia.
+- **Puente**: `dteEstado`, `dteCertificado`, `dteCaf`, `dteEmitir` (hilo +
+  `FabriDte.documento`), `dteFirmar`.
+- **UI**: módulo «Boletas electrónicas» con certificado en memoria, CAF, emisión
+  y lista de documentos.
+- **Firma**: keystore release 4096 bits en `~/.config/opencode/secrets/`,
+  `scripts/firma-release.sh`, `compilar.sh` con `FORGE_FIRMA=release` (por
+  defecto depuración para no romper updates).
+- Verificado dentro del APK: clase `Dte`, `dteEmitir`, `certificadoInfo` y las
+  tablas DTE en el .so. Build EXIT=0 · 4.434 KB · VC 77.
+- SHA-256: `e33e32661dad8c45b5498c3c76171a22011489d856475358326519c7bf1a959a` · 4.540.386 B.
+- Entregada en `/storage/emulated/0/Download/FORGE-CORE-STOCK-0.9.62.apk` y `/tmp/opencode/`.
+- Pendiente real: certificado del contribuyente, CAF autorizado, certificación
+  SII y PDF417 del TED.
