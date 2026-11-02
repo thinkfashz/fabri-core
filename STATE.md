@@ -2287,3 +2287,19 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
 - Entregada en `/storage/emulated/0/Download/FORGE-CORE-STOCK-0.9.62.apk` y `/tmp/opencode/`.
 - Pendiente real: certificado del contribuyente, CAF autorizado, certificación
   SII y PDF417 del TED.
+
+## Sesión 2026-11-02 · landing de promoción (web) — commit `a26b43e`
+
+- `web/index.html`: barra glass con logo centrado (CTA izquierda, enlaces en
+  escritorio, hamburguesa en móvil), menú lateral translúcido con anillo de luz
+  animado y bloque de versiones.
+- Secciones nuevas `#beneficios` (6) y `#modulos` (8) + `#descargar` con QR
+  vectorial (`qr-descarga.svg`, generado con segno) a las releases de GitHub.
+- Iconos Lucide incrustados (sin CDN) en pastillas tipo iOS; barrido de luz en
+  el borde de cada sección, destello en tarjetas y barra de progreso.
+- Aparición con tres redes: pase inicial en viewport, IntersectionObserver y
+  barrido por scroll con temporizador de 2,5 s (nunca queda contenido oculto).
+- Arreglos: `section{padding:… 0}` anulaba el padding de `.wrap`; punto final
+  del titular suelto en otra línea; `<nav>` interno heredaba el sticky del nav.
+- Desplegado en producción: `https://fabri-core-web.vercel.app` (READY,
+  verificado en vivo) y push a `master`.
