@@ -2359,3 +2359,23 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
   memoria de la última ubicación y GPS apagado en segundo plano.
 - Service worker **v11**. Verificado en producción: `/api/mercados` 41 locales
   (6,5 s en frío, luego caché) y `placer.js` 55 KB servido.
+
+## Sesión 2026-11-02 · MercadoPlacer 3.0 (GPS real + búsqueda) — `4b5f780`..`01ae7fb`
+
+- **GPS vs centro de búsqueda**: `ESTADO.yo` es la lectura real y `ESTADO.pos`
+  el centro que se está mirando. Buscar una dirección ya no pisa el punto azul,
+  y el GPS no arrastra el mapa si el usuario está mirando otra comuna.
+- **Siempre se pide GPS**, incluso si hay ubicación recordada en localStorage
+  (antes se abría con la de ayer y nunca se consultaba). El punto «estás aquí»
+  solo se dibuja con lectura real; ni la recordada ni el respaldo lo fingen.
+- **Buscador de direcciones**: nuevo `/api/lugares` (Nominatim con proxy,
+  caché 10 min, turnos de 1,1 s, sesgo por proximidad, `countrycodes=cl`) y
+  fallback directo del cliente. Al elegir una sugerencia el mapa vuela ahí,
+  recarga mercados y muestra un anillo de objetivo distinto del punto propio.
+  Botón «Volver a mi ubicación» y chip «lugar buscado».
+- **Permiso bloqueado**: mensaje con instrucciones (candado de la barra) y la
+  búsqueda como salida, en vez de un «sin ubicación» mudo.
+- Botón de ubicación con estados (girando / activo), escala en el mapa y el
+  círculo del radio sigue al centro de búsqueda (antes se iba al GPS).
+- Verificado en producción: `/api/lugares?q=Providencia 1234` → 200 en 2,1 s
+  con nombre y dirección; `placer.js` 63 KB servido.
