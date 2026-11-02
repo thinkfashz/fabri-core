@@ -2165,3 +2165,23 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
 - Build EXIT=0 · 4.346 KB · VC 73 / 0.9.58 · `apksigner` v2 ✔ v3 ✔.
 - SHA-256: `b832c89df6ff626c490907dd7d4a28ec7d721fa2ea49fcdd7ea6fbbdb4399e3e` · 4.482.847 B.
 - Entregada en `/storage/emulated/0/Download/FORGE-CORE-STOCK-0.9.58.apk` y `/tmp/opencode/`.
+
+## Sesión 2026-11-02 · APK 0.9.59 (74) — inventario (edición/creación) y biometría
+
+- Commit `f863b89` (push `e292e63..f863b89`).
+- **Bug de edición**: `invEdGuardar` enviaba `ficha:"{}"`, `stock_minimo:0`,
+  `unidad:"unidad"` y `notas:""`, borrando foto/descripción y mínimo en cada
+  edición. Ahora se guarda `INV_ED.original` al abrir y se conservan esos campos.
+- **Crear producto**: `invPintarScanInfo2` añade «Crear este producto» con el
+  código precargado cuando no existe; botón ✕ y ocultado al cambiar de paso.
+- **Comparador**: `invRefMercado()` compara sólo precios del mismo orden de
+  magnitud; si no hay 2 comparables devuelve `sinComparables` y no inventa %.
+- **Márgenes**: selector `#invMproducto` (carga costo/precio) + bloque
+  `#invMargenRef` con la referencia de mercado.
+- **Huella**: faltaban `USE_FINGERPRINT` y `USE_BIOMETRIC` en el manifiesto.
+  Se integra `Biometria.java` (BiometricPrompt API 28+, FingerprintManager 24-27)
+  con `bioEstado`/`bioPedir`/`bioCancelar` y «Probar lector de huella».
+- Build EXIT=0 · 4.347 KB · VC 74 / 0.9.59 · `apksigner` v2 ✔ v3 ✔.
+  Verificado dentro del APK: permisos biométricos y clase `Biometria` en el dex.
+- SHA-256: `d3da36d7287ac39d5f1fcf637e7224d2faa60493c13211e7a6ff2eba23c38a75` · 4.491.039 B.
+- Entregada en `/storage/emulated/0/Download/FORGE-CORE-STOCK-0.9.59.apk` y `/tmp/opencode/`.
