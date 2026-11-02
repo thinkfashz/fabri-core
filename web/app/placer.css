@@ -522,3 +522,169 @@
 
 /* La barra inferior se retira mientras hay una ficha abierta. */
 body.mp-abierto .nav { transform: translateY(112%); transition: transform .24s var(--ease); }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Catálogo 2.0 · búsqueda, categorías, ofertas, carrito y pedido
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── botón de pedido en la cabecera ────────────────────────────────────── */
+.mp-car-btn {
+  position: relative; flex: 0 0 auto;
+  width: 44px; height: 44px; display: grid; place-items: center;
+  border-radius: 14px; border: 1px solid var(--line-2);
+  background: rgba(255,255,255,.05); color: var(--tx); cursor: pointer;
+  transition: transform .16s var(--ease), background .16s, border-color .16s;
+}
+.mp-car-btn svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.mp-car-btn:active { transform: scale(.94); }
+.mp-car-btn.con-pedido { border-color: rgba(200,255,0,.45); background: rgba(200,255,0,.1); }
+.mp-car-btn b[hidden] { display: none; }
+.mp-car-btn b {
+  position: absolute; top: -5px; right: -5px; min-width: 19px; height: 19px;
+  display: grid; place-items: center; padding: 0 5px;
+  border-radius: 999px; background: var(--mp-lima); color: #0b0d05;
+  font-size: 10.5px; font-weight: 800; letter-spacing: -.02em;
+  box-shadow: 0 0 0 2px #070a14;
+}
+
+/* ── herramientas del catálogo ─────────────────────────────────────────── */
+.mp-cat-herramientas { display: flex; gap: 8px; margin: 4px 0 8px; }
+.mp-buscar {
+  flex: 1; display: flex; align-items: center; gap: 8px;
+  padding: 0 11px; min-height: 38px; border-radius: 12px;
+  border: 1px solid var(--line); background: rgba(255,255,255,.04);
+}
+.mp-buscar svg { width: 15px; height: 15px; fill: none; stroke: var(--tx4); stroke-width: 1.9; stroke-linecap: round; flex: 0 0 auto; }
+.mp-buscar input {
+  flex: 1; min-width: 0; border: 0; background: transparent; outline: none;
+  color: var(--tx); font: inherit; font-size: 12.5px; padding: 9px 0;
+}
+.mp-buscar input::placeholder { color: var(--tx4); }
+.mp-buscar:focus-within { border-color: rgba(200,255,0,.4); }
+.mp-orden {
+  flex: 0 0 auto; padding: 0 12px; border-radius: 12px;
+  border: 1px solid var(--line); background: rgba(255,255,255,.04);
+  color: var(--tx2); font: inherit; font-size: 11.5px; font-weight: 650; cursor: pointer;
+}
+.mp-orden:hover { background: rgba(255,255,255,.08); }
+.mp-cat-chips { margin-bottom: 10px; }
+.mp-cat-chips .mp-chip { font-size: 11.5px; padding: 6px 10px; }
+
+/* ── producto ──────────────────────────────────────────────────────────── */
+.mp-prod { gap: 11px; padding: 10px 11px; }
+.mp-prod-ico {
+  flex: 0 0 auto; width: 44px; height: 44px; border-radius: 13px;
+  display: grid; place-items: center; position: relative; overflow: hidden;
+  border: 1px solid rgba(255,255,255,.16);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.3), inset 0 -8px 14px -10px rgba(0,0,0,.6);
+}
+.mp-prod-ico b {
+  font-size: 19px; font-weight: 800; letter-spacing: -.02em;
+  color: rgba(255,255,255,.95); text-shadow: 0 1px 3px rgba(0,0,0,.5);
+}
+.mp-prod-ico::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(150deg, rgba(255,255,255,.28), transparent 45%);
+  mix-blend-mode: overlay;
+}
+.mp-prod-ico[data-cat="Abarrotes"] { background: linear-gradient(160deg,#c9922f,#7a5518); }
+.mp-prod-ico[data-cat="Lácteos"] { background: linear-gradient(160deg,#5b8fd6,#2f4f80); }
+.mp-prod-ico[data-cat="Panadería"] { background: linear-gradient(160deg,#c9a06a,#7d5a33); }
+.mp-prod-ico[data-cat="Carnes"] { background: linear-gradient(160deg,#c2564f,#742a26); }
+.mp-prod-ico[data-cat="Frutas y verduras"] { background: linear-gradient(160deg,#5fa845,#2c5c1f); }
+.mp-prod-ico[data-cat="Bebidas"] { background: linear-gradient(160deg,#3fa3b8,#1d5666); }
+.mp-prod-ico[data-cat="Limpieza"] { background: linear-gradient(160deg,#8a6fc4,#4b3a75); }
+.mp-prod-ico[data-cat="Pescados"] { background: linear-gradient(160deg,#4a90a4,#24505e); }
+.mp-prod-ico[data-cat="Otros"] { background: linear-gradient(160deg,#7a8499,#3f4757); }
+
+.mp-prod-txt { gap: 3px; }
+.mp-prod-txt b { font-size: 13px; line-height: 1.25; }
+.mp-prod-txt small { font-size: 10.5px; color: var(--tx3); }
+.mp-prod-txt small em { font-style: normal; color: var(--tx2); }
+.mp-prod-precio { display: flex; align-items: baseline; gap: 6px; margin-top: 1px; }
+.mp-prod-precio > b { font-size: 14px; color: #d8ff5c; font-variant-numeric: tabular-nums; }
+.mp-prod-antes { font-style: normal; font-size: 10.5px; color: var(--tx4); text-decoration: line-through; }
+.mp-prod-off {
+  font-style: normal; padding: 1px 5px; border-radius: 5px;
+  background: rgba(255,194,75,.16); color: #ffc24b;
+  font-size: 9.5px; font-weight: 750;
+}
+.mp-tag.oferta { background: rgba(255,194,75,.14); color: #ffc24b; border-color: rgba(255,194,75,.2); }
+
+/* ── pedido ────────────────────────────────────────────────────────────── */
+.mp-cliente {
+  display: grid; gap: 8px; padding: 11px; margin-bottom: 10px;
+  border-radius: 15px; border: 1px solid var(--line);
+  background: rgba(255,255,255,.035);
+}
+.mp-cli-fila { display: flex; gap: 8px; }
+.mp-cliente input {
+  flex: 1; min-width: 0; padding: 9px 11px; border-radius: 10px;
+  border: 1px solid var(--line); background: rgba(255,255,255,.04);
+  color: var(--tx); font: inherit; font-size: 12.5px; outline: none;
+}
+.mp-cliente input::placeholder { color: var(--tx4); }
+.mp-cliente input:focus { border-color: rgba(200,255,0,.4); }
+.mp-cli-modos { display: flex; gap: 4px; padding: 3px; border-radius: 10px; background: rgba(255,255,255,.04); }
+.mp-cli-modos button {
+  flex: 1; padding: 7px; border: 0; border-radius: 8px; background: transparent;
+  color: var(--tx3); font: inherit; font-size: 12px; font-weight: 650; cursor: pointer;
+}
+.mp-cli-modos button.on { background: rgba(200,255,0,.16); color: #d8ff5c; }
+
+.mp-car-nota { margin: 0 0 10px; font-size: 10.8px; color: var(--tx4); }
+.mp-car-grupo {
+  margin-bottom: 12px; padding: 11px; border-radius: 16px;
+  border: 1px solid var(--line); background: rgba(255,255,255,.025);
+}
+.mp-car-grupo header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.mp-car-grupo header b { font-size: 13px; }
+.mp-car-grupo header small { margin-left: auto; font-size: 10px; color: var(--tx4); }
+.mp-car-ico {
+  width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center;
+  background: rgba(200,255,0,.12); color: #c8ff00; flex: 0 0 auto;
+}
+.mp-car-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 0; border-top: 1px solid rgba(255,255,255,.05);
+}
+.mp-car-nom { flex: 1; min-width: 0; display: grid; }
+.mp-car-nom b { font-size: 12px; font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mp-car-nom small { font-size: 10px; color: var(--tx4); }
+.mp-car-sub { font-size: 12px; font-variant-numeric: tabular-nums; min-width: 62px; text-align: right; }
+.mp-car-grupo footer {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin-top: 6px; padding-top: 7px; border-top: 1px solid var(--line-2);
+  font-size: 11.5px; color: var(--tx3);
+}
+.mp-car-grupo footer b { font-size: 14px; color: #d8ff5c; }
+.mp-car-grupo .btn { margin-top: 9px; }
+.mp-car-total {
+  display: flex; justify-content: space-between; align-items: baseline;
+  padding: 11px 13px; border-radius: 13px;
+  border: 1px solid rgba(200,255,0,.25); background: rgba(200,255,0,.07);
+  font-size: 12px; color: var(--tx2);
+}
+.mp-car-total b { font-size: 18px; color: #d8ff5c; letter-spacing: -.02em; }
+.mp-link {
+  display: block; margin: 9px auto 0; border: 0; background: transparent;
+  color: var(--tx4); font: inherit; font-size: 11px; cursor: pointer; text-decoration: underline;
+}
+.mp-hoja-ico.carrito { background: linear-gradient(160deg,#d8ff5c,#9ed400); }
+.mp-hoja-ico.carrito svg { width: 22px; height: 22px; fill: none; stroke: #0b0d05; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ── pin activo y mapa sin teselas ─────────────────────────────────────── */
+.mp-pin.activo .mp-pin-cuerpo {
+  transform: translateX(-50%) translateY(-3px) scale(1.12);
+  box-shadow: 0 1px 0 rgba(255,255,255,.6) inset, 0 18px 30px -12px rgba(0,0,0,1), 0 0 34px -2px rgba(200,255,0,.95);
+  outline: 2px solid rgba(200,255,0,.55);
+  outline-offset: 2px;
+}
+.mp-mapa.sin-teselas::after {
+  content: attr(data-mensaje);
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%);
+  width: min(280px, 80%);
+  padding: 12px 14px; border-radius: 12px; text-align: center;
+  background: rgba(6,9,18,.92); border: 1px solid rgba(255,194,75,.35);
+  color: #ffc24b; font-size: 11.5px; line-height: 1.5; z-index: 450;
+}

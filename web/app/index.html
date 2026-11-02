@@ -123,9 +123,13 @@
         <div class="mp" id="mp">
           <header class="mp-cab">
             <div>
-              <p class="eyebrow">MercadoPlacer · cerca de ti</p>
+              <p class="eyebrow">MercadoPlacer</p>
               <h1>Mercados <em>a tu alrededor</em></h1>
             </div>
+            <button class="mp-car-btn" id="mpCarritoBtn" type="button" aria-label="Ver mi pedido">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.4 11.2a2 2 0 0 0 2 1.6h7.8a2 2 0 0 0 2-1.6L21 8H6"/><circle cx="10" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/></svg>
+              <b id="mpCarritoN" hidden>0</b>
+            </button>
             <button class="mp-ubi" id="mpUbicar" type="button" aria-label="Centrar en mi ubicación" title="Centrar en mi ubicación">
               <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 2v3.2M12 18.8V22M2 12h3.2M18.8 12H22"/></svg>
             </button>
@@ -618,6 +622,26 @@
             <footer class="mp-hoja-pie" id="mpHojaPie"></footer>
           </div>
         </div>
+
+
+<div class="mp-hoja" id="mpCarrito" hidden>
+  <div class="mp-hoja-fondo" id="mpCarritoFondo"></div>
+  <div class="mp-hoja-panel" role="dialog" aria-modal="true" aria-labelledby="mpCarritoNombre">
+    <div class="mp-hoja-asa"></div>
+    <header class="mp-hoja-cab">
+      <div class="mp-hoja-ico carrito">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.4 11.2a2 2 0 0 0 2 1.6h7.8a2 2 0 0 0 2-1.6L21 8H6"/><circle cx="10" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/></svg>
+      </div>
+      <div class="mp-hoja-tit">
+        <h2 id="mpCarritoNombre">Mi pedido</h2>
+        <p>Cada local recibe su pedido por separado</p>
+      </div>
+      <button class="mp-ubi" id="mpCarritoX" type="button" aria-label="Cerrar">✕</button>
+    </header>
+    <div id="mpCarritoCuerpo"></div>
+    <footer class="mp-hoja-pie" id="mpCarritoPie"></footer>
+  </div>
+</div>
 
 </body>
 </html>

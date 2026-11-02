@@ -1,29 +1,31 @@
 /* ============================================================================
    MERCADOPLACER · mercados cerca de ti
    ----------------------------------------------------------------------------
-   · Mapa real (Leaflet + teselas de OpenStreetMap/CARTO y Esri)
-   · Posición en vivo con `watchPosition` (no una foto del momento)
-   · Locales cercanos desde OpenStreetMap vía /api/mercados (Overpass)
-   · Al tocar un local se abre su catálogo, con carrito y pedido por WhatsApp
+   · Mapa real (Leaflet + OpenStreetMap / Esri) con radio, fallback de teselas
+     y estado de error visible en vez de un rectángulo vacío.
+   · Posición en vivo (`watchPosition`), memoria de la última ubicación y
+     pausa del GPS cuando la pestaña queda en segundo plano.
+   · Locales desde OpenStreetMap vía /api/mercados (Overpass + Nominatim).
+   · Catálogo por local con categorías, búsqueda, ofertas, carrito y pedido.
 
    Honestidad de los datos:
-     - El local, su dirección y su horario vienen de OpenStreetMap (ODbL).
-     - El catálogo de cada local es REFERENCIAL: se arma con el rubro del local
-       y precios de referencia chilenos. Ningún supermercado publica su catálogo
-       en OSM, así que la app lo dice en pantalla en vez de fingir que es real.
-     - Si no hay red, se muestra una muestra local marcada como «muestra».
+     - Local, dirección y horario vienen de OpenStreetMap (ODbL).
+     - El catálogo es REFERENCIAL: se arma con el rubro del local y precios de
+       referencia chilenos. Ningún supermercado publica su catálogo en OSM, y
+       la app lo dice en pantalla en vez de fingir que es real.
+     - Si no hay red ni Overpass, aparece una muestra local rotulada «muestra».
    ========================================================================== */
 
 window.Placer = (function () {
   "use strict";
 
   const API = "/api/mercados";
-  const OVERPASS = "https://overpass-api.de/api/interpreter";
   const CLAVE_CARRITO = "fcore.placer.carrito";
   const CLAVE_RADIO = "fcore.placer.radio";
+  const CLAVE_UBI = "fcore.placer.ubicacion";
+  const CLAVE_CLIENTE = "fcore.placer.cliente";
 
-  /* Santiago centro: solo se usa si el usuario niega la ubicación o el
-     dispositivo no la entrega. Siempre se avisa en pantalla. */
+  /* Santiago centro: solo si se niega la ubicación o el equipo no la entrega. */
   const RESPALDO = { lat: -33.4489, lon: -70.6693, nombre: "Santiago centro" };
 
   const ESTADO = {
@@ -31,6 +33,8 @@ window.Placer = (function () {
     capa: null,
     modo: "calles",
     marcadores: [],
+    porId: {},
+    circulo: null,
     usuario: null,
     precision: null,
     pos: null,
@@ -40,7 +44,13 @@ window.Placer = (function () {
     cargando: false,
     viendo: null,
     modoUbi: "esperando",
-    carrito: leerCarrito()
+    vigia: null,
+    carrito: leerCarrito(),
+    pedido: leerCliente(),
+    cat: { q: "", categoria: "", orden: "relevancia" },
+    teselasOk: 0,
+    teselasError: 0,
+    capaIndice: 0
   };
 
   /* ── utilidades ─────────────────────────────────────────────────────────── */
@@ -51,26 +61,24 @@ window.Placer = (function () {
   function clp(n) {
     return "$" + Math.round(Number(n) || 0).toLocaleString("es-CL");
   }
-
   function distancia(m) {
     if (m == null) return "—";
     if (m < 950) return Math.round(m / 10) * 10 + " m";
     return (m / 1000).toFixed(1).replace(".", ",") + " km";
   }
-
-  /* Generador determinista: el mismo local siempre muestra los mismos precios,
-     así el catálogo no cambia al recargar (sería desconcertante). */
   function azar(n) {
     const x = Math.sin(n * 12.9898) * 43758.5453;
     return x - Math.floor(x);
   }
-
-  function leerCarrito() {
-    try { return JSON.parse(localStorage.getItem(CLAVE_CARRITO) || "{}") || {}; } catch (e) { return {}; }
+  function guardar(k, v) {
+    try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* modo privado */ }
   }
-  function guardarCarrito() {
-    try { localStorage.setItem(CLAVE_CARRITO, JSON.stringify(ESTADO.carrito)); } catch (e) { /* modo privado */ }
+  function leer(k, porDefecto) {
+    try { return JSON.parse(localStorage.getItem(k) || "null") || porDefecto; } catch (e) { return porDefecto; }
   }
+  function leerCarrito() { return leer(CLAVE_CARRITO, {}); }
+  function leerCliente() { return leer(CLAVE_CLIENTE, { nombre: "", telefono: "", modo: "retiro", nota: "" }); }
+  function guardarCarrito() { guardar(CLAVE_CARRITO, ESTADO.carrito); }
 
   /* ── iconos ─────────────────────────────────────────────────────────────── */
   const ICO = {
@@ -103,85 +111,128 @@ window.Placer = (function () {
       ["Leche entera · 1 L", 1290], ["Azúcar · 1 kg", 1490], ["Fideos spaghetti · 400 g", 890],
       ["Huevos colorados · 12 u", 3290], ["Pan de molde · 550 g", 2190], ["Café molido · 170 g", 3790],
       ["Té en saquitos · 20 u", 1690], ["Detergente · 750 ml", 2890], ["Papel higiénico · 4 u", 2790],
-      ["Bebida cola · 1,5 L", 1890], ["Agua mineral · 1,5 L", 990], ["Atún en agua · 160 g", 1290]
+      ["Bebida cola · 1,5 L", 1890], ["Agua mineral · 1,5 L", 990], ["Atún en agua · 160 g", 1290],
+      ["Lentejas · 1 kg", 2390], ["Sal fina · 1 kg", 690], ["Salsa de tomate · 200 g", 790]
     ],
     almacen: [
       ["Pan corriente · 1 kg", 1990], ["Leche entera · 1 L", 1250], ["Huevos · 12 u", 3190],
       ["Arroz · 1 kg", 1590], ["Fideos · 400 g", 850], ["Aceite · 900 ml", 2390],
       ["Azúcar · 1 kg", 1450], ["Bebida · 1,5 L", 1790], ["Cerveza lata · 470 ml", 1290],
-      ["Papel higiénico · 4 u", 2690], ["Velas · 4 u", 990], ["Carbón · 3 kg", 3990]
+      ["Papel higiénico · 4 u", 2690], ["Velas · 4 u", 990], ["Carbón · 3 kg", 3990],
+      ["Atún · 160 g", 1190], ["Galletas · 150 g", 890], ["Jabón · 3 u", 1990]
     ],
     verduleria: [
       ["Tomate · 1 kg", 1490], ["Papa · 1 kg", 990], ["Cebolla · 1 kg", 1090],
       ["Zanahoria · 1 kg", 950], ["Palta Hass · 1 kg", 3990], ["Plátano · 1 kg", 1290],
       ["Manzana roja · 1 kg", 1690], ["Lechuga costina · 1 u", 790], ["Limón · 1 kg", 1590],
-      ["Frutilla · 500 g", 2490], ["Pimiento · 1 kg", 1890], ["Choclo · 2 u", 1190]
+      ["Frutilla · 500 g", 2490], ["Pimiento · 1 kg", 1890], ["Choclo · 2 u", 1190],
+      ["Naranja · 1 kg", 1190], ["Cilantro · 1 u", 590]
     ],
     carniceria: [
       ["Pollo entero · 1 kg", 4990], ["Pechuga de pollo · 1 kg", 6490], ["Carne molida 5% · 1 kg", 7990],
       ["Lomo vetado · 1 kg", 13990], ["Plateada · 1 kg", 10990], ["Cerdo pulpa · 1 kg", 6990],
-      ["Chorizo parrillero · 6 u", 4490], ["Costillar de cerdo · 1 kg", 7490]
+      ["Chorizo parrillero · 6 u", 4490], ["Costillar de cerdo · 1 kg", 7490],
+      ["Hueso para cazuela · 1 kg", 2990], ["Pollo ganso · 1 kg", 4290]
     ],
     panaderia: [
       ["Marraqueta · 1 kg", 1990], ["Hallulla · 1 kg", 2190], ["Baguette · 1 u", 990],
       ["Pan integral · 800 g", 2790], ["Empanada de pino · 1 u", 1690], ["Torta de milhojas · 1 u", 8990],
-      ["Kuchen de manzana · 1 u", 6990], ["Galletas surtidas · 500 g", 2990]
+      ["Kuchen de manzana · 1 u", 6990], ["Galletas surtidas · 500 g", 2990],
+      ["Pan amasado · 1 kg", 2390], ["Dobladitas · 6 u", 2490]
     ],
     feria: [
       ["Tomate · 1 kg", 1290], ["Papa · 1 kg", 890], ["Cebolla · 1 kg", 990],
       ["Palta · 1 kg", 3690], ["Frutilla · 500 g", 2190], ["Malla de naranjas · 3 kg", 3490],
-      ["Huevos de campo · 30 u", 6990], ["Miel de ulmo · 1 kg", 8990], ["Queso de campo · 500 g", 5490]
+      ["Huevos de campo · 30 u", 6990], ["Miel de ulmo · 1 kg", 8990], ["Queso de campo · 500 g", 5490],
+      ["Porotos verdes · 1 kg", 1490], ["Zapallo · 1 kg", 990]
     ],
     pescaderia: [
       ["Reineta · 1 kg", 6990], ["Merluza · 1 kg", 7490], ["Salmón · 1 kg", 12990],
-      ["Camarón pelado · 500 g", 8990], ["Choritos · 1 kg", 4990], ["Machas · 500 g", 9990]
+      ["Camarón pelado · 500 g", 8990], ["Choritos · 1 kg", 4990], ["Machas · 500 g", 9990],
+      ["Congrio · 1 kg", 11990], ["Jibia · 1 kg", 5990]
     ],
     botilleria: [
       ["Cerveza · 6 x 470 ml", 6990], ["Vino tinto · 750 ml", 4990], ["Pisco · 700 ml", 9990],
       ["Bebida cola · 1,5 L", 1890], ["Hielo · 2 kg", 1990], ["Jugo natural · 1 L", 2490],
-      ["Espumante · 750 ml", 7990]
+      ["Espumante · 750 ml", 7990], ["Ron · 750 ml", 12990], ["Agua tónica · 1,5 L", 2190]
     ],
     fiambreria: [
       ["Jamón artesanal · 250 g", 4290], ["Queso mantecoso · 250 g", 3890], ["Salame · 250 g", 4590],
-      ["Mortadela · 250 g", 2490], ["Aceitunas · 250 g", 2290], ["Pan de campo · 1 u", 1990]
+      ["Mortadela · 250 g", 2490], ["Aceitunas · 250 g", 2290], ["Pan de campo · 1 u", 1990],
+      ["Jamón serrano · 100 g", 4990], ["Queso de cabra · 200 g", 5490]
     ],
     dietetica: [
       ["Avena integral · 1 kg", 2490], ["Frutos secos · 500 g", 5990], ["Quinoa · 500 g", 3490],
       ["Miel · 500 g", 4990], ["Té de hierbas · 20 u", 2490], ["Semillas de chía · 250 g", 2990],
-      ["Leche de almendras · 1 L", 3290]
+      ["Leche de almendras · 1 L", 3290], ["Granola · 500 g", 3990], ["Cacao amargo · 250 g", 4490]
     ],
     lacteos: [
       ["Leche entera · 1 L", 1190], ["Yogur natural · 1 kg", 2790], ["Queso fresco · 500 g", 4990],
-      ["Mantequilla · 250 g", 3290], ["Crema · 200 ml", 2190], ["Manjar · 500 g", 3490]
+      ["Mantequilla · 250 g", 3290], ["Crema · 200 ml", 2190], ["Manjar · 500 g", 3490],
+      ["Leche descremada · 1 L", 1190], ["Queso gauda · 250 g", 4590]
     ],
     mayorista: [
       ["Arroz · 10 kg", 14990], ["Aceite · 5 L", 11990], ["Harina · 10 kg", 9990],
-      ["Azúcar · 10 kg", 12990], ["Fideos · 5 kg", 7990], ["Conservas · 12 u", 15990]
+      ["Azúcar · 10 kg", 12990], ["Fideos · 5 kg", 7990], ["Conservas · 12 u", 15990],
+      ["Detergente · 5 L", 18990], ["Papel higiénico · 24 u", 13990]
     ],
     granja: [
       ["Huevos de campo · 30 u", 6990], ["Pollo de campo · 1 kg", 7990], ["Queso de campo · 500 g", 5490],
-      ["Miel pura · 1 kg", 8990], ["Verduras de estación · 3 kg", 5990]
+      ["Miel pura · 1 kg", 8990], ["Verduras de estación · 3 kg", 5990], ["Mantequilla de campo · 250 g", 3990]
     ],
     mall: [
-      ["Café en grano · 250 g", 5990], ["Audífonos inalámbricos", 19990], ["Polera básica", 9990],
-      ["Zapatillas urbanas", 39990], ["Perfume · 100 ml", 29990], ["Cargador rápido · 20 W", 12990]
+      ["Café en grano · 250 g", 5990], ["Audífonos inalámbricos · 1 u", 19990], ["Polera básica · 1 u", 9990],
+      ["Zapatillas urbanas · 1 u", 39990], ["Perfume · 100 ml", 29990], ["Cargador rápido · 1 u", 12990]
     ],
     tienda: [
       ["Bebida · 1,5 L", 1890], ["Snack · 180 g", 1990], ["Pilas AA · 4 u", 3990],
-      ["Cargador USB-C", 7990], ["Cuaderno universitario", 2490], ["Lápiz pasta · 3 u", 1290]
+      ["Cargador USB-C · 1 u", 7990], ["Cuaderno universitario · 1 u", 2490], ["Lápiz pasta · 3 u", 1290]
     ]
   };
 
+  /* Categorías por palabra clave: evita repetir la categoría en 130 productos
+     y sigue funcionando si mañana se agrega un producto nuevo a la lista. */
+  const CATS = [
+    ["Lácteos", /leche|queso|yogur|mantequilla|crema|manjar/i],
+    ["Panadería", /pan\b|marraqueta|hallulla|baguette|empanada|torta|kuchen|galleta|dobladita|amasado/i],
+    ["Carnes", /pollo|carne|cerdo|lomo|plateada|chorizo|costillar|pechuga|molida|hueso|vacuno/i],
+    ["Frutas y verduras", /tomate|papa|cebolla|zanahoria|palta|pl[aá]tano|manzana|lechuga|lim[oó]n|frutilla|pimiento|choclo|naranja|zapallo|poroto|cilantro|verdura/i],
+    ["Bebidas", /bebida|agua|jugo|cerveza|vino|pisco|espumante|hielo|t[eé]\b|caf[eé]|ron\b|t[oó]nica/i],
+    ["Abarrotes", /arroz|fideo|aceite|harina|az[uú]car|sal\b|at[uú]n|conserva|salsa|lenteja|avena|quinoa|semilla|granola|cacao|miel|fruto|snack|huevo/i],
+    ["Limpieza", /detergente|papel|cloro|lavaloza|basura|jab[oó]n|vela/i],
+    ["Pescados", /reineta|merluza|salm[oó]n|camar[oó]n|chorito|macha|congrio|jibia/i],
+    ["Otros", /.*/]
+  ];
+
+  function categoriaDe(nombre) {
+    for (let i = 0; i < CATS.length; i++) if (CATS[i][1].test(nombre)) return CATS[i][0];
+    return "Otros";
+  }
+  function unidadDe(nombre) {
+    const m = /(\d+(?:[.,]\d+)?)\s*(kg|g|ml|l|u|unidades?)\b/i.exec(nombre);
+    if (!m) return "1 u";
+    const n = m[1].replace(",", ".");
+    const u = m[2].toLowerCase().replace("unidades", "u").replace("unidad", "u");
+    return n + " " + (u === "l" ? "L" : u);
+  }
+
   function productos(m) {
-    const base = BASE[m.ico] || BASE.tienda || BASE.almacen;
+    const base = BASE[m.ico] || BASE.tienda;
     const semilla = m.id.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
     return base.map(function (par, i) {
-      const factor = 0.92 + azar(semilla + i * 7.7) * 0.24;   // ±12 %
-      const precio = Math.round((par[1] * factor) / 10) * 10;
+      const variacion = 0.92 + azar(semilla + i * 7.7) * 0.24;       // ±12 %
+      const lista = Math.round((par[1] * variacion) / 10) * 10;
+      const conOferta = azar(semilla + i * 5.3) > 0.8;                // ~20 %
+      const descuento = conOferta ? [10, 15, 20, 25][Math.floor(azar(semilla + i) * 4)] : 0;
+      const precio = descuento ? Math.round((lista * (1 - descuento / 100)) / 10) * 10 : lista;
       return {
         id: m.id + "#" + i,
         nombre: par[0],
+        categoria: categoriaDe(par[0]),
+        unidad: unidadDe(par[0]),
+        lista: lista,
         precio: precio,
+        descuento: descuento,
         stock: 4 + Math.floor(azar(semilla + i * 3.1) * 36)
       };
     });
@@ -189,44 +240,51 @@ window.Placer = (function () {
 
   /* ── carrito ───────────────────────────────────────────────────────────── */
   function carritoDe(id) {
-    if (!ESTADO.carrito[id]) ESTADO.carrito[id] = { nombre: "", items: {} };
+    if (!ESTADO.carrito[id]) ESTADO.carrito[id] = { nombre: "", ico: "tienda", rubro: "", items: {} };
     return ESTADO.carrito[id];
   }
   function unidades(id) {
     const c = ESTADO.carrito[id];
-    if (!c) return 0;
-    return Object.values(c.items).reduce((a, b) => a + b, 0);
+    return c ? Object.values(c.items).reduce((a, b) => a + b, 0) : 0;
+  }
+  function unidadesTotales() {
+    return Object.values(ESTADO.carrito).reduce((a, c) =>
+      a + Object.values(c.items).reduce((b, n) => b + n, 0), 0);
   }
   function itemsDe(m) {
     const c = ESTADO.carrito[m.id];
     if (!c) return [];
     const bolsa = productos(m);
-    return Object.keys(c.items)
-      .map((pid) => {
-        const p = bolsa.find((x) => x.id === pid);
-        return p ? { ...p, cantidad: c.items[pid] } : null;
-      })
-      .filter(Boolean);
+    return Object.keys(c.items).map((pid) => {
+      const p = bolsa.find((x) => x.id === pid);
+      return p ? Object.assign({}, p, { cantidad: c.items[pid] }) : null;
+    }).filter(Boolean);
   }
   function totalDe(m) {
     return itemsDe(m).reduce((a, p) => a + p.precio * p.cantidad, 0);
   }
   function cambiar(m, pid, delta) {
     const c = carritoDe(m.id);
+    // Se guarda el local en el pedido: al recargar la página, ESTADO.mercados
+    // todavía está vacío y sin esto el pedido aparecería como «Local».
+    c.nombre = m.nombre || c.nombre;
+    c.ico = m.ico || c.ico;
+    c.rubro = m.rubro || c.rubro;
     const nuevo = (c.items[pid] || 0) + delta;
     if (nuevo <= 0) delete c.items[pid]; else c.items[pid] = nuevo;
     if (!Object.keys(c.items).length) delete ESTADO.carrito[m.id];
     guardarCarrito();
     pintarHoja();
+    pintarCarrito();
+    pintarCarritoBtn();
+    pintarLista();
   }
 
   /* ── ubicación ─────────────────────────────────────────────────────────── */
   function textoUbicacion() {
     const p = ESTADO.pos;
     if (!p) return "Sin ubicación todavía";
-    if (ESTADO.modoUbi === "real") {
-      return "Tu ubicación · ±" + Math.round(p.precision || 0) + " m";
-    }
+    if (ESTADO.modoUbi === "real") return "Tu ubicación · ±" + Math.round(p.precision || 0) + " m";
     return "Ubicación de referencia: " + p.nombre;
   }
 
@@ -245,18 +303,37 @@ window.Placer = (function () {
     const punto = [p.lat, p.lon];
     if (!ESTADO.usuario) {
       ESTADO.usuario = L.marker(punto, {
-        icon: L.divIcon({ className: "mp-yo", html: '<span class="mp-yo-halo"></span><span class="mp-yo-punto"></span>', iconSize: [30, 30], iconAnchor: [15, 15] }),
+        icon: L.divIcon({
+          className: "mp-yo",
+          html: '<span class="mp-yo-halo"></span><span class="mp-yo-punto"></span>',
+          iconSize: [30, 30], iconAnchor: [15, 15]
+        }),
         interactive: false, zIndexOffset: 900
       }).addTo(ESTADO.mapa);
       ESTADO.precision = L.circle(punto, {
-        radius: p.precision || 40, color: "#c8ff00", weight: 1, opacity: .5,
-        fillColor: "#c8ff00", fillOpacity: .07, interactive: false
+        radius: p.precision || 40, color: "#c8ff00", weight: 1, opacity: 0.5,
+        fillColor: "#c8ff00", fillOpacity: 0.07, interactive: false
       }).addTo(ESTADO.mapa);
+      pintarRadio();
     } else {
       ESTADO.usuario.setLatLng(punto);
       ESTADO.precision.setLatLng(punto);
       ESTADO.precision.setRadius(Math.max(25, p.precision || 40));
+      if (ESTADO.circulo) ESTADO.circulo.setLatLng(punto);
     }
+  }
+
+  function pintarRadio() {
+    if (!ESTADO.mapa || !ESTADO.pos) return;
+    const punto = [ESTADO.pos.lat, ESTADO.pos.lon];
+    if (ESTADO.circulo) {
+      ESTADO.circulo.setLatLng(punto).setRadius(ESTADO.radio);
+      return;
+    }
+    ESTADO.circulo = L.circle(punto, {
+      radius: ESTADO.radio, color: "rgba(200,255,0,.35)", weight: 1, dashArray: "4 6",
+      fillColor: "#c8ff00", fillOpacity: 0.035, interactive: false
+    }).addTo(ESTADO.mapa);
   }
 
   function ubicar(centrar) {
@@ -268,7 +345,6 @@ window.Placer = (function () {
     }
     const opciones = { enableHighAccuracy: true, maximumAge: 4000, timeout: 20000 };
 
-    // Primera lectura: ubica el mapa rápido.
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         aplicarPosicion(pos, true);
@@ -278,33 +354,34 @@ window.Placer = (function () {
         cargar();
       },
       (err) => {
-        usarRespaldo(err && err.code === 1
-          ? "No diste permiso de ubicación"
-          : "No se pudo obtener tu ubicación");
+        usarRespaldo(err && err.code === 1 ? "No diste permiso de ubicación" : "No se pudo obtener tu ubicación");
         cargar();
       },
       opciones
     );
 
-    // Y se queda escuchando: la marca se mueve en tiempo real.
-    if (ESTADO.vigia == null) {
-      ESTADO.vigia = navigator.geolocation.watchPosition(
-        (pos) => aplicarPosicion(pos, false),
-        () => { /* el error ya se explicó en la primera lectura */ },
-        opciones
-      );
-    }
+    vigilar();
+  }
+
+  function vigilar() {
+    if (ESTADO.vigia != null || !navigator.geolocation) return;
+    ESTADO.vigia = navigator.geolocation.watchPosition(
+      (pos) => aplicarPosicion(pos, false),
+      () => { /* el error ya se explicó en la primera lectura */ },
+      { enableHighAccuracy: true, maximumAge: 4000, timeout: 20000 }
+    );
   }
 
   function aplicarPosicion(pos, primera) {
     const antes = ESTADO.pos;
-    ESTADO.pos = { lat: pos.coords.latitude, lon: pos.coords.longitude, precision: pos.coords.accuracy };
+    const p = { lat: pos.coords.latitude, lon: pos.coords.longitude, precision: pos.coords.accuracy };
+    ESTADO.pos = p;
     ESTADO.modoUbi = "real";
-    marcarUsuario(ESTADO.pos);
+    guardar(CLAVE_UBI, { lat: p.lat, lon: p.lon, t: Date.now() });
+    marcarUsuario(p);
     pintarEstado();
     if (!primera && antes) {
-      // Si se movió más de 150 m, los cercanos cambiaron: se refrescan solos.
-      const d = metrosc(antes.lat, antes.lon, ESTADO.pos.lat, ESTADO.pos.lon);
+      const d = metrosc(antes.lat, antes.lon, p.lat, p.lon);
       if (d > 150) cargar(true);
     }
   }
@@ -316,7 +393,7 @@ window.Placer = (function () {
     pintarEstado();
     const aviso = $("mpAviso");
     if (aviso) {
-      aviso.innerHTML = '<b>' + esc(motivo) + '.</b> Mostrando ' + esc(RESPALDO.nombre) +
+      aviso.innerHTML = "<b>" + esc(motivo) + ".</b> Mostrando " + esc(RESPALDO.nombre) +
         ' y sus mercados. <button type="button" id="mpReintentar">Reintentar</button>';
       const b = $("mpReintentar");
       if (b) b.onclick = () => ubicar(true);
@@ -331,7 +408,7 @@ window.Placer = (function () {
     return 2 * R * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
   }
 
-  /* ── datos: API propia → Overpass directo → muestra ────────────────────── */
+  /* ── datos ─────────────────────────────────────────────────────────────── */
   async function cargar(silencioso) {
     if (!ESTADO.pos || ESTADO.cargando) return;
     ESTADO.cargando = true;
@@ -340,8 +417,6 @@ window.Placer = (function () {
     const radio = ESTADO.radio;
     let lista = null, origen = "";
 
-    // `?demo=1` salta la red y muestra los locales de referencia. Sirve para
-    // revisar la interfaz sin depender de Overpass (que se satura seguido).
     if (new URLSearchParams(location.search).get("demo") === "1") {
       ESTADO.cargando = false;
       ESTADO.mercados = muestra(lat, lon);
@@ -363,10 +438,8 @@ window.Placer = (function () {
     } catch (e) { origen = "api"; }
 
     if (!lista) {
-      try {
-        lista = await overpassDirecto(lat, lon, radio);
-        origen = "overpass";
-      } catch (e) { lista = null; }
+      try { lista = await overpassDirecto(lat, lon, radio); origen = "overpass"; }
+      catch (e) { lista = null; }
     }
 
     if (!lista) {
@@ -389,8 +462,6 @@ window.Placer = (function () {
     "https://overpass.osm.jp/api/interpreter"
   ];
 
-  // En paralelo: el primero que conteste gana. En serie, con un espejo caído,
-  // la espera se hacía insoportable en datos móviles.
   async function overpassDirecto(lat, lon, radio) {
     try {
       return await Promise.any(ESPEJOS.map((e) => unOverpass(e, lat, lon, radio)));
@@ -406,11 +477,7 @@ window.Placer = (function () {
       ');out center tags 80;';
     const ctrl = new AbortController();
     const reloj = setTimeout(() => ctrl.abort(), 11000);
-    const r = await fetch(base, {
-      method: "POST",
-      body: new URLSearchParams({ data: q }),
-      signal: ctrl.signal
-    });
+    const r = await fetch(base, { method: "POST", body: new URLSearchParams({ data: q }), signal: ctrl.signal });
     clearTimeout(reloj);
     if (!r.ok) throw new Error("overpass " + r.status);
     const d = await r.json();
@@ -433,13 +500,12 @@ window.Placer = (function () {
       const la = el.lat || (el.center && el.center.lat);
       const lo = el.lon || (el.center && el.center.lon);
       if (!la || !lo) return;
-      // Un local sin nombre ni dirección no se puede visitar: ocupa lugar.
       if (!(t.name || "").trim() && !(t["addr:street"] || "").trim()) return;
       const rub = RUBROS[tipo] || ["Local", "tienda"];
       out.push({
         id: el.type + "/" + el.id,
         nombre: (t.name || "").trim() ||
-        (t["addr:street"] ? rub[0] + " en " + t["addr:street"] : rub[0] + " sin nombre"),
+          (t["addr:street"] ? rub[0] + " en " + t["addr:street"] : rub[0] + " sin nombre"),
         tipo: tipo, rubro: rub[0], ico: rub[1],
         lat: la, lon: lo,
         dist: Math.round(metrosc(lat, lon, la, lo)),
@@ -455,8 +521,6 @@ window.Placer = (function () {
     return out.slice(0, 60);
   }
 
-  // Muestra de referencia: solo aparece si no hay red ni Overpass. Se rotula
-  // como «muestra» en la interfaz para no hacer pasar datos inventados por reales.
   function muestra(lat, lon) {
     const MODELO = [
       ["Supermercado Los Aromos", "supermercado", "Supermercado", 60, -150],
@@ -469,7 +533,6 @@ window.Placer = (function () {
       ["Pescadería Puerto Sur", "pescaderia", "Pescadería", 420, -330]
     ];
     return MODELO.map((m, i) => {
-      // 0.00001° ≈ 1,1 m: se reparten alrededor del punto, no encima.
       const la = lat + m[4] / 111300;
       const lo = lon + m[3] / (111300 * Math.cos(lat * Math.PI / 180));
       return {
@@ -482,18 +545,14 @@ window.Placer = (function () {
   }
 
   /* ── mapa ──────────────────────────────────────────────────────────────── */
-  /* Teselas abiertas: OpenStreetMap estándar (las oscurece el CSS para que
-     encajen con el tema) y Esri World Imagery para la vista con textura.
-     Ambas exigen atribución visible: se pinta en la leyenda del mapa. */
   const CAPAS = {
-    calles: {
-      url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-      opciones: { maxZoom: 19, attribution: "" }
-    },
-    satelite: {
-      url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-      opciones: { maxZoom: 19, attribution: "" }
-    }
+    calles: [
+      "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+      "https://a.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png"
+    ],
+    satelite: [
+      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+    ]
   };
   const ATRIB = {
     calles: '<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a>',
@@ -502,7 +561,16 @@ window.Placer = (function () {
 
   function montarMapa() {
     const caja = $("mpMapa");
-    if (!caja || ESTADO.mapa || !window.L) return;
+    if (!caja) return;
+    caja.dataset.mensaje = "No se pudieron cargar las teselas del mapa. La lista de mercados sigue funcionando.";
+    if (ESTADO.mapa) return;
+    if (!window.L) {
+      // Sin Leaflet (primera visita sin red y sin caché) el mapa no existe,
+      // pero la lista sí: se dice en vez de dejar un rectángulo vacío.
+      caja.dataset.mensaje = "El mapa no está disponible sin conexión. La lista de abajo sigue funcionando.";
+      caja.classList.add("sin-teselas");
+      return;
+    }
     const centro = ESTADO.pos ? [ESTADO.pos.lat, ESTADO.pos.lon] : [RESPALDO.lat, RESPALDO.lon];
     ESTADO.mapa = L.map(caja, {
       zoomControl: false,
@@ -511,42 +579,79 @@ window.Placer = (function () {
       zoomSnap: 0.5,
       maxBoundsViscosity: 0.6
     }).setView(centro, 16);
+
     ponerCapa(ESTADO.modo);
     L.control.zoom({ position: "bottomright" }).addTo(ESTADO.mapa);
+
     ESTADO.mapa.on("zoomend", marcarZoom);
-    ESTADO.mapa.on("dragend", () => {
-      const c = ESTADO.mapa.getCenter();
-      if (ESTADO.pos && metrosc(ESTADO.pos.lat, ESTADO.pos.lon, c.lat, c.lng) > 400) {
-        const ley = $("mpLeyenda");
-        if (ley && !ley.querySelector("#mpBuscarAqui")) {
-          const b = document.createElement("button");
-          b.id = "mpBuscarAqui"; b.type = "button";
-          b.textContent = "Buscar mercados aquí";
-          b.onclick = () => {
-            ESTADO.pos = { lat: c.lat, lon: c.lng, precision: ESTADO.pos ? ESTADO.pos.precision : 0, nombre: "este punto" };
-            ESTADO.modoUbi = "negada";
-            cargar();
-          };
-          ley.appendChild(b);
-        }
-      }
-    });
+    ESTADO.mapa.on("dragend", alMoverMapa);
     if (ESTADO.pos) marcarUsuario(ESTADO.pos);
   }
 
   function ponerCapa(modo) {
-    const def = CAPAS[modo] || CAPAS.calles;
+    const lista = CAPAS[modo] || CAPAS.calles;
+    ESTADO.capaIndice = 0;
+    ESTADO.teselasError = 0;
+    ESTADO.teselasOk = 0;
     if (ESTADO.capa) ESTADO.mapa.removeLayer(ESTADO.capa);
-    ESTADO.capa = L.tileLayer(def.url, def.opciones).addTo(ESTADO.mapa);
+
+    const crear = (url) => {
+      const capa = L.tileLayer(url, { maxZoom: 19, crossOrigin: true });
+      capa.on("tileload", () => {
+        ESTADO.teselasOk++;
+        const caja = $("mpMapa");
+        if (caja) caja.classList.remove("sin-teselas");
+      });
+      capa.on("tileerror", () => {
+        ESTADO.teselasError++;
+        // Si fallan muchas y hay un proveedor alternativo, se cambia solo.
+        if (ESTADO.teselasError > 8 && ESTADO.capaIndice < lista.length - 1) {
+          ESTADO.capaIndice++;
+          ESTADO.mapa.removeLayer(capa);
+          ESTADO.capa = crear(lista[ESTADO.capaIndice]);
+          ESTADO.capa.addTo(ESTADO.mapa);
+        } else if (ESTADO.teselasError > 14 && ESTADO.teselasOk === 0) {
+          const caja = $("mpMapa");
+          if (caja) caja.classList.add("sin-teselas");
+        }
+      });
+      return capa;
+    };
+
+    ESTADO.capa = crear(lista[0]).addTo(ESTADO.mapa);
+    ESTADO.modo = modo;
     const caja = $("mpMapa");
     if (caja) caja.classList.toggle("modo-satelite", modo === "satelite");
     const credito = $("mpCredito");
     if (credito) credito.innerHTML = ATRIB[modo] || ATRIB.calles;
-    ESTADO.modo = modo;
+    pintarRadio();
   }
 
-  /* Agrupa por celda geográfica según el zoom: en una cuadra puede haber seis
-     almacenes y seis pines encima no se pueden tocar. */
+  function marcarZoom() {
+    if (!ESTADO.mapa) return;
+    const caja = $("mpMapa");
+    if (caja) caja.classList.toggle("pines-compactos", ESTADO.mapa.getZoom() < 16);
+  }
+
+  function alMoverMapa() {
+    const c = ESTADO.mapa.getCenter();
+    if (ESTADO.pos && metrosc(ESTADO.pos.lat, ESTADO.pos.lon, c.lat, c.lng) > 400) {
+      const ley = $("mpLeyenda");
+      if (ley && !ley.querySelector("#mpBuscarAqui")) {
+        const b = document.createElement("button");
+        b.id = "mpBuscarAqui";
+        b.type = "button";
+        b.textContent = "Buscar acá";
+        b.onclick = () => {
+          ESTADO.pos = { lat: c.lat, lon: c.lng, precision: ESTADO.pos ? ESTADO.pos.precision : 0, nombre: "este punto" };
+          ESTADO.modoUbi = "negada";
+          cargar();
+        };
+        ley.appendChild(b);
+      }
+    }
+  }
+
   function agrupar(lista) {
     const z = ESTADO.mapa ? ESTADO.mapa.getZoom() : 16;
     if (z >= 18) return lista.map((m) => ({ items: [m], lat: m.lat, lon: m.lon }));
@@ -567,21 +672,22 @@ window.Placer = (function () {
     if (!ESTADO.mapa) return;
     ESTADO.marcadores.forEach((m) => ESTADO.mapa.removeLayer(m));
     ESTADO.marcadores = [];
-    const visibles = filtrados();
+    ESTADO.porId = {};
     const puntos = [];
-    agrupar(visibles).forEach((g) => {
+
+    agrupar(filtrados()).forEach((g) => {
       if (g.items.length > 1) {
-        const cerca = g.items[0];
+        const grupo = g.items;
         const mk = L.marker([g.lat, g.lon], {
           icon: L.divIcon({
             className: "mp-pin mp-grupo",
-            html: '<span class="mp-pin-cuerpo"><b>' + g.items.length + '</b></span><span class="mp-pin-pata"></span>',
+            html: '<span class="mp-pin-cuerpo"><b>' + grupo.length + '</b></span><span class="mp-pin-pata"></span>',
             iconSize: [38, 46], iconAnchor: [19, 42]
           }),
           zIndexOffset: 200
         }).addTo(ESTADO.mapa).on("click", () => {
-          ESTADO.mapa.fitBounds(g.items.map((x) => [x.lat, x.lon]), { padding: [40, 40], maxZoom: 18 });
-          abrirHoja(cerca);
+          ESTADO.mapa.fitBounds(grupo.map((x) => [x.lat, x.lon]), { padding: [40, 40], maxZoom: 18 });
+          if (ESTADO.mapa.getZoom() >= 18) abrirHoja(grupo[0]);
         });
         ESTADO.marcadores.push(mk);
         puntos.push([g.lat, g.lon]);
@@ -593,35 +699,38 @@ window.Placer = (function () {
         html: '<span class="mp-pin-cuerpo">' + icono(m.ico, 16) + "</span>" +
           '<span class="mp-pin-pata"></span>' +
           '<b class="mp-pin-dist">' + distancia(m.dist) + "</b>",
-        iconSize: [30, 40],
-        iconAnchor: [15, 36]
+        iconSize: [30, 40], iconAnchor: [15, 36]
       });
       const mk = L.marker([m.lat, m.lon], { icon: ico, riseOnHover: true })
         .addTo(ESTADO.mapa)
         .on("click", () => abrirHoja(m));
-      mk._mercado = m;
+      ESTADO.porId[m.id] = mk;
       ESTADO.marcadores.push(mk);
       puntos.push([m.lat, m.lon]);
     });
+
     if (ESTADO.pos) puntos.push([ESTADO.pos.lat, ESTADO.pos.lon]);
-    marcarZoom();
     if (puntos.length > 1) {
       ESTADO.mapa.fitBounds(puntos, { padding: [34, 34], maxZoom: 17, animate: true });
     }
+    pintarRadio();
+    marcarZoom();
+    marcarActivo();
   }
 
-  function marcarZoom() {
-    if (!ESTADO.mapa) return;
-    const z = ESTADO.mapa.getZoom();
-    const caja = $("mpMapa");
-    if (caja) caja.classList.toggle("pines-compactos", z < 16);
+  function marcarActivo() {
+    Object.keys(ESTADO.porId).forEach((id) => {
+      const mk = ESTADO.porId[id];
+      const el = mk && mk.getElement && mk.getElement();
+      if (el) el.classList.toggle("activo", ESTADO.viendo && ESTADO.viendo.id === id);
+    });
   }
 
   function filtrados() {
     return ESTADO.mercados.filter((m) => !ESTADO.filtro || m.ico === ESTADO.filtro);
   }
 
-  /* ── lista y filtros ───────────────────────────────────────────────────── */
+  /* ── lista ─────────────────────────────────────────────────────────────── */
   function pintarFiltros() {
     const caja = $("mpFiltros");
     if (!caja) return;
@@ -631,7 +740,8 @@ window.Placer = (function () {
     caja.innerHTML = '<button type="button" class="mp-chip' + (ESTADO.filtro ? "" : " on") + '" data-f="">Todos</button>' +
       rubros.map((k) => {
         const m = ESTADO.mercados.find((x) => x.ico === k);
-        return '<button type="button" class="mp-chip' + (ESTADO.filtro === k ? " on" : "") + '" data-f="' + esc(k) + '">' +
+        return '<button type="button" class="mp-chip' + (ESTADO.filtro === k ? " on" : "") +
+          '" data-f="' + esc(k) + '" aria-pressed="' + (ESTADO.filtro === k) + '">' +
           esc(m.rubro) + " · " + cuenta[k] + "</button>";
       }).join("");
     caja.querySelectorAll(".mp-chip").forEach((b) => {
@@ -658,7 +768,7 @@ window.Placer = (function () {
 
     if (!lista.length) {
       caja.innerHTML = '<div class="mp-vacio"><b>Sin mercados en este radio</b>' +
-        "<p>Prueba con un radio más grande o mueve el mapa y toca «Buscar mercados aquí».</p></div>";
+        "<p>Prueba con un radio más grande o mueve el mapa y toca «Buscar acá».</p></div>";
       return;
     }
 
@@ -670,7 +780,7 @@ window.Placer = (function () {
       if (n) tags.push('<em class="mp-tag carrito">' + n + " en el pedido</em>");
       const linea = [m.rubro, m.direccion || m.comuna].filter(Boolean).join(" · ");
       return '<button type="button" class="mp-item" data-id="' + esc(m.id) + '">' +
-        '<span class="mp-item-ico mp-ico-' + esc(m.ico) + '">' + icono(m.ico, 20) + "</span>" +
+        '<span class="mp-item-ico">' + icono(m.ico, 20) + "</span>" +
         '<span class="mp-item-txt"><b>' + esc(m.nombre) + "</b>" +
         "<small>" + esc(linea) + "</small>" +
         (tags.length ? '<span class="mp-item-tags">' + tags.join("") + "</span>" : "") +
@@ -697,24 +807,28 @@ window.Placer = (function () {
   function pintarLeyenda(origen, n) {
     const ley = $("mpLeyenda");
     if (!ley) return;
+    const km = (ESTADO.radio / 1000).toFixed(1).replace(".", ",");
     if (origen === "muestra") {
-      ley.innerHTML = '<span class="mp-leyenda-ojo">Datos de muestra</span> Sin OpenStreetMap: los locales son de referencia.';
+      ley.innerHTML = '<span class="mp-leyenda-ojo">Datos de muestra</span>Sin OpenStreetMap: estos locales son de referencia.';
     } else if (origen === "api" || origen === "overpass") {
-      ley.innerHTML = n + " locales de OpenStreetMap en " + (ESTADO.radio / 1000).toFixed(1).replace(".", ",") + " km";
+      ley.innerHTML = "<b>" + n + "</b> locales de OpenStreetMap en " + km + " km";
     } else {
       ley.innerHTML = "No se pudo consultar OpenStreetMap. Revisa tu conexión.";
     }
   }
 
-  /* ── hoja del local ────────────────────────────────────────────────────── */
+  /* ── ficha del local y catálogo ────────────────────────────────────────── */
   function abrirHoja(m) {
     ESTADO.viendo = m;
+    ESTADO.cat = { q: "", categoria: "", orden: "relevancia" };
     const hoja = $("mpHoja");
     if (!hoja) return;
     hoja.hidden = false;
     document.body.classList.add("mp-abierto");
     pintarHoja();
-    hoja.querySelector(".mp-hoja-panel").scrollTop = 0;
+    marcarActivo();
+    const panel = hoja.querySelector(".mp-hoja-panel");
+    if (panel) panel.scrollTop = 0;
   }
 
   function cerrarHoja() {
@@ -722,11 +836,25 @@ window.Placer = (function () {
     if (hoja) hoja.hidden = true;
     document.body.classList.remove("mp-abierto");
     ESTADO.viendo = null;
+    marcarActivo();
+  }
+
+  function productosFiltrados(m) {
+    const q = ESTADO.cat.q.trim().toLowerCase();
+    let lista = productos(m);
+    if (ESTADO.cat.categoria) lista = lista.filter((p) => p.categoria === ESTADO.cat.categoria);
+    if (q) lista = lista.filter((p) => p.nombre.toLowerCase().includes(q));
+    if (ESTADO.cat.orden === "precio") lista = lista.slice().sort((a, b) => a.precio - b.precio);
+    if (ESTADO.cat.orden === "precio-desc") lista = lista.slice().sort((a, b) => b.precio - a.precio);
+    return lista;
   }
 
   function pintarHoja() {
     const m = ESTADO.viendo;
     if (!m) return;
+    const carrito = ESTADO.carrito[m.id] || { items: {} };
+    const todos = productos(m);
+
     $("mpHojaIco").innerHTML = icono(m.ico, 22);
     $("mpHojaNombre").textContent = m.nombre;
     $("mpHojaSub").textContent = [m.rubro, distancia(m.dist) + " de ti"].filter(Boolean).join(" · ");
@@ -736,72 +864,266 @@ window.Placer = (function () {
     else if (m.comuna) meta.push(fila("Comuna", esc(m.comuna)));
     if (m.horario) meta.push(fila("Horario", esc(m.horario)));
     if (m.telefono) meta.push(fila("Teléfono", '<a href="tel:' + esc(m.telefono) + '">' + esc(m.telefono) + "</a>"));
-    if (m.web) meta.push(fila("Sitio", '<a href="' + esc(m.web) + '" target="_blank" rel="noopener">' + esc(acortar(m.web.replace(/^https?:\/\//, ""), 34)) + "</a>"));
-    meta.push(fila("Origen", m.muestra ? "muestra local (sin red)" : "OpenStreetMap"));
+    if (m.web) meta.push(fila("Sitio", '<a href="' + esc(m.web) + '" target="_blank" rel="noopener">' +
+      esc(acortar(m.web.replace(/^https?:\/\//, ""), 34)) + "</a>"));
     meta.push(fila("Cómo llegar", '<a href="https://www.google.com/maps/dir/?api=1&destination=' +
       m.lat.toFixed(6) + "," + m.lon.toFixed(6) + '" target="_blank" rel="noopener">Abrir ruta</a>'));
+    meta.push(fila("Origen", m.muestra ? "muestra local (sin red)" : "OpenStreetMap"));
 
-    const prods = productos(m);
-    const carrito = ESTADO.carrito[m.id] || { items: {} };
+    const cats = [...new Set(todos.map((p) => p.categoria))];
+    const ofertas = todos.filter((p) => p.descuento).length;
+    const filtradosCat = productosFiltrados(m);
 
     $("mpHojaCuerpo").innerHTML =
       '<div class="mp-meta">' + meta.join("") + "</div>" +
       '<div class="mp-cat-cab">' +
         '<h3>Catálogo del local</h3>' +
         '<span class="mp-tag ' + (m.muestra ? "muestra" : "ref") + '">' + (m.muestra ? "muestra" : "referencial") + "</span>" +
+        (ofertas ? '<span class="mp-tag oferta">' + ofertas + " ofertas</span>" : "") +
       "</div>" +
-      '<p class="mp-cat-nota">Este catálogo se arma con el rubro del local («' + esc(m.rubro) +
-        "») y precios de referencia en CLP. El stock y los precios reales los define cada negocio.</p>" +
-      '<div class="mp-productos">' +
-        prods.map((p) => {
-          const cant = carrito.items[p.id] || 0;
-          return '<div class="mp-prod' + (cant ? " en-carrito" : "") + '">' +
-            '<div class="mp-prod-txt"><b>' + esc(p.nombre) + "</b>" +
-              "<small>" + p.stock + " disponibles · " + clp(p.precio) + "</small></div>" +
-            '<div class="mp-prod-acc">' +
-              (cant
-                ? '<button type="button" class="mp-mas" data-p="' + esc(p.id) + '" data-d="-1" aria-label="Quitar uno">−</button>' +
-                  '<b class="mp-cant">' + cant + "</b>"
-                : "") +
-              '<button type="button" class="mp-mas" data-p="' + esc(p.id) + '" data-d="1" aria-label="Agregar uno">+</button>' +
-            "</div>" +
-          "</div>";
+      '<p class="mp-cat-nota">Precios de referencia en CLP armados por rubro («' + esc(m.rubro) +
+        "»). El stock y los precios reales los define cada negocio.</p>" +
+      '<div class="mp-cat-herramientas">' +
+        '<label class="mp-buscar"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.2-3.2"/></svg>' +
+          '<input id="mpCatQ" type="search" placeholder="Buscar en el catálogo…" value="' + esc(ESTADO.cat.q) + '" autocomplete="off">' +
+        "</label>" +
+        '<button type="button" class="mp-orden" id="mpCatOrden" aria-label="Cambiar orden">' +
+          (ESTADO.cat.orden === "precio" ? "Precio ↑" : ESTADO.cat.orden === "precio-desc" ? "Precio ↓" : "Ordenar") +
+        "</button>" +
+      "</div>" +
+      '<div class="mp-chips mp-cat-chips" id="mpCatChips">' +
+        '<button type="button" class="mp-chip' + (ESTADO.cat.categoria ? "" : " on") + '" data-c="">Todo · ' + todos.length + "</button>" +
+        cats.map((c) => {
+          const n = todos.filter((p) => p.categoria === c).length;
+          return '<button type="button" class="mp-chip' + (ESTADO.cat.categoria === c ? " on" : "") +
+            '" data-c="' + esc(c) + '">' + esc(c) + " · " + n + "</button>";
         }).join("") +
-      "</div>";
+      "</div>" +
+      '<div class="mp-productos" id="mpProductos">' + pintarProductos(m, filtradosCat) + "</div>";
 
-    $("mpHojaCuerpo").querySelectorAll(".mp-mas").forEach((b) => {
+    const q = $("mpCatQ");
+    if (q) q.oninput = () => {
+      ESTADO.cat.q = q.value;
+      const caja = $("mpProductos");
+      if (caja) caja.innerHTML = pintarProductos(m, productosFiltrados(m));
+      engancharProductos(m);
+    };
+    const orden = $("mpCatOrden");
+    if (orden) orden.onclick = () => {
+      ESTADO.cat.orden = ESTADO.cat.orden === "relevancia" ? "precio" :
+        ESTADO.cat.orden === "precio" ? "precio-desc" : "relevancia";
+      pintarHoja();
+    };
+    document.querySelectorAll("#mpCatChips .mp-chip").forEach((b) => {
+      b.onclick = () => { ESTADO.cat.categoria = b.dataset.c; pintarHoja(); };
+    });
+    engancharProductos(m);
+    pintarPieHoja(m);
+  }
+
+  function pintarProductos(m, lista) {
+    if (!lista.length) {
+      return '<div class="mp-vacio"><b>Nada con ese filtro</b><p>Prueba con otra palabra o quita la categoría.</p></div>';
+    }
+    const carrito = ESTADO.carrito[m.id] || { items: {} };
+    return lista.map((p) => {
+      const cant = carrito.items[p.id] || 0;
+      return '<div class="mp-prod' + (cant ? " en-carrito" : "") + '" data-pid="' + esc(p.id) + '">' +
+        '<span class="mp-prod-ico" data-cat="' + esc(p.categoria) + '" aria-hidden="true">' +
+          '<b>' + esc(p.nombre.charAt(0)) + "</b></span>" +
+        '<div class="mp-prod-txt">' +
+          "<b>" + esc(p.nombre) + "</b>" +
+          '<small><em>' + esc(p.categoria) + "</em> · " + esc(p.unidad) + " · quedan " + p.stock + "</small>" +
+          '<span class="mp-prod-precio">' +
+            (p.descuento ? '<i class="mp-prod-antes">' + clp(p.lista) + "</i>" : "") +
+            "<b>" + clp(p.precio) + "</b>" +
+            (p.descuento ? '<em class="mp-prod-off">−' + p.descuento + "%</em>" : "") +
+          "</span>" +
+        "</div>" +
+        '<div class="mp-prod-acc">' +
+          (cant ? '<button type="button" class="mp-mas" data-p="' + esc(p.id) + '" data-d="-1" aria-label="Quitar uno">−</button>' +
+                  '<b class="mp-cant">' + cant + "</b>" : "") +
+          '<button type="button" class="mp-mas" data-p="' + esc(p.id) + '" data-d="1" aria-label="Agregar uno">+</button>' +
+        "</div>" +
+      "</div>";
+    }).join("");
+  }
+
+  function engancharProductos(m) {
+    document.querySelectorAll("#mpHojaCuerpo .mp-mas").forEach((b) => {
       b.onclick = () => cambiar(m, b.dataset.p, Number(b.dataset.d));
     });
+  }
 
+  function pintarPieHoja(m) {
+    const pie = $("mpHojaPie");
+    if (!pie) return;
     const items = itemsDe(m);
     const total = totalDe(m);
-    const pie = $("mpHojaPie");
-    if (items.length) {
-      pie.innerHTML =
-        '<div class="mp-pedido"><span><b>' + clp(total) + "</b> · " +
-          items.reduce((a, p) => a + p.cantidad, 0) +
-          (items.reduce((a, p) => a + p.cantidad, 0) === 1 ? " producto" : " productos") + "</span>" +
-        '<button type="button" class="btn primary sm" id="mpPedir">Pedir</button></div>' +
-        '<button type="button" class="mp-limpiar" id="mpLimpiar">Vaciar pedido</button>';
-      $("mpPedir").onclick = () => pedir(m);
-      $("mpLimpiar").onclick = () => {
-        delete ESTADO.carrito[m.id];
-        guardarCarrito(); pintarHoja(); pintarLista();
-      };
-    } else {
+    if (!items.length) {
       pie.innerHTML = "";
+      return;
     }
+    pie.innerHTML =
+      '<div class="mp-pedido"><span><b>' + clp(total) + "</b> · " +
+        items.reduce((a, p) => a + p.cantidad, 0) +
+        (items.reduce((a, p) => a + p.cantidad, 0) === 1 ? " producto" : " productos") + "</span>" +
+        '<button type="button" class="btn primary sm" id="mpPedir">Ver pedido</button></div>';
+    $("mpPedir").onclick = () => { cerrarHoja(); abrirCarrito(m.id); };
   }
 
   function fila(k, v) {
     return '<div class="mp-fila"><span>' + esc(k) + "</span><b>" + v + "</b></div>";
   }
 
+  /* ── carrito / pedido ──────────────────────────────────────────────────── */
+  function abrirCarrito(foco) {
+    const hoja = $("mpCarrito");
+    if (!hoja) return;
+    hoja.hidden = false;
+    document.body.classList.add("mp-abierto");
+    pintarCarrito(foco);
+  }
+
+  function cerrarCarrito() {
+    const hoja = $("mpCarrito");
+    if (hoja) hoja.hidden = true;
+    document.body.classList.remove("mp-abierto");
+  }
+
+  function tiendasConPedido() {
+    return Object.keys(ESTADO.carrito).map((id) => {
+      const guardado = ESTADO.carrito[id];
+      const vivo = ESTADO.mercados.find((m) => m.id === id);
+      return vivo || {
+        id: id, nombre: guardado.nombre || "Local del pedido",
+        ico: guardado.ico || "tienda", rubro: guardado.rubro || "", dist: 0
+      };
+    }).filter((m) => ESTADO.carrito[m.id] && Object.keys(ESTADO.carrito[m.id].items).length);
+  }
+
+  function pintarCarrito() {
+    const cuerpo = $("mpCarritoCuerpo");
+    const pie = $("mpCarritoPie");
+    if (!cuerpo || !pie) return;
+    const tiendas = tiendasConPedido();
+
+    if (!tiendas.length) {
+      cuerpo.innerHTML = '<div class="mp-vacio"><b>Tu pedido está vacío</b>' +
+        "<p>Toca un mercado, elige productos y vuelve acá.</p></div>";
+      pie.innerHTML = "";
+      pintarCarritoBtn();
+      return;
+    }
+
+    let granTotal = 0;
+    const p = ESTADO.pedido;
+    cuerpo.innerHTML =
+      '<div class="mp-cliente">' +
+        '<div class="mp-cli-fila">' +
+          '<input id="mpCliNombre" type="text" placeholder="Tu nombre" autocomplete="name" value="' + esc(p.nombre) + '">' +
+          '<input id="mpCliTel" type="tel" placeholder="Teléfono (opcional)" autocomplete="tel" value="' + esc(p.telefono) + '">' +
+        "</div>" +
+        '<div class="mp-cli-modos" id="mpCliModos">' +
+          '<button type="button" data-modo="retiro" class="' + (p.modo !== "delivery" ? "on" : "") + '">Retiro</button>' +
+          '<button type="button" data-modo="delivery" class="' + (p.modo === "delivery" ? "on" : "") + '">Delivery</button>' +
+        "</div>" +
+        '<input id="mpCliNota" type="text" placeholder="Nota para el local (opcional)" value="' + esc(p.nota) + '">' +
+      "</div>" +
+      '<p class="mp-car-nota">Cada local recibe su propio pedido. Revisa cantidades y envía.</p>' +
+      tiendas.map((m) => {
+        const items = itemsDe(m);
+        const total = totalDe(m);
+        granTotal += total;
+        return '<section class="mp-car-grupo">' +
+          '<header><span class="mp-car-ico">' + icono(m.ico, 16) + "</span>" +
+            "<b>" + esc(m.nombre) + "</b>" +
+            "<small>" + (m.dist ? distancia(m.dist) + " · " : "") + items.length + (items.length === 1 ? " producto" : " productos") + "</small></header>" +
+          items.map((p) =>
+            '<div class="mp-car-item">' +
+              '<div class="mp-car-nom"><b>' + esc(p.nombre) + "</b><small>" + clp(p.precio) + " c/u</small></div>" +
+              '<div class="mp-prod-acc">' +
+                '<button type="button" class="mp-mas" data-t="' + esc(m.id) + '" data-p="' + esc(p.id) + '" data-d="-1">−</button>' +
+                '<b class="mp-cant">' + p.cantidad + "</b>" +
+                '<button type="button" class="mp-mas" data-t="' + esc(m.id) + '" data-p="' + esc(p.id) + '" data-d="1">+</button>' +
+              "</div>" +
+              '<b class="mp-car-sub">' + clp(p.precio * p.cantidad) + "</b>" +
+            "</div>").join("") +
+          '<footer><span>Subtotal</span><b>' + clp(total) + "</b></footer>" +
+          '<button type="button" class="btn primary block sm" data-pedir="' + esc(m.id) + '">Pedir a ' + esc(acortar(m.nombre, 22)) + "</button>" +
+        "</section>";
+      }).join("");
+
+    pie.innerHTML =
+      '<div class="mp-car-total"><span>Total del pedido</span><b>' + clp(granTotal) + "</b></div>" +
+      '<button type="button" class="mp-link" id="mpVaciar">Vaciar todo</button>';
+
+    const nombre = $("mpCliNombre"), tel = $("mpCliTel"), nota = $("mpCliNota");
+    const guardarCliente = () => {
+      ESTADO.pedido = {
+        nombre: (nombre && nombre.value || "").trim(),
+        telefono: (tel && tel.value || "").trim(),
+        modo: ESTADO.pedido.modo,
+        nota: (nota && nota.value || "").trim()
+      };
+      guardar(CLAVE_CLIENTE, ESTADO.pedido);
+    };
+    [nombre, tel, nota].forEach((el) => { if (el) el.oninput = guardarCliente; });
+    cuerpo.querySelectorAll("#mpCliModos button").forEach((b) => {
+      b.onclick = () => {
+        ESTADO.pedido.modo = b.dataset.modo;
+        cuerpo.querySelectorAll("#mpCliModos button").forEach((x) => x.classList.toggle("on", x === b));
+        guardarCliente();
+      };
+    });
+
+    cuerpo.querySelectorAll(".mp-mas").forEach((b) => {
+      b.onclick = () => {
+        const m = ESTADO.mercados.find((x) => x.id === b.dataset.t) || { id: b.dataset.t, ico: "tienda", nombre: "" };
+        cambiar(m, b.dataset.p, Number(b.dataset.d));
+        pintarCarrito();
+      };
+    });
+    cuerpo.querySelectorAll("[data-pedir]").forEach((b) => {
+      b.onclick = () => {
+        const m = tiendas.find((x) => x.id === b.dataset.pedir) ||
+          ESTADO.mercados.find((x) => x.id === b.dataset.pedir);
+        if (m) pedir(m);
+      };
+    });
+    const vaciar = $("mpVaciar");
+    if (vaciar) vaciar.onclick = () => {
+      ESTADO.carrito = {};
+      guardarCarrito();
+      pintarCarrito(); pintarCarritoBtn(); pintarLista();
+    };
+    pintarCarritoBtn();
+  }
+
+  function pintarCarritoBtn() {
+    const n = unidadesTotales();
+    const b = $("mpCarritoBtn");
+    const badge = $("mpCarritoN");
+    if (b) b.classList.toggle("con-pedido", n > 0);
+    if (badge) {
+      badge.textContent = n > 99 ? "99+" : String(n);
+      badge.hidden = n === 0;
+    }
+  }
+
   function pedir(m) {
     const items = itemsDe(m);
     if (!items.length) return;
-    const lineas = items.map((p) => "• " + p.cantidad + " × " + p.nombre + " — " + clp(p.precio * p.cantidad));
-    const texto = "Pedido a " + m.nombre + "\n" + lineas.join("\n") + "\nTotal: " + clp(totalDe(m)) +
+    const p = ESTADO.pedido;
+    const lineas = items.map((x) => "• " + x.cantidad + " × " + x.nombre + " — " + clp(x.precio * x.cantidad));
+    const texto =
+      "Pedido a " + m.nombre + "\n" +
+      (p.nombre ? "Cliente: " + p.nombre + "\n" : "") +
+      (p.telefono ? "Teléfono: " + p.telefono + "\n" : "") +
+      "Entrega: " + (p.modo === "delivery" ? "Delivery" : "Retiro en el local") + "\n" +
+      (p.nota ? "Nota: " + p.nota + "\n" : "") +
+      "\n" + lineas.join("\n") +
+      "\nTotal: " + clp(totalDe(m)) +
       "\n\nEnviado desde MercadoPlacer · FORGE CORE STOCK";
     const tel = String(m.telefono || "").replace(/[^\d]/g, "");
     if (tel && tel.length >= 8) {
@@ -814,8 +1136,8 @@ window.Placer = (function () {
       return;
     }
     navigator.clipboard.writeText(texto).then(
-      () => avisar("Pedido copiado al portapapeles"),
-      () => avisar("Copia el pedido desde la lista")
+      () => avisar("Pedido copiado: pégalo en WhatsApp del local"),
+      () => avisar("No pude copiar el pedido")
     );
   }
 
@@ -833,21 +1155,29 @@ window.Placer = (function () {
     ESTADO.montado = true;
 
     $("mpUbicar").onclick = () => ubicar(true);
-    const centrar = $("mpCentrar");
-    if (centrar) centrar.onclick = () => {
-      if (!ESTADO.pos) { ubicar(true); return; }
-      if (ESTADO.mapa) ESTADO.mapa.setView([ESTADO.pos.lat, ESTADO.pos.lon], Math.max(ESTADO.mapa.getZoom(), 16), { animate: true });
-    };
     $("mpRefrescar").onclick = () => cargar();
     $("mpHojaX").onclick = cerrarHoja;
     $("mpHojaFondo").onclick = cerrarHoja;
+    const carBtn = $("mpCarritoBtn");
+    if (carBtn) carBtn.onclick = () => { if (ESTADO.viendo) cerrarHoja(); abrirCarrito(); };
+    const carX = $("mpCarritoX");
+    if (carX) carX.onclick = cerrarCarrito;
+    const carFondo = $("mpCarritoFondo");
+    if (carFondo) carFondo.onclick = cerrarCarrito;
+
     document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && ESTADO.viendo) cerrarHoja();
+      if (e.key !== "Escape") return;
+      const car = $("mpCarrito");
+      if (car && !car.hidden) { cerrarCarrito(); return; }
+      if (ESTADO.viendo) cerrarHoja();
     });
 
     $("mpModos").querySelectorAll("button").forEach((b) => {
       b.onclick = () => {
-        $("mpModos").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b));
+        $("mpModos").querySelectorAll("button").forEach((x) => {
+          x.classList.toggle("on", x === b);
+          x.setAttribute("aria-pressed", x === b);
+        });
         if (ESTADO.mapa) ponerCapa(b.dataset.modo);
       };
     });
@@ -859,22 +1189,41 @@ window.Placer = (function () {
         ESTADO.radio = Number(b.dataset.r);
         localStorage.setItem(CLAVE_RADIO, ESTADO.radio);
         radios.forEach((x) => x.classList.toggle("on", x === b));
+        pintarRadio();
         cargar();
       };
     });
 
-    // Si la URL trae ?lat=&lon= se usa eso (para probar y para compartir un punto).
     const q = new URLSearchParams(location.search);
     const la = parseFloat(q.get("lat")), lo = parseFloat(q.get("lon"));
     if (isFinite(la) && isFinite(lo)) {
       ESTADO.pos = { lat: la, lon: lo, precision: 0, nombre: "un punto compartido" };
       ESTADO.modoUbi = "negada";
+    } else {
+      // Abre en la última ubicación conocida mientras el GPS responde.
+      const previa = leer(CLAVE_UBI, null);
+      if (previa && Date.now() - previa.t < 86400000) {
+        ESTADO.pos = { lat: previa.lat, lon: previa.lon, precision: 0, nombre: "tu última ubicación" };
+      }
     }
 
     montarMapa();
     pintarEstado();
-    if (ESTADO.pos) { setTimeout(() => { marcarUsuario(ESTADO.pos); cargar(); }, 60); }
+    pintarCarritoBtn();
+    if (ESTADO.pos) setTimeout(() => { marcarUsuario(ESTADO.pos); cargar(); }, 60);
     else ubicar(true);
+
+    // El GPS se apaga cuando la pestaña queda en segundo plano: gasta batería.
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) {
+        if (ESTADO.vigia != null && navigator.geolocation) {
+          navigator.geolocation.clearWatch(ESTADO.vigia);
+          ESTADO.vigia = null;
+        }
+      } else if (!document.hidden && ESTADO.modoUbi === "real") {
+        vigilar();
+      }
+    });
   }
 
   function render() {
@@ -883,9 +1232,6 @@ window.Placer = (function () {
     if (ESTADO.pos && !ESTADO.mercados.length && !ESTADO.cargando) cargar();
   }
 
-  /* Se monta sola si la pantalla ya está visible: no depende de que app.js
-     termine su arranque (SQLite WASM puede tardar varios segundos y, mientras
-     tanto, el mapa se vería vacío). Es idempotente. */
   function autoMontar() {
     const sec = document.getElementById("s-panel");
     if (sec && sec.classList.contains("on") && !ESTADO.montado) {
