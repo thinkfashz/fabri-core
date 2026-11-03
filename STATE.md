@@ -2472,3 +2472,18 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
 - **Clima** con Open-Meteo (sin clave) en un chip del estado, con icono propio.
 - **Vuelo al carrito** al agregar un producto.
 - Service worker v18.
+
+## Sesión 2026-11-03 · Mercado FORGE (tarjetas, EAN-13, metadatos) — `fc1c3f8`
+
+- **#mercado rediseñado**: tarjetas con portada por categoría, inicial grande,
+  stock (ámbar si queda poco), nombre a dos líneas, descripción, código y
+  clasificación, precio en oro y contador − n + en la propia tarjeta.
+- **Buscador por código**, chips de categoría/clasificación y precio máximo;
+  barra inferior con total y acceso al mapa.
+- **Ficha del producto**: descripción, tres cifras, **EAN-13 real en SVG**
+  (95 módulos, prefijo 780 de Chile, dígito verificador) y barra de cantidad.
+- **Marca y metadatos**: `logo-f.svg` como favicon del sitio y de la app, icono
+  del manifest, `logo` de la organización en JSON-LD y entidad `Store`
+  (MercadoPlacer) con `OfferCatalog`, CLP, medios de pago y área Chile; en la
+  app `WebApplication` + `Store` enlazados.
+- Service worker v19.
