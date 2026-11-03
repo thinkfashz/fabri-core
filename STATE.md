@@ -2457,3 +2457,18 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
 - **Portada**: sección MercadoPlacer con vista de mapa, 4 capacidades y CTA a
   `/app/#panel`; enlaces en la barra, el menú lateral y el CTA principal.
 - Service worker v17.
+
+## Sesión 2026-11-03 · Mapa ordenado, clima y fichas 2.0 — `1a3b052`
+
+- **HUD compacto**: dos filas (buscador + «Filtros»; estado con ubicación,
+  fuente y clima). Radio y rubros pasan a un panel plegable. El mapa gana
+  ~130 px de alto útil en un teléfono de 844.
+- **Columna derecha** con zoom, ubicar, carrito y menú «⋯» (escáner,
+  calles/satélite, 3D, «Modo mapa» que esconde todo el chrome).
+- **3D apagado por defecto**; la textura pasó de scanlines a retícula de
+  puntos y halos.
+- **Ficha de local 2.0**: descripción por rubro, dirección/horario, acciones
+  (ruta, llamar, sitio) y cifras de productos, categorías y ofertas.
+- **Clima** con Open-Meteo (sin clave) en un chip del estado, con icono propio.
+- **Vuelo al carrito** al agregar un producto.
+- Service worker v18.
