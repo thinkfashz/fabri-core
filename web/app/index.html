@@ -524,22 +524,46 @@
             <p class="sub">Productos de tu tienda y de comercios de barrio, con su código
               de barras real, stock y precio.</p>
           </div>
-          <span class="badge acc" id="mercCount">…</span>
+          <div class="merc-cab-der">
+            <span class="badge acc" id="mercCount">…</span>
+            <div class="merc-vista" id="mercVista" role="tablist" aria-label="Vista del mercado">
+              <button type="button" data-vista="estantes" class="on" role="tab" aria-selected="true">Estantes</button>
+              <button type="button" data-vista="lista" role="tab" aria-selected="false">Lista</button>
+            </div>
+          </div>
         </div>
 
         <div class="card tight mercado-filtros">
           <input class="field" id="mercQ" type="search" placeholder="Buscar producto, código o descripción…" autocomplete="off">
           <div class="chips" id="mercCats"></div>
-          <div class="chips" id="mercClas"></div>
-          <div class="merc-rango">
-            <span>Precio máx</span>
-            <input type="range" id="mercMax" min="0" max="500000" step="10000" value="500000">
-            <output id="mercMaxVal">$500.000</output>
+          <div class="merc-filtros-extra" id="mercExtra">
+            <div class="chips" id="mercClas"></div>
+            <div class="merc-rango">
+              <span>Precio máx</span>
+              <input type="range" id="mercMax" min="0" max="500000" step="10000" value="500000">
+              <output id="mercMaxVal">$500.000</output>
+            </div>
+            <p class="hint" id="mercNota"></p>
           </div>
-          <p class="hint" id="mercNota"></p>
         </div>
 
-        <div class="merc-grid" id="mercGrid"></div>
+        <div class="mm" id="mm">
+          <div class="mm-cab">
+            <div class="mm-cab-txt">
+              <p class="mm-eyebrow">Pasillo <b id="mmNum">1</b> de <b id="mmTot">1</b></p>
+              <h2 id="mmCat">Abarrotes</h2>
+              <p class="mm-sub" id="mmSub">—</p>
+            </div>
+            <div class="mm-flechas">
+              <button type="button" id="mmPrev" aria-label="Pasillo anterior">←</button>
+              <button type="button" id="mmNext" aria-label="Pasillo siguiente">→</button>
+            </div>
+          </div>
+          <div class="mm-pasillos" id="mmPasillos"></div>
+          <div class="mm-puntos" id="mmPuntos"></div>
+        </div>
+
+        <div class="merc-grid" id="mercGrid" hidden></div>
 
         <div class="merc-barra" id="mercBarra" hidden>
           <div class="merc-barra-txt">

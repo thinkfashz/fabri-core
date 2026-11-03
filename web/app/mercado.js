@@ -35,6 +35,8 @@ window.Mercado = (function () {
   let origen = "nube";
   const estado = { q: "", categoria: "", clasificacion: "", max: -1 };
   let carrito = {};
+  let vista = "estantes";
+  let pasillo = 0;
 
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) =>
@@ -135,7 +137,7 @@ window.Mercado = (function () {
     const n = (carrito[id] || 0) + delta;
     if (n <= 0) delete carrito[id]; else carrito[id] = n;
     guardarCarrito();
-    renderGrid(filtrados());
+    pintarVista();
     if (detalleActual && detalleActual.id === id) pintarDetalle();
   }
 
@@ -165,6 +167,136 @@ window.Mercado = (function () {
     cont.querySelectorAll(".mp-chip").forEach((ch) => {
       ch.onclick = () => fn(ch.dataset.k === sel ? "" : ch.dataset.k);
     });
+  }
+
+  /* ── minimarket: pasillos y estantes ───────────────────────────────────── */
+  function repartir(lista, filas) {
+    const porFila = Math.max(1, Math.ceil(lista.length / filas));
+    const out = [];
+    for (let i = 0; i < filas; i++) out.push(lista.slice(i * porFila, (i + 1) * porFila));
+    return out;
+  }
+
+  function caja(p, copia) {
+    const n = carrito[p.id] || 0;
+    const tinte = tinteDe(p);
+    // Frentes: un producto con mucho stock ocupa más espacio en el estante,
+    // como en un supermercado. Las copias no repiten nombre ni precio.
+    return '<button type="button" class="mm-prod' + (copia ? " mm-rep" : "") + (n ? " en-carrito" : "") + '" data-id="' + esc(p.id) +
+      '" style="--tinte:' + tinte + '" aria-label="' + esc(p.nombre) + '">' +
+      '<span class="mm-caja">' +
+        '<span class="mm-caja-tapa"></span>' +
+        '<span class="mm-caja-letra">' + esc((p.nombre || "?").charAt(0)) + "</span>" +
+        (copia ? "" : '<span class="mm-caja-nom">' + esc(p.nombre) + "</span>" +
+          '<span class="mm-caja-precio">' + clp(p.precio) + "</span>") +
+        (n && !copia ? '<span class="mm-caja-cant">' + n + "</span>" : "") +
+      "</span>" +
+      '<span class="mm-caja-stock' + (p.stock <= 10 ? " bajo" : "") + '">' + p.stock + "</span>" +
+    "</button>";
+  }
+
+  // Un pasillo = hasta 16 productos (4 filas × 4 frentes). Las categorías se
+  // agrupan de a una para que el estante nunca quede medio vacío.
+  function construirPasillos(lista) {
+    const grupos = categorias()
+      .map((c) => ({ cat: c, items: lista.filter((p) => p.categoria === c) }))
+      .filter((g) => g.items.length);
+    const pasillos = [];
+    let actual = null;
+    grupos.forEach((g) => {
+      if (!actual || actual.items.length + g.items.length > 16) {
+        actual = { cats: [], items: [] };
+        pasillos.push(actual);
+      }
+      actual.cats.push(g.cat);
+      actual.items = actual.items.concat(g.items);
+    });
+    return pasillos.map((p) => ({
+      titulo: p.cats[0] + (p.cats.length > 1 ? " y más" : ""),
+      detalle: p.cats.join(" · "),
+      items: p.items
+    }));
+  }
+
+  function renderEstantes(lista) {
+    const cont = $("mmPasillos");
+    if (!cont) return;
+    const grupos = construirPasillos(lista);
+
+    if (!grupos.length) {
+      cont.innerHTML = '<div class="mm-vacio"><b>Sin productos en este pasillo</b><p>Cambia el filtro o busca otra cosa.</p></div>';
+      actualizarCabecera([], 0);
+      return;
+    }
+
+    cont.innerHTML = grupos.map((g, i) => {
+      const filas = repartir(g.items, Math.min(4, Math.max(1, Math.ceil(g.items.length / 4))));
+      return '<section class="mm-pasillo" data-i="' + i + '">' +
+        '<div class="mm-estante">' +
+          filas.map((fila, fi) => '<div class="mm-fila">' +
+            '<span class="mm-fila-n">' + (fi + 1) + "</span>" +
+            '<div class="mm-fila-prods">' + fila.map((p) => {
+              const frentes = Math.min(3, 1 + Math.floor(p.stock / 25));
+              return Array.from({ length: frentes }, (_, k) => caja(p, k > 0)).join("");
+            }).join("") + "</div>" +
+          "</div>").join("") +
+        "</div>" +
+      "</section>";
+    }).join("");
+
+    const puntos = $("mmPuntos");
+    if (puntos) {
+      puntos.innerHTML = grupos.map((g, i) =>
+        '<button type="button" data-i="' + i + '" aria-label="Pasillo ' + (i + 1) + ": " + esc(g.cat) + '"' +
+        (i === pasillo ? ' class="on"' : "") + "></button>").join("");
+      puntos.querySelectorAll("button").forEach((b) => {
+        b.onclick = () => irPasillo(Number(b.dataset.i));
+      });
+    }
+
+    cont.querySelectorAll(".mm-prod").forEach((b) => {
+      b.onclick = () => {
+        const p = datos.productos.find((x) => x.id === b.dataset.id);
+        if (p) abrirDetalle(p);
+      };
+    });
+
+    actualizarCabecera(grupos, pasillo);
+    irPasillo(Math.min(pasillo, grupos.length - 1), true);
+  }
+
+  function actualizarCabecera(grupos, i) {
+    const g = grupos[i];
+    const num = $("mmNum"), tot = $("mmTot"), cat = $("mmCat"), sub = $("mmSub");
+    if (num) num.textContent = grupos.length ? i + 1 : 0;
+    if (tot) tot.textContent = grupos.length;
+    if (cat) cat.textContent = g ? g.titulo : "—";
+    if (sub) sub.textContent = g ? g.items.length + " productos · " + g.detalle : "—";
+  }
+
+  function irPasillo(i, silencioso) {
+    const cont = $("mmPasillos");
+    if (!cont || !cont.children.length) return;
+    pasillo = Math.max(0, Math.min(i, cont.children.length - 1));
+    cont.scrollTo({ left: pasillo * cont.clientWidth, behavior: silencioso ? "auto" : "smooth" });
+    const grupos = construirPasillos(filtrados());
+    actualizarCabecera(grupos, pasillo);
+    const puntos = $("mmPuntos");
+    if (puntos) puntos.querySelectorAll("button").forEach((b, j) => b.classList.toggle("on", j === pasillo));
+  }
+
+  function pintarVista() {
+    const mm = $("mm"), grid = $("mercGrid");
+    if (!mm || !grid) return;
+    const estantes = vista === "estantes";
+    mm.hidden = !estantes;
+    grid.hidden = estantes;
+    const extra = $("mercExtra");
+    if (extra) extra.hidden = estantes;
+    const sec = $("s-mercado");
+    if (sec) sec.classList.toggle("vista-estantes", estantes);
+    if (estantes) renderEstantes(filtrados());
+    else renderGrid(filtrados());
   }
 
   function renderGrid(lista) {
@@ -300,7 +432,7 @@ window.Mercado = (function () {
         : "Sin red o API sin desplegar: catálogo local de respaldo";
     }
 
-    renderGrid(filtrados());
+    pintarVista();
     pintarBarra();
   }
 
@@ -315,6 +447,37 @@ window.Mercado = (function () {
         maxVal.textContent = clp(Number(max.value));
         renderGrid(filtrados());
       });
+    }
+
+    document.querySelectorAll("#mercVista button").forEach((b) => {
+      b.onclick = () => {
+        vista = b.dataset.vista;
+        document.querySelectorAll("#mercVista button").forEach((x) => {
+          x.classList.toggle("on", x === b);
+          x.setAttribute("aria-selected", x === b);
+        });
+        pintarVista();
+      };
+    });
+
+    const prev = $("mmPrev"), next = $("mmNext"), cont = $("mmPasillos");
+    if (prev) prev.onclick = () => irPasillo(pasillo - 1);
+    if (next) next.onclick = () => irPasillo(pasillo + 1);
+    if (cont) {
+      let t = null;
+      cont.addEventListener("scroll", () => {
+        clearTimeout(t);
+        t = setTimeout(() => {
+          const i = Math.round(cont.scrollLeft / cont.clientWidth);
+          if (i !== pasillo) {
+            pasillo = i;
+            const grupos = construirPasillos(filtrados());
+            actualizarCabecera(grupos, i);
+            const puntos = $("mmPuntos");
+            if (puntos) puntos.querySelectorAll("button").forEach((b, j) => b.classList.toggle("on", j === i));
+          }
+        }, 90);
+      }, { passive: true });
     }
 
     const x = $("mercHojaX"), fondo = $("mercHojaFondo");
