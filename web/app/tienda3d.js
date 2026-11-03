@@ -33,6 +33,7 @@ window.Tienda3D = (function () {
   const pos = { x: 0, y: 1.62, z: 8.2 };
   const teclas = {};
   let joy = { x: 0, y: 0 };
+  let joyCam = { x: 0, y: 0 };
   let mirar = null;      // arrastre de cámara
   let puerta = null;     // arrastre de puerta de congelador
   let promos = [], promoIdx = 0, promoReloj = null;
@@ -117,16 +118,17 @@ window.Tienda3D = (function () {
   /* ── construcción ──────────────────────────────────────────────────────── */
   function construir(catalogo) {
     scene = new T.Scene();
-    scene.background = new T.Color(0xf3f4f5);
-    scene.fog = new T.Fog(0xf0f2f3, 14, 38);
+    scene.background = new T.Color(0xd9dfe3);
+    scene.fog = new T.Fog(0xd9dfe3, 16, 36);
 
     camera = new T.PerspectiveCamera(72, 1, 0.05, 70);
 
-    /* luces de local: ambiente alta, hemisférica y una direccional con sombra */
-    scene.add(new T.AmbientLight(0xffffff, 0.82));
-    scene.add(new T.HemisphereLight(0xffffff, 0xe6eaec, 0.55));
+    /* Luces de local: sin quemar la escena. La exposición se controla con
+       tone mapping, así el blanco no se come los colores de los productos. */
+    scene.add(new T.AmbientLight(0xffffff, 0.32));
+    scene.add(new T.HemisphereLight(0xffffff, 0xcfd6da, 0.42));
 
-    const sol = new T.DirectionalLight(0xfffdf5, 0.85);
+    const sol = new T.DirectionalLight(0xfffdf5, 0.62);
     sol.position.set(6, 11, 8);
     sol.castShadow = true;
     sol.shadow.mapSize.set(1024, 1024);
@@ -139,7 +141,7 @@ window.Tienda3D = (function () {
     scene.add(sol);
 
     [ -4, 0, 4 ].forEach((z) => {
-      const p = new T.PointLight(0xfff6e0, 0.45, 16, 2);
+      const p = new T.PointLight(0xfff1d8, 0.22, 14, 2);
       p.position.set(0, 3.0, z);
       scene.add(p);
     });
@@ -147,7 +149,7 @@ window.Tienda3D = (function () {
     /* piso brillante y techo claro */
     const piso = new T.Mesh(
       new T.PlaneGeometry(ANCHO, LARGO),
-      new T.MeshPhongMaterial({ color: 0xffffff, map: texturaPiso(), shininess: 80, specular: 0x555a5e })
+      new T.MeshPhongMaterial({ color: 0xe4e8ea, map: texturaPiso(), shininess: 60, specular: 0x3a4045 })
     );
     piso.rotation.x = -Math.PI / 2;
     piso.receiveShadow = true;
@@ -155,13 +157,13 @@ window.Tienda3D = (function () {
 
     const techo = new T.Mesh(
       new T.PlaneGeometry(ANCHO, LARGO),
-      new T.MeshLambertMaterial({ color: 0xfbfcfc })
+      new T.MeshLambertMaterial({ color: 0xeef1f3 })
     );
     techo.rotation.x = Math.PI / 2;
     techo.position.y = ALTO;
     scene.add(techo);
 
-    const panel = new T.MeshBasicMaterial({ color: 0xffffff });
+    const panel = new T.MeshBasicMaterial({ color: 0xfffdf4 });
     [ -5, -1.7, 1.7, 5 ].forEach((z) => {
       [ -3, 0, 3 ].forEach((x) => {
         const l = new T.Mesh(new T.PlaneGeometry(1.1, 0.34), panel);
@@ -172,7 +174,7 @@ window.Tienda3D = (function () {
     });
 
     /* paredes blancas */
-    const pared = new T.MeshLambertMaterial({ color: 0xffffff });
+    const pared = new T.MeshLambertMaterial({ color: 0xf3f5f6 });
     const zocalo = new T.MeshLambertMaterial({ color: 0xd7dbde });
     [[-ANCHO / 2, 0, Math.PI / 2], [ANCHO / 2, 0, -Math.PI / 2]].forEach(([x, z, ry]) => {
       const m = new T.Mesh(new T.PlaneGeometry(LARGO, ALTO), pared);
@@ -188,8 +190,8 @@ window.Tienda3D = (function () {
     /* góndolas: una categoría por mueble */
     const cats = [...new Set(catalogo.map((p) => p.categoria).filter(Boolean))];
     const porGondola = cats.length ? cats.slice(0, GONDOLAS.length) : ["Pasillo"];
-    const metal = new T.MeshLambertMaterial({ color: 0xdfe3e6 });
-    const borde = new T.MeshLambertMaterial({ color: 0xb9c0c5 });
+    const metal = new T.MeshLambertMaterial({ color: 0xc9d0d4 });
+    const borde = new T.MeshLambertMaterial({ color: 0x9aa3a8 });
     const riel = new T.MeshLambertMaterial({ color: 0xe9c96a });
 
     GONDOLAS.forEach((gx, gi) => {
@@ -231,7 +233,7 @@ window.Tienda3D = (function () {
 
     /* productos instanciados, cada góndola con su categoría */
     const geo = new T.BoxGeometry(0.22, 0.28, 0.16);
-    const mat = new T.MeshLambertMaterial({});
+    const mat = new T.MeshLambertMaterial({ color: 0xdfe4e6 });
     const paso = 0.31;
     const porFila = Math.floor(G_LARGO / paso) - 1;
     const total = GONDOLAS.length * 2 * NIVELES.length * porFila;
@@ -381,6 +383,9 @@ window.Tienda3D = (function () {
     avance += -joy.y;
     giro += joy.x;
     yaw -= giro * 1.9 * dt;
+    // stick derecho: mira
+    yaw -= joyCam.x * 1.7 * dt;
+    pitch = Math.max(-0.9, Math.min(0.9, pitch - joyCam.y * 1.1 * dt));
 
     const vel = 2.6 * dt;
     const fx = -Math.sin(yaw), fz = -Math.cos(yaw);
@@ -431,34 +436,39 @@ window.Tienda3D = (function () {
     return raycaster.intersectObjects(objetos, true);
   }
 
-  function mirarPrecio(t) {
-    if (t - ultimoPrecio < 180) return;
-    ultimoPrecio = t;
-    let p = null;
+  let ocultarTimer = null;
+
+  function mostrarPrecio(p, autoOcultar) {
     const caja = $("t3dPrecio");
-
-    if (tv && promos.length) {
-      const ht = rayoCentro([tv]);
-      if (ht.length) p = promos[promoIdx % promos.length];
-    }
-    if (!p && instancias) {
-      const hi = rayoCentro([instancias]);
-      if (hi.length && hi[0].instanceId != null) p = mapa[hi[0].instanceId];
-    }
-
-    if (!p) {
-      if (precioActual) { precioActual = null; if (caja) caja.hidden = true; }
-      return;
-    }
+    if (!caja || !p) return;
     precioActual = p;
-    if (!caja) return;
     caja.hidden = false;
     $("t3dPrecioCat").textContent = p.categoria || "Producto";
     $("t3dPrecioNom").textContent = p.nombre || "—";
     $("t3dPrecioVal").textContent = "$" + Math.round(p.precio || 0).toLocaleString("es-CL");
     $("t3dPrecioStock").textContent = (p.stock != null ? p.stock + " disp." : "");
-    $("t3dPrecioPie").textContent = p === promos[promoIdx % promos.length] ? "toca la TV para agregar" : "toca para agregar";
+    $("t3dPrecioPie").textContent = autoOcultar ? "agregado al carrito" : "toca para agregar";
+    clearTimeout(ocultarTimer);
+    if (autoOcultar) ocultarTimer = setTimeout(() => { caja.hidden = true; }, 2600);
   }
+
+  // Sólo aparece cuando apuntás un producto cercano (no la TV, no de lejos).
+  function mirarPrecio(t) {
+    if (t - ultimoPrecio < 200) return;
+    ultimoPrecio = t;
+    const caja = $("t3dPrecio");
+    if (!caja || !instancias) return;
+    if (autoOcultado()) return;
+    const h = rayoCentro([instancias]);
+    if (h.length && h[0].instanceId != null && h[0].distance < 6.5) {
+      const p = mapa[h[0].instanceId];
+      if (p && p !== precioActual) mostrarPrecio(p, false);
+    } else if (precioActual && !ocultarTimer) {
+      precioActual = null;
+      caja.hidden = true;
+    }
+  }
+  function autoOcultado() { return false; }
 
   function agregar(p) {
     if (window.Mercado && window.Mercado.agregar) {
@@ -485,14 +495,14 @@ window.Tienda3D = (function () {
       const h = rayo(clientX, clientY, [tv]);
       if (h.length) {
         const p = promos[promoIdx % promos.length];
-        if (p) { agregar(p); promoIdx++; pintarTV(); }
+        if (p) { agregar(p); mostrarPrecio(p, true); promoIdx++; pintarTV(); }
         return;
       }
     }
     const hits = rayo(clientX, clientY, [instancias]);
     if (hits.length && hits[0].instanceId != null) {
       const p = mapa[hits[0].instanceId];
-      if (p) agregar(p);
+      if (p) { agregar(p); mostrarPrecio(p, true); }
     }
   }
 
@@ -537,31 +547,37 @@ window.Tienda3D = (function () {
       mirar = null;
     });
 
-    joyEl.addEventListener("pointerdown", (e) => {
-      joyEl.setPointerCapture(e.pointerId);
-      moverJoy(e);
-    });
-    joyEl.addEventListener("pointermove", (e) => { if (e.buttons !== 0) moverJoy(e); });
-    joyEl.addEventListener("pointerup", () => {
-      joy = { x: 0, y: 0 };
-      const perilla = joyEl.querySelector("span");
-      if (perilla) perilla.style.transform = "translate(-50%,-50%)";
-    });
-
-    function moverJoy(e) {
-      const r = joyEl.getBoundingClientRect();
-      let dx = (e.clientX - (r.left + r.width / 2)) / (r.width / 2);
-      let dy = (e.clientY - (r.top + r.height / 2)) / (r.height / 2);
-      const mag = Math.hypot(dx, dy);
-      if (mag > 1) { dx /= mag; dy /= mag; }
-      joy.x = dx; joy.y = dy;
-      const perilla = joyEl.querySelector("span");
-      if (perilla) perilla.style.transform = "translate(calc(-50% + " + dx * 26 + "px), calc(-50% + " + dy * 26 + "px))";
-    }
+    engancharStick(joyEl, joy);
+    engancharStick($("t3dJoyCam"), joyCam);
 
     window.addEventListener("keydown", (e) => { teclas[e.code] = true; });
     window.addEventListener("keyup", (e) => { teclas[e.code] = false; });
     window.addEventListener("resize", ajustar);
+  }
+
+  function engancharStick(el, destino) {
+    if (!el) return;
+    const perilla = el.querySelector("span");
+    const mover = (e) => {
+      const r = el.getBoundingClientRect();
+      let dx = (e.clientX - (r.left + r.width / 2)) / (r.width / 2);
+      let dy = (e.clientY - (r.top + r.height / 2)) / (r.height / 2);
+      const mag = Math.hypot(dx, dy);
+      if (mag > 1) { dx /= mag; dy /= mag; }
+      destino.x = dx; destino.y = dy;
+      if (perilla) perilla.style.transform = "translate(calc(-50% + " + dx * 26 + "px), calc(-50% + " + dy * 26 + "px))";
+    };
+    el.addEventListener("pointerdown", (e) => {
+      el.setPointerCapture(e.pointerId);
+      mover(e);
+    });
+    el.addEventListener("pointermove", (e) => { if (e.buttons !== 0) mover(e); });
+    const soltar = () => {
+      destino.x = 0; destino.y = 0;
+      if (perilla) perilla.style.transform = "translate(-50%,-50%)";
+    };
+    el.addEventListener("pointerup", soltar);
+    el.addEventListener("pointercancel", soltar);
   }
 
   function actualizarContador() {
@@ -594,6 +610,8 @@ window.Tienda3D = (function () {
         });
         renderer.setPixelRatio(Math.min(1.3, window.devicePixelRatio || 1));
         renderer.outputEncoding = T.sRGBEncoding;
+        renderer.toneMapping = T.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.05;
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = T.PCFSoftShadowMap;
 

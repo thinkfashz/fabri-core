@@ -1782,3 +1782,25 @@ body.con-scan{overflow:hidden}
   box-shadow: 0 0 0 2px rgba(0,0,0,.25), 0 0 12px rgba(200,255,0,.6);
   pointer-events: none; z-index: 5;
 }
+
+/* Segundo stick: cámara, a la derecha */
+.t3d-joy-cam {
+  left: auto; right: 16px;
+  bottom: calc(80px + env(safe-area-inset-bottom));
+  border-color: rgba(255,255,255,.28);
+  background: radial-gradient(circle at 50% 50%, rgba(255,255,255,.10), rgba(8,10,12,.55));
+}
+.t3d-joy-cam span {
+  background: rgba(255,255,255,.85);
+  box-shadow: 0 0 22px rgba(255,255,255,.45);
+}
+
+/* Etiqueta de precio de góndola (2D): más pequeña y legible */
+.mm-tag {
+  padding: 1px 5px;
+  background: #f6f1df;
+  color: #1b1a14;
+  font-size: 8.5px;
+  border-radius: 3px;
+  box-shadow: 0 1px 0 rgba(0,0,0,.35);
+}
