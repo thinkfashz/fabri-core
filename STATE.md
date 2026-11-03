@@ -2401,3 +2401,21 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
   las variables), aviso de ubicación fuera del mapa, inputs con
   `width:0 + flex:1` (el placeholder empujaba el segundo campo fuera de la
   hoja), service worker v13.
+
+## Sesión 2026-11-03 · MercadoPlacer 4 (mapa completo, 3D, QR y pago) — `bc14500`
+
+- **Mapa a pantalla completa** con HUD flotante; vista **3D** (inclinación +
+  escala + horizonte con bruma) que se apaga con el botón 3D; calles/satélite
+  pasan a un botón lateral. Carrusel horizontal de mercados.
+- **Catálogo en dos columnas** con portada de color por categoría, formato,
+  stock, precio, descuento y contador; buscador y chips dentro de la ficha.
+- **Escáner QR** con `window.Scan` (BarcodeDetector/ZXing): busca el código en
+  la tabla `products` del inventario propio; si no está, agrega el producto de
+  referencia del rubro y lo advierte.
+- **Barra inferior** con total y «Ir al carrito»; el carrito agrupa por local.
+- **Pago**: entrega retiro/delivery (envío $1.990), tarjeta con Luhn +
+  vencimiento + CVV, o transferencia con datos; simulación con pantalla de
+  aprobado, código de pedido y confirmación por WhatsApp.
+- Arreglos: coma en vez de llaves abría el pago solo; el snapshot de la tienda
+  evita que la confirmación se cierre al vaciar el carrito; `montar()` ya no
+  queda marcado como hecho si falla. SW v14.
