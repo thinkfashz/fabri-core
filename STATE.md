@@ -2529,3 +2529,21 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
 - **Estantes**: cartel de pasillo con número y categoría, riel dorado en el
   canto y etiqueta de precio bajo cada caja.
 - Service worker v22.
+
+## Sesión 2026-11-03 · Tienda 3D luminosa + pancarta de precio — `d6326f8`, `343e5f2`
+
+- **Local claro**: paredes y piso blancos, zócalos, techo con paneles de luz,
+  piso con especular y niebla clara; iluminación con ambiente alta, hemisférica,
+  direccional con **sombras PCF** y puntos cálidos.
+- **Góndolas por categoría** con cartel colgante, riel dorado y productos de
+  tamaño variable; **TV colgada** con ofertas rotativas (textura canvas, 4 s) que
+  se agregan al tocarla.
+- **Congeladores** con puerta de vidrio translúcida que **se corre con el dedo**
+  (arrastre horizontal sobre el cristal).
+- Los productos se **agregan al carrito al tocarlos**, con aviso flotante.
+- **Pancarta de precio** translúcida arriba a la izquierda que sigue a la **mira
+  central** (raycast 5/s contra productos y TV) con categoría, nombre, precio,
+  stock y acción.
+- Service worker v24.
+- Pendiente: verificación visual en un teléfono real (el headless de esta
+  máquina no crea contexto WebGL).
