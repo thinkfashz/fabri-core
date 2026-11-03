@@ -1,0 +1,6 @@
+<!DOCTYPE html><meta charset="utf-8"><title>probando</title>
+<script>
+const c=document.createElement('canvas');
+const gl=c.getContext('webgl2')||c.getContext('webgl');
+document.title = gl ? ('WEBGL ok ' + gl.getParameter(gl.VERSION)) : 'WEBGL no';
+</script>

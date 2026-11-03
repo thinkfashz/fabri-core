@@ -373,11 +373,13 @@
 
   /* ── navegación ───────────────────────────────────────────────────────── */
   function go(id) {
+    if (window.Tienda3D) Tienda3D.cerrar();
     $$('.screen').forEach(s => s.classList.toggle('on', s.id === 's-' + id));
     $$('.nav button').forEach(b => b.classList.toggle('on', b.dataset.go === id));
     if (id === 'panel' && window.Placer) Placer.render();
     if (id === 'nucleo') renderPanel();
     if (id === 'negocio' && window.Negocio) Negocio.render();
+    if (id === 'tienda' && window.Tienda3D) Tienda3D.abrir();
     if (id === 'mem') renderMem($('#memQ').value);
     if (id === 'flow') { Graph.init(); Graph.wake(); }
     if (id === 'sql') { $('#sqlIn').focus(); }

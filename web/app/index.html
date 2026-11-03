@@ -525,7 +525,13 @@
               de barras real, stock y precio.</p>
           </div>
           <div class="merc-cab-der">
-            <span class="badge acc" id="mercCount">…</span>
+            <div class="merc-acciones">
+              <span class="badge acc" id="mercCount">…</span>
+              <button class="merc-3d" id="merc3d" type="button">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z"/><path d="m4 7.5 8 4.5 8-4.5M12 12v9"/></svg>
+                Recorrer 3D
+              </button>
+            </div>
             <div class="merc-vista" id="mercVista" role="tablist" aria-label="Vista del mercado">
               <button type="button" data-vista="estantes" class="on" role="tab" aria-selected="true">Estantes</button>
               <button type="button" data-vista="lista" role="tab" aria-selected="false">Lista</button>
@@ -571,6 +577,25 @@
             <small id="mercBarraCount">0 productos</small>
           </div>
           <a class="btn primary sm" href="./app/#panel">Seguir en el mapa</a>
+        </div>
+      </section>
+
+      <section class="screen" id="s-tienda">
+        <div class="t3d">
+          <canvas id="t3dCanvas"></canvas>
+          <div class="t3d-hud">
+            <button class="t3d-btn" id="t3dSalir" type="button" aria-label="Salir de la tienda">←</button>
+            <div class="t3d-info">
+              <b>Tienda FORGE</b>
+              <small>Arrastra para mirar · joystick para caminar · toca un producto</small>
+            </div>
+            <button class="t3d-btn t3d-car" id="t3dCarrito" type="button" aria-label="Ver pedido">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.4 11.2a2 2 0 0 0 2 1.6h7.8a2 2 0 0 0 2-1.6L21 8H6"/><circle cx="10" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/></svg>
+              <b id="t3dCount" hidden>0</b>
+            </button>
+          </div>
+          <div class="t3d-joystick" id="t3dJoy" aria-hidden="true"><span></span></div>
+          <div class="t3d-cargando" id="t3dCargando">Cargando la tienda…</div>
         </div>
       </section>
 
@@ -736,6 +761,7 @@
 <script src="./vendor/leaflet.js"></script>
 <script src="./placer.js"></script>
 <script src="./negocio.js"></script>
+<script src="./tienda3d.js"></script>
 <script src="./app.js"></script>
 <script src="./cloud.js"></script>
 <script src="./mercado.js"></script>

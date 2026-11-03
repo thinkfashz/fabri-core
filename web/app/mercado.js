@@ -480,6 +480,14 @@ window.Mercado = (function () {
       }, { passive: true });
     }
 
+    const ir3d = $("merc3d");
+    if (ir3d) ir3d.onclick = () => { if (window.Fabri) window.Fabri.go("tienda"); };
+
+    const salir3d = $("t3dSalir");
+    if (salir3d) salir3d.onclick = () => { if (window.Fabri) window.Fabri.go("mercado"); };
+    const car3d = $("t3dCarrito");
+    if (car3d) car3d.onclick = () => { if (window.Fabri) window.Fabri.go("mercado"); };
+
     const x = $("mercHojaX"), fondo = $("mercHojaFondo");
     if (x) x.onclick = cerrarDetalle;
     if (fondo) fondo.onclick = cerrarDetalle;
@@ -491,5 +499,5 @@ window.Mercado = (function () {
   if (document.readyState !== "loading") init();
   else document.addEventListener("DOMContentLoaded", init);
 
-  return { render };
+  return { render, abrirDetalle, productos: () => (datos ? datos.productos : []) };
 })();

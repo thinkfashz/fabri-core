@@ -1521,3 +1521,99 @@ body.con-scan{overflow:hidden}
   background: linear-gradient(90deg, transparent, rgba(200,255,0,.28), transparent);
   pointer-events: none;
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Tienda 3D · supermercado caminable
+   ══════════════════════════════════════════════════════════════════════════ */
+.merc-acciones { display: flex; align-items: center; gap: 8px; }
+.merc-3d {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 11px; border-radius: 11px; cursor: pointer;
+  border: 1px solid rgba(200,255,0,.35); background: var(--accent-soft);
+  color: var(--accent); font: inherit; font-size: 11px; font-weight: 750;
+}
+.merc-3d svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+.merc-3d:active { transform: scale(.96); }
+
+#s-tienda {
+  padding: 0;
+  margin: 0 calc(var(--pad) * -1) calc(-104px - env(safe-area-inset-bottom));
+}
+.t3d {
+  position: relative;
+  height: calc(100dvh - var(--top-h));
+  min-height: 420px;
+  background: #000;
+  overflow: hidden;
+}
+#t3dCanvas { display: block; width: 100%; height: 100%; touch-action: none; }
+
+.t3d-hud {
+  position: absolute; top: 10px; left: 10px; right: 10px; z-index: 5;
+  display: flex; align-items: center; gap: 8px;
+  pointer-events: none;
+}
+.t3d-btn {
+  pointer-events: auto;
+  width: 42px; height: 42px; border-radius: 14px;
+  display: grid; place-items: center; cursor: pointer;
+  border: 1px solid rgba(255,255,255,.14);
+  background: rgba(10,12,14,.82);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  color: var(--tx); font: inherit; font-size: 17px;
+}
+.t3d-btn svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.t3d-car { position: relative; }
+.t3d-car b {
+  position: absolute; top: -5px; right: -5px; min-width: 18px; height: 18px;
+  display: grid; place-items: center; padding: 0 4px;
+  border-radius: 99px; background: var(--accent); color: var(--on-accent);
+  font-size: 9.5px; font-weight: 800;
+}
+.t3d-car b[hidden] { display: none; }
+.t3d-info {
+  flex: 1; min-width: 0; padding: 7px 11px;
+  border-radius: 12px;
+  background: rgba(10,12,14,.72);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255,255,255,.08);
+  pointer-events: none;
+}
+.t3d-info b { display: block; font-size: 11.5px; letter-spacing: .04em; }
+.t3d-info small { display: block; font-size: 9.5px; color: var(--tx3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.t3d-joystick {
+  position: absolute; left: 16px; bottom: calc(80px + env(safe-area-inset-bottom));
+  width: 108px; height: 108px; border-radius: 50%;
+  border: 1px solid rgba(200,255,0,.25);
+  background: radial-gradient(circle at 50% 50%, rgba(200,255,0,.08), rgba(8,10,12,.6));
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  touch-action: none; z-index: 6;
+}
+.t3d-joystick span {
+  position: absolute; left: 50%; top: 50%;
+  width: 44px; height: 44px; border-radius: 50%;
+  transform: translate(-50%,-50%);
+  background: rgba(200,255,0,.85);
+  box-shadow: 0 0 22px rgba(200,255,0,.55);
+  transition: transform .06s linear;
+}
+.t3d-cargando {
+  position: absolute; inset: 0; z-index: 8;
+  display: grid; place-items: center;
+  background: #050505;
+  color: var(--tx2); font-size: 12.5px; letter-spacing: .04em;
+}
+.t3d-cargando[hidden] { display: none; }
+
+.t3d-error {
+  max-width: 300px; padding: 22px; text-align: center;
+  border-radius: 18px; border: 1px solid var(--line-2); background: #0b0c0e;
+}
+.t3d-error b { display: block; font-size: 15px; margin-bottom: 6px; }
+.t3d-error p { margin: 0 0 14px; font-size: 12px; line-height: 1.5; color: var(--tx3); }
+.t3d-error button {
+  padding: 10px 16px; border: 0; border-radius: 12px; cursor: pointer;
+  background: var(--accent); color: var(--on-accent);
+  font: inherit; font-size: 12.5px; font-weight: 800;
+}
