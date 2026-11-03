@@ -1161,3 +1161,181 @@ body.con-scan{overflow:hidden}
 .neg-form { display: grid; gap: 7px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
 .neg-form-fila { display: flex; gap: 7px; }
 .neg-form-fila .field { flex: 1; min-width: 0; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Mercado FORGE · escaparate de productos (marca de la APK)
+   ══════════════════════════════════════════════════════════════════════════ */
+.merc-cab { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 14px; }
+.merc-cab > div { flex: 1; min-width: 0; }
+.merc-cab h1 { margin: 3px 0 4px; font-size: clamp(26px, 6.6vw, 34px); letter-spacing: -.04em; line-height: 1.04; }
+.merc-cab h1 em { font-style: normal; color: var(--accent); }
+.merc-cab .sub { margin: 0; }
+
+.mercado-filtros { display: grid; gap: 9px; }
+.mercado-filtros .chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.mercado-filtros .chips::-webkit-scrollbar { display: none; }
+.mercado-filtros .chip { flex: 0 0 auto; }
+
+.merc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 10px; margin-top: 14px; }
+
+.merc-card2 {
+  display: flex; flex-direction: column;
+  border-radius: 18px; overflow: hidden;
+  border: 1px solid var(--line);
+  background: var(--card);
+  cursor: pointer;
+  transition: border-color .16s, transform .16s var(--ease), box-shadow .16s;
+  box-shadow: var(--sh-1);
+}
+.merc-card2:hover { border-color: var(--line-2); transform: translateY(-2px); }
+.merc-card2:active { transform: scale(.99); }
+.merc-card2.en-carrito { border-color: rgba(200,255,0,.4); box-shadow: 0 0 0 1px rgba(200,255,0,.12); }
+
+.merc-media {
+  position: relative; aspect-ratio: 4 / 3;
+  display: grid; place-items: center;
+  background:
+    radial-gradient(120% 100% at 20% 0%, color-mix(in srgb, var(--tinte) 40%, transparent), transparent 62%),
+    linear-gradient(160deg, color-mix(in srgb, var(--tinte) 22%, #0b0b0b), #0b0b0b 78%);
+  border-bottom: 1px solid var(--line);
+}
+.merc-media::after {
+  content: ""; position: absolute; inset: 0;
+  background-image: radial-gradient(rgba(255,255,255,.09) .6px, transparent .6px);
+  background-size: 16px 16px;
+  opacity: .5;
+  -webkit-mask-image: radial-gradient(80% 70% at 50% 40%, #000, transparent 75%);
+  mask-image: radial-gradient(80% 70% at 50% 40%, #000, transparent 75%);
+}
+.merc-media-letra {
+  position: relative; z-index: 1;
+  font-size: 46px; font-weight: 800; letter-spacing: -.06em;
+  color: color-mix(in srgb, var(--tinte) 85%, #ffffff);
+  text-shadow: 0 6px 24px color-mix(in srgb, var(--tinte) 45%, transparent);
+}
+.merc-media-cat, .merc-media-stock {
+  position: absolute; z-index: 1;
+  padding: 2px 7px; border-radius: 6px;
+  font-size: 9px; font-weight: 750; letter-spacing: .04em; text-transform: uppercase;
+  background: rgba(5,5,5,.72); border: 1px solid rgba(255,255,255,.1);
+  color: var(--tx2);
+}
+.merc-media-cat { left: 8px; top: 8px; }
+.merc-media-stock { right: 8px; top: 8px; color: var(--ok); }
+.merc-media-stock.bajo { color: var(--warn); }
+
+.merc-cuerpo { display: flex; flex-direction: column; gap: 5px; padding: 10px 11px 11px; flex: 1; }
+.merc-titulo {
+  margin: 0; font-size: 13px; font-weight: 700; line-height: 1.25; letter-spacing: -.01em;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.merc-desc2 {
+  margin: 0; font-size: 10.8px; line-height: 1.4; color: var(--tx3);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.merc-meta { display: flex; align-items: center; gap: 6px; margin-top: 1px; }
+.merc-cod { font-family: var(--mono); font-size: 9.5px; color: var(--tx4); letter-spacing: .02em; }
+.merc-clas {
+  margin-left: auto; font-size: 9px; padding: 1px 6px; border-radius: 5px;
+  background: rgba(255,255,255,.05); color: var(--tx3);
+}
+
+.merc-pie { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: auto; padding-top: 7px; }
+.merc-precio2 { display: grid; gap: 0; }
+.merc-precio2 b { font-size: 15px; font-weight: 780; color: #e8c87a; letter-spacing: -.02em; }
+.merc-precio2 small { font-size: 8.5px; color: var(--tx4); letter-spacing: .08em; }
+.merc-add {
+  padding: 7px 12px; border-radius: 10px; border: 0; cursor: pointer;
+  background: var(--accent); color: var(--on-accent);
+  font: inherit; font-size: 11.5px; font-weight: 800;
+  box-shadow: 0 10px 22px -14px var(--accent);
+}
+.merc-add:active { transform: scale(.95); }
+.merc-cant { display: flex; align-items: center; gap: 6px; }
+.merc-cant button {
+  width: 28px; height: 28px; border-radius: 9px; cursor: pointer;
+  border: 1px solid var(--line-2); background: var(--elevado); color: var(--tx);
+  font-size: 15px; line-height: 1; display: grid; place-items: center;
+}
+.merc-cant b { min-width: 14px; text-align: center; font-size: 12.5px; }
+
+/* barra del pedido */
+.merc-barra {
+  position: fixed; left: 12px; right: 12px;
+  bottom: calc(84px + env(safe-area-inset-bottom));
+  z-index: 60;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 12px;
+  border-radius: 18px; border: 1px solid rgba(200,255,0,.3);
+  background: rgba(11,12,9,.94);
+  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+  box-shadow: 0 22px 50px -22px rgba(0,0,0,.95);
+}
+.merc-barra[hidden] { display: none; }
+.merc-barra-txt { display: grid; gap: 0; }
+.merc-barra-txt b { font-size: 17px; font-weight: 780; color: var(--accent); letter-spacing: -.02em; }
+.merc-barra-txt small { font-size: 10px; color: var(--tx3); }
+
+/* ficha del producto */
+.merc-ficha-media {
+  position: relative; height: 150px; border-radius: 18px; margin-bottom: 14px;
+  display: grid; place-items: center; overflow: hidden;
+  background:
+    radial-gradient(120% 100% at 20% 0%, color-mix(in srgb, var(--tinte) 40%, transparent), transparent 62%),
+    linear-gradient(160deg, color-mix(in srgb, var(--tinte) 22%, #0b0b0b), #0b0b0b 78%);
+  border: 1px solid var(--line);
+}
+.merc-ficha-media::after {
+  content: ""; position: absolute; inset: 0;
+  background-image: radial-gradient(rgba(255,255,255,.09) .6px, transparent .6px);
+  background-size: 18px 18px; opacity: .45;
+}
+.merc-ficha-letra {
+  position: relative; z-index: 1;
+  font-size: 74px; font-weight: 800; letter-spacing: -.06em;
+  color: color-mix(in srgb, var(--tinte) 85%, #ffffff);
+  text-shadow: 0 8px 30px color-mix(in srgb, var(--tinte) 45%, transparent);
+}
+.merc-ficha-cat {
+  position: absolute; left: 12px; bottom: 10px; z-index: 1;
+  padding: 3px 8px; border-radius: 6px;
+  background: rgba(5,5,5,.72); border: 1px solid rgba(255,255,255,.1);
+  font-size: 9.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--tx2);
+}
+.merc-ficha-desc { margin: 0 0 12px; font-size: 13px; line-height: 1.55; color: var(--tx2); }
+.merc-ficha-datos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
+.merc-ficha-datos > div {
+  display: grid; gap: 1px; padding: 9px 10px;
+  border-radius: 14px; border: 1px solid var(--line); background: var(--card);
+}
+.merc-ficha-datos span { font-size: 9px; letter-spacing: .08em; text-transform: uppercase; color: var(--tx4); }
+.merc-ficha-datos b { font-size: 14px; font-weight: 750; }
+.merc-ficha-codigo {
+  display: grid; justify-items: center; gap: 4px;
+  padding: 12px; margin-bottom: 14px;
+  border-radius: 16px; border: 1px dashed var(--line-2); background: #fff;
+}
+.merc-barras { width: 100%; max-width: 260px; }
+.merc-ean { width: 100%; height: 54px; display: block; fill: #050505; }
+.merc-ean-num { display: block; text-align: center; font-family: var(--mono); font-size: 11px; letter-spacing: .22em; color: #050505; }
+.merc-ficha-codigo small { font-family: var(--mono); font-size: 9.5px; color: #6b6b6b; }
+
+.merc-cant-barra { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.merc-cant-barra > button {
+  width: 40px; height: 40px; border-radius: 12px; cursor: pointer;
+  border: 1px solid var(--line-2); background: var(--elevado); color: var(--tx); font-size: 18px;
+}
+.merc-cant-pista {
+  flex: 1; height: 8px; border-radius: 99px; overflow: hidden;
+  background: rgba(255,255,255,.07);
+}
+.merc-cant-pista span {
+  display: block; height: 100%; border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent), #9fd400);
+  transition: width .25s var(--ease);
+}
+.merc-cant-barra b { min-width: 18px; text-align: center; font-size: 15px; }
+
+@media (max-width: 380px) {
+  .merc-grid { grid-template-columns: 1fr; }
+}

@@ -3,10 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>FORGE CORE STOCK · consola en la nube</title>
-<meta name="description" content="FORGE CORE STOCK en el navegador: panel con gráficos reales, chat con agente, consola SQL, memoria con FTS5 e inventario en la nube. SQLite WASM, funciona offline.">
+<title>FORGE CORE STOCK · MercadoPlacer y consola en la nube</title>
+<meta name="description" content="FORGE CORE STOCK · MercadoPlacer: marketplace para pequeños comerciantes con mapa de locales cercanos, catálogo con código de barras, carrito y pago simulado. Consola SQL, inventario y agente, todo en el navegador y sin conexión obligatoria.">
 <meta name="theme-color" content="#050505">
 <link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" type="image/svg+xml" href="./icons/logo-f.svg">
 <link rel="icon" href="./icons/icon-192.png" sizes="192x192">
 <link rel="apple-touch-icon" href="./icons/icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -14,6 +15,36 @@
 <link rel="stylesheet" href="./styles.css">
 <link rel="stylesheet" href="./vendor/leaflet.css">
 <link rel="stylesheet" href="./placer.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebApplication",
+      "name": "FORGE CORE STOCK · MercadoPlacer",
+      "url": "https://fabri-core-web.vercel.app/app/",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Navegador web",
+      "inLanguage": "es-CL",
+      "isPartOf": { "@id": "https://fabri-core-web.vercel.app/#mercadoplacer" },
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "CLP" }
+    },
+    {
+      "@type": "Store",
+      "@id": "https://fabri-core-web.vercel.app/#mercadoplacer",
+      "name": "MercadoPlacer · FORGE CORE STOCK",
+      "url": "https://fabri-core-web.vercel.app/app/#mercado",
+      "image": "https://fabri-core-web.vercel.app/og.png",
+      "logo": "https://fabri-core-web.vercel.app/logo-f.svg",
+      "description": "Marketplace de barrio para pequeños comerciantes: locales reales de OpenStreetMap, catálogo por local, código de barras, carrito y pago simulado con confirmación por WhatsApp.",
+      "priceRange": "$$",
+      "currenciesAccepted": "CLP",
+      "paymentAccepted": "Efectivo, Tarjeta de crédito, Tarjeta de débito, Transferencia",
+      "areaServed": { "@type": "Country", "name": "Chile" }
+    }
+  ]
+}
+</script>
 </head>
 <body>
 
@@ -486,18 +517,18 @@
 
       <!-- ══════════════ WIKI DE PRODUCTOS ══════════════ -->
       <section class="screen" id="s-mercado">
-        <div class="screen-head" style="display:flex;align-items:center;gap:16px">
-          <div style="flex:1;min-width:0">
-            <p class="eyebrow">Marketplace</p>
-            <h1>Mercado en la nube</h1>
-            <p class="sub">Catálogo de tu tienda servido desde fabri-api. Al conectar tu APK verás
-              exactamente estos productos, con categoría, clasificación, descripción y precio.</p>
+        <div class="merc-cab">
+          <div>
+            <p class="eyebrow">Marketplace · pequeños comerciantes</p>
+            <h1>Mercado <em>FORGE</em></h1>
+            <p class="sub">Productos de tu tienda y de comercios de barrio, con su código
+              de barras real, stock y precio.</p>
           </div>
           <span class="badge acc" id="mercCount">…</span>
         </div>
 
         <div class="card tight mercado-filtros">
-          <input class="field" id="mercQ" type="search" placeholder="Buscar producto o descripción…" autocomplete="off">
+          <input class="field" id="mercQ" type="search" placeholder="Buscar producto, código o descripción…" autocomplete="off">
           <div class="chips" id="mercCats"></div>
           <div class="chips" id="mercClas"></div>
           <div class="merc-rango">
@@ -509,6 +540,14 @@
         </div>
 
         <div class="merc-grid" id="mercGrid"></div>
+
+        <div class="merc-barra" id="mercBarra" hidden>
+          <div class="merc-barra-txt">
+            <b id="mercBarraTotal">$0</b>
+            <small id="mercBarraCount">0 productos</small>
+          </div>
+          <a class="btn primary sm" href="./app/#panel">Seguir en el mapa</a>
+        </div>
       </section>
 
       <section class="screen" id="s-wiki">
@@ -730,6 +769,25 @@
     </header>
     <div id="mpPagoCuerpo"></div>
     <footer class="mp-hoja-pie" id="mpPagoPie"></footer>
+  </div>
+</div>
+
+
+<div class="mp-hoja" id="mercHoja" hidden>
+  <div class="mp-hoja-fondo" id="mercHojaFondo"></div>
+  <div class="mp-hoja-panel" role="dialog" aria-modal="true" aria-labelledby="mercHojaNombre">
+    <div class="mp-hoja-asa"></div>
+    <header class="mp-hoja-cab">
+      <div class="mp-hoja-ico" id="mercHojaIco">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 7h17L19 20H5L3.5 7Z"/><path d="M9 10V6a3 3 0 0 1 6 0v4"/></svg>
+      </div>
+      <div class="mp-hoja-tit">
+        <h2 id="mercHojaNombre">Producto</h2>
+        <p id="mercHojaSub">—</p>
+      </div>
+      <button class="mp-ubi" id="mercHojaX" type="button" aria-label="Cerrar">✕</button>
+    </header>
+    <div id="mercHojaCuerpo"></div>
   </div>
 </div>
 

@@ -54,7 +54,7 @@
       "@type": "WebSite",
       "@id": "https://fabri-core-web.vercel.app/#sitio",
       "url": "https://fabri-core-web.vercel.app/",
-      "name": "FORGE CORE STOCK",
+      "name": "FORGE CORE STOCK · MercadoPlacer",
       "inLanguage": "es-CL",
       "publisher": { "@id": "https://fabri-core-web.vercel.app/#empresa" }
     },
@@ -63,7 +63,7 @@
       "@id": "https://fabri-core-web.vercel.app/#empresa",
       "name": "Soluciones Fabrick",
       "url": "https://fabri-core-web.vercel.app/",
-      "logo": "https://fabri-core-web.vercel.app/favicon.png",
+      "logo": "https://fabri-core-web.vercel.app/logo-f.svg",
       "sameAs": ["https://github.com/thinkfashz/fabri-core"]
     },
     {
@@ -96,6 +96,31 @@
         "availability": "https://schema.org/InStock",
         "url": "https://fabri-core-web.vercel.app/descargas/FORGE-CORE-STOCK.apk"
       }
+    },
+    {
+      "@type": "Store",
+      "@id": "https://fabri-core-web.vercel.app/#mercadoplacer",
+      "name": "MercadoPlacer · FORGE CORE STOCK",
+      "description": "Marketplace de barrio para pequeños comerciantes: mapa de locales cercanos, catálogo por local con código de barras, carrito y pago simulado con confirmación por WhatsApp.",
+      "url": "https://fabri-core-web.vercel.app/app/#mercado",
+      "image": "https://fabri-core-web.vercel.app/og.png",
+      "logo": "https://fabri-core-web.vercel.app/logo-f.svg",
+      "priceRange": "$$",
+      "currenciesAccepted": "CLP",
+      "paymentAccepted": "Efectivo, Tarjeta de crédito, Tarjeta de débito, Transferencia",
+      "areaServed": { "@type": "Country", "name": "Chile" },
+      "address": { "@type": "PostalAddress", "addressCountry": "CL", "addressRegion": "Región Metropolitana", "addressLocality": "Santiago" },
+      "hasOfferCatalog": {
+        "@type": "OfferCatalog",
+        "name": "Catálogo de comercios de barrio",
+        "itemListElement": [
+          { "@type": "Offer", "itemOffered": { "@type": "Product", "name": "Abarrotes y despensa" } },
+          { "@type": "Offer", "itemOffered": { "@type": "Product", "name": "Frutas y verduras" } },
+          { "@type": "Offer", "itemOffered": { "@type": "Product", "name": "Panadería y pastelería" } },
+          { "@type": "Offer", "itemOffered": { "@type": "Product", "name": "Carnes y embutidos" } }
+        ]
+      },
+      "parentOrganization": { "@id": "https://fabri-core-web.vercel.app/#empresa" }
     },
     {
       "@type": "FAQPage",
@@ -138,7 +163,9 @@
   ]
 }
 </script>
-<link rel="icon" href="./favicon.png">
+<link rel="icon" type="image/svg+xml" href="./logo-f.svg">
+<link rel="icon" href="./favicon.png" sizes="any">
+<link rel="apple-touch-icon" href="./logo-f.svg">
 <link rel="preload" href="./app/anim/core.json" as="fetch" crossorigin>
 <style>
 /* ============================================================================
