@@ -2379,3 +2379,25 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
   círculo del radio sigue al centro de búsqueda (antes se iba al GPS).
 - Verificado en producción: `/api/lugares?q=Providencia 1234` → 200 en 2,1 s
   con nombre y dirección; `placer.js` 63 KB servido.
+
+## Sesión 2026-11-03 · GPS desbloqueado + rediseño neon-lime — `0a4cd63`, `433652c`
+
+- **CAUSA RAÍZ del «GPS bloqueado»**: `vercel.json` enviaba
+  `Permissions-Policy: geolocation=()`, o sea el propio sitio le prohibía al
+  navegador entregar la ubicación. Se veía como permiso denegado aunque el
+  teléfono lo tuviera dado. Corregido a `geolocation=(self), camera=(self)`.
+  Verificado con `curl -I`: la cabecera ya sale bien en producción.
+- **GPS con diagnóstico**: se consulta `navigator.permissions` antes de pedir
+  la posición y el mensaje distingue bloqueado / sin señal / sin API /
+  sin HTTPS. Si falla por señal (códigos 2 y 3) se reintenta con precisión de
+  red antes de rendirse.
+- **Zona por red**: sin GPS se ubica la ciudad con geojs.io (y ipwho.is de
+  respaldo, sin clave) y el mapa arranca ahí, rotulado «aprox. por red»; nunca
+  se dibuja como posición exacta.
+- **Rediseño** con el sistema Fabrick (neon lime): fondo #08090A, superficies
+  #101215/#171A1E, un acento lima y el dinero en oro, radios 10-24, sombras en
+  capas. Marco del mapa con halo e inclinación de 1,6° en escritorio.
+- Arreglos: tokens movidos a `:root` (las hojas viven fuera de `.mp` y perdían
+  las variables), aviso de ubicación fuera del mapa, inputs con
+  `width:0 + flex:1` (el placeholder empujaba el segundo campo fuera de la
+  hoja), service worker v13.
