@@ -2443,3 +2443,17 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
 - Endpoint: `POST /api/inventario` con `accion: subir | subir_boletas | buscar |
   listar | resumen`.
 - En la app: Inventario → «Mi nube», o Integración → Nube.
+
+## Sesión 2026-11-03 · Panel de negocio, pedidos y portada — `21616d2`
+
+- **Panel de negocio** (`#s-negocio`): KPIs del día (ventas, por entregar,
+  ticket promedio, productos), pedidos de MercadoPlacer con estado y acciones,
+  y catálogo real desde `products` con alta rápida.
+- **Pedidos persistentes**: `pagar()` guarda en `fcore.placer.pedidos` (código,
+  ítems, cliente, medio, entrega, estado) y el panel se refresca solo; historial
+  limitado a 300.
+- **Dock**: «Memoria» al grupo «más» para que las etiquetas no se corten; más
+  aire inferior en `main` para que el dock flotante no tape la última tarjeta.
+- **Portada**: sección MercadoPlacer con vista de mapa, 4 capacidades y CTA a
+  `/app/#panel`; enlaces en la barra, el menú lateral y el CTA principal.
+- Service worker v17.
