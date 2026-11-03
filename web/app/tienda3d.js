@@ -395,6 +395,8 @@ window.Tienda3D = (function () {
     camera.rotateY(yaw);
     camera.rotateX(pitch);
 
+    mirarPrecio(performance.now());
+
     renderer.render(scene, camera);
     frames++;
   }
@@ -417,6 +419,45 @@ window.Tienda3D = (function () {
     puntero.y = -((clientY - r.top) / r.height) * 2 + 1;
     raycaster.setFromCamera(puntero, camera);
     return raycaster.intersectObjects(objetos, true);
+  }
+
+  /* Precio bajo la mira: una pancarta translúcida arriba a la izquierda.
+     Se consulta 5 veces por segundo, no en cada cuadro. */
+  let ultimoPrecio = 0, precioActual = null;
+
+  function rayoCentro(objetos) {
+    puntero.set(0, 0);
+    raycaster.setFromCamera(puntero, camera);
+    return raycaster.intersectObjects(objetos, true);
+  }
+
+  function mirarPrecio(t) {
+    if (t - ultimoPrecio < 180) return;
+    ultimoPrecio = t;
+    let p = null;
+    const caja = $("t3dPrecio");
+
+    if (tv && promos.length) {
+      const ht = rayoCentro([tv]);
+      if (ht.length) p = promos[promoIdx % promos.length];
+    }
+    if (!p && instancias) {
+      const hi = rayoCentro([instancias]);
+      if (hi.length && hi[0].instanceId != null) p = mapa[hi[0].instanceId];
+    }
+
+    if (!p) {
+      if (precioActual) { precioActual = null; if (caja) caja.hidden = true; }
+      return;
+    }
+    precioActual = p;
+    if (!caja) return;
+    caja.hidden = false;
+    $("t3dPrecioCat").textContent = p.categoria || "Producto";
+    $("t3dPrecioNom").textContent = p.nombre || "—";
+    $("t3dPrecioVal").textContent = "$" + Math.round(p.precio || 0).toLocaleString("es-CL");
+    $("t3dPrecioStock").textContent = (p.stock != null ? p.stock + " disp." : "");
+    $("t3dPrecioPie").textContent = p === promos[promoIdx % promos.length] ? "toca la TV para agregar" : "toca para agregar";
   }
 
   function agregar(p) {
@@ -588,6 +629,11 @@ window.Tienda3D = (function () {
 
   function cerrar() {
     vivo = false;
+    puerta = null;
+    mirar = null;
+    const caja = $("t3dPrecio");
+    if (caja) caja.hidden = true;
+    if (promoReloj) { clearInterval(promoReloj); promoReloj = null; }
   }
 
   window.__t3d = () => ({

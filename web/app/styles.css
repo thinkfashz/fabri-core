@@ -1740,3 +1740,45 @@ body.con-scan{overflow:hidden}
 .t3d-aviso b { font-size: 12.5px; font-weight: 700; color: var(--tx); }
 .t3d-aviso span { font-size: 10.5px; color: var(--accent); }
 @keyframes t3d-pop { from { transform: translate(-50%, 10px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+
+/* ── Precio bajo la mira (tienda 3D) ────────────────────────────────────── */
+.t3d-precio {
+  position: absolute; left: 10px; top: 62px; z-index: 6;
+  width: 186px; padding: 10px 12px;
+  display: grid; gap: 2px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,.14);
+  background: rgba(10, 12, 14, .62);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  box-shadow: 0 16px 36px -18px rgba(0,0,0,.75);
+  pointer-events: none;
+  animation: t3d-precio-in .18s cubic-bezier(.2,0,.2,1) both;
+}
+.t3d-precio[hidden] { display: none; }
+@keyframes t3d-precio-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+
+.t3d-precio-cat {
+  font-family: var(--mono); font-size: 8.5px; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--accent);
+}
+.t3d-precio b {
+  font-size: 12.5px; line-height: 1.25; font-weight: 700; color: #fff;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.t3d-precio-fila { display: flex; align-items: baseline; gap: 7px; margin-top: 2px; }
+.t3d-precio-fila strong { font-size: 20px; font-weight: 800; letter-spacing: -.03em; color: #e8c87a; }
+.t3d-precio-fila small { font-size: 9.5px; color: rgba(255,255,255,.55); }
+.t3d-precio em {
+  font-style: normal; margin-top: 2px;
+  font-size: 9.5px; color: rgba(200,255,0,.85);
+}
+
+/* Mira central */
+.t3d-mira {
+  position: absolute; left: 50%; top: 50%; width: 6px; height: 6px;
+  margin: -3px 0 0 -3px; border-radius: 50%;
+  background: rgba(255,255,255,.65);
+  box-shadow: 0 0 0 2px rgba(0,0,0,.25), 0 0 12px rgba(200,255,0,.6);
+  pointer-events: none; z-index: 5;
+}
