@@ -614,7 +614,7 @@ window.Mercado = (function () {
     const salir3d = $("t3dSalir");
     if (salir3d) salir3d.onclick = () => { if (window.Fabri) window.Fabri.go("mercado"); };
     const car3d = $("t3dCarrito");
-    if (car3d) car3d.onclick = () => { if (window.Fabri) window.Fabri.go("mercado"); };
+    if (car3d) car3d.onclick = () => abrirCarrito();
 
     const x = $("mercHojaX"), fondo = $("mercHojaFondo");
     if (x) x.onclick = cerrarDetalle;
@@ -627,5 +627,5 @@ window.Mercado = (function () {
   if (document.readyState !== "loading") init();
   else document.addEventListener("DOMContentLoaded", init);
 
-  return { render, abrirDetalle, productos: () => (datos ? datos.productos : []) };
+  return { render, abrirDetalle, abrirCarrito, agregar: (p) => { if (p && p.id) cambiar(p.id, 1); }, productos: () => (datos ? datos.productos : []) };
 })();
