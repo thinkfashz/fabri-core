@@ -52,6 +52,8 @@ window.Placer = (function () {
     modoUbi: "esperando",
     vigia: null,
     carrito: leerCarrito(),
+    pago: null,
+    tresD: true,
     pedido: leerCliente(),
     cat: { q: "", categoria: "", orden: "relevancia" },
     teselasOk: 0,
@@ -249,41 +251,56 @@ window.Placer = (function () {
     if (!ESTADO.carrito[id]) ESTADO.carrito[id] = { nombre: "", ico: "tienda", rubro: "", items: {} };
     return ESTADO.carrito[id];
   }
+  /* Cada ítem guarda nombre y precio: así un producto escaneado por SKU no
+     depende de que el catálogo referencial vuelva a generarlo igual. */
+  function cantidadDe(it) {
+    if (it == null) return 0;
+    return typeof it === "number" ? it : (it.c || 0);
+  }
   function unidades(id) {
     const c = ESTADO.carrito[id];
-    return c ? Object.values(c.items).reduce((a, b) => a + b, 0) : 0;
+    return c ? Object.values(c.items).reduce((a, it) => a + cantidadDe(it), 0) : 0;
   }
   function unidadesTotales() {
-    return Object.values(ESTADO.carrito).reduce((a, c) =>
-      a + Object.values(c.items).reduce((b, n) => b + n, 0), 0);
+    return Object.keys(ESTADO.carrito).reduce((a, id) => a + unidades(id), 0);
   }
   function itemsDe(m) {
     const c = ESTADO.carrito[m.id];
     if (!c) return [];
-    const bolsa = productos(m);
     return Object.keys(c.items).map((pid) => {
-      const p = bolsa.find((x) => x.id === pid);
-      return p ? Object.assign({}, p, { cantidad: c.items[pid] }) : null;
+      const it = c.items[pid];
+      if (typeof it === "number") {
+        // Formato viejo (sólo cantidad): se resuelve contra el catálogo.
+        const p = productos(m).find((x) => x.id === pid);
+        return p ? { id: pid, nombre: p.nombre, precio: p.precio, cantidad: it } : null;
+      }
+      return { id: pid, nombre: it.n, precio: it.p, cantidad: it.c || 0 };
     }).filter(Boolean);
   }
   function totalDe(m) {
     return itemsDe(m).reduce((a, p) => a + p.precio * p.cantidad, 0);
   }
-  function cambiar(m, pid, delta) {
+  function cambiar(m, pid, delta, datos) {
     const c = carritoDe(m.id);
-    // Se guarda el local en el pedido: al recargar la página, ESTADO.mercados
-    // todavía está vacío y sin esto el pedido aparecería como «Local».
     c.nombre = m.nombre || c.nombre;
     c.ico = m.ico || c.ico;
     c.rubro = m.rubro || c.rubro;
-    const nuevo = (c.items[pid] || 0) + delta;
-    if (nuevo <= 0) delete c.items[pid]; else c.items[pid] = nuevo;
+
+    const actual = c.items[pid];
+    const cant = cantidadDe(actual) + delta;
+    const base = datos || (actual && typeof actual === "object" ? { id: pid, nombre: actual.n, precio: actual.p } : null);
+    const prod = base || productos(m).find((x) => x.id === pid) || { nombre: "Producto", precio: 0 };
+
+    if (cant <= 0) delete c.items[pid];
+    else c.items[pid] = { n: prod.nombre, p: prod.precio, c: cant };
     if (!Object.keys(c.items).length) delete ESTADO.carrito[m.id];
+
     guardarCarrito();
     pintarHoja();
     pintarCarrito();
     pintarCarritoBtn();
     pintarLista();
+    marcarActivo();
   }
 
   /* ── ubicación ─────────────────────────────────────────────────────────── */
@@ -1101,11 +1118,11 @@ window.Placer = (function () {
     if (!ley) return;
     const km = (ESTADO.radio / 1000).toFixed(1).replace(".", ",");
     if (origen === "muestra") {
-      ley.innerHTML = '<span class="mp-leyenda-ojo">Datos de muestra</span>Sin OpenStreetMap: estos locales son de referencia.';
+      ley.innerHTML = '<span class="mp-leyenda-ojo">muestra</span> sin OpenStreetMap';
     } else if (origen === "api" || origen === "overpass") {
-      ley.innerHTML = "<b>" + n + "</b> locales de OpenStreetMap en " + km + " km";
+      ley.innerHTML = "<b>" + n + "</b> locales · OSM · " + km + " km";
     } else {
-      ley.innerHTML = "No se pudo consultar OpenStreetMap. Revisa tu conexión.";
+      ley.textContent = "sin conexión con OSM";
     }
   }
 
@@ -1219,7 +1236,7 @@ window.Placer = (function () {
     }
     const carrito = ESTADO.carrito[m.id] || { items: {} };
     return lista.map((p) => {
-      const cant = carrito.items[p.id] || 0;
+      const cant = cantidadDe(carrito.items[p.id]);
       return '<div class="mp-prod' + (cant ? " en-carrito" : "") + '" data-pid="' + esc(p.id) + '">' +
         '<span class="mp-prod-ico" data-cat="' + esc(p.categoria) + '" aria-hidden="true">' +
           '<b>' + esc(p.nombre.charAt(0)) + "</b></span>" +
@@ -1342,7 +1359,7 @@ window.Placer = (function () {
               '<b class="mp-car-sub">' + clp(p.precio * p.cantidad) + "</b>" +
             "</div>").join("") +
           '<footer><span>Subtotal</span><b>' + clp(total) + "</b></footer>" +
-          '<button type="button" class="btn primary block sm" data-pedir="' + esc(m.id) + '">Pedir a ' + esc(acortar(m.nombre, 22)) + "</button>" +
+          '<button type="button" class="btn primary block sm" data-pedir="' + esc(m.id) + '">Pagar ' + clp(total) + "</button>" +
         "</section>";
       }).join("");
 
@@ -1377,11 +1394,7 @@ window.Placer = (function () {
       };
     });
     cuerpo.querySelectorAll("[data-pedir]").forEach((b) => {
-      b.onclick = () => {
-        const m = tiendas.find((x) => x.id === b.dataset.pedir) ||
-          ESTADO.mercados.find((x) => x.id === b.dataset.pedir);
-        if (m) pedir(m);
-      };
+      b.onclick = () => { cerrarCarrito(); abrirPago(b.dataset.pedir); };
     });
     const vaciar = $("mpVaciar");
     if (vaciar) vaciar.onclick = () => {
@@ -1401,22 +1414,296 @@ window.Placer = (function () {
       badge.textContent = n > 99 ? "99+" : String(n);
       badge.hidden = n === 0;
     }
+
+    // Barra flotante: total de todos los locales, no sólo del abierto.
+    const barra = $("mpBarra");
+    if (!barra) return;
+    let total = 0;
+    Object.keys(ESTADO.carrito).forEach((id) => { total += totalDe({ id: id }); });
+    barra.hidden = n === 0;
+    const hud = document.querySelector(".mp-hud");
+    if (hud) hud.classList.toggle("con-barra", n > 0);
+    const t = $("mpBarraTotal");
+    const c = $("mpBarraCount");
+    if (t) t.textContent = clp(total);
+    if (c) c.textContent = n + (n === 1 ? " producto" : " productos");
   }
 
-  function pedir(m) {
-    const items = itemsDe(m);
-    if (!items.length) return;
+  /* ── escáner ───────────────────────────────────────────────────────────── */
+  async function escanear() {
+    if (!window.Scan) { avisar("El escáner no está disponible en este navegador."); return; }
+    let codigo = null;
+    try {
+      codigo = await window.Scan.abrir({ subtitulo: "apunta al código del producto" });
+    } catch (e) { avisar("No pude abrir la cámara."); return; }
+    if (codigo) agregarPorCodigo(codigo);
+  }
+
+  function agregarPorCodigo(codigo) {
+    const m = ESTADO.viendo || filtrados()[0] || ESTADO.mercados[0];
+    if (!m) { avisar("Primero elige un mercado."); return; }
+
+    // 1) Inventario propio (tabla products): es el único dato real de precios.
+    let fila = null;
+    try {
+      if (window.Fabri && window.Fabri.one) {
+        fila = window.Fabri.one("SELECT name, price FROM products WHERE sku = ? COLLATE NOCASE", [codigo]);
+      }
+    } catch (e) { /* sin base todavía */ }
+
+    let prod, nota;
+    if (fila && fila.name) {
+      prod = { id: m.id + "#sku:" + codigo, nombre: fila.name, precio: Number(fila.price) || 0 };
+      nota = "de tu inventario";
+    } else {
+      // 2) Referencia del local: elegido por el código, siempre el mismo.
+      const bolsa = productos(m);
+      const idx = String(codigo).split("").reduce((a, ch) => a + ch.charCodeAt(0), 0) % bolsa.length;
+      const p = bolsa[idx];
+      prod = { id: p.id, nombre: p.nombre, precio: p.precio };
+      nota = "código no registrado · referencia";
+    }
+
+    cambiar(m, prod.id, 1, prod);
+    avisar("Agregado: " + prod.nombre + " · " + clp(prod.precio) + " (" + nota + ")");
+  }
+
+  function luhn(numero) {
+    const n = String(numero).replace(/\D/g, "");
+    if (n.length < 13 || n.length > 19) return false;
+    let suma = 0, doble = false;
+    for (let i = n.length - 1; i >= 0; i--) {
+      let d = Number(n[i]);
+      if (doble) { d *= 2; if (d > 9) d -= 9; }
+      suma += d; doble = !doble;
+    }
+    return suma % 10 === 0;
+  }
+
+  function fechaTarjetaOk(v) {
+    const m = /^(\d{2})\s*\/\s*(\d{2})$/.exec(String(v).trim());
+    if (!m) return false;
+    const mes = Number(m[1]), anio = 2000 + Number(m[2]);
+    if (mes < 1 || mes > 12) return false;
+    const hoy = new Date();
+    return new Date(anio, mes, 0, 23, 59) >= new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+  }
+
+  function abrirPago(id) {
+    const m = tiendasConPedido().find((x) => x.id === id) ||
+      ESTADO.mercados.find((x) => x.id === id);
+    if (!m || !itemsDe(m).length) { avisar("Ese pedido ya no tiene productos."); return; }
+    ESTADO.pago = {
+      id: id, tienda: m,
+      items: itemsDe(m), subtotal: totalDe(m),
+      numero: "", exp: "", cvv: "", titular: "",
+      metodo: "tarjeta", entrega: ESTADO.pedido.modo === "delivery" ? "delivery" : "retiro",
+      estado: "form"
+    };
+    const hoja = $("mpPago");
+    if (!hoja) return;
+    hoja.hidden = false;
+    document.body.classList.add("mp-abierto");
+    pintarPago();
+    const panel = hoja.querySelector(".mp-hoja-panel");
+    if (panel) panel.scrollTop = 0;
+  }
+
+  function cerrarPago() {
+    const hoja = $("mpPago");
+    if (hoja) hoja.hidden = true;
+    document.body.classList.remove("mp-abierto");
+    ESTADO.pago = null;
+  }
+
+  // La tienda se guarda al abrir el pago: después de cobrar el carrito queda
+  // vacío y volver a buscarla dejaría la confirmación sin datos.
+  function tiendaDePago() {
+    return ESTADO.pago ? ESTADO.pago.tienda : null;
+  }
+
+  function costoEnvio() {
+    return ESTADO.pago && ESTADO.pago.entrega === "delivery" ? 1990 : 0;
+  }
+
+  function pintarPago() {
+    const m = tiendaDePago();
+    if (!m) { cerrarPago(); return; }
+    const items = ESTADO.pago.items || [];
+    const subtotal = ESTADO.pago.subtotal || 0;
+    const envio = costoEnvio();
+    const total = subtotal + envio;
     const p = ESTADO.pedido;
+
+    $("mpPagoTit").textContent = ESTADO.pago.estado === "listo" ? "Pedido pagado" : "Pagar pedido";
+    $("mpPagoSub").textContent = m.nombre + " · " + items.length +
+      (items.length === 1 ? " producto" : " productos");
+
+    if (ESTADO.pago.estado === "listo") {
+      $("mpPagoCuerpo").innerHTML =
+        '<div class="mp-exito">' +
+          '<div class="mp-exito-marca"><svg viewBox="0 0 24 24"><path d="m4 12.5 5 5L20 6.5"/></svg></div>' +
+          "<h3>Pago simulado aprobado</h3>" +
+          '<p class="mp-exito-sub">Pedido ' + esc(ESTADO.pago.codigo) + " · " + clp(total) + "</p>" +
+          '<div class="mp-meta">' +
+            fila("Local", esc(m.nombre)) +
+            fila("Entrega", ESTADO.pago.entrega === "delivery" ? "Delivery" : "Retiro en el local") +
+            fila("Pago", ESTADO.pago.metodo === "tarjeta" ? "Tarjeta de crédito/débito" : "Transferencia") +
+            (envio ? fila("Envío", clp(envio)) : "") +
+            fila("Total", "<b>" + clp(total) + "</b>") +
+          "</div>" +
+          '<p class="mp-pago-nota">Esto es una simulación: no se cobró ni se enviaron datos de la tarjeta. ' +
+            "El local confirma el pedido por WhatsApp.</p>" +
+        "</div>";
+      $("mpPagoPie").innerHTML =
+        '<button type="button" class="btn primary block" id="mpWhats">Confirmar por WhatsApp</button>' +
+        '<button type="button" class="mp-link" id="mpCerrarPago">Cerrar</button>';
+      $("mpWhats").onclick = () => confirmarPedido(m, total, envio);
+      $("mpCerrarPago").onclick = cerrarPago;
+      return;
+    }
+
+    const tarjeta = ESTADO.pago.metodo === "tarjeta";
+    $("mpPagoCuerpo").innerHTML =
+      '<div class="mp-pago-resumen">' +
+        items.map((x) => '<div class="mp-pago-linea"><span>' + x.cantidad + " × " + esc(x.nombre) +
+          "</span><b>" + clp(x.precio * x.cantidad) + "</b></div>").join("") +
+        '<div class="mp-pago-linea mp-pago-sub"><span>Subtotal</span><b>' + clp(subtotal) + "</b></div>" +
+        (envio ? '<div class="mp-pago-linea mp-pago-sub"><span>Envío</span><b>' + clp(envio) + "</b></div>" : "") +
+      "</div>" +
+
+      '<div class="mp-sec"><h3>Entrega</h3>' +
+        '<div class="mp-cli-modos" id="mpEntrega">' +
+          '<button type="button" data-e="retiro" class="' + (ESTADO.pago.entrega !== "delivery" ? "on" : "") + '">Retiro</button>' +
+          '<button type="button" data-e="delivery" class="' + (ESTADO.pago.entrega === "delivery" ? "on" : "") + '">Delivery</button>' +
+        "</div>" +
+        (ESTADO.pago.entrega === "delivery"
+          ? '<input id="mpPagoDir" class="mp-campo" placeholder="Calle y número" value="' + esc(ESTADO.pago.direccion || "") + '">'
+          : "") +
+      "</div>" +
+
+      '<div class="mp-sec"><h3>Pago</h3>' +
+        '<div class="mp-metodos" id="mpMetodos">' +
+          '<button type="button" data-m="tarjeta" class="' + (tarjeta ? "on" : "") + '">' +
+            '<svg viewBox="0 0 24 24"><rect x="2.5" y="5" width="19" height="14" rx="3"/><path d="M2.5 10h19"/></svg>Tarjeta</button>' +
+          '<button type="button" data-m="transferencia" class="' + (!tarjeta ? "on" : "") + '">' +
+            '<svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h10M4 17h7"/><path d="m16 15 3 3 3-3"/><path d="M19 10v8"/></svg>Transferencia</button>' +
+        "</div>" +
+        (tarjeta
+          ? '<div class="mp-tarjeta">' +
+              '<input id="mpTarNum" class="mp-campo" inputmode="numeric" autocomplete="cc-number" placeholder="Número de tarjeta" maxlength="23" value="' + esc(ESTADO.pago.numero || "") + '">' +
+              '<div class="mp-tar-fila">' +
+                '<input id="mpTarExp" class="mp-campo" inputmode="numeric" autocomplete="cc-exp" placeholder="MM/AA" maxlength="5" value="' + esc(ESTADO.pago.exp || "") + '">' +
+                '<input id="mpTarCvv" class="mp-campo" inputmode="numeric" autocomplete="cc-csc" placeholder="CVV" maxlength="4" value="' + esc(ESTADO.pago.cvv || "") + '">' +
+              "</div>" +
+              '<input id="mpTarNom" class="mp-campo" autocomplete="cc-name" placeholder="Nombre en la tarjeta" value="' + esc(ESTADO.pago.titular || "") + '">' +
+              '<p class="mp-pago-nota">Simulación: los datos no se envían a ninguna parte. ' +
+                "Puedes probar con 4111 1111 1111 1111.</p>" +
+            "</div>"
+          : '<div class="mp-transf">' +
+              '<p>Transfiere el total a:</p>' +
+              '<div class="mp-meta">' +
+                fila("Banco", "Banco Estado") +
+                fila("Titular", "Soluciones Fabrick SpA") +
+                fila("RUT", "76.095.190-3") +
+                fila("Cuenta", "RUT · 76095190") +
+                fila("Correo", "pagos@solucionesfabrick.com") +
+              "</div>" +
+              '<p class="mp-pago-nota">Después de transferir, toca «Ya transferí». El local confirma la recepción.</p>' +
+            "</div>") +
+      "</div>" +
+      '<p class="mp-pago-nota">Pago simulado con fines de demostración.</p>';
+
+    $("mpPagoCuerpo").querySelectorAll("#mpEntrega button").forEach((b) => {
+      b.onclick = () => { ESTADO.pago.entrega = b.dataset.e; pintarPago(); };
+    });
+    $("mpPagoCuerpo").querySelectorAll("#mpMetodos button").forEach((b) => {
+      b.onclick = () => { ESTADO.pago.metodo = b.dataset.m; pintarPago(); };
+    });
+    const dir = $("mpPagoDir");
+    if (dir) dir.oninput = () => { ESTADO.pago.direccion = dir.value; };
+    ["mpTarNum", "mpTarExp", "mpTarCvv", "mpTarNom"].forEach((id) => {
+      const el = $(id);
+      if (!el) return;
+      el.oninput = () => {
+        if (id === "mpTarNum") {
+          const d = el.value.replace(/\D/g, "").slice(0, 19);
+          el.value = d.replace(/(.{4})/g, "$1 ").trim();
+          ESTADO.pago.numero = el.value;
+        } else if (id === "mpTarExp") {
+          let v = el.value.replace(/\D/g, "").slice(0, 4);
+          if (v.length > 2) v = v.slice(0, 2) + "/" + v.slice(2);
+          el.value = v;
+          ESTADO.pago.exp = v;
+        } else if (id === "mpTarCvv") {
+          el.value = el.value.replace(/\D/g, "").slice(0, 4);
+          ESTADO.pago.cvv = el.value;
+        } else {
+          ESTADO.pago.titular = el.value;
+        }
+      };
+    });
+
+    $("mpPagoPie").innerHTML =
+      '<div class="mp-car-total"><span>Total a pagar</span><b>' + clp(total) + "</b></div>" +
+      '<button type="button" class="btn primary block" id="mpPagar">' +
+        (tarjeta ? "Pagar " + clp(total) : "Ya transferí " + clp(total)) + "</button>";
+    $("mpPagar").onclick = () => pagar(m);
+  }
+
+  function pagar(m) {
+    const p = ESTADO.pedido;
+    if (!p.nombre || p.nombre.length < 2) { avisar("Escribe tu nombre para el pedido."); return; }
+    if (ESTADO.pago.entrega === "delivery" && !(ESTADO.pago.direccion || "").trim()) {
+      avisar("Falta la dirección para el delivery."); return;
+    }
+    if (ESTADO.pago.metodo === "tarjeta") {
+      if (!luhn(ESTADO.pago.numero || "")) { avisar("El número de tarjeta no es válido. Prueba 4111 1111 1111 1111."); return; }
+      if (!fechaTarjetaOk(ESTADO.pago.exp || "")) { avisar("La fecha de vencimiento no es válida (MM/AA)."); return; }
+      if (!/^\d{3,4}$/.test(ESTADO.pago.cvv || "")) { avisar("El CVV debe tener 3 o 4 dígitos."); return; }
+      if (!(ESTADO.pago.titular || "").trim()) { avisar("Falta el nombre en la tarjeta."); return; }
+    }
+
+    ESTADO.pago.estado = "procesando";
+    const pie = $("mpPagoPie");
+    const cuerpo = $("mpPagoCuerpo");
+    if (pie) pie.innerHTML = "";
+    if (cuerpo) {
+      cuerpo.innerHTML = '<div class="mp-procesando"><span class="mp-spin"></span>' +
+        "<p>" + (ESTADO.pago.metodo === "tarjeta" ? "Autorizando el pago…" : "Confirmando la transferencia…") + "</p></div>";
+    }
+    setTimeout(() => {
+      ESTADO.pago.estado = "listo";
+      ESTADO.pago.codigo = "MP-" + String(Date.now()).slice(-6);
+      delete ESTADO.carrito[m.id];
+      guardarCarrito();
+      pintarCarritoBtn();
+      pintarCarrito();
+      pintarLista();
+      pintarPago();
+    }, 1600);
+  }
+
+  function textoPedido(m, total, envio) {
+    const p = ESTADO.pedido;
+    const items = itemsDe(m);
     const lineas = items.map((x) => "• " + x.cantidad + " × " + x.nombre + " — " + clp(x.precio * x.cantidad));
-    const texto =
-      "Pedido a " + m.nombre + "\n" +
+    return "Pedido " + ESTADO.pago.codigo + " a " + m.nombre + "\n" +
       (p.nombre ? "Cliente: " + p.nombre + "\n" : "") +
       (p.telefono ? "Teléfono: " + p.telefono + "\n" : "") +
-      "Entrega: " + (p.modo === "delivery" ? "Delivery" : "Retiro en el local") + "\n" +
+      "Entrega: " + (ESTADO.pago.entrega === "delivery"
+        ? "Delivery a " + (ESTADO.pago.direccion || "—") : "Retiro en el local") + "\n" +
+      "Pago: " + (ESTADO.pago.metodo === "tarjeta" ? "Tarjeta (simulado)" : "Transferencia") + "\n" +
       (p.nota ? "Nota: " + p.nota + "\n" : "") +
       "\n" + lineas.join("\n") +
-      "\nTotal: " + clp(totalDe(m)) +
-      "\n\nEnviado desde MercadoPlacer · FORGE CORE STOCK";
+      "\nSubtotal: " + clp(total - (envio || 0)) +
+      (envio ? "\nEnvío: " + clp(envio) : "") +
+      "\nTotal: " + clp(total) +
+      "\n\nMercadoPlacer · FORGE CORE STOCK";
+  }
+
+  function confirmarPedido(m, total, envio) {
+    const texto = textoPedido(m, total, envio);
     const tel = String(m.telefono || "").replace(/[^\d]/g, "");
     if (tel && tel.length >= 8) {
       const wa = tel.startsWith("56") ? tel : "56" + tel.replace(/^0/, "");
@@ -1424,11 +1711,11 @@ window.Placer = (function () {
       return;
     }
     if (navigator.share) {
-      navigator.share({ title: "Pedido a " + m.nombre, text: texto }).catch(() => {});
+      navigator.share({ title: "Pedido " + ESTADO.pago.codigo, text: texto }).catch(() => {});
       return;
     }
     navigator.clipboard.writeText(texto).then(
-      () => avisar("Pedido copiado: pégalo en WhatsApp del local"),
+      () => avisar("Pedido copiado: pégalo en el WhatsApp del local"),
       () => avisar("No pude copiar el pedido")
     );
   }
@@ -1444,7 +1731,13 @@ window.Placer = (function () {
   /* ── ciclo de vida ─────────────────────────────────────────────────────── */
   function montar() {
     if (ESTADO.montado) return;
-    ESTADO.montado = true;
+    // Si el montaje falla a mitad, no se marca como hecho: así el reintento
+    // del próximo render puede completarlo en vez de quedar en blanco.
+    try { montarInterfaz(); ESTADO.montado = true; }
+    catch (e) { ESTADO.montado = false; window.__mpErr = e && e.message; console.error("MercadoPlacer:", e); }
+  }
+
+  function montarInterfaz() {
 
     $("mpUbicar").onclick = () => {
       if (ESTADO.manual && ESTADO.yo) { volverAMi(); return; }
@@ -1479,11 +1772,35 @@ window.Placer = (function () {
     document.addEventListener("click", (e) => {
       if (!(e.target instanceof Element) || !e.target.closest(".mp-buscar-caja")) ocultarSugerencias();
     });
-    $("mpRefrescar").onclick = () => cargar();
+    const refrescar = $("mpRefrescar");
+    if (refrescar) refrescar.onclick = () => cargar();
     $("mpHojaX").onclick = cerrarHoja;
     $("mpHojaFondo").onclick = cerrarHoja;
     const carBtn = $("mpCarritoBtn");
     if (carBtn) carBtn.onclick = () => { if (ESTADO.viendo) cerrarHoja(); abrirCarrito(); };
+    const irCarrito = $("mpIrCarrito");
+    if (irCarrito) irCarrito.onclick = () => abrirCarrito();
+    const scanBtn = $("mpScan");
+    if (scanBtn) scanBtn.onclick = () => escanear();
+    const pagoX = $("mpPagoX");
+    if (pagoX) pagoX.onclick = cerrarPago;
+    const pagoFondo = $("mpPagoFondo");
+    if (pagoFondo) pagoFondo.onclick = cerrarPago;
+
+    // Vista 3D: inclinación suave del lienzo. Se puede apagar (2D plano).
+    const btn3d = $("mp3d");
+    const lienzo = $("mpLienzo");
+    const aplicar3d = (on) => {
+      ESTADO.tresD = on;
+      if (lienzo) lienzo.classList.toggle("es-3d", on);
+      if (btn3d) {
+        btn3d.classList.toggle("activo", on);
+        btn3d.setAttribute("aria-pressed", on);
+      }
+      if (ESTADO.mapa) setTimeout(() => ESTADO.mapa.invalidateSize(), 280);
+    };
+    if (btn3d) btn3d.onclick = () => aplicar3d(!ESTADO.tresD);
+    aplicar3d(true);
     const carX = $("mpCarritoX");
     if (carX) carX.onclick = cerrarCarrito;
     const carFondo = $("mpCarritoFondo");
@@ -1496,15 +1813,24 @@ window.Placer = (function () {
       if (ESTADO.viendo) cerrarHoja();
     });
 
-    $("mpModos").querySelectorAll("button").forEach((b) => {
+    const modos = $("mpModos");
+    if (modos) modos.querySelectorAll("button").forEach((b) => {
       b.onclick = () => {
-        $("mpModos").querySelectorAll("button").forEach((x) => {
+        modos.querySelectorAll("button").forEach((x) => {
           x.classList.toggle("on", x === b);
           x.setAttribute("aria-pressed", x === b);
         });
         if (ESTADO.mapa) ponerCapa(b.dataset.modo);
       };
     });
+    const btnMapa = $("mpMapaBtn");
+    if (btnMapa) btnMapa.onclick = () => {
+      const nuevo = ESTADO.modo === "calles" ? "satelite" : "calles";
+      if (ESTADO.mapa) ponerCapa(nuevo);
+      btnMapa.classList.toggle("activo", nuevo === "satelite");
+      btnMapa.setAttribute("aria-pressed", nuevo === "satelite");
+      avisar(nuevo === "satelite" ? "Vista satélite" : "Vista de calles");
+    };
 
     const radios = document.querySelectorAll("#mpRadios button");
     radios.forEach((b) => {
@@ -1523,6 +1849,7 @@ window.Placer = (function () {
     if (isFinite(la) && isFinite(lo)) {
       ESTADO.pos = { lat: la, lon: lo, precision: 0, nombre: "un punto compartido" };
       ESTADO.modoUbi = "negada";
+      ESTADO.manual = true;   // el punto vino en la URL: no lo pisa el GPS
     } else {
       // Abre en la última ubicación conocida mientras el GPS responde.
       const previa = leer(CLAVE_UBI, null);

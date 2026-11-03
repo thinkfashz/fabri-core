@@ -120,72 +120,85 @@
       <!-- ══════════════ PANEL ══════════════ -->
       <!-- ══════════════ MERCADOPLACER · mercados cerca de ti ══════════════ -->
       <section class="screen on" id="s-panel">
-        <div class="mp" id="mp">
-          <header class="mp-cab">
-            <div>
-              <p class="eyebrow">MercadoPlacer</p>
-              <h1>Mercados <em>a tu alrededor</em></h1>
-            </div>
-            <button class="mp-car-btn" id="mpCarritoBtn" type="button" aria-label="Ver mi pedido">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.4 11.2a2 2 0 0 0 2 1.6h7.8a2 2 0 0 0 2-1.6L21 8H6"/><circle cx="10" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/></svg>
-              <b id="mpCarritoN" hidden>0</b>
-            </button>
-            <button class="mp-ubi" id="mpUbicar" type="button" aria-label="Centrar en mi ubicación" title="Centrar en mi ubicación">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 2v3.2M12 18.8V22M2 12h3.2M18.8 12H22"/></svg>
-            </button>
-          </header>
+        <div class="mp mp-full" id="mp">
 
-          <div class="mp-buscar-caja">
-            <form class="mp-buscador" id="mpBuscador" role="search">
-              <span class="mp-buscador-ico" aria-hidden="true">
-                <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.2-3.2"/></svg>
-              </span>
-              <input id="mpBuscarQ" type="search" placeholder="Buscar dirección o negocio" autocomplete="off"
-                     aria-label="Buscar dirección o negocio" enterkeyhint="search">
-              <button type="submit" class="mp-buscador-go" aria-label="Buscar">Ir</button>
-            </form>
-            <div class="mp-sugerencias" id="mpSugerencias" hidden></div>
-          </div>
-
-          <div class="mp-estado">
-            <span class="mp-live" id="mpLive"><i></i>ubicando</span>
-            <span id="mpUbiTexto">Pidiendo permiso de ubicación…</span>
-            <button class="mp-volver" id="mpVolver" type="button" hidden>Volver a mi ubicación</button>
-          </div>
-
-          <div class="mp-mapa-caja">
+          <!-- capa 0 · mapa a pantalla completa -->
+          <div class="mp-lienzo" id="mpLienzo">
             <div class="mp-mapa" id="mpMapa"></div>
             <div class="mp-textura" aria-hidden="true"></div>
-            <div class="mp-mapa-hud">
-              <div class="mp-modos" id="mpModos">
-                <button type="button" data-modo="calles" class="on">Calles</button>
-                <button type="button" data-modo="satelite">Satélite</button>
+            <div class="mp-horizonte" aria-hidden="true"></div>
+          </div>
+
+          <!-- capa 1 · interfaz flotante -->
+          <div class="mp-hud">
+            <div class="mp-hud-sup">
+              <div class="mp-marca">
+                <span class="mp-marca-punto"></span>
+                <b>MercadoPlacer</b>
               </div>
-              <button class="mp-btn-3d" id="mpCentrar" type="button" aria-label="Centrar el mapa">◎</button>
+
+              <div class="mp-buscar-caja">
+                <form class="mp-buscador" id="mpBuscador" role="search">
+                  <span class="mp-buscador-ico" aria-hidden="true">
+                    <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.2-3.2"/></svg>
+                  </span>
+                  <input id="mpBuscarQ" type="search" placeholder="Buscar dirección o negocio" autocomplete="off"
+                         aria-label="Buscar dirección o negocio" enterkeyhint="search">
+                  <button type="submit" class="mp-buscador-go" aria-label="Buscar">Ir</button>
+                </form>
+                <div class="mp-sugerencias" id="mpSugerencias" hidden></div>
+              </div>
+
+              <div class="mp-estado">
+                <span class="mp-live" id="mpLive"><i></i>ubicando</span>
+                <span id="mpUbiTexto">Pidiendo permiso de ubicación…</span>
+                <span class="mp-leyenda" id="mpLeyenda">Cargando…</span>
+                <button class="mp-volver" id="mpVolver" type="button" hidden>Volver a mí</button>
+              </div>
+
+              <div class="mp-radios" id="mpRadios" aria-label="Radio de búsqueda">
+                <span>Radio</span>
+                <button type="button" data-r="500">500 m</button>
+                <button type="button" data-r="1500" class="on">1,5 km</button>
+                <button type="button" data-r="3000">3 km</button>
+                <button type="button" data-r="5000">5 km</button>
+              </div>
+
+              <div class="mp-filtros" id="mpFiltros"></div>
             </div>
-            <div class="mp-leyenda" id="mpLeyenda">Cargando mercados cercanos…</div>
+
+            <div class="mp-hud-der">
+              <button class="mp-car-btn" id="mpCarritoBtn" type="button" aria-label="Ver mi pedido">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.4 11.2a2 2 0 0 0 2 1.6h7.8a2 2 0 0 0 2-1.6L21 8H6"/><circle cx="10" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/></svg>
+                <b id="mpCarritoN" hidden>0</b>
+              </button>
+              <button class="mp-scan-btn" id="mpScan" type="button" aria-label="Escanear código">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M3 12h18"/></svg>
+                <span>QR</span>
+              </button>
+              <button class="mp-ubi" id="mpUbicar" type="button" aria-label="Centrar en mi ubicación" title="Centrar en mi ubicación">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 2v3.2M12 18.8V22M2 12h3.2M18.8 12H22"/></svg>
+              </button>
+              <button class="mp-ubi" id="mpMapaBtn" type="button" aria-label="Cambiar entre calles y satélite" aria-pressed="false">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3z"/><path d="M9 3v15M15 6v15"/></svg>
+              </button>
+              <button class="mp-ubi mp-btn-3d" id="mp3d" type="button" aria-label="Alternar vista 3D" aria-pressed="true">3D</button>
+            </div>
+
+            <div class="mp-aviso" id="mpAviso"></div>
+
+            <div class="mp-lista" id="mpLista"></div>
+
+            <div class="mp-barra" id="mpBarra" hidden>
+              <div class="mp-barra-txt">
+                <b id="mpBarraTotal">$0</b>
+                <small id="mpBarraCount">0 productos</small>
+              </div>
+              <button class="mp-barra-btn" id="mpIrCarrito" type="button">Ir al carrito</button>
+            </div>
+
             <div class="mp-credito" id="mpCredito"></div>
           </div>
-
-          <div class="mp-aviso" id="mpAviso"></div>
-
-          <div class="mp-radios" id="mpRadios" aria-label="Radio de búsqueda">
-            <span>Radio</span>
-            <button type="button" data-r="500">500 m</button>
-            <button type="button" data-r="1500" class="on">1,5 km</button>
-            <button type="button" data-r="3000">3 km</button>
-            <button type="button" data-r="5000">5 km</button>
-          </div>
-
-          <div class="mp-filtros" id="mpFiltros"></div>
-
-          <div class="mp-lista-cab">
-            <h2><b id="mpTotal">—</b> mercados</h2>
-            <button class="mp-refrescar" id="mpRefrescar" type="button">Actualizar</button>
-          </div>
-
-          <div class="mp-lista" id="mpLista"></div>
-
         </div>
 
       </section>
@@ -654,6 +667,26 @@
     </header>
     <div id="mpCarritoCuerpo"></div>
     <footer class="mp-hoja-pie" id="mpCarritoPie"></footer>
+  </div>
+</div>
+
+
+<div class="mp-hoja" id="mpPago" hidden>
+  <div class="mp-hoja-fondo" id="mpPagoFondo"></div>
+  <div class="mp-hoja-panel" role="dialog" aria-modal="true" aria-labelledby="mpPagoTit">
+    <div class="mp-hoja-asa"></div>
+    <header class="mp-hoja-cab">
+      <div class="mp-hoja-ico carrito">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="3"/><path d="M2.5 10h19"/><path d="M6 15h4"/></svg>
+      </div>
+      <div class="mp-hoja-tit">
+        <h2 id="mpPagoTit">Pagar pedido</h2>
+        <p id="mpPagoSub">—</p>
+      </div>
+      <button class="mp-ubi" id="mpPagoX" type="button" aria-label="Cerrar">✕</button>
+    </header>
+    <div id="mpPagoCuerpo"></div>
+    <footer class="mp-hoja-pie" id="mpPagoPie"></footer>
   </div>
 </div>
 
