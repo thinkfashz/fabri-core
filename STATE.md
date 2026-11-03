@@ -2561,3 +2561,23 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
 - Etiquetas de góndola (2D) más chicas: crema con número oscuro.
 - Service worker v25.
 - Confirmado por el usuario: **la tienda 3D renderiza en su teléfono**.
+
+## Sesión 2026-11-03 · Tienda 3D: TV en esquina, CCTV, luz y controles — `ec61cfe`, `5906691`
+
+- **TV en la esquina** del fondo con brazo y placa metálica (antes estorbaba en
+  el pasillo). **Cámaras CCTV** pequeñas en tres esquinas (la del TV libre).
+- **Panel de cámaras**: 4 vistas en vivo en el mismo canvas (scissor+viewport
+  2×2), etiquetas CAM 1–4 alineadas a los viewports.
+- **Pasillo de congeladores** contra la pared izquierda (4 muebles, puerta
+  corrediza, colisión `x < -5,25`).
+- **Menú de iluminación**: presets Cálido/Neutro/Frío/**Cine** (cinematográfico),
+  slider de intensidad (40–140 %) y de **órbita** (0–360°) con línea explicativa.
+- **Controles**: sticks de 124 px con zona de agarre expandida, zona muerta 15 %,
+  suavizado por cuadro, velocidad 3,0 m/s y **botón «Correr»** (mantener, o Shift)
+  a 4,8 m/s; cámara más sensible.
+- **Carrito 3D** que camina un metro al frente, frena ante muebles, gira suave,
+  ruedas que giran y salto al agregar producto.
+- **Tiras de precios** en el filo de cada estante (4 niveles × 2 lados) y en el
+  canto de los congeladores: crema, borde lima, nombre + precio grande.
+- Pancarta de precio solo al apuntar/tocar (v25) y mira central.
+- Service worker **v27**.
