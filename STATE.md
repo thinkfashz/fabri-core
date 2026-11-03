@@ -2419,3 +2419,27 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
 - Arreglos: coma en vez de llaves abría el pago solo; el snapshot de la tienda
   evita que la confirmación se cierre al vaciar el carrito; `montar()` ya no
   queda marcado como hecho si falla. SW v14.
+
+## Sesión 2026-11-03 · Identidad de la APK en la web, dock iOS, canvas y pago — `5ceaa0e`
+
+- **Marca real**: se copian `android/assets/www/logo-f.svg` y `logo-loader.svg`
+  a `web/app/icons/` y se usan en topbar, login y cargador (anillo + latido).
+  Paleta idéntica a la APK v2.4.1: `#050505`, `#0B0B0B`, acento `#C8FF00`,
+  textos `#FFFFFF/#C9C9C9/#8A8A8A`. Tema por defecto «FORGE».
+- **Dock iOS**: barra flotante de vidrio (radio 26, blur 26, borde capilar) en
+  móvil; rail intacto en escritorio. Iconos rellenos estilo SF Symbols.
+- **Canvas del mapa**: radio punteado, anillos de radar y líneas a los 6 locales
+  más cercanos a ~24 fps; zoom propio (+/−) y `flyTo` al GPS.
+- **Logos**: cadenas conocidas (Tottus, Líder, Santa Isabel, Unimarc, Jumbo…)
+  con el icono público de su dominio y la pastilla de categoría de respaldo.
+- **Pago**: datos del cliente dentro del pago, marca de tarjeta detectada,
+  validación por marca, errores en línea y foco en el primer campo con problema.
+- Service worker v15.
+
+## Cómo conectar la APK a la nube (referencia)
+
+- URL: `https://fabri-api.vercel.app` · se guarda en `fabrick.nube.url`.
+- Token: `fabrick.nube.token` (Bearer) = `FABRI_API_TOKEN` de Vercel (fabri-api).
+- Endpoint: `POST /api/inventario` con `accion: subir | subir_boletas | buscar |
+  listar | resumen`.
+- En la app: Inventario → «Mi nube», o Integración → Nube.
