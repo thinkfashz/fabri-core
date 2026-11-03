@@ -1617,3 +1617,108 @@ body.con-scan{overflow:hidden}
   background: var(--accent); color: var(--on-accent);
   font: inherit; font-size: 12.5px; font-weight: 800;
 }
+
+/* ── dock con pastilla deslizante ───────────────────────────────────────── */
+.nav-in { position: relative; }
+.nav-pill {
+  position: absolute; left: 0; top: 0; z-index: 0;
+  border-radius: 17px;
+  background: linear-gradient(180deg, rgba(200,255,0,.18), rgba(200,255,0,.10));
+  border: 1px solid rgba(200,255,0,.22);
+  box-shadow: 0 8px 20px -12px rgba(200,255,0,.6), inset 0 1px 0 rgba(255,255,255,.08);
+  transition: transform .28s cubic-bezier(.2,0,.2,1), width .28s cubic-bezier(.2,0,.2,1), opacity .2s;
+  pointer-events: none;
+}
+.nav button { position: relative; z-index: 1; background: transparent; }
+.nav button.on { background: transparent; color: var(--accent); }
+@media (max-width: 959px) { .nav button.on { background: transparent; } }
+@media (min-width: 960px) {
+  .nav-pill { border-radius: 10px; }
+  .nav button.on { background: transparent; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Mercado · buscador con escáner, carrito y estantes de verdad
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── buscador ───────────────────────────────────────────────────────────── */
+.buscador-caja {
+  display: flex; align-items: center; gap: 8px;
+  padding: 0 6px 0 12px;
+  border-radius: 14px; border: 1px solid var(--line);
+  background: var(--card);
+  transition: border-color .16s, box-shadow .16s;
+}
+.buscador-caja:focus-within { border-color: rgba(200,255,0,.45); box-shadow: 0 0 0 3px rgba(200,255,0,.1); }
+.buscador-ico svg { width: 16px; height: 16px; fill: none; stroke: var(--tx4); stroke-width: 1.9; stroke-linecap: round; display: block; }
+.buscador-caja .field {
+  flex: 1 1 0; width: 0; min-width: 0;
+  border: 0; background: transparent; padding: 12px 0; min-height: 0;
+  box-shadow: none; outline: none;
+}
+.buscador-x, .buscador-scan {
+  flex: 0 0 auto; display: grid; place-items: center; cursor: pointer;
+  border: 0; background: transparent; color: var(--tx3);
+  width: 32px; height: 32px; border-radius: 9px;
+}
+.buscador-x[hidden] { display: none; }
+.buscador-x:hover, .buscador-scan:hover { background: rgba(255,255,255,.06); color: var(--tx); }
+.buscador-scan { color: var(--accent); }
+.buscador-scan svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+
+/* ── carrito del mercado ────────────────────────────────────────────────── */
+.mc-lista { display: grid; gap: 2px; }
+.mc-linea {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,.05);
+}
+.mc-linea:last-child { border-bottom: 0; }
+.mc-ico {
+  width: 38px; height: 38px; flex: 0 0 auto; border-radius: 11px;
+  display: grid; place-items: center;
+  font-size: 16px; font-weight: 800; color: #0b0d05;
+  background: linear-gradient(160deg, color-mix(in srgb, var(--tinte) 70%, #fff), var(--tinte) 70%);
+  border: 1px solid rgba(255,255,255,.25);
+}
+.mc-txt { flex: 1; min-width: 0; display: grid; gap: 1px; }
+.mc-txt b { font-size: 12.5px; font-weight: 620; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mc-txt small { font-size: 10.5px; color: var(--tx4); }
+.mc-cant { display: flex; align-items: center; gap: 6px; }
+.mc-cant button {
+  width: 28px; height: 28px; border-radius: 9px; cursor: pointer;
+  border: 1px solid var(--line-2); background: var(--elevado); color: var(--tx);
+  font-size: 14px; line-height: 1; display: grid; place-items: center;
+}
+.mc-cant b { min-width: 14px; text-align: center; font-size: 12px; }
+.mc-sub { min-width: 64px; text-align: right; font-size: 12.5px; font-weight: 700; color: #e8c87a; }
+
+/* ── estante: cartel, riel y etiquetas ──────────────────────────────────── */
+.mm-cartel {
+  display: flex; align-items: baseline; gap: 8px;
+  margin: 0 2px 6px; padding: 6px 10px;
+  border-radius: 10px 10px 0 0;
+  background: linear-gradient(180deg, rgba(200,255,0,.14), rgba(200,255,0,.04));
+  border: 1px solid rgba(200,255,0,.18); border-bottom: 0;
+}
+.mm-cartel span {
+  font-family: var(--mono); font-size: 9px; letter-spacing: .14em;
+  text-transform: uppercase; color: rgba(200,255,0,.75);
+}
+.mm-cartel b { font-size: 13px; font-weight: 750; letter-spacing: -.01em; }
+
+.mm-fila { border-bottom-color: #23272c; }
+.mm-fila::after {
+  background: linear-gradient(180deg, #d8c07a, #8a7434 60%, #3a3218);
+  opacity: .85;
+  box-shadow: 0 8px 16px -8px #000;
+}
+.mm-tag {
+  align-self: center;
+  padding: 1px 6px; border-radius: 4px;
+  background: #f4e7b8; color: #201a06;
+  font-size: 9px; font-weight: 800; letter-spacing: -.01em;
+  box-shadow: 0 1px 0 rgba(0,0,0,.25);
+  white-space: nowrap;
+}
+.mm-prod { gap: 2px; }
+.mm-caja-stock { margin-top: -1px; }

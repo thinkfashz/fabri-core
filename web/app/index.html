@@ -77,6 +77,7 @@
        (un button sin data-go apagaría todas las pantallas al pulsarlo). -->
   <nav class="nav" aria-label="Secciones">
     <div class="nav-in">
+      <span class="nav-pill" id="navPill" aria-hidden="true"></span>
       <div class="nav-brand">
         <span class="mark" aria-hidden="true"></span>
         <div><b>FORGE CORE STOCK</b><i>nube</i></div>
@@ -540,7 +541,16 @@
         </div>
 
         <div class="card tight mercado-filtros">
-          <input class="field" id="mercQ" type="search" placeholder="Buscar producto, código o descripción…" autocomplete="off">
+          <div class="buscador-caja">
+            <span class="buscador-ico" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.2-3.2"/></svg>
+            </span>
+            <input class="field" id="mercQ" type="search" placeholder="Buscar producto, código o descripción…" autocomplete="off" aria-label="Buscar producto">
+            <button class="buscador-x" id="mercQx" type="button" aria-label="Borrar búsqueda" hidden>✕</button>
+            <button class="buscador-scan" id="mercScan" type="button" aria-label="Escanear código de barras">
+              <svg viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M3 12h18"/></svg>
+            </button>
+          </div>
           <div class="chips" id="mercCats"></div>
           <div class="merc-filtros-extra" id="mercExtra">
             <div class="chips" id="mercClas"></div>
@@ -576,7 +586,7 @@
             <b id="mercBarraTotal">$0</b>
             <small id="mercBarraCount">0 productos</small>
           </div>
-          <a class="btn primary sm" href="./app/#panel">Seguir en el mapa</a>
+          <button class="btn primary sm" id="mercVerCarrito" type="button">Ver pedido</button>
         </div>
       </section>
 
@@ -838,6 +848,26 @@
       <button class="mp-ubi" id="mercHojaX" type="button" aria-label="Cerrar">✕</button>
     </header>
     <div id="mercHojaCuerpo"></div>
+  </div>
+</div>
+
+
+<div class="mp-hoja" id="mercCarrito" hidden>
+  <div class="mp-hoja-fondo" id="mercCarritoFondo"></div>
+  <div class="mp-hoja-panel" role="dialog" aria-modal="true" aria-labelledby="mercCarritoTit">
+    <div class="mp-hoja-asa"></div>
+    <header class="mp-hoja-cab">
+      <div class="mp-hoja-ico carrito">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.4 11.2a2 2 0 0 0 2 1.6h7.8a2 2 0 0 0 2-1.6L21 8H6"/><circle cx="10" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/></svg>
+      </div>
+      <div class="mp-hoja-tit">
+        <h2 id="mercCarritoTit">Tu pedido</h2>
+        <p id="mercCarritoSub">—</p>
+      </div>
+      <button class="mp-ubi" id="mercCarritoX" type="button" aria-label="Cerrar">✕</button>
+    </header>
+    <div id="mercCarritoCuerpo"></div>
+    <footer class="mp-hoja-pie" id="mercCarritoPie"></footer>
   </div>
 </div>
 

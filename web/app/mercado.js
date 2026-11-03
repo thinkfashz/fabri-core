@@ -187,10 +187,10 @@ window.Mercado = (function () {
       '<span class="mm-caja">' +
         '<span class="mm-caja-tapa"></span>' +
         '<span class="mm-caja-letra">' + esc((p.nombre || "?").charAt(0)) + "</span>" +
-        (copia ? "" : '<span class="mm-caja-nom">' + esc(p.nombre) + "</span>" +
-          '<span class="mm-caja-precio">' + clp(p.precio) + "</span>") +
+        (copia ? "" : '<span class="mm-caja-nom">' + esc(p.nombre) + "</span>") +
         (n && !copia ? '<span class="mm-caja-cant">' + n + "</span>" : "") +
       "</span>" +
+      (copia ? "" : '<span class="mm-tag">' + clp(p.precio) + "</span>") +
       '<span class="mm-caja-stock' + (p.stock <= 10 ? " bajo" : "") + '">' + p.stock + "</span>" +
     "</button>";
   }
@@ -232,6 +232,7 @@ window.Mercado = (function () {
     cont.innerHTML = grupos.map((g, i) => {
       const filas = repartir(g.items, Math.min(4, Math.max(1, Math.ceil(g.items.length / 4))));
       return '<section class="mm-pasillo" data-i="' + i + '">' +
+        '<div class="mm-cartel"><span>Pasillo ' + (i + 1) + "</span><b>" + esc(g.titulo) + "</b></div>" +
         '<div class="mm-estante">' +
           filas.map((fila, fi) => '<div class="mm-fila">' +
             '<span class="mm-fila-n">' + (fi + 1) + "</span>" +
@@ -407,6 +408,110 @@ window.Mercado = (function () {
     $("mercDetAdd").onclick = () => cambiar(p.id, 1);
   }
 
+  /* ── hoja del carrito ──────────────────────────────────────────────────── */
+  function abrirCarrito() {
+    const h = $("mercCarrito");
+    if (!h) return;
+    h.hidden = false;
+    document.body.classList.add("mp-abierto");
+    pintarCarrito();
+    const panel = h.querySelector(".mp-hoja-panel");
+    if (panel) panel.scrollTop = 0;
+  }
+  function cerrarCarrito() {
+    const h = $("mercCarrito");
+    if (h) h.hidden = true;
+    document.body.classList.remove("mp-abierto");
+  }
+
+  function lineas() {
+    return Object.keys(carrito).map((id) => {
+      const p = (datos.productos || []).find((x) => x.id === id);
+      return p ? { p: p, n: carrito[id] } : null;
+    }).filter(Boolean);
+  }
+
+  function pintarCarrito() {
+    const cuerpo = $("mercCarritoCuerpo"), pie = $("mercCarritoPie");
+    if (!cuerpo || !pie) return;
+    const items = lineas();
+    const totalPedido = items.reduce((a, x) => a + x.p.precio * x.n, 0);
+    const unidadesTot = items.reduce((a, x) => a + x.n, 0);
+
+    $("mercCarritoSub").textContent = unidadesTot
+      ? unidadesTot + (unidadesTot === 1 ? " producto" : " productos")
+      : "vacío";
+
+    if (!items.length) {
+      cuerpo.innerHTML = '<div class="mp-vacio"><b>Tu pedido está vacío</b><p>Agrega productos desde los estantes.</p></div>';
+      pie.innerHTML = "";
+      return;
+    }
+
+    cuerpo.innerHTML =
+      '<div class="mc-lista">' + items.map((x) =>
+        '<div class="mc-linea">' +
+          '<span class="mc-ico" style="--tinte:' + tinteDe(x.p) + '">' + esc(x.p.nombre.charAt(0)) + "</span>" +
+          '<div class="mc-txt"><b>' + esc(x.p.nombre) + "</b><small>" + clp(x.p.precio) + " c/u</small></div>" +
+          '<div class="mc-cant">' +
+            '<button type="button" data-menos="' + esc(x.p.id) + '" aria-label="Quitar">−</button>' +
+            "<b>" + x.n + "</b>" +
+            '<button type="button" data-mas="' + esc(x.p.id) + '" aria-label="Agregar">+</button>' +
+          "</div>" +
+          '<b class="mc-sub">' + clp(x.p.precio * x.n) + "</b>" +
+        "</div>").join("") +
+      "</div>";
+
+    pie.innerHTML =
+      '<div class="mp-car-total"><span>Total</span><b>' + clp(totalPedido) + "</b></div>" +
+      '<button type="button" class="btn primary block" id="mcPedir">Pedir por WhatsApp</button>' +
+      '<button type="button" class="mp-link" id="mcVaciar">Vaciar pedido</button>';
+
+    cuerpo.querySelectorAll("[data-mas]").forEach((b) => {
+      b.onclick = () => { cambiar(b.dataset.mas, 1); pintarCarrito(); };
+    });
+    cuerpo.querySelectorAll("[data-menos]").forEach((b) => {
+      b.onclick = () => { cambiar(b.dataset.menos, -1); pintarCarrito(); };
+    });
+    $("mcPedir").onclick = () => pedirWhatsApp(items, totalPedido);
+    $("mcVaciar").onclick = () => { carrito = {}; guardarCarrito(); pintarCarrito(); pintarBarra(); render(); };
+  }
+
+  function pedirWhatsApp(items, totalPedido) {
+    const texto = "Pedido a Mercado FORGE\n\n" +
+      items.map((x) => "• " + x.n + " × " + x.p.nombre + " — " + clp(x.p.precio * x.n)).join("\n") +
+      "\n\nTotal: " + clp(totalPedido) +
+      "\n\nEnviado desde MercadoPlacer · FORGE CORE STOCK";
+    if (navigator.share) {
+      navigator.share({ title: "Pedido Mercado FORGE", text: texto }).catch(() => {});
+      return;
+    }
+    navigator.clipboard.writeText(texto).then(
+      () => { if (window.Fabri) window.Fabri.toast("Pedido copiado"); },
+      () => { if (window.Fabri) window.Fabri.toast("No pude copiar el pedido"); }
+    );
+  }
+
+  /* ── escáner ───────────────────────────────────────────────────────────── */
+  async function escanear() {
+    if (!window.Scan) {
+      if (window.Fabri) window.Fabri.toast("El escáner no está disponible");
+      return;
+    }
+    let code = null;
+    try { code = await window.Scan.abrir({ subtitulo: "apunta al código del producto" }); } catch (e) { return; }
+    if (!code) return;
+    const limpio = String(code).trim();
+    const p = (datos.productos || []).find((x) => codigoDe(x) === limpio) ||
+      (datos.productos || []).find((x) => (x.id || "").toLowerCase() === limpio.toLowerCase());
+    if (p) { abrirDetalle(p); return; }
+    estado.q = limpio;
+    const q = $("mercQ");
+    if (q) q.value = limpio;
+    render();
+    if (window.Fabri) window.Fabri.toast("Sin coincidencia para " + limpio);
+  }
+
   /* ── ciclo ─────────────────────────────────────────────────────────────── */
   async function render() {
     if (!datos) await cargar();
@@ -438,7 +543,30 @@ window.Mercado = (function () {
 
   function init() {
     const q = $("mercQ");
-    if (q) q.addEventListener("input", () => { estado.q = q.value; renderGrid(filtrados()); });
+    const qx = $("mercQx");
+    if (q) q.addEventListener("input", () => {
+      estado.q = q.value;
+      if (qx) qx.hidden = !q.value;
+      if (vista === "estantes") renderEstantes(filtrados()); else renderGrid(filtrados());
+    });
+    if (qx) qx.onclick = () => {
+      estado.q = ""; if (q) q.value = ""; qx.hidden = true;
+      if (vista === "estantes") renderEstantes(filtrados()); else renderGrid(filtrados());
+    };
+    const scan = $("mercScan");
+    if (scan) scan.onclick = escanear;
+
+    const ver = $("mercVerCarrito");
+    if (ver) ver.onclick = abrirCarrito;
+    const cx = $("mercCarritoX"), cf = $("mercCarritoFondo");
+    if (cx) cx.onclick = cerrarCarrito;
+    if (cf) cf.onclick = cerrarCarrito;
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        const h = $("mercCarrito");
+        if (h && !h.hidden) cerrarCarrito();
+      }
+    });
 
     const max = $("mercMax"), maxVal = $("mercMaxVal");
     if (max && maxVal) {

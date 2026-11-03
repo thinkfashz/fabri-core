@@ -376,6 +376,7 @@
     if (window.Tienda3D) Tienda3D.cerrar();
     $$('.screen').forEach(s => s.classList.toggle('on', s.id === 's-' + id));
     $$('.nav button').forEach(b => b.classList.toggle('on', b.dataset.go === id));
+    moverPill(id);
     if (id === 'panel' && window.Placer) Placer.render();
     if (id === 'nucleo') renderPanel();
     if (id === 'negocio' && window.Negocio) Negocio.render();
@@ -392,6 +393,21 @@
     if (id === 'wiki' && window.Wiki) Wiki.render();
     history.replaceState(null, '', location.pathname + location.search + '#' + id);
   }
+
+  function moverPill(id) {
+    const pill = document.getElementById('navPill');
+    if (!pill) return;
+    const b = document.querySelector('.nav button[data-go="' + id + '"]');
+    if (!b || !b.offsetParent) { pill.style.opacity = '0'; return; }
+    pill.style.opacity = '1';
+    pill.style.width = b.offsetWidth + 'px';
+    pill.style.height = b.offsetHeight + 'px';
+    pill.style.transform = 'translate(' + b.offsetLeft + 'px,' + b.offsetTop + 'px)';
+  }
+  window.addEventListener('resize', () => {
+    const on = document.querySelector('.nav button.on');
+    if (on) moverPill(on.dataset.go);
+  });
 
   function refreshAll() {
     if ($('#s-panel').classList.contains('on')) renderPanel();
