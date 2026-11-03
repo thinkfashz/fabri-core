@@ -2502,3 +2502,18 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
 - **Licencia**: la inspiración del proyecto halcyon-video es conceptual; es
   GPL-3.0 y **no se copió código**. Implementación propia en CSS 3D sin WebGL.
 - Service worker v20.
+
+## Sesión 2026-11-03 · Tienda 3D caminable — `8b438cd`
+
+- Nueva pantalla `#s-tienda` con **three.js r149 (MIT, vendorizado)** cargado
+  sólo al entrar: sala 12×18, 3 góndolas de 4 niveles, piso con textura de
+  canvas, tiras de luz, carteles y ~600 productos en un `InstancedMesh`.
+- **Cámara en primera persona**: joystick táctil, arrastre para mirar, WASD y
+  flechas, balanceo al caminar, colisiones AABB y niebla; sin sombras y DPR 1.25.
+- Tocar un producto hace raycast y abre la ficha con EAN-13 y cantidad.
+- Si no hay WebGL: mensaje claro y botón «Ver los estantes» (no pantalla blanca).
+- **No se copió código de halcyon-video** (GPL-3.0): implementación propia.
+- Service worker v21.
+- Pendiente: **verificar en un teléfono real**. El navegador headless de esta
+  máquina no puede crear contexto WebGL (el proceso GPU muere), así que la
+  escena no se pudo capturar; sólo se validó el camino de error.
