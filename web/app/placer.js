@@ -43,6 +43,7 @@ window.Placer = (function () {
     manual: false,      // true cuando el centro lo eligió el usuario
     texto: "",          // filtro por nombre/dirección
     buscandoLugar: false,
+    aproxPedida: false,
     mercados: [],
     filtro: "",
     radio: Number(localStorage.getItem(CLAVE_RADIO) || 1500),
@@ -288,6 +289,7 @@ window.Placer = (function () {
   /* ── ubicación ─────────────────────────────────────────────────────────── */
   function textoUbicacion() {
     if (ESTADO.manual && ESTADO.pos) return "Buscando en " + ESTADO.pos.nombre;
+    if (ESTADO.modoUbi === "aprox" && ESTADO.pos) return "Zona aproximada por red: " + ESTADO.pos.nombre;
     if (!ESTADO.yo) {
       if (ESTADO.pos && ESTADO.modoUbi === "negada") return "Ubicación de referencia: " + ESTADO.pos.nombre;
       return "Sin ubicación todavía";
@@ -310,11 +312,13 @@ window.Placer = (function () {
     if (live) {
       const estado = ESTADO.manual ? "buscado"
         : ESTADO.modoUbi === "real" ? "ok"
+        : ESTADO.modoUbi === "aprox" ? "aprox"
         : ESTADO.modoUbi === "negada" ? "warn" : "";
       live.className = "mp-live " + estado;
       live.innerHTML = "<i></i>" + (ESTADO.manual ? "lugar buscado"
         : ESTADO.modoUbi === "real" ? "en vivo"
-        : ESTADO.modoUbi === "negada" ? "referencia" : "ubicando");
+        : ESTADO.modoUbi === "aprox" ? "aprox. por red"
+        : ESTADO.modoUbi === "negada" ? "sin gps" : "ubicando");
     }
   }
 
@@ -373,33 +377,142 @@ window.Placer = (function () {
     }).addTo(ESTADO.mapa);
   }
 
-  function ubicar(centrar) {
+  function motivoPermiso() {
+    if (!window.isSecureContext) return "inseguro";
+    if (!navigator.geolocation) return "sin-api";
+    return "";
+  }
+
+  async function ubicar(centrar) {
     ESTADO.modoUbi = "esperando";
+    ESTADO.aproxPedida = false;
     pintarEstado();
-    if (!navigator.geolocation) {
-      usarRespaldo("Este navegador no entrega ubicación");
+
+    const base = motivoPermiso();
+    if (base === "inseguro") {
+      usarRespaldo("La ubicación necesita una conexión segura (https)");
+      ubicacionAproximada();
       return;
     }
-    const opciones = { enableHighAccuracy: true, maximumAge: 4000, timeout: 20000 };
+    if (base === "sin-api") {
+      usarRespaldo("Este navegador no entrega ubicación");
+      ubicacionAproximada();
+      return;
+    }
 
+    // Se consulta el permiso antes de pedir la posición: así el mensaje es
+    // exacto («lo bloqueaste») en vez de un error genérico.
+    let permiso = "prompt";
+    try {
+      if (navigator.permissions && navigator.permissions.query) {
+        const p = await navigator.permissions.query({ name: "geolocation" });
+        permiso = p.state;
+        p.onchange = () => { if (p.state === "granted") ubicar(false); };
+      }
+    } catch (e) { /* Safari viejo: se prueba igual */ }
+
+    if (permiso === "denied") {
+      usarRespaldo("Tenés la ubicación bloqueada para este sitio");
+      ubicacionAproximada();
+      vigilar();
+      return;
+    }
+
+    pedirPosicion(centrar, true, false);
+    vigilar();
+  }
+
+  function pedirPosicion(centrar, altaPrecision, reintento) {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         aplicarPosicion(pos, true);
-        if (ESTADO.mapa && (centrar || !ESTADO.mercados.length)) {
+        if (ESTADO.mapa && !ESTADO.manual && (centrar || !ESTADO.mercados.length)) {
           ESTADO.mapa.setView([pos.coords.latitude, pos.coords.longitude], 16, { animate: true });
         }
         cargar();
       },
       (err) => {
+        // 2 = posición no disponible, 3 = tiempo agotado. Casi siempre es que
+        // el equipo no tiene GPS o está bajo techo: se reintenta por red.
+        if ((err.code === 2 || err.code === 3) && !reintento) {
+          ESTADO.modoUbi = "esperando";
+          pintarEstado();
+          pedirPosicion(centrar, false, true);
+          return;
+        }
         usarRespaldo(err && err.code === 1
           ? "Bloqueaste la ubicación (o el navegador la tiene bloqueada)"
-          : "No se pudo obtener tu ubicación");
+          : err && err.code === 3
+            ? "El equipo no respondió a tiempo"
+            : "No se pudo obtener tu ubicación");
+        ubicacionAproximada();
         cargar();
       },
-      opciones
+      {
+        enableHighAccuracy: altaPrecision,
+        maximumAge: altaPrecision ? 4000 : 60000,
+        timeout: altaPrecision ? 15000 : 20000
+      }
     );
+  }
 
-    vigilar();
+  /* Sin GPS, la ciudad aproximada por IP es mejor que Santiago para todos.
+     Se rotula como aproximada y nunca se dibuja como «estás aquí». */
+  async function ubicacionAproximada() {
+    if (ESTADO.aproxPedida || ESTADO.manual) return;
+    ESTADO.aproxPedida = true;
+    const zona = await zonaPorRed();
+    if (!zona || ESTADO.modoUbi === "real" || ESTADO.manual) return;
+    ESTADO.pos = { lat: zona.lat, lon: zona.lon, precision: 4000, nombre: zona.nombre };
+    ESTADO.modoUbi = "aprox";
+    pintarEstado();
+    pintarRadio();
+    if (ESTADO.mapa) ESTADO.mapa.setView([zona.lat, zona.lon], 13, { animate: true });
+    const aviso = $("mpAviso");
+    if (aviso) {
+      aviso.innerHTML = "<b>Sin GPS.</b> El mapa está en tu zona aproximada (" + esc(zona.nombre) +
+        "). Activa la ubicación en el candado de la barra para precisión de metros." +
+        ' <button type="button" id="mpReintentar">Reintentar</button>';
+      const b = $("mpReintentar");
+      if (b) b.onclick = () => ubicar(true);
+    }
+    cargar();
+  }
+
+  /* Ciudad aproximada por IP. No reemplaza al GPS: sirve para que, si el
+     permiso está bloqueado, el mapa no arranque en otra región del país.
+     Dos proveedores gratuitos, sin clave; el primero que responda gana. */
+  async function zonaPorRed() {
+    const fuentes = [
+      {
+        url: "https://get.geojs.io/v1/ip/geo.json",
+        leer: (d) => ({
+          lat: Number(d.latitude), lon: Number(d.longitude),
+          nombre: [d.city, d.region].filter(Boolean).join(", ")
+        })
+      },
+      {
+        url: "https://ipwho.is/",
+        leer: (d) => d && d.success !== false
+          ? { lat: Number(d.latitude), lon: Number(d.longitude), nombre: [d.city, d.region].filter(Boolean).join(", ") }
+          : null
+      }
+    ];
+    for (const f of fuentes) {
+      try {
+        const ctrl = new AbortController();
+        const reloj = setTimeout(() => ctrl.abort(), 7000);
+        const r = await fetch(f.url, { signal: ctrl.signal, cache: "no-store" });
+        clearTimeout(reloj);
+        if (!r.ok) continue;
+        const z = f.leer(await r.json());
+        if (z && isFinite(z.lat) && isFinite(z.lon)) {
+          z.nombre = z.nombre || "tu zona";
+          return z;
+        }
+      } catch (e) { /* siguiente proveedor */ }
+    }
+    return null;
   }
 
   function vigilar() {
@@ -454,7 +567,7 @@ window.Placer = (function () {
         (/bloqueaste/i.test(motivo)
           ? "Actívala en el candado de la barra de direcciones o escribe tu calle arriba. "
           : "") +
-        "Mientras tanto: " + esc(RESPALDO.nombre) + " y sus mercados." +
+        "Mientras tanto, busco tu zona aproximada por red." +
         ' <button type="button" id="mpReintentar">Reintentar</button>';
       const b = $("mpReintentar");
       if (b) b.onclick = () => ubicar(true);
