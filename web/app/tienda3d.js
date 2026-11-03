@@ -34,6 +34,9 @@ window.Tienda3D = (function () {
   const teclas = {};
   let joy = { x: 0, y: 0 };
   let joyCam = { x: 0, y: 0 };
+  const joyS = { x: 0, y: 0 }, joyCamS = { x: 0, y: 0 };   // versión suavizada
+  let corriendo = false;
+  let carrito = null, carritoRuedas = [], carritoAnim = 0;
   let mirar = null;      // arrastre de cámara
   let puerta = null;     // arrastre de puerta de congelador
   let promos = [], promoIdx = 0, promoReloj = null;
@@ -87,6 +90,32 @@ window.Tienda3D = (function () {
     return new T.CanvasTexture(c);
   }
 
+  /* Tira de tablero: el rótulo de precios pegado al filo del estante.
+     Fondo crema, nombre chico y precio grande, como en un super real. */
+  function texturaTira(items) {
+    const c = document.createElement("canvas");
+    c.width = 1024; c.height = 64;
+    const g = c.getContext("2d");
+    g.fillStyle = "#f6f1df"; g.fillRect(0, 0, 1024, 64);
+    g.fillStyle = "#c8ff00"; g.fillRect(0, 0, 8, 64);
+    const n = Math.max(1, items.length);
+    const ancho = (1024 - 8) / n;
+    items.forEach((p, i) => {
+      const x = 8 + i * ancho;
+      if (i) { g.fillStyle = "rgba(27,26,20,.16)"; g.fillRect(x, 9, 1, 46); }
+      g.textAlign = "left"; g.textBaseline = "alphabetic";
+      g.fillStyle = "#5a564a";
+      g.font = "600 14px -apple-system, Segoe UI, Roboto, sans-serif";
+      g.fillText(String(p.nombre || "").slice(0, 20), x + 12, 25);
+      g.fillStyle = "#14171a";
+      g.font = "bold 26px -apple-system, Segoe UI, Roboto, sans-serif";
+      g.fillText("$" + Math.round(p.precio || 0).toLocaleString("es-CL"), x + 12, 55);
+    });
+    const t = new T.CanvasTexture(c);
+    t.encoding = T.sRGBEncoding;
+    return t;
+  }
+
   function crearTV() {
     const c = document.createElement("canvas");
     c.width = 640; c.height = 360;
@@ -122,6 +151,80 @@ window.Tienda3D = (function () {
     g.font = "bold 20px -apple-system, Segoe UI, Roboto, sans-serif";
     g.fillText("TOCA LA PANTALLA PARA AGREGAR", 40, 326);
     tvTextura.needsUpdate = true;
+  }
+
+  /* Carrito de compra: cesta de barandas, manija con agarre lima y cuatro
+     ruedas. Camina un metro al frente del jugador y frena si hay un mueble. */
+  function crearCarrito() {
+    carritoRuedas = [];
+    const g = new T.Group();
+    const malla = new T.MeshLambertMaterial({ color: 0xc3cbd1 });
+    const ruedaM = new T.MeshLambertMaterial({ color: 0x23272b });
+    const lima = new T.MeshLambertMaterial({ color: 0xc8ff00 });
+    const caja = (w, h, d, x, y, z, mat) => {
+      const m = new T.Mesh(new T.BoxGeometry(w, h, d), mat || malla);
+      m.position.set(x, y, z);
+      m.castShadow = true;
+      g.add(m);
+      return m;
+    };
+
+    caja(0.62, 0.03, 0.44, 0, 0.30, 0);              // piso de la cesta
+
+    [-0.30, 0.30].forEach((x) => {                   // laterales
+      caja(0.025, 0.03, 0.46, x, 0.62, 0);
+      caja(0.025, 0.03, 0.46, x, 0.33, 0);
+      for (let k = 0; k < 5; k++) caja(0.02, 0.30, 0.02, x, 0.47, -0.20 + k * 0.10);
+    });
+    [[0.23, 6], [-0.23, 5]].forEach(([z, n]) => {     // fondo y frente
+      caja(0.62, 0.03, 0.025, 0, 0.62, z);
+      caja(0.62, 0.03, 0.025, 0, 0.33, z);
+      for (let k = 0; k < n; k++) caja(0.02, 0.30, 0.02, -0.26 + k * (0.52 / (n - 1)), 0.47, z);
+    });
+
+    caja(0.035, 0.36, 0.035, -0.28, 0.79, 0.24);      // manija
+    caja(0.035, 0.36, 0.035, 0.28, 0.79, 0.24);
+    caja(0.62, 0.05, 0.05, 0, 0.97, 0.24);
+    caja(0.30, 0.058, 0.058, 0, 0.97, 0.24, lima);    // agarre lima
+
+    const geoR = new T.CylinderGeometry(0.07, 0.07, 0.035, 12);
+    [[-0.26, 0.17], [0.26, 0.17], [-0.26, -0.17], [0.26, -0.17]].forEach(([x, z]) => {
+      const eje = new T.Group();
+      eje.rotation.z = Math.PI / 2;
+      const disco = new T.Mesh(geoR, ruedaM);
+      eje.add(disco);
+      eje.position.set(x, 0.07, z);
+      g.add(eje);
+      carritoRuedas.push(disco);
+    });
+    return g;
+  }
+
+  function actualizarCarrito(dt) {
+    if (!carrito) return;
+    const fx = -Math.sin(yaw), fz = -Math.cos(yaw);
+    let dist = 1.18;
+    while (dist > 0.5 && choca(pos.x + fx * dist, pos.z + fz * dist)) dist -= 0.14;
+    const tx = pos.x + fx * dist, tz = pos.z + fz * dist;
+    const k = Math.min(1, dt * 6);
+    const dx = tx - carrito.position.x, dz = tz - carrito.position.z;
+    const mov = Math.hypot(dx, dz) * k;
+    carrito.position.x += dx * k;
+    carrito.position.z += dz * k;
+
+    let d = yaw - carrito.rotation.y;
+    while (d > Math.PI) d -= Math.PI * 2;
+    while (d < -Math.PI) d += Math.PI * 2;
+    carrito.rotation.y += d * Math.min(1, dt * 5);
+    carritoRuedas.forEach((r) => { r.rotation.y += mov / 0.07; });
+
+    // rebote al agregar algo
+    if (carritoAnim > 0) {
+      carritoAnim = Math.max(0, carritoAnim - dt * 3.2);
+      carrito.position.y = Math.sin(carritoAnim * Math.PI) * 0.06;
+    } else if (carrito.position.y) {
+      carrito.position.y = 0;
+    }
   }
 
   /* ── construcción ──────────────────────────────────────────────────────── */
@@ -239,6 +342,24 @@ window.Tienda3D = (function () {
       cartel.position.set(gx, 2.86, -G_LARGO / 2 - 0.06);
       grupo.add(cartel);
 
+      // tira de precios en el filo de cada tabla (los dos lados)
+      const listaG = catalogo.filter((p) => p.categoria === cat);
+      const muestra = (listaG.length ? listaG : catalogo).slice(0, 6);
+      if (muestra.length) {
+        const texTira = texturaTira(
+          Array.from({ length: 6 }, (_, k) => muestra[k % muestra.length])
+        );
+        const matTira = new T.MeshBasicMaterial({ map: texTira, side: T.DoubleSide });
+        NIVELES.forEach((y) => {
+          [1, -1].forEach((lado) => {
+            const tira = new T.Mesh(new T.PlaneGeometry(G_LARGO - 0.14, 0.10), matTira);
+            tira.position.set(gx + lado * (G_ANCHO / 2 + 0.013), y - 0.03, 0);
+            tira.rotation.y = lado > 0 ? Math.PI / 2 : -Math.PI / 2;
+            grupo.add(tira);
+          });
+        });
+      }
+
       scene.add(grupo);
     });
 
@@ -299,6 +420,9 @@ window.Tienda3D = (function () {
     });
     const interior = new T.MeshLambertMaterial({ color: 0xdfeff7 });
 
+    const muebles = (catalogo.length ? catalogo : [{ nombre: "Producto", precio: 0 }])
+      .slice().sort((a, b) => (a.precio || 0) - (b.precio || 0)).slice(0, 6);
+
     function crearCongelador(cx, cz, rotY) {
       const g = new T.Group();
       g.position.set(cx, 0, cz);
@@ -342,6 +466,19 @@ window.Tienda3D = (function () {
       hoja.userData = { min: -0.58, max: 0.58 };
       g.add(hoja);
       puertas.push(hoja);
+
+      // tira de precios en el canto superior del frente
+      if (!crearCongelador.tira) {
+        crearCongelador.tira = texturaTira(
+          Array.from({ length: 6 }, (_, k) => muebles[k % muebles.length])
+        );
+      }
+      const tiraF = new T.Mesh(
+        new T.PlaneGeometry(2.26, 0.11),
+        new T.MeshBasicMaterial({ map: crearCongelador.tira, side: T.DoubleSide })
+      );
+      tiraF.position.set(0, 1.74, 0.51);
+      g.add(tiraF);
 
       scene.add(g);
       return g;
@@ -406,6 +543,11 @@ window.Tienda3D = (function () {
       pintarTV();
     }, 4000);
 
+    carrito = crearCarrito();
+    carrito.position.set(pos.x, 0, pos.z - 1.18);
+    carrito.rotation.y = yaw;
+    scene.add(carrito);
+
     crearCamaras();
     aplicarLuz();
 
@@ -460,28 +602,39 @@ window.Tienda3D = (function () {
     requestAnimationFrame(bucle);
     const dt = Math.min(0.05, reloj.getDelta());
 
+    // sticks suavizados: sin tirones ni saltos de velocidad
+    const ks = Math.min(1, dt * 11);
+    joyS.x += (joy.x - joyS.x) * ks;
+    joyS.y += (joy.y - joyS.y) * ks;
+    joyCamS.x += (joyCam.x - joyCamS.x) * ks;
+    joyCamS.y += (joyCam.y - joyCamS.y) * ks;
+
     let avance = (teclas.KeyW || teclas.ArrowUp ? 1 : 0) - (teclas.KeyS || teclas.ArrowDown ? 1 : 0);
     let giro = (teclas.KeyD || teclas.ArrowRight ? 1 : 0) - (teclas.KeyA || teclas.ArrowLeft ? 1 : 0);
-    avance += -joy.y;
-    giro += joy.x;
-    yaw -= giro * 1.9 * dt;
+    avance += -joyS.y;
+    giro += joyS.x;
+    avance = Math.max(-1, Math.min(1, avance));
+    giro = Math.max(-1, Math.min(1, giro));
+    yaw -= giro * 2.2 * dt;
     // stick derecho: mira
-    yaw -= joyCam.x * 1.7 * dt;
-    pitch = Math.max(-0.9, Math.min(0.9, pitch - joyCam.y * 1.1 * dt));
+    yaw -= joyCamS.x * 2.2 * dt;
+    pitch = Math.max(-0.9, Math.min(0.9, pitch - joyCamS.y * 1.5 * dt));
 
-    const vel = 2.6 * dt;
+    const corriendoAhora = corriendo || teclas.ShiftLeft || teclas.ShiftRight;
+    const vel = (corriendoAhora ? 4.8 : 3.0) * dt;
     const fx = -Math.sin(yaw), fz = -Math.cos(yaw);
     const nx = pos.x + fx * avance * vel;
     const nz = pos.z + fz * avance * vel;
     if (!choca(nx, pos.z)) pos.x = nx;
     if (!choca(pos.x, nz)) pos.z = nz;
 
-    bob += Math.abs(avance) * dt * 9;
+    bob += Math.abs(avance) * dt * (corriendoAhora ? 13 : 9);
     camera.position.set(pos.x, pos.y + Math.sin(bob) * 0.02, pos.z);
     camera.rotation.set(0, 0, 0);
     camera.rotateY(yaw);
     camera.rotateX(pitch);
 
+    actualizarCarrito(dt);
     mirarPrecio(performance.now());
 
     renderer.render(scene, camera);
@@ -578,6 +731,7 @@ window.Tienda3D = (function () {
       window.Mercado.agregar(p);
       actualizarContador();
       aviso3d(p);
+      carritoAnim = 1;      // el carrito da un salto al recibir algo
     }
   }
 
@@ -639,8 +793,8 @@ window.Tienda3D = (function () {
       const dx = e.clientX - mirar.x;
       const dy = e.clientY - mirar.y;
       mirar.movido += Math.abs(dx) + Math.abs(dy);
-      yaw -= dx * 0.005;
-      pitch = Math.max(-0.9, Math.min(0.9, pitch - dy * 0.004));
+      yaw -= dx * 0.0062;
+      pitch = Math.max(-0.9, Math.min(0.9, pitch - dy * 0.005));
       mirar.x = e.clientX; mirar.y = e.clientY;
     });
 
@@ -693,6 +847,17 @@ window.Tienda3D = (function () {
       };
     }
 
+    // Correr: mantén pulsado
+    const btnCorrer = $("t3dCorrer");
+    if (btnCorrer) {
+      const prender = (e) => { e.preventDefault(); corriendo = true; btnCorrer.classList.add("on"); };
+      const apagar = () => { corriendo = false; btnCorrer.classList.remove("on"); };
+      btnCorrer.addEventListener("pointerdown", prender);
+      btnCorrer.addEventListener("pointerup", apagar);
+      btnCorrer.addEventListener("pointercancel", apagar);
+      btnCorrer.addEventListener("pointerleave", apagar);
+    }
+
     window.addEventListener("keydown", (e) => { teclas[e.code] = true; });
     window.addEventListener("keyup", (e) => { teclas[e.code] = false; });
     window.addEventListener("resize", ajustar);
@@ -706,9 +871,10 @@ window.Tienda3D = (function () {
       let dx = (e.clientX - (r.left + r.width / 2)) / (r.width / 2);
       let dy = (e.clientY - (r.top + r.height / 2)) / (r.height / 2);
       const mag = Math.hypot(dx, dy);
-      if (mag > 1) { dx /= mag; dy /= mag; }
+      if (mag < 0.15) { dx = 0; dy = 0; }          // zona muerta: no se arrastra solo
+      else if (mag > 1) { dx /= mag; dy /= mag; }
       destino.x = dx; destino.y = dy;
-      if (perilla) perilla.style.transform = "translate(calc(-50% + " + dx * 26 + "px), calc(-50% + " + dy * 26 + "px))";
+      if (perilla) perilla.style.transform = "translate(calc(-50% + " + dx * 33 + "px), calc(-50% + " + dy * 33 + "px))";
     };
     el.addEventListener("pointerdown", (e) => {
       el.setPointerCapture(e.pointerId);
@@ -792,6 +958,10 @@ window.Tienda3D = (function () {
     vivo = false;
     puerta = null;
     mirar = null;
+    corriendo = false;
+    joy.x = joy.y = joyCam.x = joyCam.y = 0;
+    const btn = $("t3dCorrer");
+    if (btn) btn.classList.remove("on");
     const caja = $("t3dPrecio");
     if (caja) caja.hidden = true;
     if (promoReloj) { clearInterval(promoReloj); promoReloj = null; }
