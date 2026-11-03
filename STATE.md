@@ -2487,3 +2487,18 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
   (MercadoPlacer) con `OfferCatalog`, CLP, medios de pago y área Chile; en la
   app `WebApplication` + `Store` enlazados.
 - Service worker v19.
+
+## Sesión 2026-11-03 · Minimarket con estantes — `229ca60`
+
+- **#mercado** gana dos vistas: **Estantes** (por defecto) y **Lista**.
+- **Pasillos**: scroll horizontal con snap, flechas, puntos y cabecera
+  «Pasillo N de M» con categoría y detalle.
+- **Estantes de 4 filas**: cada pasillo agrupa hasta 16 productos mezclando
+  categorías cuando hace falta, para que no queden estantes vacíos.
+- **Cajas**: tapa, inicial, nombre, precio y stock; los productos con más stock
+  ocupan más frentes (copias sin texto), como en un supermercado.
+- La fila es una tabla con canto, sombra y guía lima; los filtros secundarios
+  se pliegan en la vista de estantes.
+- **Licencia**: la inspiración del proyecto halcyon-video es conceptual; es
+  GPL-3.0 y **no se copió código**. Implementación propia en CSS 3D sin WebGL.
+- Service worker v20.
