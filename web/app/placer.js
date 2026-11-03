@@ -54,7 +54,8 @@ window.Placer = (function () {
     vigia: null,
     carrito: leerCarrito(),
     pago: null,
-    tresD: true,
+    tresD: false,
+    clima: null,
     pedido: leerCliente(),
     cat: { q: "", categoria: "", orden: "relevancia" },
     teselasOk: 0,
@@ -502,6 +503,7 @@ window.Placer = (function () {
   async function ubicacionAproximada() {
     if (ESTADO.aproxPedida || ESTADO.manual) return;
     ESTADO.aproxPedida = true;
+    cargarClima();
     const zona = await zonaPorRed();
     if (!zona || ESTADO.modoUbi === "real" || ESTADO.manual) return;
     ESTADO.pos = { lat: zona.lat, lon: zona.lon, precision: 4000, nombre: zona.nombre };
@@ -583,6 +585,7 @@ window.Placer = (function () {
         const d = metrosc(antes.lat, antes.lon, p.lat, p.lon);
         if (d > 150 && !ESTADO.cargando) cargar(true);
       }
+      cargarClima();
       return;
     }
 
@@ -887,6 +890,52 @@ window.Placer = (function () {
     cargar();
   }
 
+  /* ── clima (Open-Meteo, sin clave) ─────────────────────────────────────── */
+  const CLIMA = {
+    0: ["despejado", "sol"], 1: ["casi despejado", "sol"], 2: ["parcial", "parcial"], 3: ["nublado", "nube"],
+    45: ["niebla", "nube"], 48: ["niebla", "nube"], 51: ["llovizna", "lluvia"], 53: ["llovizna", "lluvia"],
+    55: ["llovizna", "lluvia"], 61: ["lluvia", "lluvia"], 63: ["lluvia", "lluvia"], 65: ["lluvia fuerte", "lluvia"],
+    71: ["nieve", "nieve"], 73: ["nieve", "nieve"], 75: ["nieve", "nieve"], 80: ["chubascos", "lluvia"],
+    81: ["chubascos", "lluvia"], 82: ["chubascos", "lluvia"], 95: ["tormenta", "tormenta"]
+  };
+  function iconoClima(tipo) {
+    const d = tipo === "sol"
+      ? '<circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.4M12 19.6V22M2 12h2.4M19.6 12H22M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M4.9 19.1l1.7-1.7M17.4 6.6l1.7-1.7"/>'
+      : tipo === "lluvia"
+        ? '<path d="M7 15a4 4 0 0 1 .6-7.9 5 5 0 0 1 9.4 1.4A3.4 3.4 0 0 1 17 15H7Z"/><path d="M8.5 18v2M12 18v2M15.5 18v2"/>'
+        : tipo === "tormenta"
+          ? '<path d="M7 14a4 4 0 0 1 .6-7.9 5 5 0 0 1 9.4 1.4A3.4 3.4 0 0 1 17 14H7Z"/><path d="m12 15-2 4h3l-1 3"/>'
+          : tipo === "nieve"
+            ? '<path d="M7 14a4 4 0 0 1 .6-7.9 5 5 0 0 1 9.4 1.4A3.4 3.4 0 0 1 17 14H7Z"/><path d="M9 18h.01M12 20h.01M15 18h.01"/>'
+            : tipo === "parcial"
+              ? '<circle cx="9" cy="9" r="3.4"/><path d="M9 2.5v1.6M2.5 9h1.6M4.4 4.4l1.1 1.1"/><path d="M10 19a3.6 3.6 0 0 1 .5-7.2 4.6 4.6 0 0 1 8.6 1.3A3 3 0 0 1 18 19h-8Z"/>'
+              : '<path d="M7 18a4 4 0 0 1 .6-7.9 5 5 0 0 1 9.4 1.4A3.4 3.4 0 0 1 17 18H7Z"/>';
+    return '<svg viewBox="0 0 24 24" aria-hidden="true">' + d + "</svg>";
+  }
+  let climaPedido = 0;
+  async function cargarClima() {
+    if (!ESTADO.pos || Date.now() - climaPedido < 600000) return;
+    climaPedido = Date.now();
+    try {
+      const u = "https://api.open-meteo.com/v1/forecast?latitude=" + ESTADO.pos.lat.toFixed(3) +
+        "&longitude=" + ESTADO.pos.lon.toFixed(3) +
+        "&current=temperature_2m,weather_code&timezone=auto";
+      const r = await fetch(u, { cache: "no-store" });
+      const d = await r.json();
+      if (!d || !d.current) return;
+      ESTADO.clima = { temp: Math.round(d.current.temperature_2m), code: d.current.weather_code };
+      pintarClima();
+    } catch (e) { /* sin clima: no se muestra */ }
+  }
+  function pintarClima() {
+    const el = $("mpClima");
+    if (!el || !ESTADO.clima) return;
+    const par = CLIMA[ESTADO.clima.code] || ["—", "nube"];
+    el.hidden = false;
+    el.innerHTML = iconoClima(par[1]) + "<b>" + ESTADO.clima.temp + "°</b><span>" + par[0] + "</span>";
+    el.title = "Clima actual · Open-Meteo";
+  }
+
   /* ── mapa ──────────────────────────────────────────────────────────────── */
   const CAPAS = {
     calles: [
@@ -1177,6 +1226,34 @@ window.Placer = (function () {
     if (t) t.textContent = "…";
   }
 
+  const DESCRIPCION = {
+    supermercado: "Surtido completo para la semana",
+    almacen: "Lo básico del día a día, a mano",
+    feria: "Frutas y verduras de estación",
+    verduleria: "Verduras y frutas frescas",
+    panaderia: "Pan recién horneado y dulces",
+    carniceria: "Cortes frescos y embutidos",
+    pescaderia: "Pescado y mariscos del día",
+    botilleria: "Bebidas, hielo y botillería",
+    fiambreria: "Fiambres, quesos y aceitunas",
+    dietetica: "Natural, sin azúcar y a granel",
+    lacteos: "Leche, quesos y lácteos",
+    mayorista: "Precios por volumen",
+    mall: "Tiendas y servicios",
+    tienda: "Artículos varios",
+    granja: "Productos de campo"
+  };
+
+  function descripcionDe(m) {
+    if (m.muestra) return "Local de referencia (sin conexión)";
+    return DESCRIPCION[m.ico] || "Local de barrio";
+  }
+  function categoriasDe(m) {
+    const vistas = [];
+    productos(m).forEach((p) => { if (vistas.indexOf(p.categoria) < 0) vistas.push(p.categoria); });
+    return vistas.slice(0, 3);
+  }
+
   function pintarLista() {
     const caja = $("mpLista");
     if (!caja) return;
@@ -1206,7 +1283,9 @@ window.Placer = (function () {
         '<span class="mp-item-ico">' + icono(m.ico, 20) + logoDe(m) + "</span>" +
         '<span class="mp-item-txt"><b>' + esc(m.nombre) + "</b>" +
         "<small>" + esc(linea) + "</small>" +
-        (tags.length ? '<span class="mp-item-tags">' + tags.join("") + "</span>" : "") +
+        '<em class="mp-item-desc">' + esc(descripcionDe(m)) + "</em>" +
+        '<span class="mp-item-prods">' + categoriasDe(m).map((c) => "<span>" + esc(c) + "</span>").join("") +
+          (tags.length ? tags.join("") : "") + "</span>" +
         "</span>" +
         '<span class="mp-item-dist"><b>' + esc(distancia(m.dist)) + "</b><small>de ti</small></span>" +
         "</button>";
@@ -1282,27 +1361,30 @@ window.Placer = (function () {
     $("mpHojaNombre").textContent = m.nombre;
     $("mpHojaSub").textContent = [m.rubro, distancia(m.dist) + " de ti"].filter(Boolean).join(" · ");
 
-    const meta = [];
-    if (m.direccion) meta.push(fila("Dirección", esc(m.direccion) + (m.comuna ? ", " + esc(m.comuna) : "")));
-    else if (m.comuna) meta.push(fila("Comuna", esc(m.comuna)));
-    if (m.horario) meta.push(fila("Horario", esc(m.horario)));
-    if (m.telefono) meta.push(fila("Teléfono", '<a href="tel:' + esc(m.telefono) + '">' + esc(m.telefono) + "</a>"));
-    if (m.web) meta.push(fila("Sitio", '<a href="' + esc(m.web) + '" target="_blank" rel="noopener">' +
-      esc(acortar(m.web.replace(/^https?:\/\//, ""), 34)) + "</a>"));
-    meta.push(fila("Cómo llegar", '<a href="https://www.google.com/maps/dir/?api=1&destination=' +
-      m.lat.toFixed(6) + "," + m.lon.toFixed(6) + '" target="_blank" rel="noopener">Abrir ruta</a>'));
-    meta.push(fila("Origen", m.muestra ? "muestra local (sin red)" : "OpenStreetMap"));
+    const acciones = [];
+    acciones.push(accion("ruta", "Ruta",
+      "https://www.google.com/maps/dir/?api=1&destination=" + m.lat.toFixed(6) + "," + m.lon.toFixed(6),
+      '<path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z"/><circle cx="12" cy="10" r="2.4"/>'));
+    if (m.telefono) acciones.push(accion("tel", "Llamar", "tel:" + m.telefono,
+      '<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2Z"/>'));
+    if (m.web) acciones.push(accion("web", "Sitio", m.web,
+      '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18Z"/>'));
 
-    const cats = [...new Set(todos.map((p) => p.categoria))];
+    const datos = [m.direccion || m.comuna, m.horario].filter(Boolean);
     const ofertas = todos.filter((p) => p.descuento).length;
-    const filtradosCat = productosFiltrados(m);
 
     $("mpHojaCuerpo").innerHTML =
-      '<div class="mp-meta">' + meta.join("") + "</div>" +
+      '<p class="mp-hoja-desc">' + esc(descripcionDe(m)) + "</p>" +
+      (datos.length ? '<p class="mp-hoja-datos">' + datos.map(esc).join('<i>·</i>') + "</p>" : "") +
+      '<div class="mp-acciones">' + acciones.join("") + "</div>" +
+      '<div class="mp-stats">' +
+        "<div><b>" + todos.length + "</b><span>productos</span></div>" +
+        "<div><b>" + [...new Set(todos.map((p) => p.categoria))].length + "</b><span>categorías</span></div>" +
+        "<div><b>" + (ofertas || "—") + "</b><span>ofertas</span></div>" +
+      "</div>" +
       '<div class="mp-cat-cab">' +
         '<h3>Catálogo del local</h3>' +
         '<span class="mp-tag ' + (m.muestra ? "muestra" : "ref") + '">' + (m.muestra ? "muestra" : "referencial") + "</span>" +
-        (ofertas ? '<span class="mp-tag oferta">' + ofertas + " ofertas</span>" : "") +
       "</div>" +
       '<p class="mp-cat-nota">Precios de referencia en CLP armados por rubro («' + esc(m.rubro) +
         "»). El stock y los precios reales los define cada negocio.</p>" +
@@ -1316,14 +1398,15 @@ window.Placer = (function () {
       "</div>" +
       '<div class="mp-chips mp-cat-chips" id="mpCatChips">' +
         '<button type="button" class="mp-chip' + (ESTADO.cat.categoria ? "" : " on") + '" data-c="">Todo · ' + todos.length + "</button>" +
-        cats.map((c) => {
+        [...new Set(todos.map((p) => p.categoria))].map((c) => {
           const n = todos.filter((p) => p.categoria === c).length;
           return '<button type="button" class="mp-chip' + (ESTADO.cat.categoria === c ? " on" : "") +
             '" data-c="' + esc(c) + '">' + esc(c) + " · " + n + "</button>";
         }).join("") +
       "</div>" +
-      '<div class="mp-productos" id="mpProductos">' + pintarProductos(m, filtradosCat) + "</div>";
+      '<div class="mp-productos" id="mpProductos">' + pintarProductos(m, productosFiltrados(m)) + "</div>";
 
+    
     const q = $("mpCatQ");
     if (q) q.oninput = () => {
       ESTADO.cat.q = q.value;
@@ -1372,9 +1455,31 @@ window.Placer = (function () {
     }).join("");
   }
 
+  function volarAlCarrito(origen) {
+    const destino = $("mpCarritoBtn");
+    if (!origen || !destino) return;
+    const a = origen.getBoundingClientRect();
+    const b = destino.getBoundingClientRect();
+    const dot = document.createElement("span");
+    dot.className = "mp-vuelo";
+    dot.style.left = (a.left + a.width / 2 - 7) + "px";
+    dot.style.top = (a.top + a.height / 2 - 7) + "px";
+    document.body.appendChild(dot);
+    requestAnimationFrame(() => {
+      dot.style.transform = "translate(" + (b.left + b.width / 2 - a.left - a.width / 2) +
+        "px," + (b.top + b.height / 2 - a.top - a.height / 2) + "px) scale(.3)";
+      dot.style.opacity = "0";
+    });
+    setTimeout(() => dot.remove(), 700);
+  }
+
   function engancharProductos(m) {
     document.querySelectorAll("#mpHojaCuerpo .mp-mas").forEach((b) => {
-      b.onclick = () => cambiar(m, b.dataset.p, Number(b.dataset.d));
+      b.onclick = () => {
+        const delta = Number(b.dataset.d);
+        cambiar(m, b.dataset.p, delta);
+        if (delta > 0) volarAlCarrito(b);
+      };
     });
   }
 
@@ -1393,6 +1498,12 @@ window.Placer = (function () {
         (items.reduce((a, p) => a + p.cantidad, 0) === 1 ? " producto" : " productos") + "</span>" +
         '<button type="button" class="btn primary sm" id="mpPedir">Ver pedido</button></div>';
     $("mpPedir").onclick = () => { cerrarHoja(); abrirCarrito(m.id); };
+  }
+
+  function accion(id, texto, url, svg) {
+    return '<a class="mp-accion" id="mpAccion-' + id + '" href="' + esc(url) + '"' +
+      (url.startsWith("https") ? ' target="_blank" rel="noopener"' : "") + ">" +
+      '<svg viewBox="0 0 24 24" aria-hidden="true">' + svg + "</svg><span>" + esc(texto) + "</span></a>";
   }
 
   function fila(k, v) {
@@ -1980,6 +2091,49 @@ window.Placer = (function () {
     if (pagoFondo) pagoFondo.onclick = cerrarPago;
 
     // Vista 3D: inclinación suave del lienzo. Se puede apagar (2D plano).
+    const btnPanel = $("mpFiltrosBtn"), panel = $("mpPanel");
+    if (btnPanel && panel) {
+      btnPanel.onclick = () => {
+        const abrir = panel.hidden;
+        panel.hidden = !abrir;
+        btnPanel.setAttribute("aria-expanded", String(abrir));
+        btnPanel.classList.toggle("activo", abrir);
+      };
+    }
+
+    const btnMas = $("mpMas"), menu = $("mpMenu");
+    const cerrarMenu = () => {
+      if (menu) menu.hidden = true;
+      if (btnMas) btnMas.setAttribute("aria-expanded", "false");
+    };
+    if (btnMas && menu) {
+      btnMas.onclick = (e) => {
+        e.stopPropagation();
+        const abrir = menu.hidden;
+        menu.hidden = !abrir;
+        btnMas.setAttribute("aria-expanded", String(abrir));
+      };
+      menu.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => {
+        if (b.id !== "mp3d") cerrarMenu();
+      }));
+    }
+    document.addEventListener("click", (e) => {
+      if (!(e.target instanceof Element)) return;
+      if (!e.target.closest("#mpMenu") && !e.target.closest("#mpMas")) cerrarMenu();
+    });
+
+    const foco = $("mpFoco"), salir = $("mpSalirFoco");
+    if (foco) foco.onclick = () => {
+      document.body.classList.add("mp-foco");
+      if (salir) salir.hidden = false;
+      if (ESTADO.mapa) setTimeout(() => ESTADO.mapa.invalidateSize(), 140);
+    };
+    if (salir) salir.onclick = () => {
+      document.body.classList.remove("mp-foco");
+      salir.hidden = true;
+      if (ESTADO.mapa) setTimeout(() => ESTADO.mapa.invalidateSize(), 140);
+    };
+
     const btn3d = $("mp3d");
     const lienzo = $("mpLienzo");
     const aplicar3d = (on) => {
@@ -1992,7 +2146,7 @@ window.Placer = (function () {
       if (ESTADO.mapa) setTimeout(() => ESTADO.mapa.invalidateSize(), 280);
     };
     if (btn3d) btn3d.onclick = () => aplicar3d(!ESTADO.tresD);
-    aplicar3d(true);
+    aplicar3d(ESTADO.tresD);
     const carX = $("mpCarritoX");
     if (carX) carX.onclick = cerrarCarrito;
     const carFondo = $("mpCarritoFondo");
@@ -2055,6 +2209,7 @@ window.Placer = (function () {
     pintarCarritoBtn();
 
     if (ESTADO.pos) {
+      cargarClima();
       // Se abre con la última ubicación conocida para no mostrar un mapa vacío…
       setTimeout(() => { pintarRadio(); cargar(); }, 60);
       // …pero se pide el GPS igual: la última ubicación puede ser de ayer.

@@ -1062,3 +1062,175 @@ body.mp-abierto .nav { transform: translateY(112%); transition: transform .24s c
   color: #f87171;
 }
 .mp-error::before { content: "! "; font-weight: 800; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   HUD compacto · el mapa manda
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Fila 1: buscador + filtros. Fila 2: estado y clima. Nada más. */
+.mp-sup-fila { display: flex; gap: 8px; align-items: stretch; }
+.mp-sup-fila .mp-buscador { flex: 1 1 auto; min-width: 0; min-height: 44px; padding: 0 5px 0 12px; }
+.mp-sup-fila .mp-buscador input { padding: 11px 0; font-size: 13.5px; }
+
+.mp-btn-panel {
+  flex: 0 0 auto; display: grid; place-items: center; gap: 1px;
+  width: 52px; border-radius: var(--mp-r-md);
+  border: 1px solid var(--mp-line-2);
+  background: rgba(12, 14, 16, .9);
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  color: var(--mp-tx2); cursor: pointer;
+  box-shadow: 0 10px 26px -14px rgba(0,0,0,.9);
+}
+.mp-btn-panel svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; }
+.mp-btn-panel span { font-size: 8.5px; font-weight: 750; letter-spacing: .02em; }
+.mp-btn-panel[aria-expanded="true"] {
+  border-color: var(--mp-lima); color: var(--mp-lima); background: var(--mp-lima-soft);
+}
+
+.mp-hud-sup .mp-estado {
+  gap: 6px 8px; padding: 0 2px;
+  font-size: 11px;
+}
+.mp-hud-sup .mp-estado #mpUbiTexto {
+  flex: 1 1 auto; min-width: 0;
+}
+.mp-clima {
+  flex: 0 0 auto; display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 9px; border-radius: 999px;
+  border: 1px solid var(--mp-line); background: rgba(12,14,16,.8);
+  font-size: 10.5px; font-weight: 650; color: var(--mp-tx2);
+  white-space: nowrap;
+}
+.mp-clima b { color: var(--mp-tx); font-weight: 750; }
+.mp-clima svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+.mp-clima[hidden] { display: none; }
+
+/* Panel plegable: radio + rubros */
+.mp-panel {
+  padding: 10px; border-radius: var(--mp-r-lg);
+  border: 1px solid var(--mp-line-2);
+  background: rgba(10, 12, 14, .94);
+  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+  box-shadow: 0 22px 50px -24px rgba(0,0,0,.95);
+  display: grid; gap: 8px;
+  animation: mp-entra .18s cubic-bezier(.2,0,.2,1) both;
+}
+.mp-panel[hidden] { display: none; }
+.mp-panel .mp-radios, .mp-panel .mp-filtros { margin: 0; }
+.mp-panel-nota { margin: 0; font-size: 10.5px; color: var(--mp-tx4); }
+.mp-panel-nota:empty { display: none; }
+
+/* Menú lateral «más» */
+.mp-menu {
+  position: absolute; right: 58px; top: 50%; transform: translateY(-50%);
+  display: grid; gap: 2px; padding: 6px;
+  border-radius: var(--mp-r-lg); border: 1px solid var(--mp-line-2);
+  background: rgba(10, 12, 14, .96);
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  box-shadow: 0 24px 60px -22px rgba(0,0,0,.95);
+  animation: mp-entra .16s cubic-bezier(.2,0,.2,1) both;
+  width: 190px;
+}
+.mp-menu[hidden] { display: none; }
+.mp-menu button {
+  display: flex; align-items: center; gap: 9px;
+  padding: 9px 10px; border: 0; border-radius: 10px;
+  background: transparent; color: var(--mp-tx);
+  font: inherit; font-size: 12.5px; font-weight: 600; text-align: left; cursor: pointer;
+}
+.mp-menu button:hover { background: var(--mp-elev); }
+.mp-menu-ico {
+  width: 28px; height: 28px; flex: 0 0 auto; border-radius: 9px;
+  display: grid; place-items: center;
+  background: var(--mp-lima-soft); color: var(--mp-lima);
+}
+.mp-menu-ico svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+
+/* Modo mapa: se esconde todo menos el mapa y el botón de salir */
+body.mp-foco .topbar,
+body.mp-foco .nav,
+body.mp-foco .mp-hud-sup,
+body.mp-foco .mp-hud-der,
+body.mp-foco .mp-lista,
+body.mp-foco .mp-barra,
+body.mp-foco .mp-aviso { display: none !important; }
+.mp-salir-foco {
+  position: absolute; top: calc(env(safe-area-inset-top) + 12px); right: 12px;
+  padding: 9px 14px; border-radius: 999px; z-index: 700;
+  border: 1px solid rgba(200,255,0,.35); background: rgba(10,12,14,.9);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  color: var(--mp-lima); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer;
+}
+.mp-salir-foco[hidden] { display: none; }
+body.mp-foco #s-panel { margin: calc(var(--top-h) * -1) calc(var(--pad) * -1) calc(-104px - env(safe-area-inset-bottom)); }
+body.mp-foco .mp-full { height: 100dvh; }
+
+/* Textura moderna: retícula fina + halos, sin scanlines */
+.mp-textura {
+  background:
+    radial-gradient(120% 85% at 50% 0%, rgba(200, 255, 0, .045), transparent 52%),
+    radial-gradient(100% 80% at 50% 118%, rgba(0, 0, 0, .42), transparent 62%),
+    linear-gradient(180deg, rgba(8, 9, 10, .34), transparent 20%, transparent 82%, rgba(8, 9, 10, .4));
+}
+.mp-textura::after {
+  opacity: .5;
+  background-image: radial-gradient(rgba(255,255,255,.10) .6px, transparent .6px);
+  background-size: 22px 22px;
+  -webkit-mask-image: radial-gradient(80% 60% at 50% 50%, #000 20%, transparent 78%);
+  mask-image: radial-gradient(80% 60% at 50% 50%, #000 20%, transparent 78%);
+}
+
+/* Tarjeta de local: descripción y productos */
+.mp-item-txt em.mp-item-desc {
+  font-style: normal; display: block;
+  font-size: 10.8px; color: var(--mp-tx4); line-height: 1.4;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mp-item-prods { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
+.mp-item-prods span {
+  font-size: 9.5px; padding: 1px 6px; border-radius: 5px;
+  background: rgba(255,255,255,.05); color: var(--mp-tx3);
+}
+
+/* Vuelo del producto al carrito */
+.mp-vuelo {
+  position: fixed; width: 14px; height: 14px; border-radius: 50%;
+  background: var(--mp-lima); z-index: 2100; pointer-events: none;
+  box-shadow: 0 0 18px rgba(200, 255, 0, .9);
+  transition: transform .62s cubic-bezier(.2,0,.2,1), opacity .62s ease;
+}
+.mp-menu button.activo { color: var(--mp-lima); background: var(--mp-lima-soft); }
+
+/* ── ficha del local 2.0 ────────────────────────────────────────────────── */
+.mp-hoja-desc {
+  margin: -4px 0 6px;
+  font-size: 12.5px; line-height: 1.45; color: var(--mp-tx2);
+}
+.mp-hoja-datos {
+  margin: 0 0 12px;
+  font-size: 11px; color: var(--mp-tx4); line-height: 1.5;
+}
+.mp-hoja-datos i { font-style: normal; margin: 0 6px; opacity: .5; }
+
+.mp-acciones { display: flex; gap: 8px; margin-bottom: 12px; }
+.mp-accion {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 9px 6px; border-radius: var(--mp-r-md);
+  border: 1px solid var(--mp-line); background: var(--mp-card);
+  color: var(--mp-tx2); font-size: 10.5px; font-weight: 650; text-decoration: none;
+  transition: border-color .16s, color .16s, background .16s;
+}
+.mp-accion svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.mp-accion:hover { border-color: var(--mp-line-2); color: var(--mp-tx); background: var(--mp-elev); }
+.mp-accion:first-child { color: var(--mp-lima); border-color: rgba(200,245,66,.28); background: var(--mp-lima-soft); }
+
+.mp-stats {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+  margin-bottom: 14px;
+}
+.mp-stats > div {
+  display: grid; gap: 1px; padding: 9px 10px;
+  border-radius: var(--mp-r-md); border: 1px solid var(--mp-line); background: var(--mp-card);
+}
+.mp-stats b { font-size: 17px; font-weight: 780; letter-spacing: -.03em; color: var(--mp-tx); }
+.mp-stats span { font-size: 9.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--mp-tx4); }
