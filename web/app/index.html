@@ -614,6 +614,37 @@
             <em id="t3dPrecioPie">toca para agregar</em>
           </div>
           <div class="t3d-mira" id="t3dMira" aria-hidden="true"></div>
+
+          <div class="t3d-cams" id="t3dCams" hidden></div>
+
+          <div class="t3d-tools">
+            <button class="t3d-tool" id="t3dLucesBtn" type="button" aria-label="Iluminación" aria-expanded="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2.4M12 19.6V22M2 12h2.4M19.6 12H22M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M4.9 19.1l1.7-1.7M17.4 6.6l1.7-1.7"/></svg>
+              <span>Luz</span>
+            </button>
+            <button class="t3d-tool" id="t3dCamsBtn" type="button" aria-label="Cámaras" aria-expanded="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="7" width="13" height="10" rx="2.5"/><path d="m15.5 11 6-3v8l-6-3z"/></svg>
+              <span>Cámaras</span>
+            </button>
+          </div>
+
+          <div class="t3d-luces" id="t3dLuces" hidden>
+            <b>Iluminación</b>
+            <div class="t3d-presets" id="t3dPresets">
+              <button type="button" data-luz="calido">Cálido</button>
+              <button type="button" data-luz="neutro" class="on">Neutro</button>
+              <button type="button" data-luz="frio">Frío</button>
+              <button type="button" data-luz="cine">Cine</button>
+            </div>
+            <label class="t3d-slider">Intensidad <output id="t3dIntVal">100 %</output>
+              <input type="range" id="t3dInt" min="40" max="140" value="100" step="5">
+            </label>
+            <label class="t3d-slider">Órbita de la luz <output id="t3dOrbVal">45°</output>
+              <input type="range" id="t3dOrb" min="0" max="360" value="45" step="5">
+            </label>
+            <p class="t3d-luz-desc" id="t3dLuzDesc">Luz pareja de supermercado: blanco neutro y sombras suaves.</p>
+          </div>
+
           <div class="t3d-aviso" id="t3dAviso" hidden></div>
           <div class="t3d-joystick" id="t3dJoy" aria-hidden="true"><span></span></div>
           <div class="t3d-joystick t3d-joy-cam" id="t3dJoyCam" aria-hidden="true"><span></span></div>

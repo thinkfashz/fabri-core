@@ -37,6 +37,15 @@ window.Tienda3D = (function () {
   let mirar = null;      // arrastre de cámara
   let puerta = null;     // arrastre de puerta de congelador
   let promos = [], promoIdx = 0, promoReloj = null;
+  const luces = { amb: null, sol: null };
+  const LUCES = {
+    calido: { amb: 0.36, dir: 0.62, color: 0xffe0b0, exp: 1.06, desc: "Luz de tienda de barrio: tono ámbar y sombras suaves." },
+    neutro: { amb: 0.42, dir: 0.70, color: 0xffffff, exp: 1.02, desc: "Luz pareja de supermercado: blanco neutro y sombras suaves." },
+    frio:   { amb: 0.38, dir: 0.60, color: 0xd6e9ff, exp: 1.04, desc: "Tono de cámara frigorífica: azulado y limpio." },
+    cine:   { amb: 0.18, dir: 0.95, color: 0xfff3e0, exp: 0.92, desc: "Contraste cinematográfico: sombras marcadas y foco cálido." }
+  };
+  let luzActual = "neutro", intensidadLuz = 1, orbitaLuz = 45;
+  let camaras = [], cctv = false;
 
   function cargarThree() {
     if (window.THREE) return Promise.resolve(window.THREE);
@@ -128,7 +137,7 @@ window.Tienda3D = (function () {
     scene.add(new T.AmbientLight(0xffffff, 0.32));
     scene.add(new T.HemisphereLight(0xffffff, 0xcfd6da, 0.42));
 
-    const sol = new T.DirectionalLight(0xfffdf5, 0.62);
+    const sol = new T.DirectionalLight(0xffffff, 0.68);
     sol.position.set(6, 11, 8);
     sol.castShadow = true;
     sol.shadow.mapSize.set(1024, 1024);
@@ -139,6 +148,8 @@ window.Tienda3D = (function () {
     sol.shadow.camera.far = 30;
     sol.shadow.bias = -0.0015;
     scene.add(sol);
+    luces.sol = sol;
+    luces.amb = scene.children.find((c) => c.isAmbientLight);
 
     [ -4, 0, 4 ].forEach((z) => {
       const p = new T.PointLight(0xfff1d8, 0.22, 14, 2);
@@ -288,9 +299,10 @@ window.Tienda3D = (function () {
     });
     const interior = new T.MeshLambertMaterial({ color: 0xdfeff7 });
 
-    [-3.2, 0, 3.2].forEach((cx, idx) => {
+    function crearCongelador(cx, cz, rotY) {
       const g = new T.Group();
-      g.position.set(cx, 0, -LARGO / 2 + 1.2);
+      g.position.set(cx, 0, cz);
+      if (rotY) g.rotation.y = rotY;
 
       const cuerpo = new T.Mesh(new T.BoxGeometry(2.4, 1.9, 1.0), acero);
       cuerpo.position.y = 0.95;
@@ -332,19 +344,58 @@ window.Tienda3D = (function () {
       puertas.push(hoja);
 
       scene.add(g);
-    });
+      return g;
+    }
 
-    /* televisor colgado */
+    // Pasillo de congeladores contra la pared izquierda (miran al centro).
+    [-5.2, -2.6, 0, 2.6].forEach((cz) => crearCongelador(-ANCHO / 2 + 0.75, cz, Math.PI / 2));
+
+    /* televisor en la esquina del fondo, con su herraje de pared */
+    const tvGrupo = new T.Group();
+    tvGrupo.position.set(-ANCHO / 2 + 0.14, 2.35, -LARGO / 2 + 2.6);
+    tvGrupo.rotation.y = Math.PI / 2 - 0.55;
+
     tv = crearTV();
-    tv.position.set(0, 2.72, -1.2);
-    tv.rotation.y = 0;
-    scene.add(tv);
-    const marcoTV = new T.Mesh(new T.BoxGeometry(2.12, 1.24, 0.06), new T.MeshLambertMaterial({ color: 0x14171a }));
-    marcoTV.position.set(0, 2.72, -1.24);
-    scene.add(marcoTV);
-    const cable = new T.Mesh(new T.BoxGeometry(0.03, 0.5, 0.03), new T.MeshLambertMaterial({ color: 0x2a2f33 }));
-    cable.position.set(0, 3.05, -1.24);
-    scene.add(cable);
+    tv.position.set(0.09, 0, 0.30);
+    tvGrupo.add(tv);
+
+    const negro = new T.MeshLambertMaterial({ color: 0x14171a });
+    const metalTV = new T.MeshLambertMaterial({ color: 0x4a5056 });
+    const marcoTV = new T.Mesh(new T.BoxGeometry(2.12, 1.24, 0.07), negro);
+    marcoTV.position.set(0.09, 0, 0.26);
+    tvGrupo.add(marcoTV);
+    // brazo y placa contra la pared
+    const brazo = new T.Mesh(new T.BoxGeometry(0.5, 0.06, 0.06), metalTV);
+    brazo.position.set(0.09, 0, 0.02);
+    tvGrupo.add(brazo);
+    const placa = new T.Mesh(new T.BoxGeometry(0.34, 0.34, 0.04), metalTV);
+    placa.position.set(0.09, 0, -0.2);
+    tvGrupo.add(placa);
+    const cable = new T.Mesh(new T.BoxGeometry(0.03, 0.9, 0.03), negro);
+    cable.position.set(-0.1, 0.55, 0.02);
+    tvGrupo.add(cable);
+    scene.add(tvGrupo);
+
+    /* cámaras de seguridad en las esquinas (la del TV no) */
+    const camMetal = new T.MeshLambertMaterial({ color: 0xe8ecef });
+    const camLente = new T.MeshLambertMaterial({ color: 0x1b1f23 });
+    const led = new T.MeshBasicMaterial({ color: 0xff3b30 });
+    [[1, -1], [1, 1], [-1, 1]].forEach(([sx, sz]) => {
+      const g = new T.Group();
+      g.position.set(sx * (ANCHO / 2 - 0.22), 2.92, sz * (LARGO / 2 - 0.22));
+      g.rotation.y = Math.atan2(-sx, -sz);
+      const cuerpo = new T.Mesh(new T.BoxGeometry(0.16, 0.12, 0.3), camMetal);
+      cuerpo.rotation.x = 0.35;
+      g.add(cuerpo);
+      const lente = new T.Mesh(new T.CylinderGeometry(0.045, 0.045, 0.04, 12), camLente);
+      lente.rotation.x = Math.PI / 2 + 0.35;
+      lente.position.set(0, -0.03, 0.17);
+      g.add(lente);
+      const punto = new T.Mesh(new T.SphereGeometry(0.014, 6, 6), led);
+      punto.position.set(0.05, 0.04, 0.13);
+      g.add(punto);
+      scene.add(g);
+    });
 
     promos = catalogo.slice(0, 8);
     pintarTV();
@@ -355,9 +406,40 @@ window.Tienda3D = (function () {
       pintarTV();
     }, 4000);
 
+    crearCamaras();
+    aplicarLuz();
+
     raycaster = new T.Raycaster();
     puntero = new T.Vector2();
     reloj = new T.Clock();
+  }
+
+  function aplicarLuz() {
+    const c = LUCES[luzActual] || LUCES.neutro;
+    if (luces.amb) luces.amb.intensity = c.amb * intensidadLuz;
+    if (luces.sol) {
+      luces.sol.intensity = c.dir * intensidadLuz;
+      luces.sol.color.setHex(c.color);
+      const a = (orbitaLuz * Math.PI) / 180;
+      luces.sol.position.set(Math.cos(a) * 10, 11, Math.sin(a) * 10);
+    }
+    if (renderer) renderer.toneMappingExposure = c.exp * (0.92 + intensidadLuz * 0.12);
+    const d = $("t3dLuzDesc");
+    if (d) d.textContent = c.desc;
+    const iv = $("t3dIntVal"), ov = $("t3dOrbVal");
+    if (iv) iv.textContent = Math.round(intensidadLuz * 100) + " %";
+    if (ov) ov.textContent = Math.round(orbitaLuz) + "°";
+  }
+
+  function crearCamaras() {
+    camaras = [
+      [-6.2, 2.75, -9.2], [6.2, 2.75, -9.2], [6.2, 2.75, 9.2], [0, 2.95, 9.6]
+    ].map(([x, y, z]) => {
+      const c = new T.PerspectiveCamera(66, 1.6, 0.1, 42);
+      c.position.set(x, y, z);
+      c.lookAt(0, 1.15, 0);
+      return c;
+    });
   }
 
   function ajustar() {
@@ -403,6 +485,27 @@ window.Tienda3D = (function () {
     mirarPrecio(performance.now());
 
     renderer.render(scene, camera);
+
+    if (cctv && camaras.length) {
+      const W = renderer.domElement.width, H = renderer.domElement.height;
+      const dpr = renderer.getPixelRatio();
+      const w = Math.floor(W * 0.31), h = Math.floor(w * 0.60);
+      const pad = 6 * dpr, gap = 3 * dpr, top = 74 * dpr;
+      renderer.setScissorTest(true);
+      camaras.forEach((cam, i) => {
+        const col = i % 2, row = Math.floor(i / 2);
+        const x = W - (2 - col) * (w + gap) - pad;
+        const y = H - top - (row + 1) * (h + gap);
+        cam.aspect = w / h;
+        cam.updateProjectionMatrix();
+        renderer.setViewport(x, y, w, h);
+        renderer.setScissor(x, y, w, h);
+        renderer.render(scene, cam);
+      });
+      renderer.setScissorTest(false);
+      renderer.setViewport(0, 0, W, H);
+      renderer.setScissor(0, 0, W, H);
+    }
     frames++;
   }
 
@@ -412,8 +515,8 @@ window.Tienda3D = (function () {
     for (let i = 0; i < GONDOLAS.length; i++) {
       if (Math.abs(x - GONDOLAS[i]) < G_ANCHO / 2 + m && Math.abs(z) < G_LARGO / 2 + m) return true;
     }
-    // congeladores del fondo
-    if (z < -LARGO / 2 + 2.1 && Math.abs(x) < 4.6) return true;
+    // pasillo de congeladores contra la pared izquierda
+    if (x < -5.25) return true;
     return false;
   }
 
@@ -549,6 +652,46 @@ window.Tienda3D = (function () {
 
     engancharStick(joyEl, joy);
     engancharStick($("t3dJoyCam"), joyCam);
+
+    // Panel de iluminación
+    const btnLuz = $("t3dLucesBtn"), panelLuz = $("t3dLuces");
+    if (btnLuz && panelLuz) {
+      btnLuz.onclick = () => {
+        const abrir = panelLuz.hidden;
+        panelLuz.hidden = !abrir;
+        btnLuz.setAttribute("aria-expanded", String(abrir));
+      };
+      panelLuz.querySelectorAll("[data-luz]").forEach((b) => {
+        b.onclick = () => {
+          luzActual = b.dataset.luz;
+          panelLuz.querySelectorAll("[data-luz]").forEach((x) => x.classList.toggle("on", x === b));
+          aplicarLuz();
+        };
+      });
+    }
+    const rangoInt = $("t3dInt");
+    if (rangoInt) rangoInt.oninput = () => { intensidadLuz = Number(rangoInt.value) / 100; aplicarLuz(); };
+    const rangoOrb = $("t3dOrb");
+    if (rangoOrb) rangoOrb.oninput = () => { orbitaLuz = Number(rangoOrb.value); aplicarLuz(); };
+
+    // Cámaras: 4 vistas en vivo dibujadas en el mismo canvas
+    const btnCams = $("t3dCamsBtn"), capaCams = $("t3dCams");
+    if (btnCams) {
+      btnCams.onclick = () => {
+        cctv = !cctv;
+        btnCams.setAttribute("aria-expanded", String(cctv));
+        if (capaCams) {
+          capaCams.hidden = !cctv;
+          capaCams.innerHTML = cctv
+            ? ["CAM 1", "CAM 2", "CAM 3", "CAM 4"].map((t) => "<span>" + t + "</span>").join("")
+            : "";
+        }
+        if (cctv) {
+          const p = $("t3dLuces");
+          if (p) p.hidden = true;
+        }
+      };
+    }
 
     window.addEventListener("keydown", (e) => { teclas[e.code] = true; });
     window.addEventListener("keyup", (e) => { teclas[e.code] = false; });
