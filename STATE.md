@@ -2547,3 +2547,17 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
 - Service worker v24.
 - Pendiente: verificación visual en un teléfono real (el headless de esta
   máquina no crea contexto WebGL).
+
+## Sesión 2026-11-03 · Tienda 3D: luz corregida y doble stick — `86d5f95`
+
+- **La escena salía quemada** (todo blanco): las luces sumaban ~3.0. Se baja a
+  ambiente 0.32 + hemisférica 0.42 + direccional 0.62 + puntos 0.22 y se activa
+  **ACES filmic tone mapping** (exposición 1.05).
+- Fondo/paredes/techo/piso pasan de blanco puro a perla y las góndolas a gris
+  medio: el pasillo se lee contra el piso.
+- **Segundo joystick a la derecha** para mirar; el izquierdo camina.
+- La pancarta de precio aparece **al apuntar de cerca (<6,5 m)** o al tocar, y
+  se oculta a los 2,6 s. La TV ya no dispara la pancarta desde lejos.
+- Etiquetas de góndola (2D) más chicas: crema con número oscuro.
+- Service worker v25.
+- Confirmado por el usuario: **la tienda 3D renderiza en su teléfono**.
