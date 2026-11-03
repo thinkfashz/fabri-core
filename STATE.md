@@ -2517,3 +2517,15 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
 - Pendiente: **verificar en un teléfono real**. El navegador headless de esta
   máquina no puede crear contexto WebGL (el proceso GPU muere), así que la
   escena no se pudo capturar; sólo se validó el camino de error.
+
+## Sesión 2026-11-03 · Dock con pastilla, buscador con escáner, carrito y riel — `23d94c3`
+
+- **Dock**: pastilla deslizante que sigue al ítem activo (280 ms) en móvil y en
+  el rail de escritorio; los botones ya no pintan su propio fondo.
+- **Buscador del mercado**: lupa, botón de borrar y **escáner integrado**; al
+  leer un EAN-13 abre la ficha del producto o filtra por el código.
+- **Carrito**: hoja «Tu pedido» con líneas, contador, subtotal, total, pedido
+  por WhatsApp/compartir y vaciar.
+- **Estantes**: cartel de pasillo con número y categoría, riel dorado en el
+  canto y etiqueta de precio bajo cada caja.
+- Service worker v22.
