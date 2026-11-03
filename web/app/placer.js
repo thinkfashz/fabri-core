@@ -112,6 +112,39 @@ window.Placer = (function () {
       'stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + '</svg>';
   }
 
+  /* ── logos de cadena ───────────────────────────────────────────────────── */
+  /* Solo para cadenas conocidas: se resuelve su dominio y se pide el icono
+     público. Si no carga, queda el icono de categoría (nunca un hueco). */
+  const MARCAS = [
+    [/tottus/i, "tottus.cl"],
+    [/l[ií]der|express de lid/i, "lider.cl"],
+    [/santa isabel/i, "santaisabel.cl"],
+    [/unimarc/i, "unimarc.cl"],
+    [/jumbo/i, "jumbo.cl"],
+    [/acuenta/i, "acuenta.cl"],
+    [/mayorista 10/i, "mayorista10.cl"],
+    [/alvi/i, "alvi.cl"],
+    [/ok market/i, "okmarket.cl"],
+    [/carrefour/i, "carrefour.cl"],
+    [/ahumada/i, "farmaciasahumada.cl"],
+    [/cruz verde/i, "cruzverde.cl"],
+    [/salcobrand/i, "salcobrand.cl"],
+    [/copec/i, "copec.cl"],
+    [/shell/i, "shell.cl"]
+  ];
+
+  function logoDe(m) {
+    if (!m || m.muestra) return "";
+    for (let i = 0; i < MARCAS.length; i++) {
+      if (MARCAS[i][0].test(m.nombre)) {
+        return '<img class="mp-logo" alt="" loading="lazy" referrerpolicy="no-referrer" ' +
+          'src="https://icons.duckduckgo.com/ip3/' + MARCAS[i][1] + '.ico" ' +
+          'onerror="this.remove()">';
+      }
+    }
+    return "";
+  }
+
   /* ── catálogo referencial ──────────────────────────────────────────────── */
   const BASE = {
     supermercado: [
@@ -381,18 +414,8 @@ window.Placer = (function () {
     }
   }
 
-  function pintarRadio() {
-    if (!ESTADO.mapa || !ESTADO.pos) return;
-    const punto = [ESTADO.pos.lat, ESTADO.pos.lon];
-    if (ESTADO.circulo) {
-      ESTADO.circulo.setLatLng(punto).setRadius(ESTADO.radio);
-      return;
-    }
-    ESTADO.circulo = L.circle(punto, {
-      radius: ESTADO.radio, color: "rgba(200,255,0,.35)", weight: 1, dashArray: "4 6",
-      fillColor: "#c8ff00", fillOpacity: 0.035, interactive: false
-    }).addTo(ESTADO.mapa);
-  }
+  // El radio y el radar se dibujan en canvas: más fino y sin nodos de DOM.
+  function pintarRadio() { pintarCanvas(); }
 
   function motivoPermiso() {
     if (!window.isSecureContext) return "inseguro";
@@ -824,6 +847,28 @@ window.Placer = (function () {
     cargar();
   }
 
+  function centrarEnMi() {
+    if (!ESTADO.yo) {
+      // Sin lectura todavía: se pide y, cuando llegue, aplicarPosicion centra.
+      ubicar(true);
+      avisar("Buscando tu ubicación…");
+      return;
+    }
+    ESTADO.manual = false;
+    ESTADO.pos = ESTADO.yo;
+    const volver = $("mpVolver");
+    if (volver) volver.hidden = true;
+    pintarEstado();
+    pintarObjetivo();
+    pintarRadio();
+    if (ESTADO.mapa) {
+      ESTADO.mapa.flyTo([ESTADO.yo.lat, ESTADO.yo.lon], Math.max(ESTADO.mapa.getZoom(), 17),
+        { duration: 1.1, easeLinearity: 0.25 });
+    }
+    avisar("Centrado en tu ubicación");
+    if (!ESTADO.mercados.length) cargar();
+  }
+
   function volverAMi() {
     const q = $("mpBuscarQ");
     if (q) q.value = "";
@@ -881,6 +926,7 @@ window.Placer = (function () {
     L.control.zoom({ position: "bottomright" }).addTo(ESTADO.mapa);
     L.control.scale({ imperial: false, position: "bottomleft", maxWidth: 90 }).addTo(ESTADO.mapa);
 
+    montarCanvas();
     ESTADO.mapa.on("zoomend", marcarZoom);
     ESTADO.mapa.on("dragend", alMoverMapa);
     if (ESTADO.pos) marcarUsuario(ESTADO.pos);
@@ -964,6 +1010,73 @@ window.Placer = (function () {
     return [...grupos.values()].map((g) => ({
       items: g.items, lat: g.lat / g.items.length, lon: g.lon / g.items.length
     }));
+  }
+
+  function montarCanvas() {
+    const c = $("mpCanvas");
+    if (!c || !ESTADO.mapa) return;
+    ESTADO.canvas = c;
+    ESTADO.mapa.on("move zoom viewreset resize", pintarCanvas);
+    let ultimo = 0;
+    const bucle = (t) => {
+      // ~24 fps: suficiente para el pulso y no gasta batería.
+      if (!document.hidden && t - ultimo > 42) { ultimo = t; pintarCanvas(); }
+      ESTADO.raf = requestAnimationFrame(bucle);
+    };
+    ESTADO.raf = requestAnimationFrame(bucle);
+  }
+
+  function pintarCanvas() {
+    const c = ESTADO.canvas, mapa = ESTADO.mapa;
+    if (!c || !mapa) return;
+    const ctx = c.getContext("2d");
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const w = c.clientWidth || 1, h = c.clientHeight || 1;
+    if (c.width !== Math.round(w * dpr) || c.height !== Math.round(h * dpr)) {
+      c.width = Math.round(w * dpr); c.height = Math.round(h * dpr);
+    }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    if (!ESTADO.pos) return;
+
+    const centro = mapa.latLngToContainerPoint([ESTADO.pos.lat, ESTADO.pos.lon]);
+    const zoom = mapa.getZoom();
+    const mpp = 156543.03392 * Math.cos(ESTADO.pos.lat * Math.PI / 180) / Math.pow(2, zoom);
+    const r = Math.max(8, ESTADO.radio / mpp);
+
+    // Radio de búsqueda: relleno tenue + aro punteado.
+    ctx.beginPath();
+    ctx.arc(centro.x, centro.y, r, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(200,255,0,.05)";
+    ctx.fill();
+    ctx.setLineDash([5, 7]);
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = "rgba(200,255,0,.38)";
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Radar sobre la posición real (si hay GPS).
+    if (ESTADO.yo) {
+      const p = mapa.latLngToContainerPoint([ESTADO.yo.lat, ESTADO.yo.lon]);
+      const t = performance.now() / 1000;
+      for (let i = 0; i < 3; i++) {
+        const fase = ((t * 0.4) + i / 3) % 1;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 12 + fase * 48, 0, Math.PI * 2);
+        ctx.strokeStyle = "rgba(200,255,0," + (0.26 * (1 - fase)).toFixed(3) + ")";
+        ctx.lineWidth = 1.4;
+        ctx.stroke();
+      }
+      ctx.lineWidth = 1;
+      filtrados().slice(0, 6).forEach((m) => {
+        const q = mapa.latLngToContainerPoint([m.lat, m.lon]);
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y);
+        ctx.lineTo(q.x, q.y);
+        ctx.strokeStyle = "rgba(200,255,0,.14)";
+        ctx.stroke();
+      });
+    }
   }
 
   function pintarMapa() {
@@ -1089,7 +1202,7 @@ window.Placer = (function () {
       if (n) tags.push('<em class="mp-tag carrito">' + n + " en el pedido</em>");
       const linea = [m.rubro, m.direccion || m.comuna].filter(Boolean).join(" · ");
       return '<button type="button" class="mp-item" data-id="' + esc(m.id) + '">' +
-        '<span class="mp-item-ico">' + icono(m.ico, 20) + "</span>" +
+        '<span class="mp-item-ico">' + icono(m.ico, 20) + logoDe(m) + "</span>" +
         '<span class="mp-item-txt"><b>' + esc(m.nombre) + "</b>" +
         "<small>" + esc(linea) + "</small>" +
         (tags.length ? '<span class="mp-item-tags">' + tags.join("") + "</span>" : "") +
@@ -1164,7 +1277,7 @@ window.Placer = (function () {
     const carrito = ESTADO.carrito[m.id] || { items: {} };
     const todos = productos(m);
 
-    $("mpHojaIco").innerHTML = icono(m.ico, 22);
+    $("mpHojaIco").innerHTML = icono(m.ico, 22) + logoDe(m);
     $("mpHojaNombre").textContent = m.nombre;
     $("mpHojaSub").textContent = [m.rubro, distancia(m.dist) + " de ti"].filter(Boolean).join(" · ");
 
@@ -1526,6 +1639,41 @@ window.Placer = (function () {
     return ESTADO.pago && ESTADO.pago.entrega === "delivery" ? 1990 : 0;
   }
 
+  function marcaTarjeta(numero) {
+    const n = String(numero).replace(/\D/g, "");
+    if (/^4/.test(n)) return { nombre: "Visa", largo: [13, 16, 19], cvv: 3 };
+    if (/^(5[1-5]|2[2-7])/.test(n)) return { nombre: "Mastercard", largo: [16], cvv: 3 };
+    if (/^3[47]/.test(n)) return { nombre: "Amex", largo: [15], cvv: 4 };
+    if (/^(6011|65|64[4-9])/.test(n)) return { nombre: "Discover", largo: [16], cvv: 3 };
+    return { nombre: "Tarjeta", largo: [13, 16, 19], cvv: 3 };
+  }
+
+  function erroresPago() {
+    const e = {};
+    const p = ESTADO.pedido;
+    if (!p.nombre || p.nombre.trim().length < 2) e.nombre = "Escribe tu nombre para el pedido.";
+    if (p.telefono && p.telefono.replace(/\D/g, "").length < 8 && p.telefono.trim()) {
+      e.telefono = "El teléfono debe tener al menos 8 dígitos.";
+    }
+    if (ESTADO.pago.entrega === "delivery" && !(ESTADO.pago.direccion || "").trim()) {
+      e.direccion = "Falta la dirección para el delivery.";
+    }
+    if (ESTADO.pago.metodo === "tarjeta") {
+      const num = String(ESTADO.pago.numero || "").replace(/\D/g, "");
+      const m = marcaTarjeta(num);
+      if (!m.largo.includes(num.length) || !luhn(num)) e.numero = "Número inválido para " + m.nombre + ".";
+      if (!fechaTarjetaOk(ESTADO.pago.exp || "")) e.exp = "Vencimiento MM/AA no válido.";
+      if (!new RegExp("^\\d{" + m.cvv + "}$").test(ESTADO.pago.cvv || "")) e.cvv = "CVV de " + m.cvv + " dígitos.";
+      if (!(ESTADO.pago.titular || "").trim()) e.titular = "Nombre como figura en la tarjeta.";
+    }
+    return e;
+  }
+
+  function err(clave) {
+    const e = ESTADO.pago.errores || {};
+    return e[clave] ? '<p class="mp-error">' + esc(e[clave]) + "</p>" : "";
+  }
+
   function pintarPago() {
     const m = tiendaDePago();
     if (!m) { cerrarPago(); return; }
@@ -1564,6 +1712,8 @@ window.Placer = (function () {
     }
 
     const tarjeta = ESTADO.pago.metodo === "tarjeta";
+    const marca = marcaTarjeta(ESTADO.pago.numero);
+
     $("mpPagoCuerpo").innerHTML =
       '<div class="mp-pago-resumen">' +
         items.map((x) => '<div class="mp-pago-linea"><span>' + x.cantidad + " × " + esc(x.nombre) +
@@ -1572,13 +1722,20 @@ window.Placer = (function () {
         (envio ? '<div class="mp-pago-linea mp-pago-sub"><span>Envío</span><b>' + clp(envio) + "</b></div>" : "") +
       "</div>" +
 
+      '<div class="mp-sec"><h3>Tus datos</h3>' +
+        '<input id="mpCliNombre" class="mp-campo' + (err("nombre") ? " mal" : "") + '" autocomplete="name" placeholder="Nombre y apellido" value="' + esc(p.nombre) + '">' +
+        err("nombre") +
+        '<input id="mpCliTel" class="mp-campo' + (err("telefono") ? " mal" : "") + '" type="tel" inputmode="tel" autocomplete="tel" placeholder="Teléfono (opcional)" value="' + esc(p.telefono) + '">' +
+        err("telefono") +
+      "</div>" +
+
       '<div class="mp-sec"><h3>Entrega</h3>' +
         '<div class="mp-cli-modos" id="mpEntrega">' +
           '<button type="button" data-e="retiro" class="' + (ESTADO.pago.entrega !== "delivery" ? "on" : "") + '">Retiro</button>' +
-          '<button type="button" data-e="delivery" class="' + (ESTADO.pago.entrega === "delivery" ? "on" : "") + '">Delivery</button>' +
+          '<button type="button" data-e="delivery" class="' + (ESTADO.pago.entrega === "delivery" ? "on" : "") + '">Delivery (+' + clp(1990) + ")</button>" +
         "</div>" +
         (ESTADO.pago.entrega === "delivery"
-          ? '<input id="mpPagoDir" class="mp-campo" placeholder="Calle y número" value="' + esc(ESTADO.pago.direccion || "") + '">'
+          ? '<input id="mpPagoDir" class="mp-campo' + (err("direccion") ? " mal" : "") + '" autocomplete="street-address" placeholder="Calle y número" value="' + esc(ESTADO.pago.direccion || "") + '">' + err("direccion")
           : "") +
       "</div>" +
 
@@ -1591,12 +1748,15 @@ window.Placer = (function () {
         "</div>" +
         (tarjeta
           ? '<div class="mp-tarjeta">' +
-              '<input id="mpTarNum" class="mp-campo" inputmode="numeric" autocomplete="cc-number" placeholder="Número de tarjeta" maxlength="23" value="' + esc(ESTADO.pago.numero || "") + '">' +
+              '<div class="mp-tar-cab"><input id="mpTarNum" class="mp-campo' + (err("numero") ? " mal" : "") + '" inputmode="numeric" autocomplete="cc-number" placeholder="Número de tarjeta" maxlength="23" value="' + esc(ESTADO.pago.numero || "") + '">' +
+                '<span class="mp-tar-marca" id="mpTarMarca">' + esc(marca.nombre) + "</span></div>" +
+              err("numero") +
               '<div class="mp-tar-fila">' +
-                '<input id="mpTarExp" class="mp-campo" inputmode="numeric" autocomplete="cc-exp" placeholder="MM/AA" maxlength="5" value="' + esc(ESTADO.pago.exp || "") + '">' +
-                '<input id="mpTarCvv" class="mp-campo" inputmode="numeric" autocomplete="cc-csc" placeholder="CVV" maxlength="4" value="' + esc(ESTADO.pago.cvv || "") + '">' +
-              "</div>" +
-              '<input id="mpTarNom" class="mp-campo" autocomplete="cc-name" placeholder="Nombre en la tarjeta" value="' + esc(ESTADO.pago.titular || "") + '">' +
+                '<input id="mpTarExp" class="mp-campo' + (err("exp") ? " mal" : "") + '" inputmode="numeric" autocomplete="cc-exp" placeholder="MM/AA" maxlength="5" value="' + esc(ESTADO.pago.exp || "") + '">' +
+                '<input id="mpTarCvv" class="mp-campo' + (err("cvv") ? " mal" : "") + '" inputmode="numeric" autocomplete="cc-csc" placeholder="CVV" maxlength="4" value="' + esc(ESTADO.pago.cvv || "") + '">' +
+              "</div>" + err("exp") + err("cvv") +
+              '<input id="mpTarNom" class="mp-campo' + (err("titular") ? " mal" : "") + '" autocomplete="cc-name" placeholder="Nombre en la tarjeta" value="' + esc(ESTADO.pago.titular || "") + '">' +
+              err("titular") +
               '<p class="mp-pago-nota">Simulación: los datos no se envían a ninguna parte. ' +
                 "Puedes probar con 4111 1111 1111 1111.</p>" +
             "</div>"
@@ -1614,14 +1774,19 @@ window.Placer = (function () {
       "</div>" +
       '<p class="mp-pago-nota">Pago simulado con fines de demostración.</p>';
 
-    $("mpPagoCuerpo").querySelectorAll("#mpEntrega button").forEach((b) => {
-      b.onclick = () => { ESTADO.pago.entrega = b.dataset.e; pintarPago(); };
+    const cuerpo = $("mpPagoCuerpo");
+    cuerpo.querySelectorAll("#mpEntrega button").forEach((b) => {
+      b.onclick = () => { ESTADO.pago.entrega = b.dataset.e; ESTADO.pago.errores = {}; pintarPago(); };
     });
-    $("mpPagoCuerpo").querySelectorAll("#mpMetodos button").forEach((b) => {
-      b.onclick = () => { ESTADO.pago.metodo = b.dataset.m; pintarPago(); };
+    cuerpo.querySelectorAll("#mpMetodos button").forEach((b) => {
+      b.onclick = () => { ESTADO.pago.metodo = b.dataset.m; ESTADO.pago.errores = {}; pintarPago(); };
     });
-    const dir = $("mpPagoDir");
+
+    const nom = $("mpCliNombre"), tel = $("mpCliTel"), dir = $("mpPagoDir");
+    if (nom) nom.oninput = () => { ESTADO.pedido.nombre = nom.value; guardar(CLAVE_CLIENTE, ESTADO.pedido); };
+    if (tel) tel.oninput = () => { ESTADO.pedido.telefono = tel.value; guardar(CLAVE_CLIENTE, ESTADO.pedido); };
     if (dir) dir.oninput = () => { ESTADO.pago.direccion = dir.value; };
+
     ["mpTarNum", "mpTarExp", "mpTarCvv", "mpTarNom"].forEach((id) => {
       const el = $(id);
       if (!el) return;
@@ -1630,6 +1795,8 @@ window.Placer = (function () {
           const d = el.value.replace(/\D/g, "").slice(0, 19);
           el.value = d.replace(/(.{4})/g, "$1 ").trim();
           ESTADO.pago.numero = el.value;
+          const chip = $("mpTarMarca");
+          if (chip) chip.textContent = marcaTarjeta(el.value).nombre;
         } else if (id === "mpTarExp") {
           let v = el.value.replace(/\D/g, "").slice(0, 4);
           if (v.length > 2) v = v.slice(0, 2) + "/" + v.slice(2);
@@ -1641,6 +1808,7 @@ window.Placer = (function () {
         } else {
           ESTADO.pago.titular = el.value;
         }
+        el.classList.remove("mal");
       };
     });
 
@@ -1652,17 +1820,15 @@ window.Placer = (function () {
   }
 
   function pagar(m) {
-    const p = ESTADO.pedido;
-    if (!p.nombre || p.nombre.length < 2) { avisar("Escribe tu nombre para el pedido."); return; }
-    if (ESTADO.pago.entrega === "delivery" && !(ESTADO.pago.direccion || "").trim()) {
-      avisar("Falta la dirección para el delivery."); return;
+    const problemas = erroresPago();
+    if (Object.keys(problemas).length) {
+      ESTADO.pago.errores = problemas;
+      pintarPago();
+      const primero = document.querySelector("#mpPago .mp-campo.mal");
+      if (primero) primero.focus({ preventScroll: false });
+      return;
     }
-    if (ESTADO.pago.metodo === "tarjeta") {
-      if (!luhn(ESTADO.pago.numero || "")) { avisar("El número de tarjeta no es válido. Prueba 4111 1111 1111 1111."); return; }
-      if (!fechaTarjetaOk(ESTADO.pago.exp || "")) { avisar("La fecha de vencimiento no es válida (MM/AA)."); return; }
-      if (!/^\d{3,4}$/.test(ESTADO.pago.cvv || "")) { avisar("El CVV debe tener 3 o 4 dígitos."); return; }
-      if (!(ESTADO.pago.titular || "").trim()) { avisar("Falta el nombre en la tarjeta."); return; }
-    }
+    ESTADO.pago.errores = {};
 
     ESTADO.pago.estado = "procesando";
     const pie = $("mpPagoPie");
@@ -1739,10 +1905,10 @@ window.Placer = (function () {
 
   function montarInterfaz() {
 
-    $("mpUbicar").onclick = () => {
-      if (ESTADO.manual && ESTADO.yo) { volverAMi(); return; }
-      ubicar(true);
-    };
+    $("mpUbicar").onclick = () => centrarEnMi();
+    const zi = $("mpZoomIn"), zo = $("mpZoomOut");
+    if (zi) zi.onclick = () => { if (ESTADO.mapa) ESTADO.mapa.zoomIn(1); };
+    if (zo) zo.onclick = () => { if (ESTADO.mapa) ESTADO.mapa.zoomOut(1); };
     const volver = $("mpVolver");
     if (volver) volver.onclick = volverAMi;
 

@@ -432,7 +432,7 @@
     host.innerHTML = `
       <div class="login-box">
         <div class="login-head">
-          <div class="mark" aria-hidden="true"></div>
+          <div class="mark" aria-hidden="true"><img src="./icons/logo-f.svg" alt=""></div>
           <b>FORGE CORE STOCK</b>
         </div>
         <h2>${first ? 'Crea la cuenta del dispositivo' : 'Entra a FORGE CORE STOCK'}</h2>

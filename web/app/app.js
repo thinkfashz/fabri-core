@@ -26,7 +26,7 @@
   const THEMES = {
     aurora: { c: '#8C8CFF', soft: 'rgba(140,140,255,.14)', d: '#3FE0C9', name: 'Aurora' },
     aqua:   { c: '#3FE0C9', soft: 'rgba(63,224,201,.14)',  d: '#8C8CFF', name: 'Aqua' },
-    lima:   { c: '#C8F542', soft: 'rgba(200,245,66,.13)',  d: '#3FE0C9', name: 'Lima' },
+    lima:   { c: '#C8FF00', soft: 'rgba(200,255,0,.12)',   d: '#B7FF32', name: 'FORGE' },
     ambar:  { c: '#FFC24B', soft: 'rgba(255,194,75,.14)',  d: '#8C8CFF', name: 'Ámbar' }
   };
 
@@ -42,7 +42,7 @@
     S.theme = key; document.documentElement.style.setProperty('--accent', t.c);
     document.documentElement.style.setProperty('--accent-soft', t.soft);
     document.documentElement.style.setProperty('--accent-2', t.d || t.c);
-    document.querySelector('meta[name=theme-color]').setAttribute('content', '#04060D');
+    document.querySelector('meta[name=theme-color]').setAttribute('content', '#050505');
     localStorage.setItem('fcore.theme', key);
     $$('#themes .chip').forEach(c => c.classList.toggle('on', c.dataset.k === key));
   }

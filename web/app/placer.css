@@ -842,10 +842,10 @@ body.mp-abierto .nav { transform: translateY(112%); transition: transform .24s c
 
 /* Botones flotantes de la derecha */
 .mp-hud-der {
-  position: absolute; right: 12px; top: 46%; transform: translateY(-50%);
+  position: absolute; right: 12px; top: 43%; transform: translateY(-50%);
   display: grid; gap: 8px;
 }
-.mp-hud.con-barra .mp-hud-der { top: 38%; }
+.mp-hud.con-barra .mp-hud-der { top: 34%; }
 .mp-hud-der .mp-ubi,
 .mp-hud-der .mp-car-btn {
   background: rgba(12, 14, 16, .88);
@@ -878,15 +878,15 @@ body.mp-abierto .nav { transform: translateY(112%); transition: transform .24s c
 
 /* Leyenda, aviso y crédito */
 
-.mp-hud .mp-credito { position: absolute; right: 12px; bottom: calc(84px + env(safe-area-inset-bottom)); }
+.mp-hud .mp-credito { position: absolute; right: 12px; bottom: calc(96px + env(safe-area-inset-bottom)); }
 .mp-hud .mp-aviso { position: absolute; left: 12px; right: 12px; bottom: calc(140px + env(safe-area-inset-bottom)); }
-.mp-hud.con-barra .mp-credito { bottom: calc(152px + env(safe-area-inset-bottom)); }
+.mp-hud.con-barra .mp-credito { bottom: calc(164px + env(safe-area-inset-bottom)); }
 .mp-hud.con-barra .mp-aviso { bottom: calc(208px + env(safe-area-inset-bottom)); }
 
 /* ── carrusel de mercados ───────────────────────────────────────────────── */
 .mp-hud .mp-lista {
   position: absolute; left: 0; right: 0;
-  bottom: calc(84px + env(safe-area-inset-bottom));
+  bottom: calc(96px + env(safe-area-inset-bottom));
   display: flex; gap: 9px; overflow-x: auto; scrollbar-width: none;
   padding: 4px 12px 6px;
   scroll-snap-type: x mandatory;
@@ -896,7 +896,7 @@ body.mp-abierto .nav { transform: translateY(112%); transition: transform .24s c
   transition: bottom .2s;
 }
 .mp-hud .mp-lista::-webkit-scrollbar { display: none; }
-.mp-hud.con-barra .mp-lista { bottom: calc(152px + env(safe-area-inset-bottom)); }
+.mp-hud.con-barra .mp-lista { bottom: calc(164px + env(safe-area-inset-bottom)); }
 
 .mp-hud .mp-item {
   flex: 0 0 auto; width: 248px; scroll-snap-align: start;
@@ -910,7 +910,7 @@ body.mp-abierto .nav { transform: translateY(112%); transition: transform .24s c
 /* ── barra del pedido ───────────────────────────────────────────────────── */
 .mp-barra {
   position: absolute; left: 12px; right: 12px;
-  bottom: calc(84px + env(safe-area-inset-bottom));
+  bottom: calc(96px + env(safe-area-inset-bottom));
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   padding: 10px 10px 10px 14px;
   border-radius: var(--mp-r-lg);
@@ -1009,3 +1009,56 @@ body.mp-abierto .nav { transform: translateY(112%); transition: transform .24s c
   .mp-lienzo { transition: none; }
   .mp-barra, .mp-exito-marca { animation: none; }
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Canvas del mapa · radar y radio dibujados en tiempo real
+   ══════════════════════════════════════════════════════════════════════════ */
+.mp-canvas {
+  position: absolute; inset: 0; z-index: 402;
+  width: 100%; height: 100%;
+  pointer-events: none;
+}
+.mp-zoom {
+  display: grid; gap: 1px;
+  border-radius: var(--mp-r-md); overflow: hidden;
+  border: 1px solid var(--mp-line-2);
+  box-shadow: 0 10px 26px -12px rgba(0,0,0,.9);
+}
+.mp-zoom button {
+  width: 44px; height: 34px;
+  border: 0; background: rgba(12,14,16,.9);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  color: var(--mp-tx); font: inherit; font-size: 17px; font-weight: 600;
+  cursor: pointer; line-height: 1;
+}
+.mp-zoom button:first-child { border-bottom: 1px solid var(--mp-line); }
+.mp-zoom button:hover { background: var(--mp-elev); color: var(--mp-lima); }
+.mp-zoom button:active { transform: scale(.96); }
+
+/* Logo real del local, con la pastilla de categoría como respaldo. */
+.mp-logo {
+  width: 100%; height: 100%; border-radius: inherit;
+  object-fit: contain; background: #fff;
+  padding: 5px;
+}
+.mp-item-ico, .mp-hoja-ico { position: relative; overflow: hidden; }
+
+/* ── pago · estados de error y marca de tarjeta ─────────────────────────── */
+.mp-tar-cab { display: flex; align-items: center; gap: 8px; }
+.mp-tar-cab .mp-campo { flex: 1; margin-top: 8px; }
+.mp-tar-marca {
+  flex: 0 0 auto; margin-top: 8px;
+  padding: 6px 10px; border-radius: var(--mp-r-sm);
+  border: 1px solid var(--mp-line); background: var(--mp-elev);
+  font-size: 10.5px; font-weight: 750; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--mp-tx3);
+}
+.mp-campo.mal {
+  border-color: rgba(248, 113, 113, .65);
+  box-shadow: 0 0 0 3px rgba(248, 113, 113, .12);
+}
+.mp-error {
+  margin: 6px 0 0; font-size: 11px; line-height: 1.4;
+  color: #f87171;
+}
+.mp-error::before { content: "! "; font-weight: 800; }
