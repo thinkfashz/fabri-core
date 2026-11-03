@@ -377,6 +377,7 @@
     $$('.nav button').forEach(b => b.classList.toggle('on', b.dataset.go === id));
     if (id === 'panel' && window.Placer) Placer.render();
     if (id === 'nucleo') renderPanel();
+    if (id === 'negocio' && window.Negocio) Negocio.render();
     if (id === 'mem') renderMem($('#memQ').value);
     if (id === 'flow') { Graph.init(); Graph.wake(); }
     if (id === 'sql') { $('#sqlIn').focus(); }

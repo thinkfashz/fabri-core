@@ -24,6 +24,7 @@ window.Placer = (function () {
   const CLAVE_RADIO = "fcore.placer.radio";
   const CLAVE_UBI = "fcore.placer.ubicacion";
   const CLAVE_CLIENTE = "fcore.placer.cliente";
+  const CLAVE_PEDIDOS = "fcore.placer.pedidos";
 
   /* Santiago centro: solo si se niega la ubicación o el equipo no la entrega. */
   const RESPALDO = { lat: -33.4489, lon: -70.6693, nombre: "Santiago centro" };
@@ -1841,6 +1842,7 @@ window.Placer = (function () {
     setTimeout(() => {
       ESTADO.pago.estado = "listo";
       ESTADO.pago.codigo = "MP-" + String(Date.now()).slice(-6);
+      guardarPedido(m, total);
       delete ESTADO.carrito[m.id];
       guardarCarrito();
       pintarCarritoBtn();
@@ -1848,6 +1850,30 @@ window.Placer = (function () {
       pintarLista();
       pintarPago();
     }, 1600);
+  }
+
+  /* El pedido queda en el historial local: es lo que alimenta el panel de
+     negocio (pedidos, ventas del día y ticket promedio). */
+  function guardarPedido(m, total) {
+    try {
+      const lista = leer(CLAVE_PEDIDOS, []);
+      lista.unshift({
+        codigo: ESTADO.pago.codigo,
+        fecha: Date.now(),
+        local: { id: m.id, nombre: m.nombre },
+        items: (ESTADO.pago.items || []).map((x) => ({ nombre: x.nombre, precio: x.precio, cantidad: x.cantidad })),
+        subtotal: ESTADO.pago.subtotal || 0,
+        envio: costoEnvio(),
+        total: total,
+        metodo: ESTADO.pago.metodo,
+        entrega: ESTADO.pago.entrega,
+        direccion: ESTADO.pago.direccion || "",
+        cliente: { nombre: ESTADO.pedido.nombre || "", telefono: ESTADO.pedido.telefono || "" },
+        estado: "pagado"
+      });
+      guardar(CLAVE_PEDIDOS, lista.slice(0, 300));
+      if (window.Negocio) window.Negocio.render();
+    } catch (e) { /* almacenamiento lleno o privado */ }
   }
 
   function textoPedido(m, total, envio) {

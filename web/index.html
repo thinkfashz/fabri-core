@@ -621,6 +621,64 @@ section.land-sec{padding-left:20px;padding-right:20px}
   .land-drawer-luz::before{animation:none}
   .land-card:hover,.land-mod:hover{transform:none}
 }
+
+/* ── MercadoPlacer ─────────────────────────────────────────────────────── */
+.land-mercado{display:grid;gap:16px;margin-top:22px;align-items:stretch}
+@media(min-width:880px){.land-mercado{grid-template-columns:1.05fr .95fr;gap:22px;align-items:center}}
+.land-mercado-mapa{
+  position:relative;min-height:280px;border-radius:24px;overflow:hidden;
+  border:1px solid var(--line);
+  background:
+    radial-gradient(70% 60% at 50% 40%,rgba(200,255,0,.12),transparent 70%),
+    linear-gradient(180deg,#0d0f0c,#08090a);
+}
+.land-mercado-mapa::before{
+  content:"";position:absolute;inset:0;
+  background-image:linear-gradient(rgba(255,255,255,.05) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.05) 1px,transparent 1px);
+  background-size:42px 42px;
+  -webkit-mask-image:radial-gradient(circle at 50% 50%,#000 30%,transparent 78%);
+  mask-image:radial-gradient(circle at 50% 50%,#000 30%,transparent 78%);
+}
+.lm-ring{
+  position:absolute;left:50%;top:50%;width:62%;aspect-ratio:1;transform:translate(-50%,-50%);
+  border-radius:50%;border:1px dashed rgba(200,255,0,.4);
+}
+.lm-yo{
+  position:absolute;left:50%;top:50%;width:14px;height:14px;border-radius:50%;
+  transform:translate(-50%,-50%);background:var(--accent);
+  box-shadow:0 0 0 6px rgba(200,255,0,.12),0 0 26px rgba(200,255,0,.8);
+}
+.lm-pin{
+  position:absolute;width:34px;height:34px;border-radius:11px;transform:translate(-50%,-50%);
+  background:linear-gradient(160deg,#d9ff6b,#c8ff00 55%,#a8cf2f);
+  border:1px solid rgba(255,255,255,.4);
+  box-shadow:0 10px 18px -8px rgba(0,0,0,.9),0 0 20px -6px rgba(200,255,0,.7);
+}
+.lm-pin::after{
+  content:"";position:absolute;left:50%;top:100%;transform:translateX(-50%);
+  border-left:5px solid transparent;border-right:5px solid transparent;border-top:8px solid #a8cf2f;
+}
+.lm-1{left:31%;top:33%}.lm-2{left:66%;top:29%}.lm-3{left:58%;top:68%}
+.lm-etq{
+  position:absolute;left:14px;bottom:14px;
+  padding:5px 10px;border-radius:999px;
+  border:1px solid rgba(200,255,0,.3);background:rgba(8,10,6,.8);
+  font-family:var(--mono);font-size:10px;color:var(--accent);
+}
+.land-mercado-lista{display:grid;gap:8px}
+.land-mf{
+  display:flex;align-items:center;gap:11px;padding:11px 13px;
+  border-radius:15px;border:1px solid var(--line);background:rgba(255,255,255,.03);
+}
+.land-mf-ico{
+  width:36px;height:36px;flex:0 0 auto;border-radius:11px;
+  display:grid;place-items:center;color:var(--accent);
+  background:rgba(200,255,0,.1);border:1px solid rgba(200,255,0,.22);
+}
+.land-mf b{display:block;font-size:13.5px}
+.land-mf small{display:block;font-size:11px;color:var(--tx3)}
+.land-mercado-lista .btn{margin-top:6px}
 </style>
 <noscript><style>[data-reveal]{opacity:1;transform:none}</style></noscript>
 </head>
@@ -639,6 +697,7 @@ section.land-sec{padding-left:20px;padding-right:20px}
       <a href="#producto">Producto</a>
       <a href="#beneficios">Beneficios</a>
       <a href="#modulos">Módulos</a>
+      <a href="#mercado">Mercado</a>
       <a href="#descargar">Descargar</a>
     </div>
     <button class="land-menu-btn" id="landMenuBtn" type="button"
@@ -660,6 +719,7 @@ section.land-sec{padding-left:20px;padding-right:20px}
       <a href="#producto" data-menu><span class="land-ico" data-ico="layers"></span>Producto</a>
       <a href="#beneficios" data-menu><span class="land-ico" data-ico="spark"></span>Beneficios</a>
       <a href="#modulos" data-menu><span class="land-ico" data-ico="grid"></span>Módulos</a>
+      <a href="#mercado" data-menu><span class="land-ico" data-ico="map-pin"></span>MercadoPlacer</a>
       <a href="#versiones" data-menu><span class="land-ico" data-ico="smartphone"></span>Dos versiones</a>
       <a href="#malla" data-menu><span class="land-ico" data-ico="activity"></span>Malla en vivo</a>
       <a href="#stack" data-menu><span class="land-ico" data-ico="cpu"></span>Stack</a>
@@ -694,7 +754,7 @@ section.land-sec{padding-left:20px;padding-right:20px}
         búsqueda de texto completo, agente, consola SQL, inventario en la nube y planilla.
         <strong style="color:var(--tx)">Tus datos no salen de tu dispositivo</strong> salvo que tú lo pidas.</p>
       <div class="hero-cta">
-        <a class="btn primary" href="./app/">Abrir la consola</a>
+        <a class="btn primary" href="./app/#panel">Abrir MercadoPlacer</a>
         <a class="btn ghost" href="./descargas/FORGE-CORE-STOCK.apk" download="FORGE-CORE-STOCK.apk">Descargar APK</a>
       </div>
       <div class="trust">
@@ -933,6 +993,34 @@ section.land-sec{padding-left:20px;padding-right:20px}
   </div>
 </section>
 
+<!-- ============================ MERCADOPLACER ======================== -->
+<section id="mercado" class="wrap land-sec" data-barrido>
+  <div class="sec-head" data-reveal>
+    <p class="eyebrow">MercadoPlacer</p>
+    <h2>Tu barrio, <em>en un mapa</em>.</h2>
+    <p class="sub">El mercado de tu zona con los locales reales de OpenStreetMap: mapa en
+      vivo, catálogo por local, escáner de códigos y pago simulado.</p>
+  </div>
+
+  <div class="land-mercado" data-reveal>
+    <div class="land-mercado-mapa" aria-hidden="true">
+      <span class="lm-ring"></span>
+      <span class="lm-pin lm-1"></span>
+      <span class="lm-pin lm-2"></span>
+      <span class="lm-pin lm-3"></span>
+      <span class="lm-yo"></span>
+      <span class="lm-etq">1,5 km · 60 locales</span>
+    </div>
+    <div class="land-mercado-lista">
+      <article class="land-mf"><span class="land-mf-ico" data-ico="map-pin"></span><div><b>Mapa en vivo</b><small>tu GPS y el radio de búsqueda</small></div></article>
+      <article class="land-mf"><span class="land-mf-ico" data-ico="store"></span><div><b>Catálogo por local</b><small>productos, ofertas y categorías</small></div></article>
+      <article class="land-mf"><span class="land-mf-ico" data-ico="scan"></span><div><b>Escáner QR</b><small>agrega al carrito leyendo el código</small></div></article>
+      <article class="land-mf"><span class="land-mf-ico" data-ico="card"></span><div><b>Pago</b><small>tarjeta o transferencia, y WhatsApp</small></div></article>
+      <a class="btn primary block" href="./app/#panel">Abrir MercadoPlacer</a>
+    </div>
+  </div>
+</section>
+
 <!-- ============================= DESCARGAR ============================ -->
 <section id="descargar" data-barrido class="wrap land-sec">
   <div class="land-descarga" data-reveal>
@@ -1104,6 +1192,8 @@ section.land-sec{padding-left:20px;padding-right:20px}
     layers:'<path d="m12 2 9 5-9 5-9-5z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/>',
     spark:'<path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M5.6 18.4l2.8-2.8M15.6 8.4l2.8-2.8"/>',
     grid:'<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+    'map-pin':'<path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z"/><circle cx="12" cy="10" r="2.4"/>',
+    card:'<rect x="2.5" y="5" width="19" height="14" rx="3"/><path d="M2.5 10h19"/><path d="M6 15h4"/>',
     smartphone:'<rect x="6" y="2" width="12" height="20" rx="3"/><path d="M11 18h2"/>',
     activity:'<path d="M3 12h4l3 8 4-16 3 8h4"/>',
     cpu:'<rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/>',
