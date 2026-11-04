@@ -1761,11 +1761,11 @@ body.con-scan{overflow:hidden}
 /* ── Precio bajo la mira (tienda 3D) ────────────────────────────────────── */
 .t3d-precio {
   position: absolute; left: 10px; top: 62px; z-index: 6;
-  width: 186px; padding: 10px 12px;
+  width: 164px; padding: 9px 11px;
   display: grid; gap: 2px;
   border-radius: 14px;
-  border: 1px solid rgba(255,255,255,.14);
-  background: rgba(10, 12, 14, .62);
+  border: 1px solid rgba(200,255,0,.22);
+  background: rgba(8, 10, 12, .82);
   backdrop-filter: blur(16px) saturate(150%);
   -webkit-backdrop-filter: blur(16px) saturate(150%);
   box-shadow: 0 16px 36px -18px rgba(0,0,0,.75);
@@ -1784,7 +1784,7 @@ body.con-scan{overflow:hidden}
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
 .t3d-precio-fila { display: flex; align-items: baseline; gap: 7px; margin-top: 2px; }
-.t3d-precio-fila strong { font-size: 20px; font-weight: 800; letter-spacing: -.03em; color: #e8c87a; }
+.t3d-precio-fila strong { font-size: 19px; font-weight: 800; letter-spacing: -.03em; color: #e8c87a; }
 .t3d-precio-fila small { font-size: 9.5px; color: rgba(255,255,255,.55); }
 .t3d-precio em {
   font-style: normal; margin-top: 2px;
@@ -1864,16 +1864,85 @@ body.con-scan{overflow:hidden}
 .t3d-luz-desc { margin: 0; font-size: 10px; line-height: 1.45; color: var(--tx4); }
 
 /* Panel de cámaras: etiquetas sobre el canvas */
-.t3d-cams {
-  position: absolute; right: 6px; top: 77px; z-index: 6;
-  width: calc(62% + 3px);
-  display: grid; grid-template-columns: 1fr 1fr; gap: 3px;
-  grid-auto-rows: 18.6vw;
-  pointer-events: none;
+.t3d-cams-full { position: absolute; inset: 0; z-index: 9; }
+.t3d-cams-full[hidden] { display: none; }
+.t3d-cams-bar {
+  position: absolute; top: 0; left: 0; right: 0; height: 56px;
+  display: flex; align-items: center; gap: 10px; padding: 0 12px;
+  background: rgba(5,6,7,.92);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid rgba(255,255,255,.08);
 }
-.t3d-cams span {
-  align-self: start; justify-self: start;
-  padding: 1px 5px; border-radius: 4px;
-  background: rgba(0,0,0,.55); color: #c8ff00;
-  font-family: var(--mono); font-size: 8px; letter-spacing: .08em;
+.t3d-cams-bar .t3d-info { background: transparent; border: 0; padding: 0; backdrop-filter: none; }
+.t3d-cams-grid {
+  position: absolute; top: 56px; left: 0; right: 0; bottom: 0;
+  display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 4px;
 }
+.t3d-cams-grid span {
+  align-self: start; justify-self: start; margin: 8px;
+  padding: 3px 7px; border-radius: 6px;
+  background: rgba(0,0,0,.66); color: #c8ff00;
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: .08em;
+}
+
+/* ── Tirita lateral: oculta los botones ─────────────────────────────────── */
+.t3d-tira {
+  position: absolute; right: 0; top: 38%; z-index: 7;
+  writing-mode: vertical-rl; text-orientation: mixed;
+  padding: 13px 5px; border-radius: 12px 0 0 12px; cursor: pointer;
+  border: 1px solid rgba(255,255,255,.16); border-right: 0;
+  background: rgba(10,12,14,.7);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  color: var(--tx2); font: inherit; font-size: 10px; font-weight: 800;
+  letter-spacing: .12em; text-transform: uppercase;
+}
+.t3d-tira:active { color: var(--accent); }
+
+/* ── Pancita de ayuda ───────────────────────────────────────────────────── */
+.t3d-ayuda {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  bottom: calc(138px + env(safe-area-inset-bottom)); z-index: 7;
+  width: 34px; height: 34px; border-radius: 50%; cursor: pointer;
+  border: 1px solid rgba(255,255,255,.22);
+  background: rgba(10,12,14,.55);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  color: rgba(255,255,255,.85); font: inherit; font-size: 15px; font-weight: 800;
+  animation: t3d-ayuda-pulso 2.6s ease-in-out infinite;
+}
+@keyframes t3d-ayuda-pulso {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(200,255,0,.35); }
+  50% { box-shadow: 0 0 0 7px rgba(200,255,0,0); }
+}
+.t3d-ayuda-panel {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%);
+  z-index: 12; width: min(310px, 86vw); padding: 18px;
+  border-radius: 18px; border: 1px solid rgba(255,255,255,.14);
+  background: rgba(8,10,12,.94);
+  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+  box-shadow: 0 30px 60px -30px rgba(0,0,0,.9);
+}
+.t3d-ayuda-panel[hidden] { display: none; }
+.t3d-ayuda-panel > b { display: block; font-size: 13px; margin-bottom: 10px; letter-spacing: .04em; }
+.t3d-ayuda-panel ul { list-style: none; margin: 0 0 14px; padding: 0; display: grid; gap: 7px; }
+.t3d-ayuda-panel li { font-size: 12px; line-height: 1.45; color: var(--tx2); }
+.t3d-ayuda-panel li b { color: var(--accent); font-weight: 750; }
+.t3d-ayuda-panel button {
+  width: 100%; padding: 10px; border-radius: 11px; cursor: pointer;
+  border: 0; background: var(--accent); color: var(--on-accent);
+  font: inherit; font-size: 12.5px; font-weight: 800;
+}
+
+/* ── Modo oculto: sólo sticks, mira, tirita y ayuda ─────────────────────── */
+.t3d.ui-off .t3d-hud,
+.t3d.ui-off .t3d-tools,
+.t3d.ui-off .t3d-run { display: none; }
+
+/* ── Modo cámaras: se apaga todo lo demás ───────────────────────────────── */
+.t3d.cctv .t3d-hud,
+.t3d.cctv .t3d-tools,
+.t3d.cctv .t3d-run,
+.t3d.cctv .t3d-precio,
+.t3d.cctv .t3d-mira,
+.t3d.cctv .t3d-joystick,
+.t3d.cctv .t3d-tira,
+.t3d.cctv .t3d-ayuda { display: none; }

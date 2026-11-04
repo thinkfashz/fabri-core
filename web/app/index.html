@@ -591,7 +591,7 @@
       </section>
 
       <section class="screen" id="s-tienda">
-        <div class="t3d">
+        <div class="t3d" id="t3d">
           <canvas id="t3dCanvas"></canvas>
           <div class="t3d-hud">
             <button class="t3d-btn" id="t3dSalir" type="button" aria-label="Salir de la tienda">←</button>
@@ -615,7 +615,21 @@
           </div>
           <div class="t3d-mira" id="t3dMira" aria-hidden="true"></div>
 
-          <div class="t3d-cams" id="t3dCams" hidden></div>
+          <div class="t3d-cams-full" id="t3dCamsFull" hidden>
+            <div class="t3d-cams-bar">
+              <button class="t3d-btn" id="t3dCamsSalir" type="button" aria-label="Volver a la tienda">←</button>
+              <div class="t3d-info">
+                <b>Cámaras de seguridad</b>
+                <small>4 vistas en vivo · toca ← para volver</small>
+              </div>
+            </div>
+            <div class="t3d-cams-grid">
+              <span>CAM 1 · PASILLO</span>
+              <span>CAM 2 · PASILLO</span>
+              <span>CAM 3 · CONGELADOS</span>
+              <span>CAM 4 · ENTRADA</span>
+            </div>
+          </div>
 
           <div class="t3d-tools">
             <button class="t3d-tool" id="t3dLucesBtn" type="button" aria-label="Iluminación" aria-expanded="false">
@@ -646,6 +660,20 @@
           </div>
 
           <div class="t3d-aviso" id="t3dAviso" hidden></div>
+          <button class="t3d-tira" id="t3dTira" type="button" aria-pressed="false">ocultar</button>
+          <button class="t3d-ayuda" id="t3dAyuda" type="button" aria-label="Ayuda del menú">?</button>
+          <div class="t3d-ayuda-panel" id="t3dAyudaPanel" hidden>
+            <b>Cómo usar la tienda</b>
+            <ul>
+              <li><b>Izq</b> caminar · <b>Der</b> mirar</li>
+              <li><b>Correr</b>: mantén pulsado</li>
+              <li>Tocá un producto: precio y carrito</li>
+              <li><b>Luz</b>: intensidad y órbita</li>
+              <li><b>Cámaras</b>: 4 vistas en pantalla completa</li>
+              <li><b>ocultar</b>: quita los botones de la vista</li>
+            </ul>
+            <button type="button" id="t3dAyudaOk">Entendido</button>
+          </div>
           <button class="t3d-run" id="t3dCorrer" type="button">Correr</button>
           <div class="t3d-joystick" id="t3dJoy" aria-hidden="true"><span></span></div>
           <div class="t3d-joystick t3d-joy-cam" id="t3dJoyCam" aria-hidden="true"><span></span></div>

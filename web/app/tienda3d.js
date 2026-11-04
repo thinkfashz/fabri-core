@@ -15,8 +15,8 @@ window.Tienda3D = (function () {
   const $ = (id) => document.getElementById(id);
   const CLAVE_CARRITO = "fcore.mercado.carrito";
 
-  const ANCHO = 14, LARGO = 20, ALTO = 3.2;
-  const GONDOLAS = [-4.5, -1.5, 1.5, 4.5];
+  const ANCHO = 18, LARGO = 20, ALTO = 3.2;
+  const GONDOLAS = [-7.65, -4.59, -1.53, 1.53, 4.59, 7.65];
   const G_ANCHO = 1.06, G_LARGO = 9.0;
   const NIVELES = [0.42, 1.02, 1.62, 2.22];
   const TINTES = {
@@ -42,10 +42,10 @@ window.Tienda3D = (function () {
   let promos = [], promoIdx = 0, promoReloj = null;
   const luces = { amb: null, sol: null };
   const LUCES = {
-    calido: { amb: 0.36, dir: 0.62, color: 0xffe0b0, exp: 1.06, desc: "Luz de tienda de barrio: tono ámbar y sombras suaves." },
-    neutro: { amb: 0.42, dir: 0.70, color: 0xffffff, exp: 1.02, desc: "Luz pareja de supermercado: blanco neutro y sombras suaves." },
-    frio:   { amb: 0.38, dir: 0.60, color: 0xd6e9ff, exp: 1.04, desc: "Tono de cámara frigorífica: azulado y limpio." },
-    cine:   { amb: 0.18, dir: 0.95, color: 0xfff3e0, exp: 0.92, desc: "Contraste cinematográfico: sombras marcadas y foco cálido." }
+    calido: { amb: 0.26, dir: 0.50, color: 0xffe0b0, exp: 0.95, desc: "Luz de tienda de barrio: tono ámbar y sombras suaves." },
+    neutro: { amb: 0.28, dir: 0.54, color: 0xffffff, exp: 0.92, desc: "Luz pareja de supermercado: blanco neutro y sombras suaves." },
+    frio:   { amb: 0.25, dir: 0.48, color: 0xd6e9ff, exp: 0.93, desc: "Tono de cámara frigorífica: azulado y limpio." },
+    cine:   { amb: 0.14, dir: 0.78, color: 0xfff3e0, exp: 0.85, desc: "Contraste cinematográfico: sombras marcadas y foco cálido." }
   };
   let luzActual = "neutro", intensidadLuz = 1, orbitaLuz = 45;
   let camaras = [], cctv = false;
@@ -72,7 +72,7 @@ window.Tienda3D = (function () {
     g.strokeRect(1, 1, 254, 254);
     const t = new T.CanvasTexture(c);
     t.wrapS = t.wrapT = T.RepeatWrapping;
-    t.repeat.set(12, 17);
+    t.repeat.set(16, 17);
     t.anisotropy = 4;
     return t;
   }
@@ -92,27 +92,38 @@ window.Tienda3D = (function () {
 
   /* Tira de tablero: el rótulo de precios pegado al filo del estante.
      Fondo crema, nombre chico y precio grande, como en un super real. */
-  function texturaTira(items) {
+  function texturaTira(items, anchoCanvas) {
+    // El lienzo se ajusta a la proporción del tablero: si no, el texto sale
+    // estirado y borroso (16:1 vs 63:1 era el problema de las tiras).
+    const W = anchoCanvas || 4096, H = 128;
     const c = document.createElement("canvas");
-    c.width = 1024; c.height = 64;
+    c.width = W; c.height = H;
     const g = c.getContext("2d");
-    g.fillStyle = "#f6f1df"; g.fillRect(0, 0, 1024, 64);
-    g.fillStyle = "#c8ff00"; g.fillRect(0, 0, 8, 64);
+    g.fillStyle = "#f6f1df"; g.fillRect(0, 0, W, H);
+    g.fillStyle = "#c8ff00"; g.fillRect(0, 0, Math.round(W * 0.012), H);
+    const barra = Math.round(W * 0.012);
     const n = Math.max(1, items.length);
-    const ancho = (1024 - 8) / n;
+    const celda = (W - barra) / n;
+    const maxNom = Math.max(8, Math.floor((celda - 26) / 9.6));
     items.forEach((p, i) => {
-      const x = 8 + i * ancho;
-      if (i) { g.fillStyle = "rgba(27,26,20,.16)"; g.fillRect(x, 9, 1, 46); }
+      const x = barra + i * celda;
+      if (i) { g.fillStyle = "rgba(27,26,20,.16)"; g.fillRect(x, 12, 1, H - 24); }
       g.textAlign = "left"; g.textBaseline = "alphabetic";
-      g.fillStyle = "#5a564a";
-      g.font = "600 14px -apple-system, Segoe UI, Roboto, sans-serif";
-      g.fillText(String(p.nombre || "").slice(0, 20), x + 12, 25);
-      g.fillStyle = "#14171a";
-      g.font = "bold 26px -apple-system, Segoe UI, Roboto, sans-serif";
-      g.fillText("$" + Math.round(p.precio || 0).toLocaleString("es-CL"), x + 12, 55);
+      g.fillStyle = "#4d4a41";
+      g.font = "600 18px -apple-system, Segoe UI, Roboto, sans-serif";
+      g.fillText(String(p.nombre || "").slice(0, maxNom), x + 13, 40);
+      g.fillStyle = "#101214";
+      g.font = "bold 34px -apple-system, Segoe UI, Roboto, sans-serif";
+      g.fillText("$" + Math.round(p.precio || 0).toLocaleString("es-CL"), x + 13, 94);
+      g.fillStyle = "rgba(27,26,20,.5)";
+      g.font = "13px -apple-system, Segoe UI, Roboto, sans-serif";
+      g.fillText("c/u", x + 13, 116);
     });
     const t = new T.CanvasTexture(c);
     t.encoding = T.sRGBEncoding;
+    if (renderer && renderer.capabilities) {
+      t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+    }
     return t;
   }
 
@@ -203,7 +214,7 @@ window.Tienda3D = (function () {
   function actualizarCarrito(dt) {
     if (!carrito) return;
     const fx = -Math.sin(yaw), fz = -Math.cos(yaw);
-    let dist = 1.18;
+    let dist = 1.5;
     while (dist > 0.5 && choca(pos.x + fx * dist, pos.z + fz * dist)) dist -= 0.14;
     const tx = pos.x + fx * dist, tz = pos.z + fz * dist;
     const k = Math.min(1, dt * 6);
@@ -237,26 +248,26 @@ window.Tienda3D = (function () {
 
     /* Luces de local: sin quemar la escena. La exposición se controla con
        tone mapping, así el blanco no se come los colores de los productos. */
-    scene.add(new T.AmbientLight(0xffffff, 0.32));
-    scene.add(new T.HemisphereLight(0xffffff, 0xcfd6da, 0.42));
+    scene.add(new T.AmbientLight(0xffffff, 0.24));
+    scene.add(new T.HemisphereLight(0xffffff, 0xcfd6da, 0.28));
 
-    const sol = new T.DirectionalLight(0xffffff, 0.68);
+    const sol = new T.DirectionalLight(0xffffff, 0.50);
     sol.position.set(6, 11, 8);
     sol.castShadow = true;
     sol.shadow.mapSize.set(1024, 1024);
-    sol.shadow.camera.left = -12;
-    sol.shadow.camera.right = 12;
-    sol.shadow.camera.top = 12;
-    sol.shadow.camera.bottom = -12;
+    sol.shadow.camera.left = -15;
+    sol.shadow.camera.right = 15;
+    sol.shadow.camera.top = 14;
+    sol.shadow.camera.bottom = -14;
     sol.shadow.camera.far = 30;
     sol.shadow.bias = -0.0015;
     scene.add(sol);
     luces.sol = sol;
     luces.amb = scene.children.find((c) => c.isAmbientLight);
 
-    [ -4, 0, 4 ].forEach((z) => {
-      const p = new T.PointLight(0xfff1d8, 0.22, 14, 2);
-      p.position.set(0, 3.0, z);
+    [[ -4.5, -3 ], [ 4.5, -3 ], [ -4.5, 3 ], [ 4.5, 3 ]].forEach(([x, z]) => {
+      const p = new T.PointLight(0xfff1d8, 0.14, 15, 2);
+      p.position.set(x, 3.0, z);
       scene.add(p);
     });
 
@@ -279,7 +290,7 @@ window.Tienda3D = (function () {
 
     const panel = new T.MeshBasicMaterial({ color: 0xfffdf4 });
     [ -5, -1.7, 1.7, 5 ].forEach((z) => {
-      [ -3, 0, 3 ].forEach((x) => {
+      [ -6, -2, 2, 6 ].forEach((x) => {
         const l = new T.Mesh(new T.PlaneGeometry(1.1, 0.34), panel);
         l.rotation.x = Math.PI / 2;
         l.position.set(x, ALTO - 0.01, z);
@@ -347,13 +358,13 @@ window.Tienda3D = (function () {
       const muestra = (listaG.length ? listaG : catalogo).slice(0, 6);
       if (muestra.length) {
         const texTira = texturaTira(
-          Array.from({ length: 6 }, (_, k) => muestra[k % muestra.length])
+          Array.from({ length: 6 }, (_, k) => muestra[k % muestra.length]), 4096
         );
         const matTira = new T.MeshBasicMaterial({ map: texTira, side: T.DoubleSide });
         NIVELES.forEach((y) => {
           [1, -1].forEach((lado) => {
-            const tira = new T.Mesh(new T.PlaneGeometry(G_LARGO - 0.14, 0.10), matTira);
-            tira.position.set(gx + lado * (G_ANCHO / 2 + 0.013), y - 0.03, 0);
+            const tira = new T.Mesh(new T.PlaneGeometry(G_LARGO - 0.14, 0.27), matTira);
+            tira.position.set(gx + lado * (G_ANCHO / 2 + 0.013), y - 0.095, 0);
             tira.rotation.y = lado > 0 ? Math.PI / 2 : -Math.PI / 2;
             grupo.add(tira);
           });
@@ -420,8 +431,15 @@ window.Tienda3D = (function () {
     });
     const interior = new T.MeshLambertMaterial({ color: 0xdfeff7 });
 
-    const muebles = (catalogo.length ? catalogo : [{ nombre: "Producto", precio: 0 }])
-      .slice().sort((a, b) => (a.precio || 0) - (b.precio || 0)).slice(0, 6);
+    // Bebidas y yogures: el pasillo largo de congeladores del fondo.
+    const REFRIS = [
+      { nombre: "Agua 600 ml", precio: 1290 },
+      { nombre: "Yogur bebible", precio: 1890 },
+      { nombre: "Jugo 1 L", precio: 2490 },
+      { nombre: "Leche 1 L", precio: 1790 },
+      { nombre: "Pizza congelada", precio: 5990 },
+      { nombre: "Helado 1 L", precio: 4590 }
+    ];
 
     function crearCongelador(cx, cz, rotY) {
       const g = new T.Group();
@@ -438,13 +456,17 @@ window.Tienda3D = (function () {
       fondo.position.set(0, 0.95, 0.02);
       g.add(fondo);
 
-      // productos dentro
+      // bebidas (botellas) y yogures (vasitos) dentro
+      const botellaG = new T.CylinderGeometry(0.045, 0.05, 0.22, 10);
+      const vasoG = new T.CylinderGeometry(0.05, 0.04, 0.1, 10);
+      const latas = [0x9fd8ff, 0xffffff, 0xffe3ef, 0xcfe9ff, 0xffd9a8, 0xe6ffe6];
       for (let k = 0; k < 3; k++) {
-        for (let n = 0; n < 4; n++) {
-          const b = new T.Mesh(new T.BoxGeometry(0.16, 0.22, 0.16),
-            new T.MeshLambertMaterial({ color: [0xc8ff00, 0xffb020, 0x5aa9ff, 0x3ddc84][(k + n) % 4] }));
-          b.position.set(-0.9 + n * 0.22, 0.35 + k * 0.42, 0.2);
-          g.add(b);
+        for (let n = 0; n < 6; n++) {
+          const esBotella = (k + n) % 3 !== 2;
+          const m = new T.Mesh(esBotella ? botellaG : vasoG,
+            new T.MeshLambertMaterial({ color: latas[(k * 2 + n) % latas.length] }));
+          m.position.set(-1.0 + n * 0.32, (esBotella ? 0.34 : 0.28) + k * 0.4, 0.2);
+          g.add(m);
         }
       }
 
@@ -469,27 +491,26 @@ window.Tienda3D = (function () {
 
       // tira de precios en el canto superior del frente
       if (!crearCongelador.tira) {
-        crearCongelador.tira = texturaTira(
-          Array.from({ length: 6 }, (_, k) => muebles[k % muebles.length])
-        );
+        crearCongelador.tira = texturaTira(REFRIS, 1024);
       }
       const tiraF = new T.Mesh(
-        new T.PlaneGeometry(2.26, 0.11),
+        new T.PlaneGeometry(2.26, 0.27),
         new T.MeshBasicMaterial({ map: crearCongelador.tira, side: T.DoubleSide })
       );
-      tiraF.position.set(0, 1.74, 0.51);
+      tiraF.position.set(0, 1.74, 0.58);
       g.add(tiraF);
 
       scene.add(g);
       return g;
     }
 
-    // Pasillo de congeladores contra la pared izquierda (miran al centro).
-    [-5.2, -2.6, 0, 2.6].forEach((cz) => crearCongelador(-ANCHO / 2 + 0.75, cz, Math.PI / 2));
+    // Pasillo largo de congeladores en la pared del fondo (miran a la tienda).
+    [-7.65, -5.1, -2.55, 0, 2.55, 5.1, 7.65].forEach((cx) => crearCongelador(cx, -LARGO / 2 + 0.55, 0));
 
     /* televisor en la esquina del fondo, con su herraje de pared */
     const tvGrupo = new T.Group();
     tvGrupo.position.set(-ANCHO / 2 + 0.14, 2.35, -LARGO / 2 + 2.6);
+    tvGrupo.scale.setScalar(1.15);
     tvGrupo.rotation.y = Math.PI / 2 - 0.55;
 
     tv = crearTV();
@@ -544,7 +565,8 @@ window.Tienda3D = (function () {
     }, 4000);
 
     carrito = crearCarrito();
-    carrito.position.set(pos.x, 0, pos.z - 1.18);
+    carrito.scale.setScalar(1.05);
+    carrito.position.set(pos.x, 0, pos.z - 1.5);
     carrito.rotation.y = yaw;
     scene.add(carrito);
 
@@ -575,10 +597,11 @@ window.Tienda3D = (function () {
 
   function crearCamaras() {
     camaras = [
-      [-6.2, 2.75, -9.2], [6.2, 2.75, -9.2], [6.2, 2.75, 9.2], [0, 2.95, 9.6]
-    ].map(([x, y, z]) => {
-      const c = new T.PerspectiveCamera(66, 1.6, 0.1, 42);
+      [-8, 2.75, -8.4], [8, 2.75, -8.4], [8, 2.75, 9.2], [0, 2.95, 9.6]
+    ].map(([x, y, z], i) => {
+      const c = new T.PerspectiveCamera(66, 1.6, 0.1, 44);
       c.position.set(x, y, z);
+      c.userData.i = i;
       c.lookAt(0, 1.15, 0);
       return c;
     });
@@ -642,14 +665,21 @@ window.Tienda3D = (function () {
     if (cctv && camaras.length) {
       const W = renderer.domElement.width, H = renderer.domElement.height;
       const dpr = renderer.getPixelRatio();
-      const w = Math.floor(W * 0.31), h = Math.floor(w * 0.60);
-      const pad = 6 * dpr, gap = 3 * dpr, top = 74 * dpr;
+      const gap = Math.round(4 * dpr), head = Math.round(56 * dpr);
+      const w = Math.floor((W - gap) / 2), h = Math.floor((H - head - gap) / 2);
+      const t = performance.now();
       renderer.setScissorTest(true);
       camaras.forEach((cam, i) => {
         const col = i % 2, row = Math.floor(i / 2);
-        const x = W - (2 - col) * (w + gap) - pad;
-        const y = H - top - (row + 1) * (h + gap);
-        cam.aspect = w / h;
+        const x = col * (w + gap);
+        const y = row === 0 ? h + gap : 0;
+        // barrido lento, como una cámara de vigilancia
+        cam.lookAt(
+          Math.sin(t / 2600 + i * 1.7) * 2.2,
+          1.1,
+          Math.cos(t / 3400 + i * 1.3) * 2.2
+        );
+        cam.aspect = w / Math.max(1, h);
         cam.updateProjectionMatrix();
         renderer.setViewport(x, y, w, h);
         renderer.setScissor(x, y, w, h);
@@ -668,8 +698,8 @@ window.Tienda3D = (function () {
     for (let i = 0; i < GONDOLAS.length; i++) {
       if (Math.abs(x - GONDOLAS[i]) < G_ANCHO / 2 + m && Math.abs(z) < G_LARGO / 2 + m) return true;
     }
-    // pasillo de congeladores contra la pared izquierda
-    if (x < -5.25) return true;
+    // fila de congeladores contra la pared del fondo
+    if (z < -8.5) return true;
     return false;
   }
 
@@ -828,24 +858,43 @@ window.Tienda3D = (function () {
     const rangoOrb = $("t3dOrb");
     if (rangoOrb) rangoOrb.oninput = () => { orbitaLuz = Number(rangoOrb.value); aplicarLuz(); };
 
-    // Cámaras: 4 vistas en vivo dibujadas en el mismo canvas
-    const btnCams = $("t3dCamsBtn"), capaCams = $("t3dCams");
-    if (btnCams) {
-      btnCams.onclick = () => {
-        cctv = !cctv;
-        btnCams.setAttribute("aria-expanded", String(cctv));
-        if (capaCams) {
-          capaCams.hidden = !cctv;
-          capaCams.innerHTML = cctv
-            ? ["CAM 1", "CAM 2", "CAM 3", "CAM 4"].map((t) => "<span>" + t + "</span>").join("")
-            : "";
-        }
-        if (cctv) {
-          const p = $("t3dLuces");
-          if (p) p.hidden = true;
-        }
+    // Cámaras: 4 vistas en vivo a pantalla completa, con botón de volver
+    const btnCams = $("t3dCamsBtn");
+    const btnVolver = $("t3dCamsSalir");
+    function ponerCctv(on) {
+      cctv = on;
+      const raiz = $("t3d");
+      if (raiz) raiz.classList.toggle("cctv", on);
+      const caps = $("t3dCamsFull");
+      if (caps) caps.hidden = !on;
+      if (btnCams) btnCams.setAttribute("aria-expanded", String(on));
+      const p = $("t3dLuces");
+      if (p && on) p.hidden = true;
+      if (!on) {
+        camaras.forEach((c) => c.lookAt(0, 1.15, 0));
+        mirar = null;
+        puerta = null;
+      }
+    }
+    if (btnCams) btnCams.onclick = () => ponerCctv(!cctv);
+    if (btnVolver) btnVolver.onclick = () => ponerCctv(false);
+
+    // Tirita lateral: oculta o muestra los botones
+    const tira = $("t3dTira");
+    if (tira) {
+      tira.onclick = () => {
+        const raiz = $("t3d");
+        const off = raiz.classList.toggle("ui-off");
+        tira.textContent = off ? "mostrar" : "ocultar";
+        tira.setAttribute("aria-pressed", String(off));
       };
     }
+
+    // Pancita de ayuda: explica el menú
+    const ayuda = $("t3dAyuda"), panelAyuda = $("t3dAyudaPanel"), okAyuda = $("t3dAyudaOk");
+    const cerrarAyuda = () => { if (panelAyuda) panelAyuda.hidden = true; };
+    if (ayuda && panelAyuda) ayuda.onclick = () => { panelAyuda.hidden = !panelAyuda.hidden; };
+    if (okAyuda) okAyuda.onclick = cerrarAyuda;
 
     // Correr: mantén pulsado
     const btnCorrer = $("t3dCorrer");
@@ -920,7 +969,7 @@ window.Tienda3D = (function () {
         renderer.setPixelRatio(Math.min(1.3, window.devicePixelRatio || 1));
         renderer.outputEncoding = T.sRGBEncoding;
         renderer.toneMapping = T.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 1.05;
+        renderer.toneMappingExposure = 0.92;
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = T.PCFSoftShadowMap;
 
