@@ -30,7 +30,10 @@ window.Tienda3D = (function () {
   let instancias = null, mapa = [], puertas = [], tv = null, tvTextura = null, tvCanvas = null;
   let raycaster, puntero;
   let yaw = 0, pitch = 0;
-  const pos = { x: 0, y: 1.62, z: 8.2 };
+  const pos = { x: 0, y: 1.66, z: 8.2 };   // altura de los ojos: 1ª persona
+  const vel = { x: 0, z: 0 };              // inercia: arranca y frena suave
+  const FOV_BASE = 68;                     // encuadre humano, no pezón
+  let fovAct = FOV_BASE;
   const teclas = {};
   let joy = { x: 0, y: 0 };
   let joyCam = { x: 0, y: 0 };
@@ -272,7 +275,7 @@ window.Tienda3D = (function () {
     scene.background = new T.Color(0x08090a);
     scene.fog = new T.Fog(0x0c0e10, 20, 46);
 
-    camera = new T.PerspectiveCamera(72, 1, 0.05, 70);
+    camera = new T.PerspectiveCamera(FOV_BASE, 1, 0.05, 70);
 
     /* ── Iluminación profesional ─────────────────────────────────────────
        Tres puntos adaptados al local: key cálida con sombra de contacto,
@@ -887,37 +890,77 @@ window.Tienda3D = (function () {
     requestAnimationFrame(bucle);
     const dt = Math.min(0.05, reloj.getDelta());
 
-    // sticks suavizados: sin tirones ni saltos de velocidad
-    const ks = Math.min(1, dt * 11);
-    joyS.x += (joy.x - joyS.x) * ks;
-    joyS.y += (joy.y - joyS.y) * ks;
-    joyCamS.x += (joyCam.x - joyCamS.x) * ks;
-    joyCamS.y += (joyCam.y - joyCamS.y) * ks;
+    /* ── Entrada ─────────────────────────────────────────────────────────
+       El stick izquierdo SOLO mueve (relativo a la cámara, con strafe) y
+       el derecho SOLO mira: antes los dos giraban a la vez y la cámara
+       se "desviaba" hacia un lado. Suavizado exponencial independiente
+       del frame: rápido en la mirada (sin lag) y más blando en el paso. */
+    const kMov = 1 - Math.exp(-dt * 9);     // el cuerpo arranca y frena suave
+    const kMir = 1 - Math.exp(-dt * 20);    // la mirada sigue el dedo al tiro
+    joyS.x += (joy.x - joyS.x) * kMov;
+    joyS.y += (joy.y - joyS.y) * kMov;
+    joyCamS.x += (joyCam.x - joyCamS.x) * kMir;
+    joyCamS.y += (joyCam.y - joyCamS.y) * kMir;
 
+    // teclado: WASD mueve (igual que el stick izq.), ← → giran la vista
     let avance = (teclas.KeyW || teclas.ArrowUp ? 1 : 0) - (teclas.KeyS || teclas.ArrowDown ? 1 : 0);
-    let giro = (teclas.KeyD || teclas.ArrowRight ? 1 : 0) - (teclas.KeyA || teclas.ArrowLeft ? 1 : 0);
+    let lateral = (teclas.KeyD ? 1 : 0) - (teclas.KeyA ? 1 : 0);
+    let miraX = (teclas.ArrowRight ? 1 : 0) - (teclas.ArrowLeft ? 1 : 0);
+    let miraY = 0;
     avance += -joyS.y;
-    giro += joyS.x;
-    avance = Math.max(-1, Math.min(1, avance));
-    giro = Math.max(-1, Math.min(1, giro));
-    yaw -= giro * 2.2 * dt * sensCam;
-    // stick derecho: mira
-    yaw -= joyCamS.x * 2.2 * dt * sensCam;
-    pitch = Math.max(-0.9, Math.min(0.9, pitch - joyCamS.y * 1.5 * dt * sensCam));
+    lateral += joyS.x;
+    miraX += joyCamS.x;
+    miraY += joyCamS.y;
 
+    // normalizado: en diagonal no se acelera la marcha
+    const magIn = Math.hypot(avance, lateral);
+    if (magIn > 1) { avance /= magIn; lateral /= magIn; }
+
+    // mirada: velocidad angular pareja con la sensibilidad elegida
+    yaw -= miraX * 2.4 * dt * sensCam;
+    pitch = Math.max(-0.9, Math.min(0.9, pitch - miraY * 1.6 * dt * sensCam));
+
+    /* ── Cuerpo con inercia ────────────────────────────────────────────
+       Velocidades reales: caminar 1,6 m/s y correr 3,2 m/s (antes 3,0 /
+       4,8 y se "volaba" el pasillo). La velocidad se acerca al objetivo
+       con una exponencial: arranca suave, frena suave, sin tirones. */
     const corriendoAhora = corriendo || teclas.ShiftLeft || teclas.ShiftRight;
-    const vel = (corriendoAhora ? 4.8 : 3.0) * dt;
-    const fx = -Math.sin(yaw), fz = -Math.cos(yaw);
-    const nx = pos.x + fx * avance * vel;
-    const nz = pos.z + fz * avance * vel;
-    if (!choca(nx, pos.z)) pos.x = nx;
-    if (!choca(pos.x, nz)) pos.z = nz;
+    const velMax = corriendoAhora ? 3.2 : 1.6;
+    const fx = -Math.sin(yaw), fz = -Math.cos(yaw);     // adelante
+    const dx = Math.cos(yaw), dz = -Math.sin(yaw);      // derecha
+    const objX = (fx * avance + dx * lateral) * velMax;
+    const objZ = (fz * avance + dz * lateral) * velMax;
+    const kAcel = 1 - Math.exp(-dt * (avance || lateral ? 9 : 13));
+    vel.x += (objX - vel.x) * kAcel;
+    vel.z += (objZ - vel.z) * kAcel;
 
-    bob += Math.abs(avance) * dt * (corriendoAhora ? 13 : 9);
-    camera.position.set(pos.x, pos.y + Math.sin(bob) * 0.02, pos.z);
+    const nx = pos.x + vel.x * dt;
+    const nz = pos.z + vel.z * dt;
+    if (!choca(nx, pos.z)) pos.x = nx; else vel.x = 0;
+    if (!choca(pos.x, nz)) pos.z = nz; else vel.z = 0;
+
+    /* ── Primera persona ───────────────────────────────────────────────
+       Ojos a 1,66 m y paso con balanceo proporcional a la velocidad
+       real (vertical, lateral y una mínima inclinación de cabeza), más
+       un leve agrandar del encuadre al correr. */
+    const rapido = Math.hypot(vel.x, vel.z);
+    bob += rapido * dt * 4.0;
+    const paso = Math.min(1, rapido / 1.6);
+    camera.position.set(
+      pos.x + Math.sin(bob * 0.5) * 0.012 * paso,
+      pos.y + Math.sin(bob) * 0.017 * paso,
+      pos.z
+    );
+    const fovObj = FOV_BASE + (corriendoAhora && rapido > 0.4 ? 5 : 0);
+    if (Math.abs(fovObj - fovAct) > 0.02) {
+      fovAct += (fovObj - fovAct) * (1 - Math.exp(-dt * 5));
+      camera.fov = fovAct;
+      camera.updateProjectionMatrix();
+    }
     camera.rotation.set(0, 0, 0);
     camera.rotateY(yaw);
     camera.rotateX(pitch);
+    camera.rotateZ(Math.sin(bob) * 0.006 * paso);
 
     actualizarCarrito(dt);
     mirarPrecio(performance.now());
@@ -1160,6 +1203,7 @@ window.Tienda3D = (function () {
     if (btnReset) {
       btnReset.onclick = () => {
         pos.x = 0; pos.z = 8.2; yaw = 0; pitch = 0;
+        vel.x = 0; vel.z = 0; fovAct = FOV_BASE;
         corriendo = false;
         const rc = $("t3dCorrer");
         if (rc) rc.classList.remove("on");
@@ -1227,30 +1271,54 @@ window.Tienda3D = (function () {
     window.addEventListener("resize", ajustar);
   }
 
+  /* ── Stick virtual (el "driver" de los mandos) ──────────────────────────
+     Tres cosas que antes hacían que se sintiera duro o raro:
+     1. `activo` en vez de `e.buttons`: en algunos navegadores móviles el
+        botón llega en 0 y el stick dejaba de seguir al dedo a mitad de
+        recorrido (y "se tiraba solo" al soltar).
+     2. Zona muerta con rampa: no hay salto de 0 a 0,15 al entrar; el
+        valor crece parejo desde el centro.
+     3. Curva de precisión (exponente 1,35): cerca del centro hay mando
+        fino para girar despacio, y al fondo llega la velocidad completa.
+     La perilla sigue al dedo tal cual (control visual directo). */
   function engancharStick(el, destino) {
     if (!el) return;
     const perilla = el.querySelector("span");
+    let activo = false;
+    const ZONA = 0.12;
+    const curva = (v) => Math.sign(v) * Math.pow(Math.min(1, Math.abs(v)), 1.35);
+    const desdeCentro = (v) => {
+      const a = Math.abs(v);
+      if (a <= ZONA) return 0;
+      return curva((a - ZONA) / (1 - ZONA));
+    };
     const mover = (e) => {
       const r = el.getBoundingClientRect();
       let dx = (e.clientX - (r.left + r.width / 2)) / (r.width / 2);
       let dy = (e.clientY - (r.top + r.height / 2)) / (r.height / 2);
       const mag = Math.hypot(dx, dy);
-      if (mag < 0.15) { dx = 0; dy = 0; }          // zona muerta: no se arrastra solo
-      else if (mag > 1) { dx /= mag; dy /= mag; }
-      destino.x = dx; destino.y = dy;
-      if (perilla) perilla.style.transform = "translate(calc(-50% + " + dx * 33 + "px), calc(-50% + " + dy * 33 + "px))";
+      if (mag > 1) { dx /= mag; dy /= mag; }        // tope en el borde
+      if (perilla) perilla.style.transform =
+        "translate(calc(-50% + " + dx * 33 + "px), calc(-50% + " + dy * 33 + "px))";
+      destino.x = desdeCentro(dx);
+      destino.y = desdeCentro(dy);
     };
-    el.addEventListener("pointerdown", (e) => {
-      el.setPointerCapture(e.pointerId);
-      mover(e);
-    });
-    el.addEventListener("pointermove", (e) => { if (e.buttons !== 0) mover(e); });
     const soltar = () => {
+      if (!activo) return;
+      activo = false;
       destino.x = 0; destino.y = 0;
       if (perilla) perilla.style.transform = "translate(-50%,-50%)";
     };
+    el.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      activo = true;
+      try { el.setPointerCapture(e.pointerId); } catch (err) { /* ya capturado */ }
+      mover(e);
+    });
+    el.addEventListener("pointermove", (e) => { if (activo) mover(e); });
     el.addEventListener("pointerup", soltar);
     el.addEventListener("pointercancel", soltar);
+    el.addEventListener("lostpointercapture", soltar);
   }
 
   function actualizarContador() {
@@ -1268,6 +1336,7 @@ window.Tienda3D = (function () {
     const caja = $("t3dCanvas");
     if (!caja) return;
     vivo = true;
+    document.body.classList.add("en-tienda");   // nav y topbar ocultos
     $("t3dCargando").hidden = false;
 
     try {
@@ -1276,10 +1345,10 @@ window.Tienda3D = (function () {
       if (!gl) throw new Error("WebGL no disponible");
       T = await cargarThree();
 
+      perfil = detectarPerfil();
       if (!listo) {
         renderer = new T.WebGLRenderer({
-          canvas: caja, antialias: false, powerPreference: "high-performance",
-          preserveDrawingBuffer: true
+          canvas: caja, antialias: perfil === "alta", powerPreference: "high-performance"
         });
         renderer.setPixelRatio(Math.min(1.3, window.devicePixelRatio || 1));
         renderer.outputEncoding = T.sRGBEncoding;
@@ -1312,7 +1381,6 @@ window.Tienda3D = (function () {
           const se = Number(localStorage.getItem(CLAVE_SENS));
           if (se >= 40 && se <= 180) sensCam = se / 100;
         } catch (e) { /* modo privado */ }
-        perfil = detectarPerfil();
         construir(catalogo);
         enganchar();
         listo = true;
@@ -1346,9 +1414,11 @@ window.Tienda3D = (function () {
 
   function cerrar() {
     vivo = false;
+    document.body.classList.remove("en-tienda");  // vuelve la navegación
     puerta = null;
     mirar = null;
     corriendo = false;
+    vel.x = vel.z = 0;
     joy.x = joy.y = joyCam.x = joyCam.y = 0;
     const btn = $("t3dCorrer");
     if (btn) btn.classList.remove("on");
@@ -1362,6 +1432,7 @@ window.Tienda3D = (function () {
     w: renderer ? renderer.domElement.width : 0, h: renderer ? renderer.domElement.height : 0,
     vivo: vivo, frames: frames,
     puertas: puertas.length, tv: !!tv,
+    fov: camera ? Math.round(camera.fov) : 0,
     perdido: !!(renderer && renderer.getContext && renderer.getContext().isContextLost()),
     glerr: renderer && renderer.getContext ? renderer.getContext().getError() : -1
   });

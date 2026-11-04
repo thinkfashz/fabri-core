@@ -2114,3 +2114,28 @@ body.con-scan{overflow:hidden}
   font-size: 10px; font-weight: 850; letter-spacing: -.01em;
   border: 1px solid rgba(32,26,6,.25);
 }
+
+
+/* ── Tienda 3D: al entrar se oculta la navegación y solo queda el
+      logo de marca centrado arriba (la F exacta del SVG) ─────────────── */
+body.en-tienda .nav,
+body.en-tienda .topbar { display: none !important; }
+body.en-tienda main { padding: 0; }
+body.en-tienda .t3d { height: 100dvh; }
+
+.t3d-marca {
+  flex: 1; min-width: 0;
+  display: flex; align-items: center; justify-content: center;
+  pointer-events: none;
+}
+.t3d-marca img {
+  width: 42px; height: 42px; display: block;
+  filter: drop-shadow(0 6px 18px rgba(0,0,0,.65));
+}
+
+/* Viñeta cálida: da sensación de encuadre real sin gastar rendimiento */
+.t3d-vineta {
+  position: absolute; inset: 0; z-index: 2; pointer-events: none;
+  background: radial-gradient(ellipse at 50% 44%,
+    rgba(0,0,0,0) 54%, rgba(7,6,3,.36) 100%);
+}
