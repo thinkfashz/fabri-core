@@ -46,6 +46,24 @@ window.Mercado = (function () {
     catch (e) { return "$" + Math.round(n).toLocaleString("es-CL"); }
   }
 
+  // El total no salta: cuenta desde el valor anterior hasta el nuevo.
+  function animarNumero(el, valor) {
+    if (!el) return;
+    valor = Math.round(valor);
+    const desde = Number(el.dataset.v || 0);
+    el.dataset.v = valor;
+    if (desde === valor) { el.textContent = clp(valor); return; }
+    cancelAnimationFrame(el._raf || 0);
+    const t0 = performance.now(), dur = 420;
+    const paso = (t) => {
+      const k = Math.min(1, (t - t0) / dur);
+      const e = 1 - Math.pow(1 - k, 3);
+      el.textContent = clp(desde + (valor - desde) * e);
+      if (k < 1) el._raf = requestAnimationFrame(paso);
+    };
+    el._raf = requestAnimationFrame(paso);
+  }
+
   /* ── código de barras EAN-13 ───────────────────────────────────────────── */
   // Determinista por producto: mismo código siempre, con dígito verificador.
   function codigoDe(p) {
@@ -148,7 +166,7 @@ window.Mercado = (function () {
     barra.hidden = n === 0;
     const t = $("mercBarraTotal");
     const c = $("mercBarraCount");
-    if (t) t.textContent = clp(total());
+    if (t) animarNumero(t, total());
     if (c) c.textContent = n + (n === 1 ? " producto" : " productos");
   }
 
@@ -318,9 +336,13 @@ window.Mercado = (function () {
       const codigo = codigoDe(p);
       return '<article class="merc-card2' + (n ? " en-carrito" : "") + '" data-id="' + esc(p.id) + '" tabindex="0">' +
         '<div class="merc-media" style="--tinte:' + tinte + '">' +
-          '<span class="merc-media-letra">' + esc((p.nombre || "?").charAt(0)) + "</span>" +
           '<span class="merc-media-cat">' + esc(p.categoria) + "</span>" +
           '<span class="merc-media-stock' + (p.stock <= 10 ? " bajo" : "") + '">' + p.stock + " disp.</span>" +
+          '<span class="merc-caja">' +
+            '<span class="merc-caja-tapa"></span>' +
+            '<span class="merc-caja-letra">' + esc((p.nombre || "?").charAt(0)) + "</span>" +
+          "</span>" +
+          '<span class="merc-media-precio">' + clp(p.precio) + "</span>" +
         "</div>" +
         '<div class="merc-cuerpo">' +
           '<h3 class="merc-titulo">' + esc(p.nombre) + "</h3>" +
@@ -330,11 +352,10 @@ window.Mercado = (function () {
             '<span class="merc-clas">' + esc(p.clasificacion) + "</span>" +
           "</div>" +
           '<div class="merc-pie">' +
-            '<div class="merc-precio2"><b>' + clp(p.precio) + "</b><small>" + esc(p.moneda || "CLP") + "</small></div>" +
             (n
-              ? '<div class="merc-cant"><button type="button" data-menos="' + esc(p.id) + '" aria-label="Quitar">−</button>' +
-                "<b>" + n + '</b><button type="button" data-mas="' + esc(p.id) + '" aria-label="Agregar">+</button></div>'
-              : '<button type="button" class="merc-add" data-mas="' + esc(p.id) + '">Agregar</button>') +
+              ? '<div class="merc-cant ancho"><button type="button" data-menos="' + esc(p.id) + '" aria-label="Quitar">−</button>' +
+                "<b>" + n + ' en el pedido</b><button type="button" data-mas="' + esc(p.id) + '" aria-label="Agregar">+</button></div>'
+              : '<button type="button" class="merc-add block" data-mas="' + esc(p.id) + '">Agregar al pedido</button>') +
           "</div>" +
         "</div>" +
       "</article>";
@@ -385,6 +406,7 @@ window.Mercado = (function () {
       '<div class="merc-ficha-media" style="--tinte:' + tinteDe(p) + '">' +
         '<span class="merc-ficha-letra">' + esc((p.nombre || "?").charAt(0)) + "</span>" +
         '<span class="merc-ficha-cat">' + esc(p.categoria) + " · " + esc(p.clasificacion) + "</span>" +
+        '<span class="merc-ficha-precio">' + clp(p.precio) + "</span>" +
       "</div>" +
       '<p class="merc-ficha-desc">' + esc(p.descripcion) + "</p>" +
       '<div class="merc-ficha-datos">' +
@@ -400,6 +422,8 @@ window.Mercado = (function () {
         '<b id="mercDetNum">' + n + "</b>" +
         '<button type="button" id="mercDetMas" aria-label="Agregar uno">+</button>' +
       "</div>" +
+      (n ? '<div class="merc-ficha-sum"><span>' + n + " × " + clp(p.precio) + "</span><b>" +
+        clp(p.precio * n) + "</b></div>" : "") +
       '<button type="button" class="btn primary block" id="mercDetAdd">' +
         (n ? "Agregar otro · " + clp(p.precio) : "Agregar al pedido · " + clp(p.precio)) + "</button>";
 
@@ -449,29 +473,55 @@ window.Mercado = (function () {
     }
 
     cuerpo.innerHTML =
-      '<div class="mc-lista">' + items.map((x) =>
-        '<div class="mc-linea">' +
+      '<div class="mc-lista">' + items.map((x) => {
+        const desc = String(x.p.descripcion || "").trim();
+        return '<div class="mc-linea">' +
           '<span class="mc-ico" style="--tinte:' + tinteDe(x.p) + '">' + esc(x.p.nombre.charAt(0)) + "</span>" +
-          '<div class="mc-txt"><b>' + esc(x.p.nombre) + "</b><small>" + clp(x.p.precio) + " c/u</small></div>" +
-          '<div class="mc-cant">' +
-            '<button type="button" data-menos="' + esc(x.p.id) + '" aria-label="Quitar">−</button>' +
-            "<b>" + x.n + "</b>" +
-            '<button type="button" data-mas="' + esc(x.p.id) + '" aria-label="Agregar">+</button>' +
+          '<div class="mc-txt">' +
+            '<div class="mc-head">' +
+              "<b>" + esc(x.p.nombre) + "</b>" +
+              '<b class="mc-sub">' + clp(x.p.precio * x.n) + "</b>" +
+            "</div>" +
+            (desc ? '<p class="mc-desc">' + esc(desc) + "</p>" : "") +
+            '<div class="mc-pie">' +
+              '<span class="mc-cu">' + clp(x.p.precio) + " c/u</span>" +
+              '<div class="mc-cant">' +
+                '<button type="button" data-menos="' + esc(x.p.id) + '" aria-label="Quitar uno">−</button>' +
+                "<b>" + x.n + "</b>" +
+                '<button type="button" data-mas="' + esc(x.p.id) + '" aria-label="Agregar uno">+</button>' +
+              "</div>" +
+              '<button type="button" class="mc-quit" data-quit="' + esc(x.p.id) + '" aria-label="Quitar del pedido">✕</button>' +
+            "</div>" +
           "</div>" +
-          '<b class="mc-sub">' + clp(x.p.precio * x.n) + "</b>" +
-        "</div>").join("") +
-      "</div>";
+        "</div>";
+      }).join("") + "</div>";
 
+    const nProd = items.length;
     pie.innerHTML =
-      '<div class="mp-car-total"><span>Total</span><b>' + clp(totalPedido) + "</b></div>" +
+      '<div class="mp-resumen">' +
+        '<div class="mp-res-fila"><span>Subtotal</span><b>' + clp(totalPedido) + "</b></div>" +
+        '<div class="mp-res-fila"><span>' + unidadesTot + (unidadesTot === 1 ? " unidad" : " unidades") +
+          " · " + nProd + (nProd === 1 ? " producto" : " productos") + '</span><small>envío se coordina</small></div>' +
+        '<div class="mp-res-total"><span>Total</span><b id="mcTotal">$0</b></div>' +
+      "</div>" +
       '<button type="button" class="btn primary block" id="mcPedir">Pedir por WhatsApp</button>' +
-      '<button type="button" class="mp-link" id="mcVaciar">Vaciar pedido</button>';
+      '<button type="button" class="mp-link" id="mcVaciar">Vaciar pedido</button>' +
+      '<p class="mp-res-nota">Pedido de referencia · el comercio confirma stock y entrega</p>';
+
+    animarNumero($("mcTotal"), totalPedido);
 
     cuerpo.querySelectorAll("[data-mas]").forEach((b) => {
       b.onclick = () => { cambiar(b.dataset.mas, 1); pintarCarrito(); };
     });
     cuerpo.querySelectorAll("[data-menos]").forEach((b) => {
       b.onclick = () => { cambiar(b.dataset.menos, -1); pintarCarrito(); };
+    });
+    cuerpo.querySelectorAll("[data-quit]").forEach((b) => {
+      b.onclick = () => {
+        const id = b.dataset.quit;
+        cambiar(id, -(carrito[id] || 0));
+        pintarCarrito();
+      };
     });
     $("mcPedir").onclick = () => pedirWhatsApp(items, totalPedido);
     $("mcVaciar").onclick = () => { carrito = {}; guardarCarrito(); pintarCarrito(); pintarBarra(); render(); };

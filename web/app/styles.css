@@ -1946,3 +1946,135 @@ body.con-scan{overflow:hidden}
 .t3d.cctv .t3d-joystick,
 .t3d.cctv .t3d-tira,
 .t3d.cctv .t3d-ayuda { display: none; }
+
+/* ══════════════════════════════════════════════════════════════════════
+   MERCADO · segunda pasada de diseño (tarjetas, carrito y sumador)
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── Tarjeta: caja de producto + precio héroe ─────────────────────────── */
+.merc-media-precio {
+  position: absolute; left: 8px; bottom: 8px; z-index: 2;
+  padding: 4px 9px 5px; border-radius: 9px;
+  background: rgba(6,7,8,.82);
+  border: 1px solid rgba(232,200,122,.45);
+  color: #e8c87a; font-size: 14.5px; font-weight: 820; letter-spacing: -.02em;
+  box-shadow: 0 12px 24px -14px #000;
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+}
+.merc-caja {
+  position: relative; z-index: 1;
+  width: 76px; height: 66px; border-radius: 11px;
+  display: grid; place-items: center; overflow: hidden;
+  background: linear-gradient(168deg,
+    color-mix(in srgb, var(--tinte) 62%, #171a1d), #0e1012 84%);
+  border: 1px solid color-mix(in srgb, var(--tinte) 48%, rgba(255,255,255,.14));
+  box-shadow:
+    0 16px 30px -16px color-mix(in srgb, var(--tinte) 70%, transparent),
+    inset 0 1px 0 rgba(255,255,255,.22);
+}
+.merc-caja-tapa {
+  position: absolute; top: 0; left: 0; right: 0; height: 24%;
+  background: linear-gradient(180deg, rgba(255,255,255,.26), rgba(255,255,255,.05));
+  border-bottom: 1px solid rgba(0,0,0,.35);
+}
+.merc-caja-letra {
+  margin-top: 7px;
+  font-size: 30px; font-weight: 850; letter-spacing: -.05em; color: #fff;
+  text-shadow: 0 4px 14px rgba(0,0,0,.55);
+}
+.merc-cuerpo { gap: 6px; }
+.merc-titulo { font-size: 13.5px; font-weight: 720; }
+.merc-desc2 { font-size: 11px; line-height: 1.45; -webkit-line-clamp: 3; }
+.merc-pie { padding-top: 9px; }
+.merc-add.block { width: 100%; padding: 9px 12px; border-radius: 11px; font-size: 12px; }
+.merc-cant.ancho {
+  width: 100%; justify-content: space-between;
+  padding: 5px 8px; border-radius: 11px;
+  background: rgba(200,255,0,.08); border: 1px solid rgba(200,255,0,.35);
+}
+.merc-cant.ancho b { font-size: 11.5px; color: var(--accent); font-weight: 750; }
+
+/* ── Ficha: precio héroe y sumador de la línea ────────────────────────── */
+.merc-ficha-precio {
+  position: absolute; left: 12px; bottom: 10px; z-index: 1;
+  padding: 6px 12px 7px; border-radius: 11px;
+  background: rgba(6,7,8,.84); border: 1px solid rgba(232,200,122,.5);
+  color: #e8c87a; font-size: 20px; font-weight: 850; letter-spacing: -.03em;
+  box-shadow: 0 14px 28px -16px #000;
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+}
+.merc-ficha-sum {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+  margin: 10px 2px 0; padding: 10px 13px; border-radius: 12px;
+  background: rgba(200,255,0,.07); border: 1px solid rgba(200,255,0,.28);
+}
+.merc-ficha-sum span { font-family: var(--mono); font-size: 12px; color: var(--tx2); }
+.merc-ficha-sum b { font-size: 16px; font-weight: 840; color: #e8c87a; letter-spacing: -.02em; }
+
+/* ── Filas del carrito: nombre, descripción, precio y controles ───────── */
+.mc-linea { align-items: flex-start; gap: 11px; padding: 12px 0; }
+.mc-ico { margin-top: 2px; }
+.mc-txt { gap: 4px; }
+.mc-head { display: flex; align-items: baseline; gap: 8px; }
+.mc-head b { font-size: 13px; font-weight: 680; letter-spacing: -.01em; }
+.mc-sub {
+  margin-left: auto; white-space: nowrap;
+  font-size: 13.5px; font-weight: 840; letter-spacing: -.02em; color: #e8c87a;
+  font-variant-numeric: tabular-nums;
+}
+.mc-desc {
+  margin: 0; font-size: 10.5px; line-height: 1.42; color: var(--tx4);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.mc-pie { display: flex; align-items: center; gap: 8px; }
+.mc-cu {
+  font-family: var(--mono); font-size: 10.5px; color: var(--tx3);
+  letter-spacing: .01em;
+}
+.mc-pie .mc-cant { margin-left: auto; }
+.mc-quit {
+  width: 26px; height: 26px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--line-2); background: transparent;
+  color: var(--tx4); font-size: 10.5px; display: grid; place-items: center;
+}
+.mc-quit:hover { color: #ff7a6b; border-color: rgba(255,122,107,.45); }
+
+/* ── Sumador de totales ────────────────────────────────────────────────── */
+.mp-resumen {
+  display: grid; gap: 7px;
+  padding: 13px 14px; margin-bottom: 12px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.018));
+  border: 1px solid var(--mp-line);
+  box-shadow: var(--mp-sh-inset);
+}
+.mp-res-fila {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+  font-size: 12px; color: var(--mp-tx2);
+}
+.mp-res-fila b { font-weight: 720; color: var(--mp-tx); font-variant-numeric: tabular-nums; }
+.mp-res-fila small { font-size: 10.5px; color: var(--mp-tx4); }
+.mp-res-total {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding-top: 10px; margin-top: 2px;
+  border-top: 1px dashed rgba(255,255,255,.16);
+}
+.mp-res-total span {
+  font-size: 12px; font-weight: 780; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--mp-tx3);
+}
+.mp-res-total b {
+  font-size: 25px; font-weight: 860; letter-spacing: -.03em;
+  color: var(--mp-oro); font-variant-numeric: tabular-nums;
+}
+.mp-res-nota {
+  margin: 9px 0 0; text-align: center;
+  font-size: 9.5px; line-height: 1.45; color: var(--mp-tx4);
+}
+
+/* ── Estante: etiqueta de precio más legible ──────────────────────────── */
+.mm-tag {
+  padding: 2px 7px; border-radius: 5px;
+  font-size: 10px; font-weight: 850; letter-spacing: -.01em;
+  border: 1px solid rgba(32,26,6,.25);
+}
