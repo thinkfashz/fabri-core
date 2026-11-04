@@ -2617,3 +2617,35 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
 - Validado: `node --check mercado.js`, HTML balanceado, smoke headless
   (`BARRA=$0 ANIM=ok ERR=ninguno`); diagnósticos borrados antes del commit.
 - Service worker **v29**.
+
+## Sesión 2026-11-04 · Tienda 3D: iluminación profesional + neveras — `be0de5e`
+
+- **Iluminación de 3 puntos**: key cálida con sombra suave (PCFSoft,
+  `normalBias`), relleno frío y **contra-luz lima**. Muros **negros
+  FORGE** con franja lima, techo oscuro con paneles cálidos, piso
+  luminoso → local cálido y confortable.
+- **Panel "Escena"** organizado en secciones: Ambiente (6 presets),
+  Luz (intensidad, **temperatura 2.700–6.500 K**, órbita, **sombra**),
+  Cámara (sensibilidad + volver a la entrada) y **Calidad**
+  (Auto/Alta/Media/Baja con fps en vivo). Se guarda en
+  `fcore.tienda3d.calidad` y `fcore.tienda3d.sens`.
+- **Calidad automática**: `detectarPerfil()` lee `deviceMemory`,
+  `hardwareConcurrency` y `WEBGL_debug_renderer_info` → píxeles 1,0–1,45,
+  sombra 512–2048, puntos de techo on/off.
+- **Neveras**: de 1,9 a **2,45 m**, carcasa hueca (antes era un bloque
+  sólido que escondía el interior), **vidrio traslúcido** con brillo,
+  **4 estantes con gama distinta** (congelados, helados, bebidas/yogures,
+  postres), 12 productos por estante instanciados, **tira de precios por
+  estante** detrás del vidrio, LED de techo, franja lima y **sombra de
+  contacto** en el piso. Dos puertas corredizas por nevera (14).
+- **Estantes**: un rótulo distinto por nivel (lienzo 2048×64 con la
+  proporción exacta del tablero) y los productos alineados con su
+  rótulo; filo de repisa en lima; productos con sombra.
+- **Bug encontrado en la prueba**: con catálogo vacío el código viejo
+  leía `undefined.nombre` y ni siquiera renderizaba (FRAMES=0). Ya tiene
+  respaldo.
+- Validación: `node --check`, HTML balanceado, cruce de 40 ids JS↔HTML,
+  smoke DOM (6 presets, 4 calidades, 0 errores). **WebGL no verificable
+  aquí**: SwiftShader en este entorno pinta en blanco y pierde el
+  contexto — queda para el teléfono del usuario.
+- Service worker **v30**.
