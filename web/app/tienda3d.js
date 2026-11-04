@@ -16,7 +16,7 @@ window.Tienda3D = (function () {
   const CLAVE_CARRITO = "fcore.mercado.carrito";
 
   const ANCHO = 18, LARGO = 20, ALTO = 3.2;
-  const GONDOLAS = [-7.65, -4.59, -1.53, 1.53, 4.59, 7.65];
+  const GONDOLAS = [-7.1, -4.26, -1.42, 1.42, 4.26, 7.1]; // 1,78 m de pasillo y 1,37 m al muro
   const G_ANCHO = 1.06, G_LARGO = 9.0;
   const NIVELES = [0.42, 1.02, 1.62, 2.22];
   const TINTES = {
@@ -42,7 +42,11 @@ window.Tienda3D = (function () {
   let carrito = null, carritoRuedas = [], carritoAnim = 0;
   let mirar = null;      // arrastre de cámara
   let puerta = null;     // arrastre de puerta de congelador
-  let promos = [], promoIdx = 0, promoReloj = null;
+  let promos = [], promoIdx = 0, promoReloj = null, promoT0 = 0;
+  /* Materiales que reciben textura HD (Poly Haven / ambientCG, CC0).
+     Se guardan al construir la escena para pintarlas cuando lleguen. */
+  let refs = { piso: null, muro: [], techo: [], metal: [] };
+  let luzTV = null, tvReloj = 0;          // resplandor del televisor y su reloj
   /* Iluminación profesional: key con sombra suave, relleno frío que
      levanta las sombras, contra-luz lima que separa los muebles del muro
      negro, y puntos de techo cálidos. El preset define el ambiente. */
@@ -103,16 +107,68 @@ window.Tienda3D = (function () {
     return t;
   }
 
-  function texturaCartel(texto) {
+  /* Letrero de pasillo: placa negra con el número en lima, la categoría
+     grande y una chevrona de sentido. Se cuelga de dos varillas en los dos
+     extremos de la góndola, como en un super de verdad. */
+  function texturaCartel(texto, nro) {
+    const W = 1024, H = 256;
     const c = document.createElement("canvas");
-    c.width = 512; c.height = 128;
+    c.width = W; c.height = H;
     const g = c.getContext("2d");
-    g.fillStyle = "#ffffff"; g.fillRect(0, 0, 512, 128);
-    g.fillStyle = "#c8ff00"; g.fillRect(0, 0, 512, 12);
-    g.font = "bold 46px -apple-system, Segoe UI, Roboto, sans-serif";
-    g.fillStyle = "#14171a";
+    const de = g.createLinearGradient(0, 0, 0, H);
+    de.addColorStop(0, "#14181c"); de.addColorStop(1, "#0b0d0f");
+    g.fillStyle = de; g.fillRect(0, 0, W, H);
+    g.fillStyle = "#c8ff00"; g.fillRect(0, 0, W, 14); g.fillRect(0, H - 8, W, 8);
+
+    // cuadro del número
+    g.fillStyle = "#c8ff00"; g.fillRect(46, 62, 132, 132);
+    g.fillStyle = "#0b0d0f";
+    g.font = "900 88px -apple-system, Segoe UI, Roboto, sans-serif";
     g.textAlign = "center"; g.textBaseline = "middle";
-    g.fillText(texto.toUpperCase().slice(0, 18), 256, 70);
+    g.fillText(String(nro), 112, 132);
+
+    // categoría, ajustada al ancho disponible
+    const cat = String(texto || "").toUpperCase();
+    let fs = 84;
+    g.textAlign = "left";
+    do {
+      g.font = "900 " + fs + "px -apple-system, Segoe UI, Roboto, sans-serif";
+      if (g.measureText(cat).width <= W - 224 - 100) break;
+      fs -= 4;
+    } while (fs > 34);
+    g.fillStyle = "#ffffff";
+    g.fillText(cat, 224, 116);
+
+    // sub-label
+    g.fillStyle = "#c8ff00";
+    g.font = "700 26px -apple-system, Segoe UI, Roboto, sans-serif";
+    g.fillText("PASILLO " + nro + " · OFERTAS", 226, 186);
+
+    // chevrona de sentido
+    g.strokeStyle = "#c8ff00"; g.lineWidth = 16;
+    g.lineCap = "round"; g.lineJoin = "round";
+    g.beginPath();
+    g.moveTo(W - 132, 96); g.lineTo(W - 84, 132); g.lineTo(W - 132, 168);
+    g.stroke();
+    return new T.CanvasTexture(c);
+  }
+
+  /* Wordmark FORGE en el muro del fondo: el nombre en lima sobre el negro
+     de la escena. Es rótulo de tienda, no el logo (la F no se toca). */
+  function texturaMarca() {
+    const W = 2048, H = 512;
+    const c = document.createElement("canvas");
+    c.width = W; c.height = H;
+    const g = c.getContext("2d");
+    g.clearRect(0, 0, W, H);
+    g.textAlign = "center"; g.textBaseline = "middle";
+    g.fillStyle = "#c8ff00";
+    g.font = "900 300px -apple-system, Segoe UI, Roboto, sans-serif";
+    g.fillText("FORGE", W / 2, 172);
+    g.fillRect(430, 336, W - 860, 10);
+    g.fillStyle = "#ffffff";
+    g.font = "800 86px -apple-system, Segoe UI, Roboto, sans-serif";
+    g.fillText("CORE STOCK", W / 2, 428);
     return new T.CanvasTexture(c);
   }
 
@@ -160,39 +216,133 @@ window.Tienda3D = (function () {
 
   function crearTV() {
     const c = document.createElement("canvas");
-    c.width = 640; c.height = 360;
+    c.width = 1280; c.height = 720;
     tvCanvas = c;
     tvTextura = new T.CanvasTexture(c);
     tvTextura.minFilter = T.LinearFilter;
+    tvTextura.anisotropy = 4;
     return new T.Mesh(
-      new T.PlaneGeometry(2.0, 1.12),
+      new T.PlaneGeometry(2.0, 1.125),
       new T.MeshBasicMaterial({ map: tvTextura })
     );
   }
 
+  /* Pantalla 1280×720: promo con chip de categoría, precio grande, barra
+     de tiempo, ticker de avisos y brillo de cristal. Se repinta cada
+     segundo (reloj) y en cada rotación de promo. */
   function pintarTV() {
-    if (!tvCanvas || !promos.length) return;
-    const p = promos[promoIdx % promos.length];
+    if (!tvCanvas) return;
     const g = tvCanvas.getContext("2d");
-    g.fillStyle = "#0b0d0f"; g.fillRect(0, 0, 640, 360);
-    g.fillStyle = "#c8ff00"; g.fillRect(0, 0, 640, 10);
-    g.fillStyle = "#c8ff00";
-    g.font = "bold 26px -apple-system, Segoe UI, Roboto, sans-serif";
-    g.fillText("OFERTA DEL PASILLO", 40, 64);
+    const W = tvCanvas.width, H = tvCanvas.height;
+    const de = g.createLinearGradient(0, 0, 0, H);
+    de.addColorStop(0, "#12161a"); de.addColorStop(1, "#07080a");
+    g.fillStyle = de; g.fillRect(0, 0, W, H);
+    g.fillStyle = "#c8ff00"; g.fillRect(0, 0, W, 16);
+    g.textBaseline = "middle";
+
+    const p = promos.length ? promos[promoIdx % promos.length] : null;
+    if (!p) {                                   // sin promos: reposo
+      g.textAlign = "center";
+      g.fillStyle = "#9aa3a8";
+      g.font = "800 76px -apple-system, Segoe UI, Roboto, sans-serif";
+      g.fillText("SIN OFERTAS", W / 2, H / 2 - 20);
+      g.font = "600 32px -apple-system, Segoe UI, Roboto, sans-serif";
+      g.fillText("Vuelve más tarde", W / 2, H / 2 + 56);
+      tvTextura.needsUpdate = true;
+      return;
+    }
+
+    const ahora = new Date();
+    const hh = String(ahora.getHours()).padStart(2, "0");
+    const mm = String(ahora.getMinutes()).padStart(2, "0");
+
+    // cabecera: punto en vivo · marca · reloj
+    g.fillStyle = "#ff3b30";
+    g.beginPath(); g.arc(46, 74, 12, 0, Math.PI * 2); g.fill();
+    g.textAlign = "left";
     g.fillStyle = "#ffffff";
-    g.font = "bold 54px -apple-system, Segoe UI, Roboto, sans-serif";
-    const nombre = String(p.nombre || "").slice(0, 22);
-    g.fillText(nombre, 40, 140);
+    g.font = "800 30px -apple-system, Segoe UI, Roboto, sans-serif";
+    g.fillText("EN VIVO", 70, 74);
+    g.textAlign = "center";
     g.fillStyle = "#9aa3a8";
-    g.font = "24px -apple-system, Segoe UI, Roboto, sans-serif";
-    g.fillText(String(p.categoria || ""), 40, 182);
-    g.fillStyle = "#e8c87a";
-    g.font = "bold 68px -apple-system, Segoe UI, Roboto, sans-serif";
-    g.fillText("$" + Math.round(p.precio || 0).toLocaleString("es-CL"), 40, 268);
+    g.font = "700 30px -apple-system, Segoe UI, Roboto, sans-serif";
+    g.fillText("FORGE · OFERTA DEL DÍA", W / 2, 74);
+    g.textAlign = "right";
     g.fillStyle = "#c8ff00";
-    g.font = "bold 20px -apple-system, Segoe UI, Roboto, sans-serif";
-    g.fillText("TOCA LA PANTALLA PARA AGREGAR", 40, 326);
+    g.font = "800 36px ui-monospace, SFMono-Regular, Menlo, monospace";
+    g.fillText(hh + ":" + mm, W - 46, 74);
+
+    // chip de categoría
+    const cat = String(p.categoria || "OFERTA").toUpperCase();
+    g.textAlign = "left";
+    g.font = "800 32px -apple-system, Segoe UI, Roboto, sans-serif";
+    const wc = g.measureText(cat).width + 56;
+    g.fillStyle = "#c8ff00"; g.fillRect(46, 132, wc, 52);
+    g.fillStyle = "#0b0d0f"; g.fillText(cat, 74, 158);
+
+    // nombre, reduciendo el cuerpo hasta que entre completo
+    const nombre = String(p.nombre || "").toUpperCase();
+    g.textBaseline = "alphabetic";
+    let fs = 96;
+    do {
+      g.font = "900 " + fs + "px -apple-system, Segoe UI, Roboto, sans-serif";
+      if (g.measureText(nombre).width <= W - 92) break;
+      fs -= 4;
+    } while (fs > 44);
+    g.fillStyle = "#ffffff";
+    g.fillText(nombre, 46, 300);
+
+    // precio + unidad
+    const precio = "$" + Math.round(p.precio || 0).toLocaleString("es-CL");
+    g.fillStyle = "#c8ff00";
+    g.font = "900 150px -apple-system, Segoe UI, Roboto, sans-serif";
+    g.fillText(precio, 46, 452);
+    const wp = g.measureText(precio).width;
+    g.fillStyle = "#9aa3a8";
+    g.font = "800 42px -apple-system, Segoe UI, Roboto, sans-serif";
+    g.fillText("c/u", 46 + wp + 24, 452);
+    g.textBaseline = "middle";
+
+    // barra de tiempo de la promo
+    const prog = Math.min(1, Math.max(0, (Date.now() - promoT0) / 4000));
+    g.fillStyle = "#1b1f23"; g.fillRect(46, 540, W - 92, 10);
+    g.fillStyle = "#c8ff00"; g.fillRect(46, 540, (W - 92) * prog, 10);
+
+    // llamada a la acción
+    g.fillStyle = "#c8ff00";
+    g.font = "800 34px -apple-system, Segoe UI, Roboto, sans-serif";
+    g.fillText("TOCA LA PANTALLA PARA AGREGAR", 46, 596);
+
+    // ticker de avisos legales
+    g.save();
+    g.beginPath(); g.rect(0, 644, W, H - 644); g.clip();
+    g.fillStyle = "#c8ff00"; g.fillRect(0, 644, W, 4);
+    g.textAlign = "left";
+    g.fillStyle = "#e6e9ec";
+    g.font = "700 28px -apple-system, Segoe UI, Roboto, sans-serif";
+    const ticks = "PAGOS SIMULADOS · CATÁLOGO REFERENCIAL · PRECIOS EN CLP · FORGE CORE STOCK · ";
+    g.fillText(ticks + ticks, W - ((Date.now() / 40) % (W + 900)), 690);
+    g.restore();
+
+    // scanlines de cristal
+    g.fillStyle = "rgba(255,255,255,.03)";
+    for (let y = 0; y < H; y += 4) g.fillRect(0, y, W, 1);
+
+    // brillo diagonal
+    const gl = g.createLinearGradient(0, 0, W, H);
+    gl.addColorStop(0, "rgba(255,255,255,.10)");
+    gl.addColorStop(0.4, "rgba(255,255,255,0)");
+    gl.addColorStop(1, "rgba(255,255,255,.05)");
+    g.fillStyle = gl; g.fillRect(0, 0, W, H);
+
     tvTextura.needsUpdate = true;
+  }
+
+  /* Avanza a la siguiente promo y reinicia su barra de tiempo. */
+  function siguientePromo() {
+    promoIdx++;
+    promoT0 = Date.now();
+    pintarTV();
   }
 
   /* Carrito de compra: cesta de barandas, manija con agarre lima y cuatro
@@ -201,6 +351,7 @@ window.Tienda3D = (function () {
     carritoRuedas = [];
     const g = new T.Group();
     const malla = new T.MeshLambertMaterial({ color: 0xc3cbd1 });
+    refs.metal.push({ mat: malla, rep: [1, 1], nor: 0.4 });
     const ruedaM = new T.MeshLambertMaterial({ color: 0x23272b });
     const lima = new T.MeshLambertMaterial({ color: 0xc8ff00 });
     const caja = (w, h, d, x, y, z, mat) => {
@@ -274,6 +425,7 @@ window.Tienda3D = (function () {
     scene = new T.Scene();
     scene.background = new T.Color(0x08090a);
     scene.fog = new T.Fog(0x0c0e10, 20, 46);
+    refs = { piso: null, muro: [], techo: [], metal: [] };
 
     camera = new T.PerspectiveCamera(FOV_BASE, 1, 0.05, 70);
 
@@ -322,7 +474,7 @@ window.Tienda3D = (function () {
       return p;
     });
 
-    /* piso brillante y techo claro */
+    /* piso cerámico, techo con casetones y vigas vistas */
     const piso = new T.Mesh(
       new T.PlaneGeometry(ANCHO, LARGO),
       new T.MeshPhongMaterial({ color: 0xf1ebe0, map: texturaPiso(), shininess: 70, specular: 0x403a32 })
@@ -330,6 +482,7 @@ window.Tienda3D = (function () {
     piso.rotation.x = -Math.PI / 2;
     piso.receiveShadow = true;
     scene.add(piso);
+    refs.piso = piso.material;
 
     const techo = new T.Mesh(
       new T.PlaneGeometry(ANCHO, LARGO),
@@ -338,15 +491,29 @@ window.Tienda3D = (function () {
     techo.rotation.x = Math.PI / 2;
     techo.position.y = ALTO;
     scene.add(techo);
+    refs.techo.push({ mat: techo.material, rep: [3, 3.3], nor: 0.5 });
 
     const panel = new T.MeshBasicMaterial({ color: 0xfff4de });
+    const caseton = new T.MeshLambertMaterial({ color: 0x1b1f23 });
     [ -5, -1.7, 1.7, 5 ].forEach((z) => {
       [ -6, -2, 2, 6 ].forEach((x) => {
+        // carcasa del luminario y su placa debajo, a la vista
+        const carc = new T.Mesh(new T.BoxGeometry(1.26, 0.12, 0.5), caseton);
+        carc.position.set(x, ALTO - 0.06, z);
+        scene.add(carc);
         const l = new T.Mesh(new T.PlaneGeometry(1.1, 0.34), panel);
         l.rotation.x = Math.PI / 2;
-        l.position.set(x, ALTO - 0.01, z);
+        l.position.set(x, ALTO - 0.125, z);
         scene.add(l);
       });
+    });
+
+    // vigas negras cruzando el local (sin tocar los luminarios)
+    const vigaM = new T.MeshLambertMaterial({ color: 0x0e1013 });
+    [ -8, -4, 0, 4, 8 ].forEach((z) => {
+      const v = new T.Mesh(new T.BoxGeometry(ANCHO, 0.16, 0.3), vigaM);
+      v.position.set(0, ALTO - 0.08, z);
+      scene.add(v);
     });
 
     /* Muros negros FORGE con franja lima: la marca vive en la escena y
@@ -361,7 +528,10 @@ window.Tienda3D = (function () {
       [0,  LARGO / 2, Math.PI, ANCHO]
     ];
     muros.forEach(([x, z, ry, largo]) => {
-      const m = new T.Mesh(new T.PlaneGeometry(largo, ALTO), pared);
+      // material propio por muro: cada uno lleva su repetición de textura
+      const matMuro = pared.clone();
+      refs.muro.push({ mat: matMuro, rep: [largo / 3.4, 1], nor: 0.55 });
+      const m = new T.Mesh(new T.PlaneGeometry(largo, ALTO), matMuro);
       m.position.set(x, ALTO / 2, z); m.rotation.y = ry; m.receiveShadow = true; scene.add(m);
       const zk = new T.Mesh(new T.PlaneGeometry(largo, 0.22), zocalo);
       zk.position.set(x, 0.11, z);
@@ -376,12 +546,23 @@ window.Tienda3D = (function () {
       scene.add(fr);
     });
 
+    /* wordmark FORGE CORE STOCK sobre el muro del fondo, bajo la franja */
+    const marca = new T.Mesh(
+      new T.PlaneGeometry(6, 1.5),
+      new T.MeshBasicMaterial({ map: texturaMarca(), transparent: true, side: T.DoubleSide })
+    );
+    marca.position.set(0, 1.85, LARGO / 2 - 0.02);
+    marca.rotation.y = Math.PI;
+    scene.add(marca);
+
     /* góndolas: una categoría por mueble */
     const cats = [...new Set(catalogo.map((p) => p.categoria).filter(Boolean))];
     const porGondola = cats.length ? cats.slice(0, GONDOLAS.length) : ["Pasillo"];
     const metal = new T.MeshLambertMaterial({ color: 0xc9d0d4 });
     const borde = new T.MeshLambertMaterial({ color: 0x9aa3a8 });
     const riel = new T.MeshLambertMaterial({ color: 0xc8ff00 });
+    refs.metal.push({ mat: metal, rep: [2, 2], nor: 0.4 });
+    refs.metal.push({ mat: borde, rep: [2, 2], nor: 0.4 });
 
     GONDOLAS.forEach((gx, gi) => {
       const cat = porGondola[gi % porGondola.length];
@@ -409,13 +590,24 @@ window.Tienda3D = (function () {
         grupo.add(filo);
       });
 
-      // cartel colgante de la góndola
-      const cartel = new T.Mesh(
-        new T.PlaneGeometry(1.7, 0.42),
-        new T.MeshBasicMaterial({ map: texturaCartel(cat), side: T.DoubleSide })
-      );
-      cartel.position.set(gx, 2.86, -G_LARGO / 2 - 0.06);
-      grupo.add(cartel);
+      // letreros de pasillo colgados en los dos extremos, con sus varillas.
+      // Quedan a 1 m del filo para que las varillas no atraviesen las
+      // carcasas de luz (que viven en z = ±5 y ±1,7).
+      [-1, 1].forEach((sentido) => {
+        const cg = new T.Group();
+        cg.position.set(gx, 2.78, sentido * (G_LARGO / 2 + 1));
+        const cartel = new T.Mesh(
+          new T.PlaneGeometry(1.7, 0.42),
+          new T.MeshBasicMaterial({ map: texturaCartel(cat, gi + 1), side: T.DoubleSide })
+        );
+        cg.add(cartel);
+        [-0.6, 0.6].forEach((vx) => {           // varillas hasta el techo
+          const v = new T.Mesh(new T.CylinderGeometry(0.013, 0.013, 0.2), metal);
+          v.position.set(vx, 0.32, 0);
+          cg.add(v);
+        });
+        grupo.add(cg);
+      });
 
       // Tira de precios: un rótulo distinto por estante, con los productos
       // que realmente están en ese nivel (lienzo 2048×64 = proporción del
@@ -465,6 +657,7 @@ window.Tienda3D = (function () {
       [1, -1].forEach((lado) => {
         NIVELES.forEach((y, ni) => {
           for (let c = 0; c < porFila; c++) {
+            if (c % 7 === 6) continue;     // un hueco de fila cada 7: bloques de 6
             // mismo orden que el rótulo del estante: lo que se ve es lo que cuesta
             const p = bolsa[(ni * 6 + c) % bolsa.length];
             const x = gx + lado * (G_ANCHO / 2 - 0.12);
@@ -497,6 +690,8 @@ window.Tienda3D = (function () {
        el vidrio deja ver el interior iluminado por el LED del techo. */
     const marco = new T.MeshLambertMaterial({ color: 0x23272c });
     const repisa = new T.MeshLambertMaterial({ color: 0x3a424a });
+    refs.metal.push({ mat: marco, rep: [1.5, 1.5], nor: 0.5 });
+    refs.metal.push({ mat: repisa, rep: [1.5, 1.5], nor: 0.5 });
     const respaldo = new T.MeshLambertMaterial({ color: 0x1a222a, emissive: 0x0d1b24 });
     const ledM = new T.MeshBasicMaterial({ color: 0xe6f7ff });
     const limaM = new T.MeshLambertMaterial({ color: 0xc8ff00 });
@@ -718,6 +913,11 @@ window.Tienda3D = (function () {
     tvGrupo.add(cable);
     scene.add(tvGrupo);
 
+    // resplandor verde del televisor sobre el pasillo
+    luzTV = new T.PointLight(0xd9ffa8, 0.55, 5.5, 2);
+    luzTV.position.set(-8.04, 2.4, -7.02);
+    scene.add(luzTV);
+
     /* cámaras de seguridad en las esquinas (la del TV no) */
     const camMetal = new T.MeshLambertMaterial({ color: 0xe8ecef });
     const camLente = new T.MeshLambertMaterial({ color: 0x1b1f23 });
@@ -740,13 +940,15 @@ window.Tienda3D = (function () {
     });
 
     promos = catalogo.slice(0, 8);
+    promoT0 = Date.now();
     pintarTV();
     clearInterval(promoReloj);
     promoReloj = setInterval(() => {
       if (!vivo) return;
-      promoIdx++;
-      pintarTV();
+      siguientePromo();
     }, 4000);
+    clearInterval(tvReloj);
+    tvReloj = setInterval(() => { if (vivo) pintarTV(); }, 1000);
 
     carrito = crearCarrito();
     carrito.scale.setScalar(1.05);
@@ -806,6 +1008,8 @@ window.Tienda3D = (function () {
       p.intensity = 0.42 * intensidadLuz * (0.6 + 0.4 * relleno);
       p.color.setHex(0xffe6c4).lerp(tinte, 0.55);
     });
+
+    if (luzTV) luzTV.intensity = 0.55 * intensidadLuz * (luzActual === "cine" ? 1.45 : 1);
 
     if (renderer) renderer.toneMappingExposure = c.exp * (0.9 + intensidadLuz * 0.14);
 
@@ -1097,7 +1301,7 @@ window.Tienda3D = (function () {
       const h = rayo(clientX, clientY, [tv]);
       if (h.length) {
         const p = promos[promoIdx % promos.length];
-        if (p) { agregar(p); mostrarPrecio(p, true); promoIdx++; pintarTV(); }
+        if (p) { agregar(p); mostrarPrecio(p, true); siguientePromo(); }
         return;
       }
     }
@@ -1331,6 +1535,59 @@ window.Tienda3D = (function () {
     if (el) { el.textContent = n; el.hidden = n === 0; }
   }
 
+  /* ── texturas HD (CC0) ──────────────────────────────────────────────────
+     Piso cerámico, muro de yeso, techo de hormigón y metal de estante en
+     1k con su mapa normal. Si alguna no carga (sin red, primer arranque),
+     se queda la textura de canvas de fallback sin avisos. */
+  const RUTAS_TEX = {
+    piso:  ["./texturas/piso-diff.jpg",  "./texturas/piso-nor.jpg"],
+    muro:  ["./texturas/muro-diff.jpg",  "./texturas/muro-nor.jpg"],
+    techo: ["./texturas/techo-diff.jpg", "./texturas/techo-nor.jpg"],
+    metal: ["./texturas/metal-diff.jpg", "./texturas/metal-nor.jpg"]
+  };
+
+  function aplicarTexturasHD() {
+    if (!T || !renderer) return;
+    const loader = new T.TextureLoader();
+    const aniso = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+    const cargar = (ruta, srgb) => new Promise((ok) => {
+      loader.load(ruta, (t) => {
+        t.wrapS = t.wrapT = T.RepeatWrapping;
+        t.anisotropy = aniso;
+        if (srgb) t.encoding = T.sRGBEncoding;
+        ok(t);
+      }, undefined, () => ok(null));          // fallo silencioso
+    });
+    const aplicar = (base, entradas) => {
+      const [diff, nor] = base;
+      if (!diff) return;
+      entradas.forEach((e) => {
+        if (!e || !e.mat) return;
+        const d = diff.clone(); d.needsUpdate = true;
+        d.repeat.set(e.rep[0], e.rep[1]);
+        e.mat.map = d;
+        if (nor) {
+          const n = nor.clone(); n.needsUpdate = true;
+          n.repeat.set(e.rep[0], e.rep[1]);
+          e.mat.normalMap = n;
+          e.mat.normalScale = new T.Vector2(e.nor, e.nor);
+        }
+        e.mat.needsUpdate = true;
+      });
+    };
+    Promise.all([
+      cargar(RUTAS_TEX.piso[0], true),  cargar(RUTAS_TEX.piso[1], false),
+      cargar(RUTAS_TEX.muro[0], true),  cargar(RUTAS_TEX.muro[1], false),
+      cargar(RUTAS_TEX.techo[0], true), cargar(RUTAS_TEX.techo[1], false),
+      cargar(RUTAS_TEX.metal[0], true), cargar(RUTAS_TEX.metal[1], false)
+    ]).then((t) => {
+      aplicar([t[0], t[1]], [{ mat: refs.piso, rep: [10, 11], nor: 0.65 }]);
+      aplicar([t[2], t[3]], refs.muro);
+      aplicar([t[4], t[5]], refs.techo);
+      aplicar([t[6], t[7]], refs.metal);
+    }).catch(() => { /* se queda con las texturas de canvas */ });
+  }
+
   /* ── entrada / salida ──────────────────────────────────────────────────── */
   async function abrir() {
     const caja = $("t3dCanvas");
@@ -1382,6 +1639,7 @@ window.Tienda3D = (function () {
           if (se >= 40 && se <= 180) sensCam = se / 100;
         } catch (e) { /* modo privado */ }
         construir(catalogo);
+        aplicarTexturasHD();
         enganchar();
         listo = true;
       }
@@ -1425,6 +1683,7 @@ window.Tienda3D = (function () {
     const caja = $("t3dPrecio");
     if (caja) caja.hidden = true;
     if (promoReloj) { clearInterval(promoReloj); promoReloj = null; }
+    if (tvReloj) { clearInterval(tvReloj); tvReloj = 0; }
   }
 
   window.__t3d = () => ({
@@ -1432,6 +1691,12 @@ window.Tienda3D = (function () {
     w: renderer ? renderer.domElement.width : 0, h: renderer ? renderer.domElement.height : 0,
     vivo: vivo, frames: frames,
     puertas: puertas.length, tv: !!tv,
+    // materiales que ya recibieron su mapa HD (11 esperados: piso, 4 muros,
+    // techo y 5 de metal)
+    texHD: [refs.piso]
+      .concat(refs.muro.map((e) => e.mat), refs.techo.map((e) => e.mat),
+              refs.metal.map((e) => e.mat))
+      .filter((m) => m && m.map).length,
     fov: camera ? Math.round(camera.fov) : 0,
     perdido: !!(renderer && renderer.getContext && renderer.getContext().isContextLost()),
     glerr: renderer && renderer.getContext ? renderer.getContext().getError() : -1
