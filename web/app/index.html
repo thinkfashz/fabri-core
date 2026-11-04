@@ -643,20 +643,59 @@
           </div>
 
           <div class="t3d-luces" id="t3dLuces" hidden>
-            <b>Iluminación</b>
-            <div class="t3d-presets" id="t3dPresets">
-              <button type="button" data-luz="calido">Cálido</button>
-              <button type="button" data-luz="neutro" class="on">Neutro</button>
-              <button type="button" data-luz="frio">Frío</button>
-              <button type="button" data-luz="cine">Cine</button>
+            <div class="t3d-panel-cab">
+              <b>Escena</b>
+              <button type="button" id="t3dLucesX" aria-label="Cerrar panel">✕</button>
             </div>
-            <label class="t3d-slider">Intensidad <output id="t3dIntVal">100 %</output>
-              <input type="range" id="t3dInt" min="40" max="140" value="100" step="5">
-            </label>
-            <label class="t3d-slider">Órbita de la luz <output id="t3dOrbVal">45°</output>
-              <input type="range" id="t3dOrb" min="0" max="360" value="45" step="5">
-            </label>
-            <p class="t3d-luz-desc" id="t3dLuzDesc">Luz pareja de supermercado: blanco neutro y sombras suaves.</p>
+
+            <div class="t3d-secc">
+              <span class="t3d-secc-t">Ambiente</span>
+              <div class="t3d-presets t3d-presets-3" id="t3dPresets">
+                <button type="button" data-luz="confort" class="on">Confort</button>
+                <button type="button" data-luz="calido">Cálido</button>
+                <button type="button" data-luz="neutro">Neutro</button>
+                <button type="button" data-luz="frio">Frío</button>
+                <button type="button" data-luz="cine">Cine</button>
+                <button type="button" data-luz="lima">Lima</button>
+              </div>
+            </div>
+
+            <div class="t3d-secc">
+              <span class="t3d-secc-t">Luz</span>
+              <label class="t3d-slider">Intensidad <output id="t3dIntVal">100 %</output>
+                <input type="range" id="t3dInt" min="40" max="160" value="100" step="5">
+              </label>
+              <label class="t3d-slider">Temperatura <output id="t3dKelVal">4.000 K</output>
+                <input type="range" id="t3dKel" min="2700" max="6500" value="4000" step="100">
+              </label>
+              <label class="t3d-slider">Órbita <output id="t3dOrbVal">20°</output>
+                <input type="range" id="t3dOrb" min="0" max="360" value="20" step="5">
+              </label>
+              <label class="t3d-slider">Sombra <output id="t3dSomVal">65 %</output>
+                <input type="range" id="t3dSom" min="0" max="100" value="65" step="5">
+              </label>
+            </div>
+
+            <div class="t3d-secc">
+              <span class="t3d-secc-t">Cámara</span>
+              <label class="t3d-slider">Sensibilidad <output id="t3dSenVal">100 %</output>
+                <input type="range" id="t3dSen" min="40" max="180" value="100" step="10">
+              </label>
+              <button type="button" class="t3d-mini" id="t3dReset">Volver a la entrada</button>
+            </div>
+
+            <div class="t3d-secc">
+              <span class="t3d-secc-t">Calidad <small id="t3dFps">— fps</small></span>
+              <div class="t3d-presets t3d-presets-4" id="t3dCal">
+                <button type="button" data-cal="auto" class="on">Auto</button>
+                <button type="button" data-cal="alta">Alta</button>
+                <button type="button" data-cal="media">Media</button>
+                <button type="button" data-cal="baja">Baja</button>
+              </div>
+              <p class="t3d-luz-desc">Detectado: <b id="t3dCalNivel">—</b> · Auto se adapta al equipo</p>
+            </div>
+
+            <p class="t3d-luz-desc" id="t3dLuzDesc">Espacio cálido y confortable: luz ámbar suave con sombras de contacto.</p>
           </div>
 
           <div class="t3d-aviso" id="t3dAviso" hidden></div>
@@ -668,7 +707,7 @@
               <li><b>Izq</b> caminar · <b>Der</b> mirar</li>
               <li><b>Correr</b>: mantén pulsado</li>
               <li>Tocá un producto: precio y carrito</li>
-              <li><b>Luz</b>: intensidad y órbita</li>
+              <li><b>Escena</b>: 6 ambientes, temperatura, sombra y calidad</li>
               <li><b>Cámaras</b>: 4 vistas en pantalla completa</li>
               <li><b>ocultar</b>: quita los botones de la vista</li>
             </ul>
