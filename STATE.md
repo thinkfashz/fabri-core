@@ -2794,3 +2794,33 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
 - **Pendiente**: capturas del usuario en el teléfono (ficha, portadas en
   estante, tiras de precio de cerca y carrito tras añadir) para el ajuste
   fino visual.
+
+## Sesión 2026-11-04 · Tienda 3D v34: arregla el signo del stick (movimiento) — `7a84b24`
+
+Reporte del usuario: «los controles de movimiento me llevan hacia atrás y no
+hacia adelante ni a los lados». Reparado y endurecido para uso en celular.
+
+- **Causa raíz**: `desdeCentro()` calculaba `Math.abs(v)` y aplicaba la curva
+  **sin recuperar el signo**, así que `joy.x`/`joy.y` salían siempre positivos
+  (+X = derecha, +Y = atrás). Por eso el visor solo retrocedía y solo se iba a
+  la derecha. Ahora devuelve `Math.sign(v) * curva(...)`.
+- **Stick por ANCLA**: el `pointerdown` fija el origen (`ax`,`ay`) y el valor es
+  el **desplazamiento** desde ahí. Apoyar el pulgar no mueve; el dedo maneja
+  desde donde cayó. Antes se medía desde el centro del aro y el pulgar, que
+  casi nunca cae centrado, mandaba «atrás» sin querer.
+- **Seguimiento robusto**: el `pointermove`/`pointerup` va en `window` y se
+  filtra por `pointerId`; no se corta si el dedo sale del aro y los dos sticks
+  (mover + mirar) funcionan a la vez con dos dedos. Radio `R` se mide al tocar.
+- **Arrastre de cámara y de puerta** filtrado por `pointerId`: un segundo dedo
+  no secuestra el gesto.
+- **Limpieza**: `cerrar()` y `#t3dReset` resetean `joy`, `joyCam` y su versión
+  suavizada; el stick expone `_resetStick` para soltar un dedo que quedó activo
+  al salir de la tienda. Aro con estado `.activo`; ayuda = «arrastra para
+  moverte (adelante/atrás/lados)».
+- **Diagnóstico**: `__t3d()` publica `joy`, `jcam` y `pose` (x, z, yaw).
+- **Validación sintética** (`_mov.html`, gestos `PointerEvent`): `up` →
+  `joy.y=-1` y `pose.z` baja (avanza); `down` → `joy.y=+1`; `right` →
+  `joy.x=+1`, `pose.x` sube; `left` → `joy.x=-1`, `pose.x` baja; apoyar/soltar
+  → `0`; stick de cámara gira (`yaw`). WebGL no verificable aquí (SwiftShader
+  pierde el contexto, `Shader Error 1282`).
+- Service worker **v34**. Deploy `vercel --prod` y verificación en vivo.
