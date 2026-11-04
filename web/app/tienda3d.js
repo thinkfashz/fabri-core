@@ -1828,7 +1828,7 @@ window.Tienda3D = (function () {
         let obj = h[0].object;
         while (obj && obj.userData.min === undefined) obj = obj.parent;
         if (obj && obj.userData.min !== undefined) {
-          puerta = { grupo: obj, x0: e.clientX, base: obj.position.x, movido: 0 };
+          puerta = { grupo: obj, x0: e.clientX, base: obj.position.x, movido: 0, id: e.pointerId };
           return;
         }
       }
@@ -1837,13 +1837,14 @@ window.Tienda3D = (function () {
 
     caja.addEventListener("pointermove", (e) => {
       if (puerta) {
+        if (e.pointerId !== puerta.id) return;
         const dx = (e.clientX - puerta.x0) * 0.006;
         puerta.grupo.position.x = Math.max(puerta.grupo.userData.min,
           Math.min(puerta.grupo.userData.max, puerta.base + dx));
         puerta.movido += Math.abs(e.clientX - puerta.x0);
         return;
       }
-      if (!mirar) return;
+      if (!mirar || e.pointerId !== mirar.id) return;
       const dx = e.clientX - mirar.x;
       const dy = e.clientY - mirar.y;
       mirar.movido += Math.abs(dx) + Math.abs(dy);
@@ -1854,14 +1855,17 @@ window.Tienda3D = (function () {
 
     caja.addEventListener("pointerup", (e) => {
       if (puerta) {
+        if (e.pointerId !== puerta.id) return;
         // un toque sobre el vidrio (sin arrastrar) también abre la ficha
         const toque = puerta.movido < 10;
         puerta = null;
         if (toque) interactuar(e.clientX, e.clientY);
         return;
       }
-      if (mirar && mirar.movido < 10) interactuar(e.clientX, e.clientY);
+      if (!mirar || e.pointerId !== mirar.id) return;
+      const toque = mirar.movido < 10;
       mirar = null;
+      if (toque) interactuar(e.clientX, e.clientY);
     });
     // si el navegador cancela el puntero (llamada, gesto), no queda mirar ni puerta
     caja.addEventListener("pointercancel", () => { puerta = null; mirar = null; });
@@ -1922,6 +1926,10 @@ window.Tienda3D = (function () {
       btnReset.onclick = () => {
         pos.x = 0; pos.z = 8.2; yaw = 0; pitch = 0;
         vel.x = 0; vel.z = 0; fovAct = FOV_BASE;
+        // sin inercia residual: al volver a la entrada no debe "seguir" el
+        // último empujón del stick
+        joy.x = joy.y = joyCam.x = joyCam.y = 0;
+        joyS.x = joyS.y = joyCamS.x = joyCamS.y = 0;
         corriendo = false;
         const rc = $("t3dCorrer");
         if (rc) rc.classList.remove("on");
@@ -2004,54 +2012,82 @@ window.Tienda3D = (function () {
     window.addEventListener("resize", ajustar);
   }
 
-  /* ── Stick virtual (el "driver" de los mandos) ──────────────────────────
-     Tres cosas que antes hacían que se sintiera duro o raro:
-     1. `activo` en vez de `e.buttons`: en algunos navegadores móviles el
-        botón llega en 0 y el stick dejaba de seguir al dedo a mitad de
-        recorrido (y "se tiraba solo" al soltar).
-     2. Zona muerta con rampa: no hay salto de 0 a 0,15 al entrar; el
-        valor crece parejo desde el centro.
-     3. Curva de precisión (exponente 1,35): cerca del centro hay mando
-        fino para girar despacio, y al fondo llega la velocidad completa.
-     La perilla sigue al dedo tal cual (control visual directo). */
+  /* ── Stick virtual ──────────────────────────────────────────────────────
+     En el teléfono el dedo casi nunca cae en el centro exacto del aro. Con
+     la posición ABSOLUTA (lo que había antes), apoyar el pulgar un poco
+     abajo ya mandaba "atrás" sin que el usuario moviera nada, y si el
+     `pointermove` se perdía el valor quedaba clavado: por eso solo se
+     sentía el retroceso y no el avance ni los lados.
+
+     Ahora el toque fija un ANCLA y el stick mide el DESPLAZAMIENTO desde
+     ahí: apoyar no mueve; subir el dedo avanza, bajarlo retrocede y a los
+     lados esquiva/gira. El seguimiento va en `window` y se filtra por
+     `pointerId`, así que no se corta si el dedo sale del aro y los dos
+     sticks (mover + mirar) funcionan a la vez con dos dedos. */
   function engancharStick(el, destino) {
     if (!el) return;
     const perilla = el.querySelector("span");
-    let activo = false;
-    const ZONA = 0.12;
-    const curva = (v) => Math.sign(v) * Math.pow(Math.min(1, Math.abs(v)), 1.35);
+    let id = null;                 // puntero que controla ESTE stick
+    let ax = 0, ay = 0;            // ancla: dónde apoyó el dedo
+    let R = 46;                    // radio de recorrido en px (se mide al tocar)
+    const ZONA = 0.10;             // zona muerta (10 % del recorrido)
+    const curva = (v) => Math.pow(Math.min(1, Math.abs(v)), 1.25);
     const desdeCentro = (v) => {
       const a = Math.abs(v);
       if (a <= ZONA) return 0;
-      return curva((a - ZONA) / (1 - ZONA));
+      // el signo se recupera aquí: sin esto el stick solo apuntaba en +X/+Y
+      // (siempre atrás y siempre a la derecha), que era el fallo reportado.
+      return Math.sign(v) * curva((a - ZONA) / (1 - ZONA));
     };
-    const mover = (e) => {
+    const radio = () => {
       const r = el.getBoundingClientRect();
-      let dx = (e.clientX - (r.left + r.width / 2)) / (r.width / 2);
-      let dy = (e.clientY - (r.top + r.height / 2)) / (r.height / 2);
+      return Math.max(34, Math.min(r.width, r.height) * 0.44);
+    };
+    const pintar = (dx, dy) => {
+      if (!perilla) return;
+      const px = Math.round(dx * 33), py = Math.round(dy * 33);
+      perilla.style.transform =
+        "translate(calc(-50% + " + px + "px), calc(-50% + " + py + "px))";
+    };
+    const aplicar = (e) => {
+      let dx = (e.clientX - ax) / R;
+      let dy = (e.clientY - ay) / R;
       const mag = Math.hypot(dx, dy);
       if (mag > 1) { dx /= mag; dy /= mag; }        // tope en el borde
-      if (perilla) perilla.style.transform =
-        "translate(calc(-50% + " + dx * 33 + "px), calc(-50% + " + dy * 33 + "px))";
+      pintar(dx, dy);
       destino.x = desdeCentro(dx);
       destino.y = desdeCentro(dy);
     };
-    const soltar = () => {
-      if (!activo) return;
-      activo = false;
-      destino.x = 0; destino.y = 0;
-      if (perilla) perilla.style.transform = "translate(-50%,-50%)";
-    };
+    const cero = () => { destino.x = 0; destino.y = 0; pintar(0, 0); };
+    const soltarTodo = () => { cero(); id = null; el.classList.remove("activo"); };
+    el._resetStick = soltarTodo;     // `cerrar()` lo limpia al salir de la tienda
+
     el.addEventListener("pointerdown", (e) => {
+      if (id !== null) return;                       // ya hay un dedo aquí
+      if (e.pointerType === "mouse" && e.button !== 0) return;
       e.preventDefault();
-      activo = true;
-      try { el.setPointerCapture(e.pointerId); } catch (err) { /* ya capturado */ }
-      mover(e);
+      e.stopPropagation();
+      id = e.pointerId;
+      ax = e.clientX;
+      ay = e.clientY;
+      R = radio();
+      cero();                                        // apoyar no mueve
+      el.classList.add("activo");
+      try { el.setPointerCapture(e.pointerId); } catch (err) { /* no crítico */ }
     });
-    el.addEventListener("pointermove", (e) => { if (activo) mover(e); });
-    el.addEventListener("pointerup", soltar);
-    el.addEventListener("pointercancel", soltar);
-    el.addEventListener("lostpointercapture", soltar);
+
+    const mover = (e) => {
+      if (e.pointerId !== id) return;
+      aplicar(e);
+    };
+    const fin = (e) => {
+      if (e.pointerId === id) soltarTodo();
+    };
+    // en window: el evento sigue llegando aunque el dedo salga del aro
+    window.addEventListener("pointermove", mover, { passive: true });
+    window.addEventListener("pointerup", fin);
+    window.addEventListener("pointercancel", fin);
+    el.addEventListener("lostpointercapture", fin);
   }
 
   function actualizarContador() {
@@ -2266,6 +2302,12 @@ window.Tienda3D = (function () {
     corriendo = false;
     vel.x = vel.z = 0;
     joy.x = joy.y = joyCam.x = joyCam.y = 0;
+    joyS.x = joyS.y = joyCamS.x = joyCamS.y = 0;
+    // si un dedo quedó sobre un stick, se suelta: al volver no debe estar "pegado"
+    ["t3dJoy", "t3dJoyCam"].forEach((id) => {
+      const e = $(id);
+      if (e && e._resetStick) e._resetStick();
+    });
     const btn = $("t3dCorrer");
     if (btn) btn.classList.remove("on");
     const caja = $("t3dPrecio");
@@ -2290,6 +2332,10 @@ window.Tienda3D = (function () {
     gond: mallasGondola.length, cong: mallasCong.length,
     ficha: !!fichaP, fichaNom: fichaP ? fichaP.nombre : "", vuelos: vuelos.length,
     local: tiendaActiva, cat: !!catPendiente, escena: escenaOk,
+    // diagnóstico del movimiento: los sticks crudos y la pose del jugador
+    joy: { x: +joy.x.toFixed(3), y: +joy.y.toFixed(3) },
+    jcam: { x: +joyCam.x.toFixed(3), y: +joyCam.y.toFixed(3) },
+    pose: { x: +pos.x.toFixed(3), z: +pos.z.toFixed(3), yaw: +yaw.toFixed(3) },
     fov: camera ? Math.round(camera.fov) : 0,
     perdido: !!(renderer && renderer.getContext && renderer.getContext().isContextLost()),
     glerr: renderer && renderer.getContext ? renderer.getContext().getError() : -1

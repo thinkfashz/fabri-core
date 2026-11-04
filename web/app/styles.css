@@ -1590,6 +1590,10 @@ body.con-scan{overflow:hidden}
   backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
   touch-action: none; z-index: 6;
 }
+.t3d-joystick.activo {
+  border-color: rgba(200,255,0,.65);
+  box-shadow: 0 0 26px rgba(200,255,0,.16);
+}
 .t3d-joystick::before {
   /* zona de agarre: el dedo que cae cerca igual agarra el stick */
   content: ""; position: absolute; inset: -24px; border-radius: 50%;
