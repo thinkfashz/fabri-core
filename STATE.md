@@ -2682,3 +2682,58 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
   (`MARCA=si VINETA=si AYUDA=7 ERR=ninguno`) y ciclo navbar
   (`DENTRO=true NAV_OC=true TOP_OC=true FUERA=true NAV_VUELVE=true`).
 - Service worker **v31**.
+
+## Sesión 2026-11-04 · Tienda 3D: letreros, muros/techo, TV HD y texturas CC0 — `e285fd9`
+
+- **Letreros de pasillo** (nuevo `texturaCartel(texto, nro)`): lienzo
+  1024×256, fondo degradado oscuro, franjas lima, cuadro lima con el
+  número, categoría blanca auto-ajustada, sub-label `PASILLO n · OFERTAS`
+  y chevrona. Se cuelgan en **los dos extremos** de cada góndola
+  (`z = ±(G_LARGO/2 + 1)`), con dos varillas de 0,026 m hasta el techo.
+  El `+1` (y no `+0,5`) es a propósito: en `z = ±5` viven las carcasas de
+  luz y las varillas las atravesaban.
+- **Muros y wordmark**: cada plano tiene su propio `MeshLambert` clonado
+  (`refs.muro` con rep `largo/3.4`) para llevar su textura; en el muro del
+  fondo, plano 6×1,5 con `texturaMarca()` — **FORGE** lima, línea y CORE
+  STOCK blanco, en `(0, 1.85, LARGO/2 − 0.02)` bajo la franja (2.66). El
+  logo (la F) no se toca.
+- **Techo**: carcasas `1.26×0.12×0.5` (`0x1b1f23`) en `ALTO−0.06` con la
+  placa luminosa debajo en `ALTO−0.125` (antes a `ALTO−0.01`, dentro de la
+  carcasa), y **5 vigas** `ANCHO×0.16×0.3` en `z = −8,−4,0,4,8`
+  (`ALTO−0.08`), sin choccar con los luminarios de `z = ±5, ±1,7`.
+- **TV 1280×720** (antes 640×360, plano 2.0×1.125): degradado, franja
+  lima, punto "EN VIVO" + `FORGE · OFERTA DEL DÍA` + reloj `HH:MM`,
+  chip de categoría, nombre auto-fit 96→44 px, precio lima 150 px + `c/u`,
+  barra de promo (`promoT0`/4000), CTA, ticker de avisos legales,
+  scanlines cada 4 px y brillo diagonal. Guard de "sin promos" →
+  standby `SIN OFERTAS`. `siguientePromo()` unifica intervalo y toque;
+  `tvReloj` (1 s) se limpia en `cerrar()`. **`luzTV`** PointLight
+  `0xd9ffa8` en `(−8.04, 2.4, −7.02)`, modulada en `aplicarLuz()`
+  (×1.45 en preset Cine).
+- **Estantes ordenados**: `if (c % 7 === 6) continue;` → bloques de 6 con
+  un hueco de fila cada 7 (24 de 28 casillas por fila; la capacidad del
+  `InstancedMesh` no cambia).
+- **Muros separados de estantes**: `GONDOLAS = [−7.1, −4.26, −1.42, 1.42,
+  4.26, 7.1]` → **1,78 m de pasillo** y **1,37 m al muro lateral** (antes
+  0,82 m: con el margen de colisión de 0,4 el perímetro era
+  impracticable). La colisión (`choca`) usa `GONDOLAS`, así que se
+  actualiza sola.
+- **Texturas HD CC0** (3 MB, `web/app/texturas/`): piso `floor_tiles_08`,
+  muro `white_plaster_02`, techo `concrete_wall_001` (Poly Haven) y metal
+  `Metal006` (ambientCG), 1k diffuse + normal. `aplicarTexturasHD()` las
+  clona por material con su repetición, `encoding` sRGB en el diffuse,
+  anisotropía `min(8, max)` y **fallback silencioso** a la textura de
+  canvas si algo falla. Repeticiones: piso `[10,11]` (nor 0.65), techo
+  `[3,3.3]` (0.5), metal góndola `[2,2]` (0.4), marco/repisa neveras
+  `[1.5,1.5]` (0.5), malla carrito `[1,1]`. Créditos en
+  `texturas/CREDITS.md`.
+- Diagnóstico: `__t3d()` ahora expone **`texHD`** (materiales con mapa:
+  11 esperados).
+- Validación: `node --check` (JS y sw), HTML balanceado, cruce **40 ids**,
+  smoke DOM (`HIJOS=81 TV=si PUERTAS=14 TEX200=8/8 TEXHD=11/11
+  CERRADO=si ERR=ninguno`) y captura de revisión de letrero/wordmark/TV.
+  `HIJOS=81` = 58 + 16 carcasas + 5 vigas + wordmark + luz del TV.
+- Service worker **v32** (precacha las 8 texturas). Deploy `EXIT=0`
+  verificado en vivo: `tienda3d.js` 71003 B, `fcore-v32`, texturas 200.
+- **Pendiente**: pedir capturas al usuario (letreros, muros/techo, TV,
+  orden de estantes y pasillo a 1,37 m del muro) para ajustar.
