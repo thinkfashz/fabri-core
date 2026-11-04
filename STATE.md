@@ -2601,3 +2601,19 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
 - **Carrito a 1,5 m** → se ve solo la mitad de arriba (primera persona).
 - Pancarta de precio: 164 px y fondo 82 % (no tapa la vista).
 - Service worker **v28**.
+
+## Sesión 2026-11-04 · Mercado: segunda pasada de diseño — `4dcc3bc`
+
+- **Tarjeta de producto**: caja 3D (tapa + letra + glow de la categoría) en
+  el media, **precio héroe** en oro abajo a la izquierda, descripción de
+  3 líneas, botón ancho "Agregar al pedido" o stepper "N en el pedido".
+- **Filas del carrito**: cabecera nombre + subtotal, descripción 2 líneas,
+  "$c/u", stepper y botón ✕ quitar.
+- **Sumador `.mp-resumen`**: subtotal, unidades · productos · envío se
+  coordina, **Total en oro a 25 px** y nota "Pedido de referencia · el
+  comercio confirma stock y entrega". El total se anima con
+  `animarNumero()` (420 ms, count-up) — también en la barra flotante.
+- **Ficha**: precio héroe en la imagen + sumador `n × precio = subtotal`.
+- Validado: `node --check mercado.js`, HTML balanceado, smoke headless
+  (`BARRA=$0 ANIM=ok ERR=ninguno`); diagnósticos borrados antes del commit.
+- Service worker **v29**.
