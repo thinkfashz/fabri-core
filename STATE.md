@@ -2581,3 +2581,23 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
   canto de los congeladores: crema, borde lima, nombre + precio grande.
 - Pancarta de precio solo al apuntar/tocar (v25) y mira central.
 - Service worker **v27**.
+
+## Sesión 2026-11-04 · Tienda 3D: 6 pasillos, congeladores al fondo, CCTV full — `e46d249`
+
+- **Tienda de 14 a 18 m** con **6 góndolas** (pasillo interior 1,2 m).
+- **Congeladores**: fila de 7 en la pared del fondo con bebidas/yogures
+  (botellas y vasitos) y tira de precios propia; colisión `z < -8,5`.
+  Se liberó la pared izquierda (antes el pasillo de congeladores era
+  inacaminable por la colisión `x < -5,25` + bloque de la góndola 1).
+- **Tiras de precio**: el texto salía estirado porque el lienzo era 16:1 y el
+  tablero 63:1. Ahora lienzo 4096×128 sobre tablero de 0,27 m (proporción
+  igual), precio 34 px y anisotropía 8.
+- **Cámaras a pantalla completa**: 4 cuadrantes + barra con ← volver +
+  barrido lento de vigilancia; al entrar se apaga todo lo demás.
+- **Tirita lateral** (oculta/muestra HUD, Luz, Cámaras, Correr) y **pancita «?»**
+  que explica el menú.
+- **Luz de arranque más suave**: amb 0,24 / hemi 0,28 / dir 0,50 / puntos 0,14,
+  exposición 0,92; presets recalibrados.
+- **Carrito a 1,5 m** → se ve solo la mitad de arriba (primera persona).
+- Pancarta de precio: 164 px y fondo 82 % (no tapa la vista).
+- Service worker **v28**.
