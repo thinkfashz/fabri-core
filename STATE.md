@@ -2649,3 +2649,36 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
   aquí**: SwiftShader en este entorno pinta en blanco y pierde el
   contexto — queda para el teléfono del usuario.
 - Service worker **v30**.
+
+## Sesión 2026-11-04 · Tienda 3D: controles sin desvío + logo centrado — `fa6e763`
+
+- **Bug del "desvío" al girar**: el stick izquierdo sumaba `joyS.x` a
+  `giro` además del stick derecho → **dos fuentes de rotación** peleando.
+  Ahora el izquierdo solo mueve (relativo a cámara + strafe) y el
+  derecho solo mira.
+- **Lag del giro**: suavizado lineal `dt*11` (llegaba tarde y seguía
+  girando al soltar) → exponencial `1 - e^(-dt·20)` en la mirada y
+  `·9` en el paso, independiente del frame.
+- **Driver del stick**: bandera `activo` + `setPointerCapture` en vez de
+  `e.buttons` (en móvil llega en 0 → el stick se cortaba), zona muerta
+  con rampa (0,12 sin salto) y curva `^1,35` (fino al centro, tope al
+  borde); la perilla sigue al dedo.
+- **Inercia del cuerpo**: velocidad objetivo con exponencial (arranca y
+  frena suave), normalizada en diagonal. Reales: **caminar 1,6 ·
+  correr 3,2 m/s** (antes 3,0 / 4,8).
+- **Primera persona**: ojos **1,66 m**, **FOV 68** (antes 72), balanceo
+  proporcional a la velocidad (vertical + lateral + roll de 0,006 rad)
+  y +5° de FOV al correr con transición.
+- **Rendimiento**: fuera `preserveDrawingBuffer`; `antialias` solo en
+  perfil "alta".
+- **Navbar oculta en la tienda**: `body.en-tienda` (añadido en
+  `abrir()`, quitado en `cerrar()`) → `.nav` y `.topbar` ocultos,
+  `main{padding:0}` y `.t3d{height:100dvh}`. En el centro superior
+  queda **solo el logo** (`.t3d-marca` con `icons/logo-f.svg` exacto).
+- **Viñeta cálida** (`.t3d-vineta`, radial-gradient, `pointer-events:none`).
+- Teclado: **WASD mueve** (como el stick izq.) y **← → giran** (antes
+  A/D giraban).
+- Validación: `node --check`, HTML balanceado, cruce 40 ids, smoke DOM
+  (`MARCA=si VINETA=si AYUDA=7 ERR=ninguno`) y ciclo navbar
+  (`DENTRO=true NAV_OC=true TOP_OC=true FUERA=true NAV_VUELVE=true`).
+- Service worker **v31**.
