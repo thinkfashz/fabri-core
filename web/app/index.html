@@ -699,6 +699,23 @@
           </div>
 
           <div class="t3d-aviso" id="t3dAviso" hidden></div>
+
+          <!-- ficha del producto: toca un estante o la nevera y se abre -->
+          <div class="t3d-ficha" id="t3dFicha" hidden>
+            <button class="t3d-ficha-x" id="t3dFichaX" type="button" aria-label="Cerrar ficha">✕</button>
+            <div class="t3d-ficha-img"><canvas id="t3dFichaImg" width="384" height="384" aria-hidden="true"></canvas></div>
+            <div class="t3d-ficha-cuerpo">
+              <span class="t3d-ficha-cat" id="t3dFichaCat">Producto</span>
+              <b class="t3d-ficha-nom" id="t3dFichaNom">—</b>
+              <div class="t3d-ficha-precio">
+                <b id="t3dFichaVal">$0</b>
+                <span id="t3dFichaStock">—</span>
+              </div>
+              <div class="t3d-ficha-barra" id="t3dFichaBarra" aria-label="Código de barras"></div>
+              <button class="t3d-ficha-add" id="t3dFichaAdd" type="button">Añadir al carrito</button>
+            </div>
+          </div>
+
           <button class="t3d-tira" id="t3dTira" type="button" aria-pressed="false">ocultar</button>
           <button class="t3d-ayuda" id="t3dAyuda" type="button" aria-label="Ayuda del menú">?</button>
           <div class="t3d-ayuda-panel" id="t3dAyudaPanel" hidden>
@@ -707,7 +724,7 @@
               <li><b>Izq</b> moverse · <b>Der</b> girar</li>
               <li>Teclado: <b>WASD</b> mueve · <b>← →</b> gira</li>
               <li><b>Correr</b>: mantén pulsado</li>
-              <li>Tocá un producto: precio y carrito</li>
+              <li>Tocá un producto: <b>ficha</b> con código de barras y <b>Añadir</b></li>
               <li><b>Escena</b>: 6 ambientes, temperatura, sombra y calidad</li>
               <li><b>Cámaras</b>: 4 vistas en pantalla completa</li>
               <li><b>ocultar</b>: quita los botones de la vista</li>

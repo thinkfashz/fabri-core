@@ -1758,6 +1758,64 @@ body.con-scan{overflow:hidden}
 .t3d-aviso span { font-size: 10.5px; color: var(--accent); }
 @keyframes t3d-pop { from { transform: translate(-50%, 10px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
 
+/* ── Ficha de producto (tienda 3D) ───────────────────────────────────────
+   Al tocar un estante o la nevera: portada, categoría, precio, código de
+   barras EAN-13 y el botón que lo manda al carrito. */
+.t3d-ficha {
+  position: absolute; left: 50%; bottom: calc(206px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  display: flex; gap: 12px; width: min(420px, calc(100% - 24px));
+  padding: 12px; border-radius: 18px;
+  border: 1px solid rgba(200,255,0,.32);
+  background: rgba(10,12,10,.96);
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 26px 60px -24px rgba(0,0,0,.95);
+  z-index: 9;
+  animation: t3d-pop .26s cubic-bezier(.34,1.56,.64,1) both;
+}
+.t3d-ficha[hidden] { display: none; }
+.t3d-ficha-x {
+  position: absolute; top: 6px; right: 8px;
+  width: 28px; height: 28px; border: 0; border-radius: 50%;
+  background: rgba(255,255,255,.08); color: var(--tx, #f4f4f0);
+  font-size: 13px; cursor: pointer; z-index: 1;
+}
+.t3d-ficha-img {
+  flex: 0 0 96px; width: 96px; height: 96px; border-radius: 12px; overflow: hidden;
+  background: #17191a; border: 1px solid rgba(255,255,255,.1);
+}
+.t3d-ficha-img canvas { display: block; width: 100%; height: 100%; }
+.t3d-ficha-cuerpo { flex: 1; min-width: 0; display: grid; gap: 4px; align-content: center; }
+.t3d-ficha-cat {
+  justify-self: start; font-size: 9.5px; font-weight: 800; letter-spacing: .12em;
+  text-transform: uppercase; color: #0a0a0a; background: var(--accent, #c8ff00);
+  padding: 2px 7px; border-radius: 999px;
+}
+.t3d-ficha-nom { font-size: 14.5px; line-height: 1.2; color: var(--tx, #f4f4f0); }
+.t3d-ficha-precio { display: flex; align-items: baseline; gap: 8px; }
+.t3d-ficha-precio b { font-size: 19px; font-weight: 800; color: var(--accent, #c8ff00); }
+.t3d-ficha-precio span { font-size: 10.5px; color: rgba(244,244,240,.6); }
+.t3d-ficha-barra {
+  height: 36px; display: flex; align-items: center; gap: 8px;
+  padding: 3px 9px; border-radius: 8px; background: #ffffff;
+}
+.t3d-ficha-barra svg { display: block; height: 26px; width: auto; max-width: 62%; }
+.t3d-ficha-barra .merc-ean-num {
+  font-size: 9.5px; letter-spacing: .14em; color: #0a0a0a; font-weight: 700;
+}
+.t3d-ficha-barra span { font-size: 9.5px; letter-spacing: .16em; color: #0a0a0a; font-weight: 700; }
+.t3d-ficha-add {
+  margin-top: 2px; padding: 9px 12px; border: 0; border-radius: 12px;
+  background: var(--accent, #c8ff00); color: #0a0a0a;
+  font-size: 13px; font-weight: 800; cursor: pointer;
+  transition: transform .16s cubic-bezier(.34,1.56,.64,1), filter .16s;
+}
+.t3d-ficha-add:active { transform: scale(.95); filter: brightness(1.1); }
+@media (max-width: 420px) {
+  .t3d-ficha { gap: 10px; padding: 10px; }
+  .t3d-ficha-img { flex-basis: 84px; width: 84px; height: 84px; }
+}
+
 /* ── Precio bajo la mira (tienda 3D) ────────────────────────────────────── */
 .t3d-precio {
   position: absolute; left: 10px; top: 62px; z-index: 6;

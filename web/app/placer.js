@@ -1376,7 +1376,11 @@ window.Placer = (function () {
     $("mpHojaCuerpo").innerHTML =
       '<p class="mp-hoja-desc">' + esc(descripcionDe(m)) + "</p>" +
       (datos.length ? '<p class="mp-hoja-datos">' + datos.map(esc).join('<i>·</i>') + "</p>" : "") +
-      '<div class="mp-acciones">' + acciones.join("") + "</div>" +
+      '<div class="mp-acciones">' +
+        '<button type="button" class="mp-accion mp-3d" id="mpVerTienda">' +
+          '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z"/><path d="m4 7.5 8 4.5 8-4.5M12 12v9"/></svg>' +
+          "<span>Ver tienda en 3D</span></button>" +
+        acciones.join("") + "</div>" +
       '<div class="mp-stats">' +
         "<div><b>" + todos.length + "</b><span>productos</span></div>" +
         "<div><b>" + [...new Set(todos.map((p) => p.categoria))].length + "</b><span>categorías</span></div>" +
@@ -1423,6 +1427,12 @@ window.Placer = (function () {
     document.querySelectorAll("#mpCatChips .mp-chip").forEach((b) => {
       b.onclick = () => { ESTADO.cat.categoria = b.dataset.c; pintarHoja(); };
     });
+    // Ver el local caminable: el visor 3D recibe el catálogo de este negocio
+    const verTienda = $("mpVerTienda");
+    if (verTienda) verTienda.onclick = () => {
+      if (window.Tienda3D && Tienda3D.ponerTienda) Tienda3D.ponerTienda(productos(m), m);
+      if (window.Fabri) window.Fabri.go("tienda");
+    };
     engancharProductos(m);
     pintarPieHoja(m);
   }

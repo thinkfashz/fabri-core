@@ -33,8 +33,21 @@ window.Mercado = (function () {
 
   let datos = null;
   let origen = "nube";
+  /* Catálogo vigente con la semilla local de respaldo. El visor 3D puede
+     añadir productos al carrito antes de que la vista de Mercado haya
+     llamado a `render()` (que es quien trae la nube), así que nada de aquí
+     debe asumir que `datos` ya existe. */
+  function catalogo() { return (datos && datos.productos) || SEED; }
   const estado = { q: "", categoria: "", clasificacion: "", max: -1 };
   let carrito = {};
+  let carritoHidratado = false;
+  /* Productos de fuera del catálogo (el visor 3D de un local del mapa
+     muestra el catálogo de ese local): se guardan aparte para que el
+     carrito pueda listarlos y totalizarlos también después de recargar. */
+  const extra = {};
+  try {
+    Object.assign(extra, JSON.parse(localStorage.getItem("fcore.mercado.extra") || "{}") || {});
+  } catch (e) { /* modo privado */ }
   let vista = "estantes";
   let pasillo = 0;
 
@@ -117,14 +130,14 @@ window.Mercado = (function () {
   }
 
   function categorias() {
-    return [...new Set((datos.productos || []).map((p) => p.categoria).filter(Boolean))].sort();
+    return [...new Set(catalogo().map((p) => p.categoria).filter(Boolean))].sort();
   }
   function clasificaciones() {
-    return [...new Set((datos.productos || []).map((p) => p.clasificacion).filter(Boolean))].sort();
+    return [...new Set(catalogo().map((p) => p.clasificacion).filter(Boolean))].sort();
   }
   function filtrados() {
     const q = estado.q.toLowerCase();
-    return (datos.productos || []).filter((p) => {
+    return catalogo().filter((p) => {
       if (estado.categoria && p.categoria !== estado.categoria) return false;
       if (estado.clasificacion && p.clasificacion !== estado.clasificacion) return false;
       if (estado.max >= 0 && p.precio > estado.max) return false;
@@ -140,18 +153,44 @@ window.Mercado = (function () {
   function leerCarrito() {
     try { return JSON.parse(localStorage.getItem(CLAVE) || "{}") || {}; } catch (e) { return {}; }
   }
+  /* Trae el carrito guardado la primera vez que se toca: el visor 3D puede
+     añadir antes de que la vista de Mercado haya corrido `render()`, y sin
+     esto el primer añadido pisaría lo que hubiera en localStorage. */
+  function hidratar() {
+    if (carritoHidratado) return;
+    carrito = leerCarrito();
+    carritoHidratado = true;
+  }
   function guardarCarrito() {
     try { localStorage.setItem(CLAVE, JSON.stringify(carrito)); } catch (e) { /* privado */ }
     pintarBarra();
   }
-  function unidades() { return Object.values(carrito).reduce((a, n) => a + n, 0); }
+  function unidades() { hidratar(); return Object.values(carrito).reduce((a, n) => a + n, 0); }
+  function buscar(id) {
+    // antes de que llegue la nube se busca en el catálogo semilla local
+    const lista = catalogo();
+    const enCat = lista.find((x) => x.id === id);
+    return enCat || extra[id] || null;
+  }
+  function registrar(p) {
+    if (!p || !p.id || buscar(p.id)) return;
+    extra[p.id] = {
+      id: p.id, nombre: p.nombre, categoria: p.categoria, precio: p.precio,
+      stock: p.stock, descripcion: p.descripcion || ""
+    };
+    try { localStorage.setItem("fcore.mercado.extra", JSON.stringify(extra)); }
+    catch (e) { /* modo privado */ }
+  }
+
   function total() {
+    hidratar();
     return Object.keys(carrito).reduce((a, id) => {
-      const p = (datos.productos || []).find((x) => x.id === id);
+      const p = buscar(id);
       return a + (p ? p.precio * carrito[id] : 0);
     }, 0);
   }
   function cambiar(id, delta) {
+    hidratar();
     const n = (carrito[id] || 0) + delta;
     if (n <= 0) delete carrito[id]; else carrito[id] = n;
     guardarCarrito();
@@ -275,7 +314,7 @@ window.Mercado = (function () {
 
     cont.querySelectorAll(".mm-prod").forEach((b) => {
       b.onclick = () => {
-        const p = datos.productos.find((x) => x.id === b.dataset.id);
+        const p = catalogo().find((x) => x.id === b.dataset.id);
         if (p) abrirDetalle(p);
       };
     });
@@ -369,7 +408,7 @@ window.Mercado = (function () {
     });
     grid.querySelectorAll(".merc-card2").forEach((card) => {
       card.onclick = () => {
-        const p = datos.productos.find((x) => x.id === card.dataset.id);
+        const p = catalogo().find((x) => x.id === card.dataset.id);
         if (p) abrirDetalle(p);
       };
     });
@@ -449,8 +488,9 @@ window.Mercado = (function () {
   }
 
   function lineas() {
+    hidratar();
     return Object.keys(carrito).map((id) => {
-      const p = (datos.productos || []).find((x) => x.id === id);
+      const p = buscar(id);
       return p ? { p: p, n: carrito[id] } : null;
     }).filter(Boolean);
   }
@@ -552,8 +592,8 @@ window.Mercado = (function () {
     try { code = await window.Scan.abrir({ subtitulo: "apunta al código del producto" }); } catch (e) { return; }
     if (!code) return;
     const limpio = String(code).trim();
-    const p = (datos.productos || []).find((x) => codigoDe(x) === limpio) ||
-      (datos.productos || []).find((x) => (x.id || "").toLowerCase() === limpio.toLowerCase());
+    const p = catalogo().find((x) => codigoDe(x) === limpio) ||
+      catalogo().find((x) => (x.id || "").toLowerCase() === limpio.toLowerCase());
     if (p) { abrirDetalle(p); return; }
     estado.q = limpio;
     const q = $("mercQ");
@@ -566,6 +606,7 @@ window.Mercado = (function () {
   async function render() {
     if (!datos) await cargar();
     carrito = leerCarrito();
+    carritoHidratado = true;
 
     pintarChips($("mercCats"), categorias(), estado.categoria, (v) => { estado.categoria = v; render(); });
     pintarChips($("mercClas"), clasificaciones(), estado.clasificacion, (v) => { estado.clasificacion = v; render(); });
@@ -659,10 +700,19 @@ window.Mercado = (function () {
     }
 
     const ir3d = $("merc3d");
-    if (ir3d) ir3d.onclick = () => { if (window.Fabri) window.Fabri.go("tienda"); };
+    if (ir3d) ir3d.onclick = () => {
+      // entra con el catálogo del marketplace, no con el de un local del mapa
+      if (window.Tienda3D && Tienda3D.ponerTienda) Tienda3D.ponerTienda(null, null);
+      if (window.Fabri) window.Fabri.go("tienda");
+    };
 
     const salir3d = $("t3dSalir");
-    if (salir3d) salir3d.onclick = () => { if (window.Fabri) window.Fabri.go("mercado"); };
+    if (salir3d) salir3d.onclick = () => {
+      // si se vino del mapa, "atrás" devuelve al mapa (con su hoja de local)
+      const alMapa = !!(window.Tienda3D && Tienda3D.fueDelMapa && Tienda3D.fueDelMapa());
+      if (window.Tienda3D && Tienda3D.ponerTienda) Tienda3D.ponerTienda(null, null);
+      if (window.Fabri) window.Fabri.go(alMapa ? "panel" : "mercado");
+    };
     const car3d = $("t3dCarrito");
     if (car3d) car3d.onclick = () => abrirCarrito();
 
@@ -677,5 +727,11 @@ window.Mercado = (function () {
   if (document.readyState !== "loading") init();
   else document.addEventListener("DOMContentLoaded", init);
 
-  return { render, abrirDetalle, abrirCarrito, agregar: (p) => { if (p && p.id) cambiar(p.id, 1); }, productos: () => (datos ? datos.productos : []) };
+  return {
+    render, abrirDetalle, abrirCarrito,
+    agregar: (p) => { if (p && p.id) { registrar(p); cambiar(p.id, 1); } },
+    productos: () => catalogo(),
+    // para el visor 3D: código de barras y total de unidades
+    codigoDe, ean13Svg, unidades
+  };
 })();
