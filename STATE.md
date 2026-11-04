@@ -6,7 +6,7 @@
 > `cl.fabrick.core`, crate `fabrick-core`, dominio `fabri-core-web.vercel.app`,
 > repo `thinkfashz/fabri-core`.
 
-Última actualización: 2026-11-02
+Última actualización: 2026-11-04
 
 ## Sesión 2026-10-27 (20) · Nube: escáner con cámara y wiki de productos
 
@@ -2737,3 +2737,60 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
   verificado en vivo: `tienda3d.js` 71003 B, `fcore-v32`, texturas 200.
 - **Pendiente**: pedir capturas al usuario (letreros, muros/techo, TV,
   orden de estantes y pasillo a 1,37 m del muro) para ajustar.
+
+## Sesión 2026-11-04 · Tienda 3D v33: portadas, ficha con EAN y carrito mapa→visor — `fc08bf2`
+
+- **Portadas propias** (`dibuPortada`/`texturaPortada`): lienzo con
+  gradiente del tinte de marca, banda `CORE STOCK` (el wordmark en texto;
+  la F no se toca), pictograma sobre disco y placa inferior con categoría
+  en lima y nombre auto-ajustado a 2 líneas. **Pictograma por categoría**:
+  `equipo` (terminal), `audio` (parlante), `rollo` (etiquetas), `candado`
+  (vitrina), `cable` (cargador) y los formatos de supermercado de antes
+  (botella/bolsa/lata/tubo/pan). Antes los 12 productos del catálogo caían
+  todos en `caja`.
+- **Un producto por nivel de góndola** (planograma real): 24 `InstancedMesh`
+  (6 góndolas × 4 niveles) con su `userData.mapa` y portada 256²; tira de
+  precio de un solo producto en grande (`texturaTira([p], 3072, 96)`).
+- **Neveras con portada**: caja/bolsa por nivel (título Cocina/Helados/
+  Bebidas/Postres) con `matCajaCong` compartido; los cilindros conservan
+  color. Items sintéticos `cong-{nevera}-{k}` en `userData.mapa` (28 mallas).
+- **Ficha al tocar** (`#t3dFicha`): portada canvas, chip de categoría,
+  nombre, precio CLP, stock, **EAN-13** (`Mercado.codigoDe`/`ean13Svg`) en
+  píldora blanca y botón **Añadir al carrito**; al añadir, caja con la
+  portada vuela al carrito (0,6 s, arco + giro). TV mantiene toque directo.
+- **Iluminación**: 6 `PointLight` en `x ∈ {−6,0,6}, z ∈ ±3,35` (base 0,36)
+  sobre los halos; halo radial aditivo + cono α 0,045 bajo cada uno de los
+  16 luminarios. `toneMapping` ACES y exposición 0,92.
+- **Legibilidad**: `texturaCartel` a 1536×384 con `setTransform(1.5)`
+  (sub-label 26→30); `sRGBEncoding` + anisotropía máxima en marca, tiras y
+  portadas. Texturas HD cacheadas por repetición → 5 pares, 8 materiales
+  con mapa (`texHD`), para no inflar la RAM.
+- **Controles**: umbral de toque 8→10 px; `pointercancel`/
+  `lostpointercapture` limpian `mirar`/`puerta`; toque sobre el vidrio
+  (`puerta.movido < 10`) atraviesa e interactúa.
+- **Mapa → visor**: `#mpVerTienda` en la hoja del local llama
+  `Tienda3D.ponerTienda(productos(m), m)` y `Fabri.go("tienda")`; `abrir()`
+  reconstruye solo si cambió el catálogo (`destruirEscena` + `construir`).
+  "Atrás" devuelve al mapa si se vino del mapa, si no al marketplace.
+- **Carrito compartido**: `mercado.js` guarda productos de fuera del
+  catálogo en `fcore.mercado.extra` y los totaliza con `buscar()`.
+- **Bugs encontrados en la prueba y corregidos**:
+  1. El contador del carrito no subía al añadir desde el 3D: `Mercado.agregar`
+     llamaba a `filtrados()`, que hacía `datos.productos` con `datos = null`
+     cuando la vista de Mercado aún no había corrido `render()` → `TypeError`
+     que abortaba antes de `actualizarContador()`. Ahora hay `catalogo()`
+     con respaldo `SEED` en todas las consultas y `agregar()` del visor
+     envuelve la llamada en `try/catch`.
+  2. El primer añadido desde el 3D podía pisar el carrito guardado:
+     `carrito` en memoria arrancaba vacío. Ahora `hidratar()` lee
+     `localStorage` la primera vez (`cambiar`, `total`, `unidades`, `lineas`).
+- Validación: `node --check` (5 JS), smoke DOM con hook de `console.error`
+  → `cnt 0→1→2`, `carrito {"eq-001":1,"loc#0":1}`, rebuild del local
+  (`nom2:"Pan integral"`), sin errores propios; galería 2D de las 12
+  portadas revisada (pictogramas por categoría, nombres a 1–2 líneas).
+  **WebGL sigue sin verificarse aquí**: SwiftShader pierde el contexto
+  (`Shader Error 1282`), artefacto del entorno, no del código.
+- Service worker **v33**. Deploy `EXIT=0` verificado en vivo.
+- **Pendiente**: capturas del usuario en el teléfono (ficha, portadas en
+  estante, tiras de precio de cerca y carrito tras añadir) para el ajuste
+  fino visual.
