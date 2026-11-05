@@ -5,10 +5,11 @@
    La lista de precache es deliberadamente explícita: si un archivo falta, el
    install falla y la app deja de ser offline — mejor detectarlo en la prueba
    `tests/web/diseno.js` que en el teléfono del usuario. */
-const V = 'fcore-v34';
+const V = 'fcore-v35';
 const SHELL = [
   './', './index.html', './styles.css', './app.js', './cloud.js', './lottie-mount.js',
   './mercado.js', './placer.js', './placer.css', './negocio.js', './tienda3d.js',
+  '../datos/tiendas.json',
   './texturas/piso-diff.jpg', './texturas/piso-nor.jpg',
   './texturas/muro-diff.jpg', './texturas/muro-nor.jpg',
   './texturas/techo-diff.jpg', './texturas/techo-nor.jpg',
@@ -42,6 +43,19 @@ self.addEventListener('fetch', e => {
   if (req.method !== 'GET') return;
   if (url.pathname.startsWith('/api/')) return;          // el agente nunca se cachea
   if (url.origin !== location.origin) return;            // solo mismo origen
+
+  /* El registro de locales cambia sin subir versión: va siempre a la red y la
+     caché solo respalda cuando no hay conexión. Si fuera cache-first, el local
+     que se suma hoy no aparecería hasta cambiar el nombre de la caché. */
+  if (url.pathname.startsWith('/datos/')) {
+    e.respondWith(
+      fetch(req).then(r => {
+        if (r.ok) caches.open(V).then(c => c.put(req, r.clone()));
+        return r;
+      }).catch(() => caches.match(req))
+    );
+    return;
+  }
 
   if (req.mode === 'navigate') {
     e.respondWith(

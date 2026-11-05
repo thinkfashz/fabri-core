@@ -1,0 +1,166 @@
+{
+  "v": 1,
+  "actualizado": "2026-11-05",
+  "nota": "Registro de locales del piloto FORGE CORE STOCK. Cada entrada es un negocio que entregó su nombre, su WhatsApp y su catálogo. Los locales con \"demo\": true son EJEMPLOS para probar el flujo; reemplázalos por locales reales con scripts/nueva-tienda.mjs.",
+  "como_agregar": "Ejecuta: node scripts/nueva-tienda.mjs <archivo.json>   (o pásale el JSON por argumento). El script valida, agrega y publica.",
+  "tiendas": [
+    {
+      "id": "t-ree-01",
+      "nombre": "Feria El Esfuerzo",
+      "rubro": "Feria",
+      "ico": "feria",
+      "telefono": "+56900000001",
+      "direccion": "Av. Miraflores 480",
+      "comuna": "Rengo",
+      "lat": -34.4075,
+      "lon": -70.8602,
+      "abierto": true,
+      "horario": "Mar a Dom 8:00-18:00",
+      "minimo": 10000,
+      "entrega": [
+        "retiro",
+        "delivery"
+      ],
+      "envio": 1990,
+      "demo": true,
+      "catalogo": [
+        {
+          "nombre": "Tomate 1 kg",
+          "precio": 1390,
+          "stock": 40
+        },
+        {
+          "nombre": "Papa 1 kg",
+          "precio": 970,
+          "stock": 60
+        },
+        {
+          "nombre": "Cebolla 1 kg",
+          "precio": 1090,
+          "stock": 35
+        },
+        {
+          "nombre": "Palta Hass 1 kg",
+          "precio": 3490,
+          "stock": 18
+        },
+        {
+          "nombre": "Zanahoria 1 kg",
+          "precio": 890,
+          "stock": 30
+        },
+        {
+          "nombre": "Limón 1 kg",
+          "precio": 1590,
+          "stock": 22
+        },
+        {
+          "nombre": "Plátano 1 kg",
+          "precio": 1290,
+          "stock": 25
+        },
+        {
+          "nombre": "Lechuga 1 u",
+          "precio": 690,
+          "stock": 40
+        },
+        {
+          "nombre": "Choclo 1 u",
+          "precio": 500,
+          "stock": 50
+        },
+        {
+          "nombre": "Pimiento 1 kg",
+          "precio": 1990,
+          "stock": 15
+        },
+        {
+          "nombre": "Frutilla 500 g",
+          "precio": 2490,
+          "stock": 12
+        }
+      ]
+    },
+    {
+      "id": "t-ree-02",
+      "nombre": "Almacén Doña Rosa",
+      "rubro": "Almacén",
+      "ico": "almacen",
+      "telefono": "+56900000002",
+      "direccion": "Calle Arturo Prat 133",
+      "comuna": "Rengo",
+      "lat": -34.4051,
+      "lon": -70.8661,
+      "abierto": false,
+      "horario": "Lun a Sáb 9:00-21:00",
+      "minimo": 5000,
+      "entrega": [
+        "retiro"
+      ],
+      "envio": 0,
+      "demo": true,
+      "catalogo": [
+        {
+          "nombre": "Pan marraqueta 1 kg",
+          "precio": 1400,
+          "stock": 30
+        },
+        {
+          "nombre": "Leche entera 1 L",
+          "precio": 1150,
+          "stock": 24
+        },
+        {
+          "nombre": "Arroz grado 1 · 1 kg",
+          "precio": 1690,
+          "stock": 20
+        },
+        {
+          "nombre": "Aceite vegetal 900 ml",
+          "precio": 2450,
+          "stock": 15
+        },
+        {
+          "nombre": "Harina sin polvos 1 kg",
+          "precio": 1190,
+          "stock": 18
+        },
+        {
+          "nombre": "Azúcar 1 kg",
+          "precio": 1090,
+          "stock": 20
+        },
+        {
+          "nombre": "Huevos 12 u",
+          "precio": 3690,
+          "stock": 12
+        },
+        {
+          "nombre": "Tallarines 400 g",
+          "precio": 890,
+          "stock": 25
+        },
+        {
+          "nombre": "Atún agua 160 g",
+          "precio": 1290,
+          "stock": 30
+        },
+        {
+          "nombre": "Bebida cola 1,5 L",
+          "precio": 1790,
+          "stock": 16
+        },
+        {
+          "nombre": "Agua mineral 1,6 L",
+          "precio": 990,
+          "stock": 20
+        },
+        {
+          "nombre": "Papel higiénico 4 u",
+          "precio": 1990,
+          "stock": 14
+        }
+      ]
+    }
+  ]
+}

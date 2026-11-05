@@ -20,6 +20,10 @@ window.Placer = (function () {
   "use strict";
 
   const API = "/api/mercados";
+  /* Registro de locales del piloto. Es un JSON servido por el CDN: el catálogo
+     real de un negocio queda visible en CUALQUIER teléfono, no en el navegador
+     del que lo cargó. Esto es lo que convierte la maqueta en algo multiusuario. */
+  const API_TIENDAS = "/datos/tiendas.json";
   const CLAVE_CARRITO = "fcore.placer.carrito";
   const CLAVE_RADIO = "fcore.placer.radio";
   const CLAVE_UBI = "fcore.placer.ubicacion";
@@ -260,6 +264,24 @@ window.Placer = (function () {
   }
 
   function productos(m) {
+    // Local del piloto con catálogo real: se usa tal cual lo cargó el negocio.
+    if (m && Array.isArray(m.catalogo) && m.catalogo.length) {
+      return m.catalogo.map(function (it, i) {
+        const nombre = String(it.nombre || it.n || "Producto");
+        const precio = Math.max(0, Math.round(Number(it.precio) || 0));
+        const descuento = Math.max(0, Math.min(90, Math.round(Number(it.descuento) || 0)));
+        return {
+          id: m.id + "#" + i,
+          nombre: nombre,
+          categoria: it.categoria || categoriaDe(nombre),
+          unidad: it.unidad || unidadDe(nombre),
+          lista: descuento ? Math.round(precio / (1 - descuento / 100) / 10) * 10 : precio,
+          precio: precio,
+          descuento: descuento,
+          stock: it.stock == null ? null : Number(it.stock)   // null = sin dato
+        };
+      });
+    }
     const base = BASE[m.ico] || BASE.tienda;
     const semilla = m.id.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
     return base.map(function (par, i) {
@@ -627,6 +649,45 @@ window.Placer = (function () {
   }
 
   /* ── datos ─────────────────────────────────────────────────────────────── */
+  /* Trae los locales del piloto desde el registro y los deja con la MISMA
+     forma que los de OpenStreetMap, así el resto del mapa no sabe de dónde
+     vino cada uno: solo que estos son `forge` (tienen catálogo real y ficha
+     propia) y pueden estar abiertos o cerrados. */
+  async function cargarTiendas(lat, lon) {
+    let datos = null;
+    try {
+      const r = await fetch(API_TIENDAS, { cache: "no-store" });
+      if (r.ok) datos = await r.json();
+    } catch (e) { /* sin red: el registro es opcional, el mapa sigue con OSM */ }
+    const lista = datos && Array.isArray(datos.tiendas) ? datos.tiendas : [];
+    return lista.map(function (t) {
+      const la = Number(t.lat), lo = Number(t.lon);
+      return {
+        id: t.id || ("forge/" + String(t.nombre || "local").toLowerCase().replace(/[^a-z0-9]+/g, "-")),
+        nombre: t.nombre || "Local",
+        tipo: t.ico || "tienda",
+        rubro: t.rubro || "Local",
+        ico: t.ico || "tienda",
+        lat: la, lon: lo,
+        dist: Math.round(metrosc(lat, lon, la, lo)),
+        direccion: t.direccion || "", comuna: t.comuna || "",
+        horario: t.horario || "", telefono: t.telefono || "", web: t.web || "",
+        abierto: t.abierto !== false,
+        minimo: Math.max(0, Math.round(Number(t.minimo) || 0)),
+        entrega: Array.isArray(t.entrega) && t.entrega.length ? t.entrega.slice() : ["retiro"],
+        envio: Math.max(0, Math.round(Number(t.envio) || 0)),
+        catalogo: Array.isArray(t.catalogo) ? t.catalogo : [],
+        forge: true,
+        demo: !!t.demo
+      };
+    }).filter(function (t) { return isFinite(t.lat) && isFinite(t.lon); });
+  }
+
+  function unirTiendas(tiendas, resto) {
+    const dentro = tiendas.filter(function (t) { return t.dist <= Math.max(ESTADO.radio, 5000); });
+    return dentro.concat(resto).sort(function (a, b) { return (a.dist || 0) - (b.dist || 0); });
+  }
+
   async function cargar(silencioso) {
     if (!ESTADO.pos || ESTADO.cargando) return;
     ESTADO.cargando = true;
@@ -634,10 +695,11 @@ window.Placer = (function () {
     const { lat, lon } = ESTADO.pos;
     const radio = ESTADO.radio;
     let lista = null, origen = "";
+    const tiendas = await cargarTiendas(lat, lon);
 
     if (new URLSearchParams(location.search).get("demo") === "1") {
       ESTADO.cargando = false;
-      ESTADO.mercados = muestra(lat, lon);
+      ESTADO.mercados = unirTiendas(tiendas, muestra(lat, lon));
       ESTADO.origen = "muestra";
       pintarLeyenda("muestra", ESTADO.mercados.length);
       pintarMapa(); pintarLista();
@@ -666,9 +728,9 @@ window.Placer = (function () {
     }
 
     ESTADO.origen = origen;
-    ESTADO.mercados = lista;
+    ESTADO.mercados = unirTiendas(tiendas, lista);
     ESTADO.cargando = false;
-    pintarLeyenda(origen, lista.length);
+    pintarLeyenda(origen, ESTADO.mercados.length);
     pintarMapa();
     pintarLista();
   }
@@ -1155,11 +1217,12 @@ window.Placer = (function () {
         return;
       }
       const m = g.items[0];
+      const cerrado = m.forge && m.abierto === false;
       const ico = L.divIcon({
-        className: "mp-pin",
+        className: "mp-pin" + (m.forge ? " forge" : "") + (cerrado ? " cerrado" : ""),
         html: '<span class="mp-pin-cuerpo">' + icono(m.ico, 16) + "</span>" +
           '<span class="mp-pin-pata"></span>' +
-          '<b class="mp-pin-dist">' + distancia(m.dist) + "</b>",
+          '<b class="mp-pin-dist">' + (cerrado ? "cerrado" : distancia(m.dist)) + "</b>",
         iconSize: [30, 40], iconAnchor: [15, 36]
       });
       const mk = L.marker([m.lat, m.lon], { icon: ico, riseOnHover: true })
@@ -1276,10 +1339,14 @@ window.Placer = (function () {
       const n = unidades(m.id);
       const tags = [];
       if (m.muestra) tags.push('<em class="mp-tag muestra">muestra</em>');
+      if (m.forge) tags.push('<em class="mp-tag ' + (m.abierto === false ? "cerrado" : "abierto") + '">' +
+        (m.abierto === false ? "cerrado" : "abierto") + "</em>");
+      if (m.forge && m.minimo) tags.push('<em class="mp-tag mín">mín ' + clp(m.minimo) + "</em>");
       if (m.horario) tags.push('<em class="mp-tag">' + esc(acortar(m.horario, 26)) + "</em>");
       if (n) tags.push('<em class="mp-tag carrito">' + n + " en el pedido</em>");
       const linea = [m.rubro, m.direccion || m.comuna].filter(Boolean).join(" · ");
-      return '<button type="button" class="mp-item" data-id="' + esc(m.id) + '">' +
+      return '<button type="button" class="mp-item' + (m.forge ? " forge" : "") +
+          (m.forge && m.abierto === false ? " cerrado" : "") + '" data-id="' + esc(m.id) + '">' +
         '<span class="mp-item-ico">' + icono(m.ico, 20) + logoDe(m) + "</span>" +
         '<span class="mp-item-txt"><b>' + esc(m.nombre) + "</b>" +
         "<small>" + esc(linea) + "</small>" +
@@ -1351,6 +1418,28 @@ window.Placer = (function () {
     return lista;
   }
 
+  /* Franja de estado del local del piloto: si está abierto o cerrado, su
+     pedido mínimo y cómo entrega. Es lo que el comprador necesita saber antes
+     de armar el pedido, y lo que el dueño configura. */
+  function estadoDeLocal(m) {
+    const cerrado = m.abierto === false;
+    const permiteDelivery = m.entrega.indexOf("delivery") >= 0;
+    const entregaTxt = permiteDelivery
+      ? (m.envio ? "Retiro o delivery (+" + clp(m.envio) + ")" : "Retiro o delivery")
+      : "Solo retiro en el local";
+    return '<div class="mp-estado' + (cerrado ? " cerrado" : "") + '">' +
+        '<span class="mp-estado-punto"></span>' +
+        "<b>" + (cerrado ? "Cerrado ahora" : "Abierto ahora") + "</b>" +
+        (m.horario ? "<i>" + esc(m.horario) + "</i>" : "") +
+        (m.demo ? '<em class="mp-estado-demo">ejemplo</em>' : "") +
+      "</div>" +
+      '<div class="mp-mini">' +
+        '<span><b>' + (m.minimo ? clp(m.minimo) : "Sin mínimo") + "</b>" + (m.minimo ? " pedido mínimo" : "") + "</span>" +
+        "<span>" + esc(entregaTxt) + "</span>" +
+      "</div>" +
+      (cerrado ? '<p class="mp-cerrado-aviso">Este local está cerrado: puedes mirar su catálogo, pero no pedir por ahora.</p>' : "");
+  }
+
   function pintarHoja() {
     const m = ESTADO.viendo;
     if (!m) return;
@@ -1359,7 +1448,8 @@ window.Placer = (function () {
 
     $("mpHojaIco").innerHTML = icono(m.ico, 22) + logoDe(m);
     $("mpHojaNombre").textContent = m.nombre;
-    $("mpHojaSub").textContent = [m.rubro, distancia(m.dist) + " de ti"].filter(Boolean).join(" · ");
+    const estadoTxt = m.forge ? (m.abierto === false ? "Cerrado" : "Abierto") : "";
+    $("mpHojaSub").textContent = [m.rubro, distancia(m.dist) + " de ti", estadoTxt].filter(Boolean).join(" · ");
 
     const acciones = [];
     acciones.push(accion("ruta", "Ruta",
@@ -1376,6 +1466,7 @@ window.Placer = (function () {
     $("mpHojaCuerpo").innerHTML =
       '<p class="mp-hoja-desc">' + esc(descripcionDe(m)) + "</p>" +
       (datos.length ? '<p class="mp-hoja-datos">' + datos.map(esc).join('<i>·</i>') + "</p>" : "") +
+      (m.forge ? estadoDeLocal(m) : "") +
       '<div class="mp-acciones">' +
         '<button type="button" class="mp-accion mp-3d" id="mpVerTienda">' +
           '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z"/><path d="m4 7.5 8 4.5 8-4.5M12 12v9"/></svg>' +
@@ -1388,10 +1479,13 @@ window.Placer = (function () {
       "</div>" +
       '<div class="mp-cat-cab">' +
         '<h3>Catálogo del local</h3>' +
-        '<span class="mp-tag ' + (m.muestra ? "muestra" : "ref") + '">' + (m.muestra ? "muestra" : "referencial") + "</span>" +
+        '<span class="mp-tag ' + (m.muestra ? "muestra" : m.forge ? "ref" : "ref") + '">' +
+          (m.muestra ? "muestra" : m.forge ? "del negocio" : "referencial") + "</span>" +
       "</div>" +
-      '<p class="mp-cat-nota">Precios de referencia en CLP armados por rubro («' + esc(m.rubro) +
-        "»). El stock y los precios reales los define cada negocio.</p>" +
+      '<p class="mp-cat-nota">' + (m.forge
+        ? "Precios y stock que cargó <b>" + esc(m.nombre) + "</b>. Puedes pedir y el local confirma por WhatsApp."
+        : "Precios de referencia en CLP armados por rubro («" + esc(m.rubro) +
+          "»). El stock y los precios reales los define cada negocio.") + "</p>" +
       '<div class="mp-cat-herramientas">' +
         '<label class="mp-buscar"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.2-3.2"/></svg>' +
           '<input id="mpCatQ" type="search" placeholder="Buscar en el catálogo…" value="' + esc(ESTADO.cat.q) + '" autocomplete="off">' +
@@ -1442,25 +1536,28 @@ window.Placer = (function () {
       return '<div class="mp-vacio"><b>Nada con ese filtro</b><p>Prueba con otra palabra o quita la categoría.</p></div>';
     }
     const carrito = ESTADO.carrito[m.id] || { items: {} };
+    const cerrado = m.forge && m.abierto === false;
     return lista.map((p) => {
       const cant = cantidadDe(carrito.items[p.id]);
-      return '<div class="mp-prod' + (cant ? " en-carrito" : "") + '" data-pid="' + esc(p.id) + '">' +
+      const stock = p.stock == null ? "disponible" : ("quedan " + p.stock);
+      return '<div class="mp-prod' + (cant ? " en-carrito" : "") + (cerrado ? " cerrado" : "") + '" data-pid="' + esc(p.id) + '">' +
         '<span class="mp-prod-ico" data-cat="' + esc(p.categoria) + '" aria-hidden="true">' +
           '<b>' + esc(p.nombre.charAt(0)) + "</b></span>" +
         '<div class="mp-prod-txt">' +
           "<b>" + esc(p.nombre) + "</b>" +
-          '<small><em>' + esc(p.categoria) + "</em> · " + esc(p.unidad) + " · quedan " + p.stock + "</small>" +
+          '<small><em>' + esc(p.categoria) + "</em> · " + esc(p.unidad) + " · " + esc(stock) + "</small>" +
           '<span class="mp-prod-precio">' +
             (p.descuento ? '<i class="mp-prod-antes">' + clp(p.lista) + "</i>" : "") +
             "<b>" + clp(p.precio) + "</b>" +
             (p.descuento ? '<em class="mp-prod-off">−' + p.descuento + "%</em>" : "") +
           "</span>" +
         "</div>" +
-        '<div class="mp-prod-acc">' +
-          (cant ? '<button type="button" class="mp-mas" data-p="' + esc(p.id) + '" data-d="-1" aria-label="Quitar uno">−</button>' +
-                  '<b class="mp-cant">' + cant + "</b>" : "") +
-          '<button type="button" class="mp-mas" data-p="' + esc(p.id) + '" data-d="1" aria-label="Agregar uno">+</button>' +
-        "</div>" +
+        (cerrado ? '<div class="mp-prod-acc mp-prod-off-msg">cerrado</div>'
+                 : '<div class="mp-prod-acc">' +
+                     (cant ? '<button type="button" class="mp-mas" data-p="' + esc(p.id) + '" data-d="-1" aria-label="Quitar uno">−</button>' +
+                             '<b class="mp-cant">' + cant + "</b>" : "") +
+                     '<button type="button" class="mp-mas" data-p="' + esc(p.id) + '" data-d="1" aria-label="Agregar uno">+</button>' +
+                   "</div>") +
       "</div>";
     }).join("");
   }
@@ -1579,7 +1676,10 @@ window.Placer = (function () {
         const items = itemsDe(m);
         const total = totalDe(m);
         granTotal += total;
-        return '<section class="mp-car-grupo">' +
+        const min = m.forge ? (m.minimo || 0) : 0;
+        const falta = min > 0 && total < min;
+        const cerrado = m.forge && m.abierto === false;
+        return '<section class="mp-car-grupo' + (cerrado ? " cerrado" : "") + '">' +
           '<header><span class="mp-car-ico">' + icono(m.ico, 16) + "</span>" +
             "<b>" + esc(m.nombre) + "</b>" +
             "<small>" + (m.dist ? distancia(m.dist) + " · " : "") + items.length + (items.length === 1 ? " producto" : " productos") + "</small></header>" +
@@ -1594,7 +1694,11 @@ window.Placer = (function () {
               '<b class="mp-car-sub">' + clp(p.precio * p.cantidad) + "</b>" +
             "</div>").join("") +
           '<footer><span>Subtotal</span><b>' + clp(total) + "</b></footer>" +
-          '<button type="button" class="btn primary block sm" data-pedir="' + esc(m.id) + '">Pagar ' + clp(total) + "</button>" +
+          (cerrado ? '<p class="mp-aviso-min">Este local está cerrado ahora.</p>' : "") +
+          (falta ? '<p class="mp-aviso-min">Faltan ' + clp(min - total) + " para el pedido mínimo de " + clp(min) + ".</p>" : "") +
+          '<button type="button" class="btn primary block sm" data-pedir="' + esc(m.id) + '"' +
+            (falta || cerrado ? " disabled" : "") + ">" +
+            (cerrado ? "Local cerrado" : falta ? "Mínimo " + clp(min) : "Pagar " + clp(total)) + "</button>" +
         "</section>";
       }).join("");
 
@@ -1728,11 +1832,16 @@ window.Placer = (function () {
     const m = tiendasConPedido().find((x) => x.id === id) ||
       ESTADO.mercados.find((x) => x.id === id);
     if (!m || !itemsDe(m).length) { avisar("Ese pedido ya no tiene productos."); return; }
+    if (m.forge && m.abierto === false) { avisar("El local está cerrado ahora."); return; }
+    const permite = (m.entrega && m.entrega.length) ? m.entrega : ["retiro", "delivery"];
+    const quiereDelivery = ESTADO.pedido.modo === "delivery";
+    const entrega = (quiereDelivery && permite.indexOf("delivery") >= 0) ? "delivery"
+      : (permite.indexOf("retiro") >= 0 ? "retiro" : permite[0]);
     ESTADO.pago = {
       id: id, tienda: m,
       items: itemsDe(m), subtotal: totalDe(m),
       numero: "", exp: "", cvv: "", titular: "",
-      metodo: "tarjeta", entrega: ESTADO.pedido.modo === "delivery" ? "delivery" : "retiro",
+      metodo: "tarjeta", entrega: entrega,
       estado: "form"
     };
     const hoja = $("mpPago");
@@ -1758,7 +1867,9 @@ window.Placer = (function () {
   }
 
   function costoEnvio() {
-    return ESTADO.pago && ESTADO.pago.entrega === "delivery" ? 1990 : 0;
+    if (!ESTADO.pago || ESTADO.pago.entrega !== "delivery") return 0;
+    const t = ESTADO.pago.tienda;
+    return (t && t.envio) ? t.envio : 1990;      // el envío lo fija cada local
   }
 
   function marcaTarjeta(numero) {
@@ -1804,6 +1915,9 @@ window.Placer = (function () {
     const envio = costoEnvio();
     const total = subtotal + envio;
     const p = ESTADO.pedido;
+    const minimo = m.minimo || 0;
+    const faltaMin = minimo > 0 && subtotal < minimo;
+    const permite = (m.entrega && m.entrega.length) ? m.entrega : ["retiro", "delivery"];
 
     $("mpPagoTit").textContent = ESTADO.pago.estado === "listo" ? "Pedido pagado" : "Pagar pedido";
     $("mpPagoSub").textContent = m.nombre + " · " + items.length +
@@ -1852,10 +1966,16 @@ window.Placer = (function () {
       "</div>" +
 
       '<div class="mp-sec"><h3>Entrega</h3>' +
+        (faltaMin ? '<p class="mp-aviso-min">Faltan <b>' + clp(minimo - subtotal) + "</b> para el pedido mínimo de " +
+          clp(minimo) + ". Agrega algún producto más.</p>" : "") +
         '<div class="mp-cli-modos" id="mpEntrega">' +
-          '<button type="button" data-e="retiro" class="' + (ESTADO.pago.entrega !== "delivery" ? "on" : "") + '">Retiro</button>' +
-          '<button type="button" data-e="delivery" class="' + (ESTADO.pago.entrega === "delivery" ? "on" : "") + '">Delivery (+' + clp(1990) + ")</button>" +
+          (permite.indexOf("retiro") >= 0
+            ? '<button type="button" data-e="retiro" class="' + (ESTADO.pago.entrega !== "delivery" ? "on" : "") + '">Retiro en el local</button>' : "") +
+          (permite.indexOf("delivery") >= 0
+            ? '<button type="button" data-e="delivery" class="' + (ESTADO.pago.entrega === "delivery" ? "on" : "") + '">Delivery' + (m.envio ? " (+" + clp(m.envio) + ")" : "") + "</button>" : "") +
         "</div>" +
+        (permite.length === 1 ? '<p class="mp-cat-nota">Este local solo ofrece <b>' +
+          (permite[0] === "delivery" ? "delivery" : "retiro en el local") + "</b>.</p>" : "") +
         (ESTADO.pago.entrega === "delivery"
           ? '<input id="mpPagoDir" class="mp-campo' + (err("direccion") ? " mal" : "") + '" autocomplete="street-address" placeholder="Calle y número" value="' + esc(ESTADO.pago.direccion || "") + '">' + err("direccion")
           : "") +
@@ -1936,12 +2056,17 @@ window.Placer = (function () {
 
     $("mpPagoPie").innerHTML =
       '<div class="mp-car-total"><span>Total a pagar</span><b>' + clp(total) + "</b></div>" +
-      '<button type="button" class="btn primary block" id="mpPagar">' +
-        (tarjeta ? "Pagar " + clp(total) : "Ya transferí " + clp(total)) + "</button>";
+      '<button type="button" class="btn primary block" id="mpPagar"' + (faltaMin ? " disabled" : "") + ">" +
+        (faltaMin ? "Falta " + clp(minimo - subtotal) + " para el mínimo"
+                  : (tarjeta ? "Pagar " + clp(total) : "Ya transferí " + clp(total))) + "</button>";
     $("mpPagar").onclick = () => pagar(m);
   }
 
   function pagar(m) {
+    if (m && m.minimo > 0 && (ESTADO.pago.subtotal || 0) < m.minimo) {
+      avisar("El pedido mínimo de " + m.nombre + " es " + clp(m.minimo) + ".");
+      return;
+    }
     const problemas = erroresPago();
     if (Object.keys(problemas).length) {
       ESTADO.pago.errores = problemas;

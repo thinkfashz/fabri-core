@@ -1235,3 +1235,60 @@ button.mp-accion { font-family: inherit; cursor: pointer; width: 100%; text-alig
 }
 .mp-stats b { font-size: 17px; font-weight: 780; letter-spacing: -.03em; color: var(--mp-tx); }
 .mp-stats span { font-size: 9.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--mp-tx4); }
+
+/* ── 12 · locales del piloto (registro real) ────────────────────────────── */
+/* Un local del registro no se distingue por color, sino por tener catálogo
+   real y poder estar cerrado: el pin cerrado se apaga y dice "cerrado". */
+.mp-pin.forge .mp-pin-cuerpo { outline: 2px solid rgba(200,245,66,.5); outline-offset: 1px; }
+.mp-pin.cerrado .mp-pin-cuerpo {
+  background: linear-gradient(165deg, #5b625c, #3a403c 60%, #2a2f2b);
+  color: #c7cfc7; box-shadow: none;
+}
+.mp-pin.cerrado .mp-pin-pata { border-top-color: #2a2f2b; }
+.mp-pin.cerrado .mp-pin-dist { color: var(--mp-tx4); }
+
+.mp-tag.abierto { background: var(--mp-lima-soft); color: var(--mp-lima); border-color: rgba(200,245,66,.22); }
+.mp-tag.cerrado { background: rgba(255,120,120,.1); color: #ff9a9a; border-color: rgba(255,120,120,.22); }
+.mp-tag.mín { background: var(--mp-oro-soft); color: var(--mp-oro); border-color: rgba(232,200,122,.24); }
+
+.mp-item.forge { border-left: 3px solid rgba(200,245,66,.5); }
+.mp-item.cerrado { opacity: .72; }
+.mp-item.cerrado .mp-item-ico { filter: grayscale(.55); }
+
+.mp-estado {
+  display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
+  padding: 9px 12px; border-radius: var(--mp-r-md); margin: 0 0 8px;
+  background: var(--mp-lima-soft); border: 1px solid rgba(200,245,66,.22);
+}
+.mp-estado.cerrado { background: rgba(255,120,120,.08); border-color: rgba(255,120,120,.2); }
+.mp-estado-punto {
+  width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto;
+  background: var(--mp-lima); box-shadow: 0 0 10px var(--mp-lima);
+}
+.mp-estado.cerrado .mp-estado-punto { background: #ff8a8a; box-shadow: 0 0 10px #ff8a8a; }
+.mp-estado b { font-size: 12.5px; }
+.mp-estado i { font-style: normal; font-size: 11px; color: var(--mp-tx3); }
+.mp-estado-demo {
+  font-style: normal; margin-left: auto; font-size: 9.5px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .05em; color: var(--mp-oro);
+}
+
+.mp-mini { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 12px; }
+.mp-mini span {
+  font-size: 11.5px; color: var(--mp-tx3); background: var(--mp-sunken);
+  border: 1px solid var(--mp-line); padding: 4px 9px; border-radius: 999px;
+}
+.mp-mini b { color: var(--mp-tx); }
+
+.mp-cerrado-aviso, .mp-aviso-min {
+  margin: 0 0 12px; padding: 9px 11px; border-radius: var(--mp-r-md);
+  font-size: 12px; line-height: 1.5; background: rgba(255,120,120,.08);
+  border: 1px solid rgba(255,120,120,.2); color: #ffb3b3;
+}
+.mp-aviso-min b { color: #fff; }
+
+.mp-prod.cerrado { opacity: .7; }
+.mp-prod-off-msg { font-size: 10.5px; color: var(--mp-tx4); text-transform: uppercase; letter-spacing: .05em; white-space: nowrap; }
+.mp-car-grupo.cerrado { border-color: rgba(255,120,120,.22); }
+
+.btn[disabled], .btn:disabled { opacity: .5; }

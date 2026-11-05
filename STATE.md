@@ -2795,6 +2795,37 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
   estante, tiras de precio de cerca y carrito tras añadir) para el ajuste
   fino visual.
 
+## Sesión 2026-11-05 · MercadoPlacer v35: registro real de locales + abierto/mínimo/entrega
+
+Pivote de «demo» a «postulable»: el catálogo deja de ser sintético y pasa a ser
+el que cargó el negocio, visible en cualquier teléfono.
+
+- **El puente (backend del piloto)**: `web/datos/tiendas.json` es el registro de
+  locales, servido por CDN. `placer.js` lo trae (`API_TIENDAS = "/datos/tiendas.json"`),
+  lo normaliza a la misma forma que los locales de OSM y los une antes de pintar
+  (`cargarTiendas()` + `unirTiendas()`). Un local `forge` trae catálogo REAL
+  (`productos(m)` devuelve `m.catalogo` tal cual; `stock` puede ser `null` = «disponible»).
+  Sin base de datos y sin servidor propio: publicar un local = editar el JSON.
+- **Las 3 funciones pedidas** (verificadas end-to-end en headless shell):
+  1. **ABIERTO/CERRADO**: `m.abierto`; el pin cerrado se apaga (gris) y dice
+     «cerrado», la ficha muestra «Abierto/Cerrado ahora» y bloquea el pedido.
+  2. **Pedido mínimo**: `m.minimo` en la ficha, en la lista (tag «mín $…»), en el
+     carrito (aviso «Faltan $X para el mínimo») y en el pago (botón deshabilitado).
+  3. **Retiro o despacho**: `m.entrega` limita los modos del checkout; el envío lo
+     fija cada local (`m.envio`), no un valor global.
+- **Alta de locales**: `scripts/nueva-tienda.mjs` (plantilla | alta | listar |
+  borrar) valida coords en Chile, teléfono, catálogo con precio>0, avisa duplicados
+  y evita ids repetidos.
+- **Service worker v35**: `/datos/` va **network-first** (el registro cambia sin
+  subir versión) y `../datos/tiendas.json` entra al precache como respaldo offline.
+- **Validación**: `node --check` OK; `tests/web/diseno.js` sin regresiones (los 4
+  fallos que quedan son previos: tocan `index.html`, `app.js`, `manifest`, landing).
+  Smoke mismo-origen (iframe + clics reales): «Cerrado ahora»/$5.000/Solo retiro en
+  el cerrado; «Abierto ahora»/$10.000/Retiro o delivery (+$1.990)/catálogo real en
+  el abierto; carrito con Tomate $1.390 → «Faltan $8.610…» y botón
+  «Mínimo $10.000» `disabled=true`. WebGL sigue sin verificarse aquí.
+- **Pendiente**: alta de local in-app (form → JSON + WhatsApp) y probar en teléfono real.
+
 ## Sesión 2026-11-04 · Tienda 3D v34: arregla el signo del stick (movimiento) — `7a84b24`
 
 Reporte del usuario: «los controles de movimiento me llevan hacia atrás y no
