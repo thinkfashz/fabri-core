@@ -1364,6 +1364,9 @@ body.con-scan{overflow:hidden}
 .mm[hidden], .merc-grid[hidden] { display: none !important; }
 .mm { margin-top: 14px; }
 .mm-cab { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+/* La columna de texto crece y puede encoger: sin min-width:0 un título largo
+   empuja las flechas fuera del encabezado. */
+.mm-cab-txt { flex: 1; min-width: 0; }
 .mm-eyebrow {
   margin: 0; font-family: var(--mono); font-size: 9.5px; letter-spacing: .16em;
   text-transform: uppercase; color: var(--tx4);

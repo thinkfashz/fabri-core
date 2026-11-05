@@ -500,23 +500,46 @@
     ['vegano', 'Vegano'], ['vegetariano', 'Vegetariano'], ['organico', 'Orgánico'],
   ];
   const invClave = () => (sessionStorage.getItem('fabri.invKey') || '').trim();
+  // Credencial de DUEÑO: ID de su local + clave de 8 caracteres. Sólo su
+  // espacio aislado; nunca hace falta (ni se debe) repartir el token admin.
+  const invLocal = () => (sessionStorage.getItem('fabri.invLocal') || '').trim().toLowerCase();
+  const invLocalClave = () => (sessionStorage.getItem('fabri.invLocalClave') || '').trim();
+  const invConCredencial = () => Boolean(invClave() || (invLocal() && invLocalClave()));
   const clp = n => '$' + Math.round(Number(n) || 0).toLocaleString('es-CL');
 
   async function invApi(accion, extra) {
-    const clave = invClave();
-    if (!clave) return { ok: false, codigo: 'SIN_CLAVE', error: 'falta la clave de la nube' };
+    const admin = invClave();
+    const local = invLocal();
+    const clave = invLocalClave();
+    if (!invConCredencial()) return { ok: false, codigo: 'SIN_CLAVE', error: 'falta la clave de la nube: pon el token (admin) o el ID + clave de tu local' };
     try {
       const ctrl = new AbortController();
       const reloj = setTimeout(() => ctrl.abort(), 12000);
+      // El servidor decide el alcance: con Bearer es ADMIN (ve todo); con
+      // local_id + clave en el cuerpo es DUEÑO (sólo su espacio).
+      const cuerpo = Object.assign({ accion }, extra || {});
+      if (local) cuerpo.local_id = local;
+      if (clave) cuerpo.clave = clave;
       const r = await fetch(INV_API, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + clave },
-        body: JSON.stringify(Object.assign({ accion }, extra || {})),
+        headers: Object.assign(
+          { 'Content-Type': 'application/json' },
+          admin ? { Authorization: 'Bearer ' + admin } : {}
+        ),
+        body: JSON.stringify(cuerpo),
         signal: ctrl.signal,
       });
       clearTimeout(reloj);
       const d = await r.json().catch(() => ({}));
-      if (r.status === 401) return { ok: false, codigo: 'SIN_TOKEN', error: 'la clave fue rechazada' };
+      if (r.status === 401) {
+        return {
+          ok: false,
+          codigo: d.codigo || 'SIN_TOKEN',
+          error: d.codigo === 'clave_mala' ? 'la clave del local no coincide'
+            : d.codigo === 'local_inexistente' ? 'ese ID de local no existe'
+            : 'la credencial fue rechazada',
+        };
+      }
       if (!r.ok || d.ok === false) {
         return { ok: false, codigo: d.codigo || ('HTTP ' + r.status), error: d.error || ('HTTP ' + r.status) };
       }
@@ -531,9 +554,12 @@
   function invPintarEstado(clave, base) {
     const kSub = $('#invKeySub'), kBadge = $('#invKeyBadge');
     const dSub = $('#invDbSub'), dBadge = $('#invDbBadge');
-    if (kSub) kSub.textContent = clave ? 'clave cargada en esta sesión' : 'sin clave: sólo lectura local';
+    const yo = invClave() ? 'admin' : (invLocal() ? 'dueño ' + invLocal() : '');
+    if (kSub) kSub.textContent = clave
+      ? (yo === 'admin' ? 'admin: toda la plataforma' : 'dueño: sólo ' + invLocal())
+      : 'sin credencial: sólo lectura local';
     if (kBadge) { kBadge.textContent = clave ? 'lista' : 'falta'; kBadge.className = 'badge ' + (clave ? 'ok' : 'warn'); }
-    if (dSub) dSub.textContent = base ? 'tabla inv_productos disponible' : (clave ? 'no comprobada' : 'esperando clave');
+    if (dSub) dSub.textContent = base ? 'tabla inv_productos disponible' : (clave ? 'no comprobada' : 'esperando credencial');
     if (dBadge) { dBadge.textContent = base ? 'ok' : '—'; dBadge.className = 'badge ' + (base ? 'ok' : ''); }
   }
 
@@ -733,11 +759,11 @@
 
   async function invRefrescarNube(silencioso) {
     const estado = $('#invSubirEstado');
-    if (!invClave()) {
+    if (!invConCredencial()) {
       invPintarEstado(false, false);
       invPintarLista();
       invCarritoLlenar();
-      if (estado && !silencioso) estado.textContent = 'Pega la clave de la nube para ver y subir productos.';
+      if (estado && !silencioso) estado.textContent = 'Pon el token admin o el ID + clave de tu local para ver y subir productos.';
       return;
     }
     const baja = await invApi('bajar', { limite: 300 });
@@ -822,13 +848,21 @@
 
     const campoClave = $('#invKey');
     if (campoClave && !campoClave.value) campoClave.value = invClave();
+    const campoLocal = $('#invLocal');
+    if (campoLocal && !campoLocal.value) campoLocal.value = invLocal();
+    const campoLocalClave = $('#invLocalClave');
+    if (campoLocalClave && !campoLocalClave.value) campoLocalClave.value = invLocalClave();
 
     $('#btnInvKey').onclick = async () => {
       const k = (campoClave.value || '').trim();
-      if (k) sessionStorage.setItem('fabri.invKey', k);
-      else sessionStorage.removeItem('fabri.invKey');
+      const loc = ((campoLocal || {}).value || '').trim().toLowerCase();
+      const locClave = ((campoLocalClave || {}).value || '').trim();
+      // Se guardan las tres: el admin usa el token, el dueño su ID + clave.
+      if (k) sessionStorage.setItem('fabri.invKey', k); else sessionStorage.removeItem('fabri.invKey');
+      if (loc) sessionStorage.setItem('fabri.invLocal', loc); else sessionStorage.removeItem('fabri.invLocal');
+      if (locClave) sessionStorage.setItem('fabri.invLocalClave', locClave); else sessionStorage.removeItem('fabri.invLocalClave');
       await invRefrescarNube(false);
-      toast(invClave() ? 'Clave guardada; conexión verificada' : 'Clave borrada');
+      toast(invConCredencial() ? 'Credencial guardada; conexión verificada' : 'Credencial borrada');
     };
 
     $('#btnInvAsegurar').onclick = async () => {
@@ -864,7 +898,7 @@
       const codigo = ($('#invFcodigo').value || '').trim() ||
         ('WEB-' + Date.now().toString(36).toUpperCase());
       if (!nombre) { toast('El nombre es obligatorio'); $('#invFnombre').focus(); return; }
-      if (!invClave()) { toast('Falta la clave de la nube'); if (estado) estado.textContent = 'Pega la clave de la nube arriba.'; return; }
+      if (!invConCredencial()) { toast('Falta la credencial de la nube'); if (estado) estado.textContent = 'Pon el token admin o el ID + clave de tu local arriba.'; return; }
       const etiquetas = [...document.querySelectorAll('#invFreeChips .chip.on')].map(b => b.dataset.free);
       const producto = {
         codigo,

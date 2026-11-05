@@ -420,7 +420,11 @@
           <div class="row"><div class="grow"><div class="t">Clave de la nube</div>
             <div class="s" id="invKeySub">sin clave: sólo lectura local</div></div>
             <span class="badge" id="invKeyBadge">…</span></div>
-          <input class="field" id="invKey" type="password" placeholder="FABRI_API_TOKEN" style="margin-top:8px">
+          <input class="field" id="invKey" type="password" placeholder="admin: FABRI_API_TOKEN (opcional)" style="margin-top:8px">
+          <div class="row" style="margin-top:8px"><div class="grow"><div class="t">O tu local</div>
+            <div class="s">dueño: ID + clave = sólo tu espacio aislado</div></div></div>
+          <input class="field" id="invLocal" placeholder="ID del local (ej: t-ree-01)" autocomplete="off" spellcheck="false" style="margin-top:6px">
+          <input class="field" id="invLocalClave" type="password" placeholder="clave de 8 caracteres" autocomplete="off" style="margin-top:6px">
           <div class="row" style="padding-top:8px"><div class="grow"><div class="t">Base de datos</div>
             <div class="s" id="invDbSub">sin comprobar</div></div>
             <span class="badge" id="invDbBadge">…</span></div>

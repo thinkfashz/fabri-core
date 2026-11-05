@@ -66,6 +66,44 @@ devuelve en lecturas. Una sola clave sirve para el mercado y para el inventario.
 - Rotar los secretos que se pegaron en claro durante el desarrollo.
 - Probar el flujo dueño completo en un **teléfono real** (sin adb en este entorno).
 
+### Además en esta sesión: el sitio acepta la credencial de dueño y 6 pruebas muertas
+
+**a) La pantalla de Inventario del sitio sólo admitía el token admin.** `web/app`
+guardaba `fabri.invKey` y lo mandaba como `Bearer`; un cliente con su
+`local_id`+`clave` no podría sincronizar desde el navegador sin recibir la
+llave global (justo lo que no se quiere repartir).
+
+| Qué | Dónde |
+|---|---|
+| Campos **ID del local** y **Clave del local** junto al token admin | `web/app/index.html` (`#invLocal`, `#invLocalClave`) |
+| `invConCredencial()` + envío de `local_id`/`clave` en el cuerpo y `Authorization` sólo si hay token admin | `web/app/core-pro.js` (`invApi`) |
+| Errores distinguidos: `clave_mala`, `local_inexistente` | `core-pro.js` |
+| Estado que dice si er «admin» o «dueño t-xxx» | `core-pro.js` (`invPintarEstado`) |
+
+**b) Seis pruebas estaban rojas desde antes de esta sesión** (comprobado con
+`git stash` contra `ebe97ed`: mismos fallos, 0 regresiones mías). Código y
+pruebas habían divergido, no hacía falta romper nada:
+
+| Prueba | Qué pasaba | Reparación |
+|---|---|---|
+| `diseno.js` · clases del HTML | MercadoPlacer movió sus estilos a `placer.css` y la prueba sólo leía `styles.css` | lee las dos hojas (`cssTodo`) |
+| `diseno.js` · tema por defecto | el código dice `'lima'` (marca FORGE) desde `b023fba`, la prueba esperaba `'aurora'` | la prueba sigue al código |
+| `diseno.js` · nada remoto | castigaba `rel="canonical"`/`hreflang`, que **tienen** que ir absolutos | sólo se miran los `<link>` que cargan recursos |
+| `diseno.js` · iconos | el manifest trae `logo-f.svg` con `sizes:"any"` y la prueba exigía PNG con medidas | acepta SVG y exige que sea SVG real |
+| `diseno.js` · `.mm-cab-txt` | **faltaba la regla**: columna de texto sin `flex:1;min-width:0`, podía empujar las flechas fuera del encabezado | regla nueva en `styles.css` |
+| `inicio.js` (portada) | 9 fallos: `Nodo` del harness no tenía `removeAttribute` y el test aún usaba `INICIO.datos`, renombrado a `INICIO.panel` en `53bd551` | `removeAttribute`/`hasAttribute`/`toggleAttribute` + datos con la forma real de `inventario/panel` |
+| `inicio.js` · aserciones | el rediseño 0.9.60 pasó de `d3-barra`/anillo a `in-barra`/listas, y renombró los KPI | aserciones al diseño vigente; `!/d3-barra"` (que ya no existe) pasó a `!/class="in-barra"` |
+| `carga-sin-bloqueo.js` | `chatPreconectar()` corría dentro de la carga síncrona de la página | diferida con `setTimeout(…, 0)` en `app.js` |
+| `nube.js` | esperaba `motivo: "sin token"` tras el cambio multi-inquilino | ahora cubre también el dueño: `local_id`+`clave` en el cuerpo y **sin** `Authorization` |
+
+Resultado: `tests/arranque/correr.sh` **9/9**, `tests/inventario/correr.sh`
+**6/6** (con 3 comprobaciones nuevas del dueño), `tests/seguridad/correr.sh`
+**23/23**, `tests/web/diseno.js` y `boleta.js` **en verde**.
+
+**Nota**: los KPIs, los gráficos y la nota de la portada **no estaban rotos en
+la app** — la portada real lee `INICIO.panel` correctamente; lo roto era la
+prueba, que por eso dejó de cubrirlos en 0.9.60.
+
 ## Sesión 2026-10-27 (20) · Nube: escáner con cámara y wiki de productos
 
 La consola web ya no pide el código a mano: lo lee con la cámara y trae la

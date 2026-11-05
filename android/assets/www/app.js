@@ -1640,8 +1640,10 @@ function chatIniciar() {
   chatInicializarAjustesIA();
   chatInicializarPestanas();
   chatPintarFamilia();
-  // Precalienta la conexión del proveedor: el primer mensaje sale antes.
-  chatPreconectar();
+  // Precalienta la conexión del proveedor, pero FUERA de la carga síncrona:
+  // en Java abre un hilo y no bloquea, pero `leerConfig` se lee en el hilo de
+  // la página y durante la carga cada milisegundo retrasa el pintado.
+  setTimeout(chatPreconectar, 0);
 }
 
 /** Abre DNS+TLS del proveedor en segundo plano (si está configurado). */

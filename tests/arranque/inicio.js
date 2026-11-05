@@ -74,6 +74,13 @@ function Nodo(tag) {
   this.getBoundingClientRect = () => ({ width: 320, height: 160, top: 0, bottom: 160, left: 0, right: 320 });
 }
 Nodo.prototype.setAttribute = function (k, v) { this._attrs[k] = String(v); };
+Nodo.prototype.removeAttribute = function (k) { delete this._attrs[k]; };
+Nodo.prototype.hasAttribute = function (k) { return this._attrs[k] != null; };
+Nodo.prototype.toggleAttribute = function (k, on) {
+  if (on === undefined) on = this._attrs[k] == null;
+  if (on) this._attrs[k] = ""; else delete this._attrs[k];
+  return !!on;
+};
 Nodo.prototype.getAttribute = function (k) { return this._attrs[k] != null ? this._attrs[k] : null; };
 Nodo.prototype.appendChild = function (h) { this._hijos.push(h); return h; };
 Nodo.prototype.addEventListener = function () {};
@@ -179,11 +186,30 @@ else mal("la portada arrancó durante la carga");
 
 /* ── 3 · pintado con datos reales ──────────────────────────────────────── */
 const INICIO = ctx.INICIO;
-INICIO.datos = {
-  total: 128, valor_costo: 1450000, valor_venta: 2180000, utilidad_potencial: 730000,
-  stock_bajo: 7, sin_precio: 2, pendientes_sync: 3,
+// El contrato real es `INICIO.panel`: lo devuelve
+// `apiTarde("inventario", { accion: "panel" })` (arm "panel" de op_inventario
+// en Rust). Hasta 0.9.60 esto se llamaba `INICIO.datos`; desde 53bd551 la
+// portada lee `panel.resumen` / `panel.categorias` / `panel.ventas`, así que
+// con el campo viejo los KPIs salían en cero y los gráficos no se dibujaban.
+INICIO.panel = {
+  ok: true,
+  generado: Math.floor(Date.now() / 1000),
+  resumen: {
+    total: 128, unidades: 310,
+    valor_costo: 1450000, valor_venta: 2180000,
+    utilidad_potencial: 730000, margen_promedio: 33.5,
+    stock_bajo: 7, agotados: 3, sin_precio: 2, sin_costo: 1,
+    pendientes_sync: 3
+  },
   categorias: [{ categoria: "Bebidas", n: 40 }, { categoria: "Snacks", n: 33 },
-    { categoria: "Aseo", n: 22 }, { categoria: "Lácteos", n: 20 }, { categoria: "Pan", n: 8 }, { categoria: "Otros", n: 5 }]
+    { categoria: "Aseo", n: 22 }, { categoria: "Lácteos", n: 20 }, { categoria: "Pan", n: 8 }, { categoria: "Otros", n: 5 }],
+  ventas: {
+    ultimas_24h: { n: 4, total: 31400, utilidad: 9700, unidades: 11 },
+    ultimos_30d: { n: 62, total: 486300, utilidad: 151200, unidades: 178 },
+    ticket_promedio: 7843.55,
+    top_productos: [], historial: []
+  },
+  sync: { pendientes: 3, boletas_pendientes: 0, ultimo_ts: 0 }
 };
 const hoy = Math.floor(Date.now() / 1000);
 INICIO.boletas = [
@@ -201,23 +227,28 @@ INICIO.actualizado = Date.now();
 try { ctx.inicioPintar(true, true); } catch (e) { mal("inicioPintar lanzó: " + e.message); }
 
 const kpis = nodoDe("inKpis").innerHTML;
-if (/Productos/.test(kpis) && /128/.test(kpis)) ok("los KPIs se pintan con el resumen real");
+// Desde el rediseño de 0.9.60 (53bd551) los KPI cambian de rótulo: ya no
+// dicen «Productos» ni «Stock bajo», dicen «Valor del inventario» y
+// «Stock en riesgo». El dato real sí tiene que aparecer: 128 productos y 7
+// en riesgo marcado con la clase de alerta.
+if (/Valor del inventario/.test(kpis) && /128 productos/.test(kpis)) ok("los KPIs se pintan con el resumen real");
 else mal("los KPIs salieron vacíos");
 if (/Utilidad potencial/.test(kpis) && /\$730\.000/.test(kpis)) ok("la utilidad se formatea en pesos");
 else mal("la utilidad no se formateó");
-if (/Stock bajo/.test(kpis) && /alerta/.test(kpis)) ok("el stock bajo se destaca");
+if (/Stock en riesgo/.test(kpis) && /in-kpi--alerta/.test(kpis)) ok("el stock bajo se destaca");
 else mal("el stock bajo no se destaca");
 
 const chVentas = nodoDe("inChartVentas").innerHTML;
-if (/<svg/.test(chVentas) && /d3-barra/.test(chVentas) && /lun|mar|mié|jue|vie|sáb|dom/.test(chVentas)) ok("el gráfico de ventas de 7 días usa d3 y pinta barras");
+if (/<svg/.test(chVentas) && /in-barra/.test(chVentas) && /lun|mar|mié|jue|vie|sáb|dom/.test(chVentas)) ok("el gráfico de ventas es SVG con barras y sus 14 días");
 else mal("el gráfico de ventas no se dibujó");
 
 const chCat = nodoDe("inChartCategorias").innerHTML;
-if (/<path/.test(chCat) && /in-leyenda/.test(nodoDe("inChartCategoriasPie").innerHTML)) ok("el anillo de categorías dibuja arcos y leyenda");
-else mal("el anillo de categorías no se dibujó");
+const pieCat = nodoDe("inChartCategoriasPie").textContent || nodoDe("inChartCategoriasPie").innerHTML;
+if (/in-lista-item/.test(chCat) && /in-lista-barra/.test(chCat) && /Bebidas/.test(chCat) && /6 categoría/.test(pieCat)) ok("categorías: lista con barras proporcionales y su pie");
+else mal("las categorías no se dibujaron: " + pieCat.slice(0, 80));
 
 const chTop = nodoDe("inChartTop").innerHTML;
-if (/<svg/.test(chTop) && /Bebida 1\.5L/.test(chTop)) ok("los más vendidos agrupan los ítems de las boletas");
+if (/in-lista-item/.test(chTop) && /Pan corriente/.test(chTop) && /5 u/.test(chTop)) ok("los más vendidos agrupan los ítems de las boletas");
 else mal("la tabla de más vendidos no se pintó");
 
 const nota = nodoDe("inDatosNota").textContent;
@@ -225,11 +256,22 @@ if (/128 producto/.test(nota) && /3 boleta/.test(nota)) ok("la nota declara cuá
 else mal("la nota de estado no informa los datos leídos: " + nota);
 
 /* ── 4 · estado vacío honesto ──────────────────────────────────────────── */
-INICIO.datos = { total: 0, valor_costo: 0, valor_venta: 0, utilidad_potencial: 0, stock_bajo: 0, categorias: [] };
+INICIO.panel = {
+  ok: true,
+  resumen: { total: 0, unidades: 0, valor_costo: 0, valor_venta: 0,
+    utilidad_potencial: 0, margen_promedio: 0, stock_bajo: 0, agotados: 0,
+    sin_precio: 0, sin_costo: 0, pendientes_sync: 0 },
+  categorias: [],
+  ventas: { ultimas_24h: { n: 0, total: 0, utilidad: 0, unidades: 0 },
+    ultimos_30d: { n: 0, total: 0, utilidad: 0, unidades: 0 },
+    ticket_promedio: 0, top_productos: [], historial: [] }
+};
 INICIO.boletas = [];
 try { ctx.inicioPintar(true, true); } catch (e) { mal("inicioPintar sin datos lanzó: " + e.message); }
 const vacio = nodoDe("inChartVentas").innerHTML + nodoDe("inChartCategorias").innerHTML + nodoDe("inChartTop").innerHTML;
-if (/Sin ventas aún|Sin categorías|Sin ventas/.test(vacio) && !/d3-barra"/.test(vacio)) ok("sin datos muestra el estado vacío, sin inventar cifras");
+// `in-barra` es la clase real de las barras desde 0.9.60; comprobar una clase
+// que ya no existe («d3-barra») dejó esta comprobación sin dientes.
+if (/Sin ventas aún|Sin categorías|Sin ventas/.test(vacio) && !/class="in-barra"/.test(vacio)) ok("sin datos muestra el estado vacío, sin inventar cifras");
 else mal("sin datos no se muestra un estado vacío claro");
 if (/Aún no hay productos/.test(nodoDe("inDatosNota").textContent)) ok("sin datos se invita a abrir Inventario");
 else mal("no se guía al usuario cuando no hay datos");

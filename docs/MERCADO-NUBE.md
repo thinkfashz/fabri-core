@@ -88,6 +88,12 @@ alguien extraiga el `localStorage` de su teléfono, sólo obtiene acceso a su
 propio local. Ese es el "espacio libre y gratuito, independiente pero conectado"
 al dueño de la plataforma.
 
+Lo mismo en el **sitio**: la pantalla de Inventario (`web/app/index.html`) tiene
+junto al campo de token admin dos campos, *ID del local* y *Clave del local*
+(`core-pro.js` → `invApi`), que envían `local_id`+`clave` en el cuerpo y sólo
+ponen `Authorization` cuando hay token admin. Así un cliente sincroniza desde
+el navegador sin recibir nunca la llave global.
+
 Verificado en producción (2026-11-05): el dueño `t-ree-01` sube 2 productos y
 los ve; `t-ree-02` ve 0 y no encuentra el código ajeno; el borrado cruzado
 devuelve 0; el admin ve todo y puede acotarse a un local.

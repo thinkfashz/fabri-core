@@ -7,8 +7,10 @@
      1. `invNubeBuscarCodigo()` pega al endpoint correcto
         (`/api/inventario`), con POST, con `Authorization: Bearer <token>` y con
         el cuerpo `{ accion: "buscar", codigo }`.
-     2. Sin token no se llama a la nube: se devuelve `sin token` (nunca se
-        inventa un resultado).
+     2. Sin credencial no se llama a la nube: se devuelve `sin credencial`
+        (nunca se inventa un resultado). Y con la credencial de DUEÑO el
+        cuerpo lleva `local_id` + `clave`, sin `Authorization` (el dueño no
+        recibe el token global).
      3. `invNubePedir()` no lanza nunca: un 401, un 500 o una red caída vuelven
         como `{ ok: false }`.
      4. `invPoblarDatalist()` rellena el autocompletado de códigos con los
@@ -153,7 +155,7 @@ async function main() {
     else mal("no devolvió el producto: " + JSON.stringify(r));
   }
 
-  console.log("▸ sin token · no se llama a la nube");
+  console.log("▸ sin credencial · no se llama a la nube");
   {
     const ctx = sandbox({
       almacen: { "fabrick.nube.url": "https://fabri-api.vercel.app" },
@@ -161,10 +163,35 @@ async function main() {
     });
     ctx.invIniciar();
     const r = await ctx.invNubeBuscarCodigo("123");
-    if (!r.ok && r.motivo === "sin token") ok("devuelve «sin token»");
+    if (!r.ok && r.motivo === "sin credencial") ok("devuelve «sin credencial»");
     else mal("resultado inesperado: " + JSON.stringify(r));
     if (!ctx.__llamadas.length) ok("no hizo ninguna petición");
-    else mal("llamó a la nube sin token");
+    else mal("llamó a la nube sin credencial");
+  }
+
+  console.log("▸ dueño · su local_id y clave viajan en el cuerpo");
+  {
+    const ctx = sandbox({
+      almacen: {
+        "fabrick.nube.url": "https://fabri-api.vercel.app",
+        "fabrick.nube.local": "t-ree-01",
+        "fabrick.nube.clave": "N4LAF3B2"
+      },
+      json: { ok: true, local_id: "t-ree-01", resumen: { total: 2 } }
+    });
+    ctx.invIniciar();
+    const r = await ctx.invNubePedir({ accion: "resumen" }, 1000);
+    const llamada = ctx.__llamadas[0] || {};
+    let cuerpo = {};
+    try { cuerpo = JSON.parse(llamada.opt.body || "{}"); } catch (e) { /* vacío */ }
+    if (cuerpo.local_id === "t-ree-01" && cuerpo.clave === "N4LAF3B2") ok("el cuerpo lleva local_id y clave");
+    else mal("cuerpo sin credencial de dueño: " + JSON.stringify(cuerpo));
+    // El dueño NO lleva el token global: con él en la cabecera el servidor
+    // lo trataría como admin y vería todos los espacios.
+    if (llamada.opt.headers && llamada.opt.headers.Authorization) mal("mandó Authorization sin token configurado");
+    else ok("sin Authorization: el alcance lo decide el servidor por el cuerpo");
+    if (r.ok) ok("la petición del dueño se hizo y no lanzó");
+    else mal("falló la petición con credencial de dueño: " + JSON.stringify(r));
   }
 
   console.log("▸ invNubePedir · nunca lanza");

@@ -33,6 +33,11 @@ const ok = (nombre, cond, detalle) => {
 const appHtml = leer(path.join(APP, 'index.html'));
 const appJs = leer(path.join(APP, 'app.js'));
 const css = leer(path.join(APP, 'styles.css'));
+// MercadoPlacer separó su hoja: las clases mp-* viven en placer.css, que
+// index.html enlaza en la línea 17. Sin esto, la prueba de clases castiga un
+// diseño que sí está estilado.
+const cssPlacer = existe(path.join(APP, 'placer.css')) ? leer(path.join(APP, 'placer.css')) : '';
+const cssTodo = css + '\n' + cssPlacer;
 const sw = leer(path.join(APP, 'sw.js'));
 const landing = leer(path.join(WEB, 'index.html'));
 
@@ -104,7 +109,7 @@ console.log('\n▸ nube · sistema visual');
   }
   const ignorar = new Set(['on', 'listo', 'fallo', 'in']); // estados que agrega JS/CSS
   const sinEstilo = [...clases].filter(c => !ignorar.has(c) &&
-    !new RegExp('\\.' + c.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&') + '(?![\\w-])').test(css));
+    !new RegExp('\\.' + c.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&') + '(?![\\w-])').test(cssTodo));
   ok('las ' + clases.size + ' clases del HTML tienen estilo', sinEstilo.length === 0,
     sinEstilo.join(', '));
 }
@@ -163,7 +168,9 @@ console.log('\n▸ nube · sistema visual');
   const tokens = ['--accent', '--accent-soft', '--accent-2', '--tx', '--bg', '--line', '--r-md'];
   const faltan = tokens.filter(t => !css.includes(t + ':'));
   ok('el CSS declara los tokens que app.js usa', faltan.length === 0, faltan.join(', '));
-  ok('el tema por defecto es Aurora', /theme:\s*localStorage\.getItem\('fcore\.theme'\)\s*\|\|\s*'aurora'/.test(appJs));
+  // La marca manda: desde MercadoPlacer (b023fba) el tema por defecto es
+  // «lima» (#C8FF00 sobre #0A0A0A), no el «aurora» azul de la nube v2.0.
+  ok('el tema por defecto es lima', /theme:\s*localStorage\.getItem\('fcore\.theme'\)\s*\|\|\s*'lima'/.test(appJs));
 }
 
 /* 7b · Los tokens que usan los módulos también deben existir: un `var(--bd)`
@@ -237,7 +244,12 @@ console.log('\n▸ nube · offline y arranque');
       if (/^https?:|^\/\//.test(m[1])) remotos.push(nombre + ': ' + m[1]);
     }
     for (const m of doc.matchAll(/<link[^>]+href="([^"]+)"/g)) {
-      if (/^https?:|^\/\//.test(m[1])) remotos.push(nombre + ': ' + m[1]);
+      // Sólo importan los <link> que cargan un recurso (hoja, precache,
+      // manifest). «canonical», «alternate hreflang» y similares DEBEN ir
+      // absolutos: no son recursos, son metadatos para buscadores.
+      const rel = (m[0].match(/rel="([^"]+)"/) || [])[1] || '';
+      const cargaRecurso = /stylesheet|preload|modulepreload|prefetch|prerender|manifest/.test(rel);
+      if (cargaRecurso && /^https?:|^\/\//.test(m[1])) remotos.push(nombre + ': ' + m[1]);
     }
   }
   ok('no hay scripts ni hojas remotas', remotos.length === 0, remotos.join(', '));
@@ -299,6 +311,11 @@ console.log('\n▸ nube · offline y arranque');
     const p = path.resolve(APP, ic.src);
     if (!existe(p)) return true;
     const b = fs.readFileSync(p);
+    // El logo «F» es SVG (sizes "any", escalable): no tiene píxeles que
+    // medir, pero sí hay que comprobar que exista y que sea un SVG real.
+    if (ic.type === 'image/svg+xml' || /\.svg$/i.test(ic.src)) {
+      return !/^<(\?xml|svg[\s>])/i.test(b.toString('utf8', 0, 300).trim());
+    }
     if (b.length < 24 || b.toString('ascii', 1, 4) !== 'PNG') return true;
     return (ic.sizes || '') !== (b.readUInt32BE(16) + 'x' + b.readUInt32BE(20));
   });
