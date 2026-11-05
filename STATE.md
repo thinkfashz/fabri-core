@@ -38,6 +38,23 @@ devuelve en lecturas. Una sola clave sirve para el mercado y para el inventario.
 | **Doc** §3.b multi-inquilino + §4 sin token global repartido | `docs/MERCADO-NUBE.md` |
 | **Versión APK** 0.9.62 → **0.9.63** (versionCode 77 → 78) | `android/AndroidManifest.xml`, `scripts/compilar.sh` |
 
+### La APK siempre por fuera del repo
+
+`dist/` está en `.gitignore`, así que ahí no quedaba nada instalable a mano y
+la que servía el sitio era **de Nov 2, sin multi-inquilino**. Desde esta sesión
+el build termina con un paso 8/8 que llama a `scripts/apk-fuera.sh` (nuevo) y
+deja la APK en **dos rutas fijas**, con nombre estable (sin versión):
+
+| Ruta | Para qué |
+|---|---|
+| `/storage/emulated/0/Download/FORGE-CORE-STOCK.apk` | instalar desde el gestor de archivos; **fuera del repo** |
+| `web/descargas/FORGE-CORE-STOCK.apk` | botón «Descargar APK» del sitio (versionada en git a propósito) |
+
+La copia se verifica con `cmp` (byte a byte); si el sistema de archivos no
+deja escribir, **avisa y no rompe el build**. Refrescar sin recompilar:
+`bash scripts/apk-fuera.sh` (usa la más reciente de `dist/`).
+Detalle en `docs/APK.md` § 4.2.
+
 ### Verificación en producción (2026-11-05)
 
 `fabri-api.vercel.app` (11 funciones, `READY`):
