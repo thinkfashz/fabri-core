@@ -33,7 +33,9 @@
   function pintarConfig() {
     var url = leer("fabrick.nube.url") || "https://fabri-api.vercel.app";
     var token = leer("fabrick.nube.token");
-    estado("Nube configurada: " + url + (token ? " · token guardado" : " · falta el token")
+    var local = leer("fabrick.nube.local");
+    var cred = token ? "token de admin" : (local ? "dueño: " + local : "falta credencial");
+    estado("Nube configurada: " + url + " · " + cred
       + ". Probá la conexión cuando quieras.");
   }
 
@@ -80,8 +82,10 @@
   function probar() {
     var url = leer("fabrick.nube.url");
     var token = leer("fabrick.nube.token");
-    if (!url || !token) {
-      estado("Falta configurar la nube: andá a Integración → Nube y guardá la URL y el token.", true);
+    var local = leer("fabrick.nube.local");
+    var clave = leer("fabrick.nube.clave");
+    if (!url || !(token || (local && clave))) {
+      estado("Falta configurar la nube: andá a Integración → Nube y guardá la URL y tu credencial (token admin o ID + clave del local).", true);
       aviso("La nube no está configurada", "error");
       return Promise.resolve({ ok: false, error: "sin configurar" });
     }

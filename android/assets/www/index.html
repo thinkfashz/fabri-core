@@ -1545,6 +1545,11 @@ npx -y omniroute@latest
         <input id="intUrl" class="input" value="https://fabri-api.vercel.app" placeholder="https://fabri-api.vercel.app" />
         <label for="intToken">Token de acceso</label>
         <input id="intToken" class="input" type="password" placeholder="FABRI_API_TOKEN (del archivo /tmp/fabri_token.env)" />
+        <p class="nota">Dos formas de entrar: <b>admin</b> con el token global (ve todo), o <b>dueño</b> con el ID de su local y su clave de 8 caracteres (sólo ve su espacio aislado).</p>
+        <label for="intLocal">ID del local (dueño)</label>
+        <input id="intLocal" class="input" placeholder="ej: t-ree-01" autocomplete="off" spellcheck="false" />
+        <label for="intClave">Clave del local (dueño)</label>
+        <input id="intClave" class="input" type="password" placeholder="8 caracteres" autocomplete="off" />
         <label for="intModelo">Modelo remoto por defecto</label>
         <input id="intModelo" class="input" value="qwen-0.5b-nube" placeholder="qwen-0.5b-nube" />
         <div class="fila-botones">
@@ -2550,7 +2555,8 @@ npx -y omniroute@latest
               <li><b>Configurá Vercel</b> (proyecto <code>fabri-api</code>) con
                 <code>INSFORGE_DATABASE_URL</code> y <code>FABRI_API_TOKEN</code>, y redeployá.</li>
               <li><b>En la app</b>: Integración → Nube, URL <code>https://fabri-api.vercel.app</code>
-                y el mismo token. Probá con el botón de abajo.</li>
+                y tu credencial: <b>admin</b> con el token global, o <b>dueño</b> con el ID de su local
+                y su clave de 8 caracteres. Probá con el botón de abajo.</li>
             </ol>
             <div class="inv-guia-bloque">
               <div class="inv-guia-bloque-cab">

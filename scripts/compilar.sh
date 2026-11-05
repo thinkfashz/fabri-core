@@ -38,7 +38,7 @@ CACHE_CARGO="${CACHE_CARGO:-/data/data/com.termux/files/home/.cargo}"
 
 B="$RAIZ/build"
 DIST="$RAIZ/dist"
-NOMBRE="FORGE-CORE-STOCK-0.9.62"
+NOMBRE="FORGE-CORE-STOCK-0.9.63"
 # Con firma de release el archivo se distingue para no confundir las versiones.
 if [ "$RELEASE" = "1" ]; then NOMBRE="$NOMBRE-release"; fi
 

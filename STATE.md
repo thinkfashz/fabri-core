@@ -8,6 +8,64 @@
 
 Última actualización: 2026-11-05
 
+## Sesión 2026-11-05 · Multi-inquilino: cada dueño con su espacio, su ID y su clave
+
+La plataforma deja de repartir el **token global**. Root (dueño de la
+plataforma) conserva la llave total; cada cliente recibe **su `local_id` + su
+clave** y queda en un espacio **aislado, gratuito y conectado** al mismo
+InsForge. Nada cambia para el admin; todo cambia para el cliente.
+
+### Modelo (doble llave)
+
+| Credencial | Cómo viaja | Qué alcanza |
+|---|---|---|
+| **ADMIN** (root) | `Authorization: Bearer FABRI_API_TOKEN` | todos los espacios; si manda `local_id`, se acota |
+| **DUEÑO** (cliente) | `local_id` + `clave` en el cuerpo | **sólo** su espacio; clave validada contra SHA-256 |
+
+La clave del dueño se genera una vez (8 caracteres) y se guarda **sólo** como
+SHA-256 (`sha256('mercado:' + clave)`) en `mercado_locales.clave_hash`; nunca se
+devuelve en lecturas. Una sola clave sirve para el mercado y para el inventario.
+
+### Qué se hizo
+
+| Qué | Dónde |
+|---|---|
+| **Inventario multi-inquilino**: `local_id` en cada fila; PK compuesta `(local_id, codigo)` y `(local_id, folio)`; migración idempotente (`ADD COLUMN IF NOT EXISTS` + `DROP CONSTRAINT IF EXISTS ..._pkey` + `ADD PRIMARY KEY`) | `api-telefono/api/inventario.ts` |
+| **Alcance por credencial** en todas las acciones (`subir`, `bajar`, `buscar`, `borrar`, `subir_boletas`, `resumen`): admin ve todo, dueño sólo lo suyo | `api/inventario.ts` (`resolverAlcance`, `acotado`) |
+| **APK guarda la credencial de dueño** (`fabrick.nube.local` + `fabrick.nube.clave`) y la manda en cada sync | `android/assets/www/inventario.js`, `datos.js` |
+| **Integración → Nube** con campos *ID del local* y *Clave del local* (además del token admin) | `android/assets/www/index.html`, `app.js` (`integracionGuardar`) |
+| **Estado honesto** de la nube: distingue «token de admin» de «dueño: t-xxx» | `android/assets/www/insforge.js` |
+| **Doc** §3.b multi-inquilino + §4 sin token global repartido | `docs/MERCADO-NUBE.md` |
+| **Versión APK** 0.9.62 → **0.9.63** (versionCode 77 → 78) | `android/AndroidManifest.xml`, `scripts/compilar.sh` |
+
+### Verificación en producción (2026-11-05)
+
+`fabri-api.vercel.app` (11 funciones, `READY`):
+
+- `GET /api/inventario` → `multi_inquilino:true`; `asegurar` migró sin error.
+- Sin credenciales → **401** `SIN_CREDENCIALES`; clave mala → **401** `clave_mala`.
+- `t-ree-01` sube 2 productos y los ve (`total:2`); `t-ree-02` ve `total:0`.
+- `t-ree-02` busca el código de `t-ree-01` → `encontrado:false`; `t-ree-01` → `true`.
+- Borrado cruzado: `t-ree-02` → `borrados:0`; `t-ree-01` borra el suyo → `borrados:1`.
+- Boletas por local; **admin** ve el total global y puede acotarse con `local_id`.
+
+### Decisiones
+
+- **El cliente nunca lleva el token global.** Aunque extraiga el `localStorage`
+  de su teléfono sólo obtiene su propio local. El aislamiento lo garantiza el
+  servidor (PK compuesta + filtro por `local_id`), no la app.
+- **Misma base para todos**: los espacios viven en el InsForge del root, así que
+  el dueño de la plataforma los ve y administra todos desde un solo lugar.
+- **Una sola credencial por local** (mercado + inventario): menos piezas que
+  explicar y que rotar.
+
+### Pendiente
+
+- **Rate limit** de borde para `pedido_crear` / `asegurar` / fuerza bruta de claves.
+- **Sesiones firmadas** para el panel del dueño (hoy la clave viaja en el cuerpo).
+- Rotar los secretos que se pegaron en claro durante el desarrollo.
+- Probar el flujo dueño completo en un **teléfono real** (sin adb en este entorno).
+
 ## Sesión 2026-10-27 (20) · Nube: escáner con cámara y wiki de productos
 
 La consola web ya no pide el código a mano: lo lee con la cámara y trae la

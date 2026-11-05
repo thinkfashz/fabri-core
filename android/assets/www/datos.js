@@ -1063,8 +1063,14 @@ async function hojaSincronizarNube() {
     const pendientes = (q.ok && q.data && q.data.productos) || [];
     
     progreso(`Transmitiendo ${pendientes.length} registros a Postgres…`, 60);
-    const url = "https://fabri-api.vercel.app/api/inventario";
+    const base = (localStorage.getItem("fabrick.nube.url") || "https://fabri-api.vercel.app").replace(/\/+$/, "");
+    const url = /\/api\/inventario$/.test(base) ? base : base + "/api/inventario";
     const token = localStorage.getItem("fabrick.nube.token") || "";
+    const local = localStorage.getItem("fabrick.nube.local") || "";
+    const clave = localStorage.getItem("fabrick.nube.clave") || "";
+    const cred = {};
+    if (local) cred.local_id = local;
+    if (clave) cred.clave = clave;
 
     const resp = await fetch(url, {
       method: "POST",
@@ -1072,7 +1078,7 @@ async function hojaSincronizarNube() {
         { "Content-Type": "application/json" },
         token ? { "Authorization": "Bearer " + token } : {}
       ),
-      body: JSON.stringify({ accion: "subir", productos: pendientes })
+      body: JSON.stringify(Object.assign({ accion: "subir", productos: pendientes }, cred))
     });
 
     progreso("Verificando la respuesta de Postgres…", 80);

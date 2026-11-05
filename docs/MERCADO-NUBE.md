@@ -63,6 +63,35 @@ cliente) y **rechaza** el pedido si el local está cerrado (`CERRADO`) o si no
 llega al mínimo (`BAJO_MINIMO`). El tope del plan se aplica **dentro de una
 transacción**: si el lote de productos se pasa, se revierte entero.
 
+## 3.b Inventario multi-inquilino (la APK)
+
+El inventario (`/api/inventario`, tablas `inv_productos` e `inv_boletas`) también
+quedó **por local**: cada fila lleva `local_id` y la clave primaria es
+`(local_id, codigo)` y `(local_id, folio)`. Dos almacenes pueden tener el mismo
+código de barras o el mismo número de folio sin pisarse.
+
+Dos credenciales, la misma pareja que usa el mercado:
+
+| Credencial | Cómo viaja | Qué alcanza |
+|---|---|---|
+| **ADMIN** (vos) | `Authorization: Bearer FABRI_API_TOKEN` | todos los espacios; si manda `local_id`, se acota a ese |
+| **DUEÑO** (cliente) | `local_id` + `clave` en el cuerpo | **sólo** su espacio; la clave se valida contra el SHA-256 de `mercado_locales` |
+
+En la APK, **Integración → Nube** guarda:
+
+- `fabrick.nube.url` y, para admin, `fabrick.nube.token`;
+- para dueño, `fabrick.nube.local` + `fabrick.nube.clave`.
+
+`inventario.js`, `datos.js` e `insforge.js` leen esas claves y mandan la
+credencial que corresponda. **El cliente nunca lleva el token global**: aunque
+alguien extraiga el `localStorage` de su teléfono, sólo obtiene acceso a su
+propio local. Ese es el "espacio libre y gratuito, independiente pero conectado"
+al dueño de la plataforma.
+
+Verificado en producción (2026-11-05): el dueño `t-ree-01` sube 2 productos y
+los ve; `t-ree-02` ve 0 y no encuentra el código ajeno; el borrado cruzado
+devuelve 0; el admin ve todo y puede acotarse a un local.
+
 ## 4. Nivel de seguridad (honesto)
 
 **Lo que está bien y se puede decir sin exagerar:**
@@ -90,9 +119,16 @@ transacción**: si el lote de productos se pasa, se revierte entero.
    algún día se agregan cookies, hay que cerrar el CORS.
 4. **`asegurar` es público.** Solo crea tablas con columnas fijas; no expone
    datos. Pero es superficie de abuso (crea índices si se llama en bucle).
-5. **Un solo token de administración** para todos los locales. Si se filtra,
-   hay que rotarlo y re-desplegar. Recomendado: rotar los secretos que se
-   pegaron en claro durante el desarrollo (ver §7).
+5. **El token global ya NO se entrega a los clientes.** Es la llave de
+   **admin** (vos, dueño de la plataforma) y ve/opera todos los espacios. Cada
+   cliente recibe sólo su `local_id` + `clave` (ver §3.b): con eso entra a su
+   espacio aislado y a ningún otro, tanto en el mercado como en el inventario.
+   Si el token admin se filtra, hay que rotarlo y re-desplegar. Recomendado:
+   rotar los secretos que se pegaron en claro durante el desarrollo (ver §7).
+6. **La clave del dueño se guarda en texto plano en su teléfono.** En la APK
+   queda en `localStorage` (`fabrick.nube.clave`). Es aceptable porque es *su*
+   credencial en *su* dispositivo y sólo abre *su* local; lo que no hay que
+   hacer es repartir el token admin. A futuro: guardarla en el Keystore.
 
 En una frase: **es un MVP con seguridad razonable para un piloto y para vender
 integración a locales de barrio, pero todavía le falta el endurecimiento de
@@ -159,7 +195,9 @@ node scripts/nueva-tienda.mjs --api alta.json
 #   ✓ t-xxx  Nombre del local  (12 productos, mín $5.000)
 #     CLAVE DEL DUEÑO: XXXXYYYY   ← se muestra una sola vez
 
-# 3) Le pasas al dueño: ID del local + clave → entra a  Negocio →  Conectar
+# 3) Le pasas al dueño DOS datos: ID del local + clave.
+#    · En la web: Negocio → Conectar.
+#    · En la APK: Integración → Nube → "ID del local" + "Clave del local".
 node scripts/nueva-tienda.mjs --api listar      # ver los locales en la nube
 node scripts/nueva-tienda.mjs --api borrar <id> # dar de baja
 ```

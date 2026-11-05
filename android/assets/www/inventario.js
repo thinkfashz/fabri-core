@@ -88,7 +88,9 @@ const INV = {
   },
   nube: {
     url: "https://fabri-api.vercel.app",
-    token: ""
+    token: "",   // credencial de ADMIN (el dueño de la plataforma)
+    local: "",   // DUEÑO: id de su local (ej: t-ree-01)
+    clave: ""    // DUEÑO: su clave de 8 caracteres
   },
   lec: {
     camara: null,   // MediaStream del lector fijo del paso activo
@@ -421,6 +423,10 @@ function invAviso(texto, tipo) {
 function invIniciar() {
   INV.nube.url = localStorage.getItem("fabrick.nube.url") || "https://fabri-api.vercel.app";
   INV.nube.token = localStorage.getItem("fabrick.nube.token") || "";
+  // Credencial de DUEÑO (local + clave): da acceso SÓLO a su espacio aislado.
+  // El token global es la credencial de ADMIN (el dueño de la plataforma).
+  INV.nube.local = localStorage.getItem("fabrick.nube.local") || "";
+  INV.nube.clave = localStorage.getItem("fabrick.nube.clave") || "";
   invPaso(INV.paso || 1);
   // Si el núcleo todavía migra, la guía se pinta y los datos llegan solos: no
   // se hacen llamadas que van a expirar ni se deja la pantalla en blanco.
@@ -1750,6 +1756,11 @@ function invNubeDestino() {
   return /\/api\/inventario$/.test(base) ? base : base + "/api/inventario";
 }
 
+/** ¿Hay credencial para la nube? ADMIN (token) o DUEÑO (local + clave). */
+function invNubeConCredencial() {
+  return Boolean(INV.nube.token || (INV.nube.local && INV.nube.clave));
+}
+
 /** Una petición a la nube, con tope de tiempo y sin lanzar nunca. */
 async function invNubePedir(cuerpo, maxMs) {
   const destino = invNubeDestino();
@@ -1757,13 +1768,19 @@ async function invNubePedir(cuerpo, maxMs) {
   const ctrl = new AbortController();
   const t = setTimeout(function () { ctrl.abort(); }, maxMs || 8000);
   try {
+    // La credencial de DUEÑO viaja en el cuerpo (local_id + clave), igual que
+    // en el panel del mercado. Si además hay token, el servidor lo toma como
+    // ADMIN y el local_id sólo acota su alcance.
+    const envio = Object.assign({}, cuerpo);
+    if (INV.nube.local) envio.local_id = INV.nube.local;
+    if (INV.nube.clave) envio.clave = INV.nube.clave;
     const resp = await fetch(destino, {
       method: "POST",
       headers: Object.assign(
         { "Content-Type": "application/json" },
         INV.nube.token ? { "Authorization": "Bearer " + INV.nube.token } : {}
       ),
-      body: JSON.stringify(cuerpo),
+      body: JSON.stringify(envio),
       signal: ctrl.signal
     });
     if (resp.status === 401) return { ok: false, error: "token de la nube rechazado", codigo: "SIN_TOKEN" };
@@ -1786,7 +1803,7 @@ async function invNubePedir(cuerpo, maxMs) {
 /** Busca UN código en la nube. Devuelve {ok, producto} o {ok:false, motivo}. */
 async function invNubeBuscarCodigo(codigo) {
   if (!INV.nube.url) return { ok: false, motivo: "sin nube" };
-  if (!INV.nube.token) return { ok: false, motivo: "sin token" };
+  if (!invNubeConCredencial()) return { ok: false, motivo: "sin credencial" };
   const r = await invNubePedir({ accion: "buscar", codigo: codigo }, 7000);
   if (r.ok && r.data && r.data.encontrado && r.data.producto) {
     return { ok: true, producto: r.data.producto };
@@ -1796,7 +1813,7 @@ async function invNubeBuscarCodigo(codigo) {
 
 /** Busca por texto en la nube (para el autocompletado de códigos). */
 async function invNubeBuscarTexto(q, limite) {
-  if (!INV.nube.url || !INV.nube.token) return { ok: false, productos: [] };
+  if (!INV.nube.url || !invNubeConCredencial()) return { ok: false, productos: [] };
   const r = await invNubePedir({ accion: "buscar", q: q, limite: limite || 20 }, 7000);
   if (r.ok && r.data && Array.isArray(r.data.productos)) {
     return { ok: true, productos: r.data.productos };
@@ -4298,6 +4315,10 @@ async function invSyncCorrer(silencioso) {
     { "Content-Type": "application/json" },
     INV.nube.token ? { "Authorization": "Bearer " + INV.nube.token } : {}
   );
+  // Credencial de DUEÑO para el mismo espacio aislado del local.
+  const cred = {};
+  if (INV.nube.local) cred.local_id = INV.nube.local;
+  if (INV.nube.clave) cred.clave = INV.nube.clave;
   let enviados = 0;
   let boletasEnviadas = 0;
   let avisoBoletas = "";
@@ -4309,7 +4330,7 @@ async function invSyncCorrer(silencioso) {
       const resp = await fetch(destino, {
         method: "POST",
         headers: cabeceras,
-        body: JSON.stringify({ accion: "subir", productos: pendientes })
+        body: JSON.stringify(Object.assign({ accion: "subir", productos: pendientes }, cred))
       });
       if (resp.status === 401) {
         throw new Error("el token de la nube fue rechazado (revisa Integración)");
@@ -4332,7 +4353,7 @@ async function invSyncCorrer(silencioso) {
         const rb = await fetch(destino, {
           method: "POST",
           headers: cabeceras,
-          body: JSON.stringify({ accion: "subir_boletas", boletas: boletas })
+          body: JSON.stringify(Object.assign({ accion: "subir_boletas", boletas: boletas }, cred))
         });
         if (rb.ok) {
           const sb = await rb.json().catch(function () { return {}; });
@@ -4387,7 +4408,7 @@ function invSyncEspera() {
 function invSyncAutomatica() {
   const s = INV.sync;
   if (s.enCurso) return;
-  if (!INV.nube.url) return;          // sin nube no hay a dónde reintentar
+  if (!INV.nube.url || !invNubeConCredencial()) return; // sin nube o sin credencial no hay a dónde reintentar
   if (document.hidden) return;        // en segundo plano no se gasta red
   if (Date.now() - s.ultimoIntento < invSyncEspera()) return;
 

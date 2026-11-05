@@ -7055,12 +7055,37 @@ function integracionIniciar() {
 async function integracionGuardar() {
   const url = document.getElementById("intUrl").value.trim();
   const token = document.getElementById("intToken").value.trim();
+  const localEl = document.getElementById("intLocal");
+  const claveEl = document.getElementById("intClave");
+  const local = localEl ? localEl.value.trim().toLowerCase() : "";
+  const clave = claveEl ? claveEl.value.trim() : "";
   const modelo = document.getElementById("intModelo").value.trim();
   const nota = document.getElementById("intNotaEstado");
   if (!url || !/^https:\/\//.test(url)) {
     if (nota) nota.textContent = "Falta URL válida (debe ser https://…). Ejemplo: https://fabri-api.vercel.app";
     toast("Integración: URL inválida", "error");
     return;
+  }
+  // Dos formas de entrar: ADMIN con el token global (dueño de la plataforma)
+  // o DUEÑO con el ID de su local + su clave (espacio aislado y gratis).
+  if (!token && !(local && clave)) {
+    if (nota) nota.textContent = "Falta credencial: el token (admin) o el ID + clave de tu local (dueño).";
+    toast("Integración: falta la credencial", "error");
+    return;
+  }
+  // El módulo de nube (inventario.js, flujo.js, datos.js) lee la config desde
+  // localStorage, no del núcleo. Guardarla acá es lo que hace que sincronice.
+  try {
+    localStorage.setItem("fabrick.nube.url", url.replace(/\/+$/, ""));
+    localStorage.setItem("fabrick.nube.token", token);
+    localStorage.setItem("fabrick.nube.local", local);
+    localStorage.setItem("fabrick.nube.clave", clave);
+  } catch (e) {}
+  if (window.INV && window.INV.nube) {
+    window.INV.nube.url = url.replace(/\/+$/, "");
+    window.INV.nube.token = token;
+    window.INV.nube.local = local;
+    window.INV.nube.clave = clave;
   }
   try {
     const r = await apiTarde("nube", { accion: "configurar", url, token }, { maxMs: 20000 });
