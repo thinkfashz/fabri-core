@@ -1,8 +1,8 @@
 {
   "v": 1,
   "actualizado": "2026-11-05",
-  "nota": "Registro de locales del piloto FORGE CORE STOCK. Cada entrada es un negocio que entregó su nombre, su WhatsApp y su catálogo. Los locales con \"demo\": true son EJEMPLOS para probar el flujo; reemplázalos por locales reales con scripts/nueva-tienda.mjs.",
-  "como_agregar": "Ejecuta: node scripts/nueva-tienda.mjs <archivo.json>   (o pásale el JSON por argumento). El script valida, agrega y publica.",
+  "nota": "RESPALDO OFFLINE. La fuente real de los locales es la nube (InsForge vía fabri-api): el dueño los carga una vez y quedan visibles en cualquier teléfono. Este JSON solo se usa si la API no responde. Los locales con \"demo\": true son EJEMPLOS para probar el flujo; reemplázalos por locales reales.",
+  "como_agregar": "Alta en la nube: node scripts/nueva-tienda.mjs --api alta.json   (devuelve la clave del dueño). Para el respaldo estático: node scripts/nueva-tienda.mjs alta.json.",
   "tiendas": [
     {
       "id": "t-ree-01",

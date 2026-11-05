@@ -17,18 +17,23 @@ Este directorio es la **copia versionada** del código que se despliega en
 | `/api/stats` | GET | sí | estado de la base |
 | `/api/webhook` | POST | sí | recibe eventos de agentes |
 | `/api/diagnostico` | GET/POST | sí | informe real + malla de las 4 capas |
-| `/api/modelos` | GET | sí | catálogo de modelos locales/remotos |
-| `/api/memoria` | GET | sí | estado de la memoria |
-| `/api/skills` | POST | sí | lista/acciona skills |
+| `/api/agente` | GET/POST | sí | memoria, modelos y skills (una sola función) |
 | `/api/health` | GET | **no** | salud barata (contrato común) |
 | `/api/estado` | GET | **no** | malla de las 4 capas |
 | `/api/inventario` | GET/POST | sí¹ | inventario compartido con la APK y la web |
+| `/api/mercado` | GET/POST | mixto² | marketplace: locales, catálogos y pedidos |
 
 ¹ `POST { accion: "asegurar" }` no exige token: sólo ejecuta un
 `CREATE TABLE IF NOT EXISTS` con columnas fijas, sin datos del cliente y sin
 `DROP`. `subir`, `bajar`, `borrar` y `resumen` sí exigen
 `Authorization: Bearer FABRI_API_TOKEN`. `GET /api/inventario?diag=1` es público
 y sólo informa si la tabla existe.
+
+² `/api/mercado` tiene **dos llaves**: el ADMIN (`Bearer FABRI_API_TOKEN`) da de
+alta y borra locales; el **DUEÑO** de cada local usa su `clave` de 8 caracteres
+(se guarda como SHA-256, nunca en claro) para prender/apagar, editar su catálogo
+y ver sus pedidos. Las lecturas (`locales`) y `pedido_crear` son públicas.
+`POST { accion: "asegurar" }` crea las tres tablas y tampoco exige token.
 
 ## Variables de entorno
 

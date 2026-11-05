@@ -814,7 +814,24 @@
           <p class="eyebrow">Negocio · panel</p>
           <h1>Tu local, <em>en números</em></h1>
           <p class="sub">Pedidos que llegan desde MercadoPlacer, ventas del día, ticket promedio
-            y tu catálogo real. Todo sale de este navegador.</p>
+            y tu catálogo real. Conéctate con el ID de tu local y su clave para verlos
+            desde cualquier teléfono.</p>
+        </div>
+
+        <div class="neg-nube" id="negNube">
+          <div class="neg-nube-cab">
+            <div class="eyebrow">Nube del local</div>
+            <span class="neg-chip pend" id="negNubeChip">sin conectar</span>
+          </div>
+          <div class="neg-nube-fila">
+            <input id="negNubeLocal" class="field" placeholder="ID del local (ej: t-ree-01)" autocomplete="off" spellcheck="false">
+            <input id="negNubeClave" class="field" type="password" placeholder="Clave del local (8 caracteres)" autocomplete="off">
+            <button id="negNubeBtn" class="btn sm" type="button">Conectar</button>
+          </div>
+          <div class="neg-nube-pie">
+            <button id="negAbiertoBtn" class="btn sm" type="button" hidden></button>
+            <small id="negNubeEstado">Mostrando solo este dispositivo.</small>
+          </div>
         </div>
 
         <div class="neg-kpis" id="negKpis"></div>

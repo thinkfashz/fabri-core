@@ -12,22 +12,57 @@
    el pago roto. Valida, normaliza, comprueba duplicados y recién ahí escribe.
 
    Uso:
-     node scripts/nueva-tienda.mjs plantilla            # JSON de ejemplo
-     node scripts/nueva-tienda.mjs alta.json            # agrega desde archivo
-     node scripts/nueva-tienda.mjs --json '{...}'       # agrega desde el shell
-     node scripts/nueva-tienda.mjs listar               # locales publicados
-     node scripts/nueva-tienda.mjs borrar <id>          # quita un local
+     node scripts/nueva-tienda.mjs --api listar          # locales en la NUBE (recomendado)
+     node scripts/nueva-tienda.mjs --api alta.json       # da de alta un local en la nube
+     node scripts/nueva-tienda.mjs --api borrar <id>     # lo quita de la nube
+     node scripts/nueva-tienda.mjs plantilla             # JSON de ejemplo
+
+     node scripts/nueva-tienda.mjs alta.json             # variante ESTÁTICA (respaldo offline)
+     node scripts/nueva-tienda.mjs listar                # locales del registro estático
+     node scripts/nueva-tienda.mjs borrar <id>           # quita del registro estático
+
+   La NUBE (InsForge vía fabri-api) es la fuente principal: el local queda visible
+   en cualquier teléfono al instante y el dueño recibe su clave. El registro
+   estático `web/datos/tiendas.json` queda solo como respaldo si la API no
+   responde. Con `--api` hace falta el token admin (variable FABRI_API_TOKEN o el
+   archivo ~/.config/opencode/secrets/fabri-api-token.txt).
 
    Opciones:
-     --publicar    además deja el archivo listo: git add + commit (no sube).
+     --api         opera contra la nube en vez del JSON estático.
+     --publicar    (solo estático) deja listo git add + commit.
    ========================================================================== */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import dns from 'node:dns';
+
+// Este teléfono/red tiene IPv6 roto: forzamos IPv4 para que `fetch` no se cuelgue.
+dns.setDefaultResultOrder('ipv4first');
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const REGISTRO = join(RAIZ, 'web/datos/tiendas.json');
+
+/* Nube real: los locales viven en InsForge y se sirven por fabri-api. */
+const API_URL = process.env.FABRI_MERCADO_URL || 'https://fabri-api.vercel.app/api/mercado';
+const TOKEN_FILE = join(process.env.HOME || '/root', '.config/opencode/secrets/fabri-api-token.txt');
+
+function tokenAdmin() {
+  if (process.env.FABRI_API_TOKEN) return process.env.FABRI_API_TOKEN.trim();
+  try { return readFileSync(TOKEN_FILE, 'utf8').trim(); }
+  catch (e) {
+    console.error('Falta el token admin de fabri-api.');
+    console.error('  Pásalo en la variable FABRI_API_TOKEN, o guárdalo en ' + TOKEN_FILE);
+    process.exit(1);
+  }
+}
+
+async function api(cuerpo, admin) {
+  const cabeceras = { 'Content-Type': 'application/json' };
+  if (admin) cabeceras.Authorization = 'Bearer ' + tokenAdmin();
+  const r = await fetch(API_URL, { method: 'POST', headers: cabeceras, body: JSON.stringify(cuerpo) });
+  return await r.json();
+}
 
 /* Rubro → icono del mapa. Si el rubro no está, el local entra igual pero
    queda con el icono genérico de tienda. */
@@ -150,6 +185,10 @@ function main() {
   const args = process.argv.slice(2);
   const accion = args[0];
   const publicar = args.includes('--publicar');
+  const usarApi = args.includes('--api');
+
+  if (usarApi) { ejecutarApi(args).then(() => {}).catch((e) => { console.error(e.message); process.exit(1); }); return; }
+
   const reg = leerRegistro();
 
   if (!accion || accion === 'listar') {
@@ -231,6 +270,80 @@ function main() {
     console.log('Para publicar: git add web/datos/tiendas.json && git commit && git push');
     console.log('               (luego, si Vercel no auto-despliega: cd web && vercel --prod)');
   }
+}
+
+/* ── modo nube: contra InsForge vía fabri-api ────────────────────────────── */
+async function ejecutarApi(args) {
+  const limpio = args.filter((a) => a !== '--api' && a !== '--publicar');
+  const accion = limpio[0];
+
+  if (!accion || accion === 'listar') {
+    const r = await fetch(API_URL + '?accion=locales', { cache: 'no-store' });
+    const d = await r.json();
+    if (!d.ok) { console.error('La API respondió: ' + JSON.stringify(d)); process.exit(1); }
+    if (!d.tiendas.length) { console.log('No hay locales en la nube todavía.'); return; }
+    console.log('\nLocales en la NUBE (' + d.tiendas.length + ') · ' + d.origen + ' · ' + d.actualizado + '\n');
+    for (const t of d.tiendas) {
+      console.log('  ' + (t.id + '                     ').slice(0, 22) +
+        (t.abierto === false ? '🔴 cerrado' : '🟢 abierto') + '  ' +
+        (t.nombre + '                         ').slice(0, 26) +
+        (t.minimo ? '$' + t.minimo.toLocaleString('es-CL') + ' mín' : 'sin mín') +
+        '  · ' + (t.catalogo ? t.catalogo.length : 0) + ' producto(s)' +
+        (t.demo ? '  [demo]' : ''));
+    }
+    console.log('');
+    return;
+  }
+
+  if (accion === 'plantilla') {
+    console.log(JSON.stringify(PLANTILLA, null, 2));
+    console.log('\n// Rellena esto, guarda como alta.json y ejecuta:');
+    console.log('//   node scripts/nueva-tienda.mjs --api alta.json');
+    return;
+  }
+
+  if (accion === 'borrar') {
+    const id = limpio[1];
+    if (!id) { console.error('Falta el id del local a borrar.'); process.exit(1); }
+    const d = await api({ accion: 'local_borrar', local_id: id }, true);
+    if (!d.ok) { console.error('No pude borrar: ' + JSON.stringify(d)); process.exit(1); }
+    console.log(d.borrado ? 'Quitado de la nube: ' + id : 'No existía en la nube: ' + id);
+    return;
+  }
+
+  let crudo;
+  if (accion === '--json') {
+    try { crudo = JSON.parse(limpio[1]); }
+    catch (e) { console.error('El JSON del argumento no parsea: ' + e.message); process.exit(1); }
+  } else {
+    try { crudo = JSON.parse(readFileSync(accion, 'utf8')); }
+    catch (e) { console.error('No pude leer el archivo ' + accion + ': ' + e.message); process.exit(1); }
+  }
+  const lista = Array.isArray(crudo) ? crudo : [crudo];
+
+  console.log('\nAlta en la NUBE (InsForge vía fabri-api)\n');
+  for (const item of lista) {
+    const { errores, local } = normalizar(item);
+    if (errores.length) {
+      console.error('✖ «' + (item.nombre || '?') + '» no pasó la validación:');
+      errores.forEach((e) => console.error('   · ' + e));
+      process.exit(1);
+    }
+    const { catalogo, ...campos } = local;
+    const c = await api({ accion: 'local_crear', local_id: local.id, local: campos }, true);
+    if (!c.ok) { console.error('✖ «' + local.nombre + '»: ' + JSON.stringify(c)); continue; }
+
+    const productos = catalogo.map((p, i) => ({ sku: 'p' + (i + 1), nombre: p.nombre, precio: p.precio, stock: p.stock }));
+    const s = await api({ accion: 'productos_subir', local_id: c.id, clave: c.clave, productos });
+    const subidos = s.subidos != null ? s.subidos : 0;
+
+    console.log('  ✓ ' + c.id + '  ' + local.nombre +
+      '  (' + subidos + ' producto' + (subidos === 1 ? '' : 's') +
+      (local.minimo ? ', mín $' + local.minimo.toLocaleString('es-CL') : '') + ')');
+    console.log('    CLAVE DEL DUEÑO: ' + c.clave + '   ← guárdala, no se vuelve a mostrar');
+    if (s.tope) console.log('    plan ' + (local.demo ? 'gratis' : 'gratis') + ' · tope ' + s.tope + ' productos');
+  }
+  console.log('\nListo. El dueño entra a tu sitio → Negocio → escribe el ID y la clave.');
 }
 
 main();

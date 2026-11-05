@@ -9,12 +9,14 @@
     { "src": "/api/stats", "dest": "/api/stats.ts" },
     { "src": "/api/webhook", "dest": "/api/webhook.ts" },
     { "src": "/api/diagnostico", "dest": "/api/diagnostico.ts" },
-    { "src": "/api/modelos", "dest": "/api/modelos.ts" },
-    { "src": "/api/memoria", "dest": "/api/memoria.ts" },
-    { "src": "/api/skills", "dest": "/api/skills.ts" },
+    { "src": "/api/agente", "dest": "/api/agente.ts" },
+    { "src": "/api/modelos", "dest": "/api/agente.ts" },
+    { "src": "/api/memoria", "dest": "/api/agente.ts" },
+    { "src": "/api/skills", "dest": "/api/agente.ts" },
     { "src": "/api/health", "dest": "/api/health.ts" },
     { "src": "/api/estado", "dest": "/api/estado.ts" },
     { "src": "/api/inventario", "dest": "/api/inventario.ts" },
-    { "src": "/api/catalogo", "dest": "/api/catalogo.ts" }
+    { "src": "/api/catalogo", "dest": "/api/catalogo.ts" },
+    { "src": "/api/mercado", "dest": "/api/mercado.ts" }
   ]
 }

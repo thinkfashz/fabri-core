@@ -6,7 +6,7 @@
 > `cl.fabrick.core`, crate `fabrick-core`, dominio `fabri-core-web.vercel.app`,
 > repo `thinkfashz/fabri-core`.
 
-Última actualización: 2026-11-04
+Última actualización: 2026-11-05
 
 ## Sesión 2026-10-27 (20) · Nube: escáner con cámara y wiki de productos
 
@@ -2794,6 +2794,45 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
 - **Pendiente**: capturas del usuario en el teléfono (ficha, portadas en
   estante, tiras de precio de cerca y carrito tras añadir) para el ajuste
   fino visual.
+
+## Sesión 2026-11-05 · MercadoPlacer en la NUBE: site + APK sobre InsForge
+
+El marketplace deja de ser un JSON estático: locales, catálogos y pedidos viven
+en InsForge y se sirven por `fabri-api`. El sitio y la APK comparten la misma
+base. Detalle completo en `docs/MERCADO-NUBE.md`.
+
+- **Backend** `/api/mercado` (`api-telefono/api/mercado.ts`, 12 acciones): tres
+  tablas `mercado_locales` / `mercado_productos` / `mercado_pedidos`. Dos llaves:
+  ADMIN (`Bearer FABRI_API_TOKEN`) da de alta/borra locales; el DUEÑO usa su
+  `clave` de 8 caracteres (guardada como **SHA-256**). Lecturas y `pedido_crear`
+  son públicas. El servidor recalcula precios y **rechaza** `CERRADO` /
+  `BAJO_MINIMO`; el tope del plan (gratis 300 / pro 3000) se aplica en
+  transacción (`ROLLBACK` → 409 `TOPE_PLAN`).
+- **Tope de Vercel Hobby = 12 funciones** (nos topamos al desplegar). Solución:
+  fusionar los stubs `memoria`+`modelos`+`skills` en **`/api/agente`** (misma
+  ruta, se elige por camino). Quedan **11 funciones**.
+- **Sitio**: `placer.js` lee los locales de `https://fabri-api.vercel.app/api/mercado`
+  y cae al `/datos/tiendas.json` si la API no responde; `pagar()` sube el pedido
+  a la nube (mejor esfuerzo, nunca frena la compra). `negocio.js` ahora es el
+  **panel del dueño**: se conecta con ID + clave, lista pedidos reales, prende/apaga
+  el local y avanza estados. Barra «Nube del local» + estilos en `index.html`/`styles.css`.
+  SW `fcore-v36`.
+- **Alta de clientes**: `scripts/nueva-tienda.mjs --api alta|listar|borrar`
+  publica en la nube y **devuelve la clave del dueño una sola vez**.
+- **Verificación en producción**: tablas creadas (`asegurar`), 2 locales demo
+  sembrados (23 productos), `locales` público OK, `CERRADO`, `BAJO_MINIMO`,
+  `pedido_crear` válido, `pedidos_listar` (clave buena/mala), `pedido_estado`,
+  `resumen` admin. `web/app/negocio.js` ejecutado en Node contra la API real:
+  conecta, lista el pedido y refleja abierto/cerrado. Todo el sitio en vivo
+  (`fabri-core-web.vercel.app`, `sw` v36). Un bug real encontrado y corregido:
+  faltaba `tarjeta()` en `negocio.js`.
+- **Seguridad**: MVP razonable (token admin, clave SHA-256, parámetros de `pg`,
+  CORS `*` sin cookies). **Falta** rate limit, sesiones firmadas y rotar los
+  secretos pegados en claro. **Hobby de Vercel es solo uso no comercial**: para
+  facturar hace falta Pro. Límites en `docs/MERCADO-NUBE.md` §5.
+- **Pendiente**: rate limit de borde, sesiones del dueño, Vercel Pro antes de
+  facturar, prueba en teléfono real. Por rotar: API key de InsForge y contraseña
+  de Postgres.
 
 ## Sesión 2026-11-05 · MercadoPlacer v35: registro real de locales + abierto/mínimo/entrega
 

@@ -20,9 +20,11 @@ window.Placer = (function () {
   "use strict";
 
   const API = "/api/mercados";
-  /* Registro de locales del piloto. Es un JSON servido por el CDN: el catálogo
-     real de un negocio queda visible en CUALQUIER teléfono, no en el navegador
-     del que lo cargó. Esto es lo que convierte la maqueta en algo multiusuario. */
+  /* Los locales y sus catálogos vienen de la nube (InsForge vía fabri-api): el
+     dueño los carga una vez y quedan visibles en CUALQUIER teléfono, no en el
+     navegador del que los subió. Eso es lo que lo vuelve multiusuario real.
+     El JSON del CDN sigue existiendo como respaldo si la API no responde. */
+  const API_MERCADO = "https://fabri-api.vercel.app/api/mercado";
   const API_TIENDAS = "/datos/tiendas.json";
   const CLAVE_CARRITO = "fcore.placer.carrito";
   const CLAVE_RADIO = "fcore.placer.radio";
@@ -654,11 +656,23 @@ window.Placer = (function () {
      vino cada uno: solo que estos son `forge` (tienen catálogo real y ficha
      propia) y pueden estar abiertos o cerrados. */
   async function cargarTiendas(lat, lon) {
-    let datos = null;
+    let datos = null, origen = "";
+    /* 1) La nube (InsForge vía fabri-api): locales y catálogos reales. */
     try {
-      const r = await fetch(API_TIENDAS, { cache: "no-store" });
-      if (r.ok) datos = await r.json();
-    } catch (e) { /* sin red: el registro es opcional, el mapa sigue con OSM */ }
+      const r = await fetch(API_MERCADO + "?accion=locales", { cache: "no-store" });
+      if (r.ok) {
+        const d = await r.json();
+        if (d && d.ok && Array.isArray(d.tiendas)) { datos = d; origen = "nube"; }
+      }
+    } catch (e) { /* sin red o API caída: seguimos con el respaldo */ }
+    /* 2) Respaldo estático del CDN: sirve offline y si la API no responde. */
+    if (!datos) {
+      try {
+        const r = await fetch(API_TIENDAS, { cache: "no-store" });
+        if (r.ok) { datos = await r.json(); origen = "cdn"; }
+      } catch (e) { /* sin red: el registro es opcional, el mapa sigue con OSM */ }
+    }
+    ESTADO.origenTiendas = origen;
     const lista = datos && Array.isArray(datos.tiendas) ? datos.tiendas : [];
     return lista.map(function (t) {
       const la = Number(t.lat), lo = Number(t.lon);
@@ -2089,6 +2103,7 @@ window.Placer = (function () {
       ESTADO.pago.estado = "listo";
       ESTADO.pago.codigo = "MP-" + String(Date.now()).slice(-6);
       guardarPedido(m, total);
+      enviarPedidoNube(m);
       delete ESTADO.carrito[m.id];
       guardarCarrito();
       pintarCarritoBtn();
@@ -2120,6 +2135,38 @@ window.Placer = (function () {
       guardar(CLAVE_PEDIDOS, lista.slice(0, 300));
       if (window.Negocio) window.Negocio.render();
     } catch (e) { /* almacenamiento lleno o privado */ }
+  }
+
+  /* Sube el pedido a la nube para que el DUEÑO lo vea en su panel del local
+     aunque el comprador esté en otro teléfono. Es "mejor esfuerzo": si no hay
+     red, la API está caída o el local no está en la base, el pedido igual quedó
+     en el historial local y se puede mandar por WhatsApp. Nunca frena la compra
+     ni muestra un error al comprador. */
+  function enviarPedidoNube(m) {
+    if (!m || !m.forge) return; // los locales que vienen de OpenStreetMap no están en la base
+    try {
+      const items = itemsDe(m).map(function (x) {
+        return { nombre: x.nombre, precio: x.precio, cantidad: x.cantidad };
+      });
+      if (!items.length) return;
+      fetch(API_MERCADO, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          accion: "pedido_crear",
+          local_id: m.id,
+          items: items,
+          entrega: ESTADO.pago.entrega,
+          direccion: ESTADO.pago.direccion || "",
+          nota: ESTADO.pedido.nota || "",
+          cliente: ESTADO.pedido.nombre || "",
+          telefono: ESTADO.pedido.telefono || ""
+        })
+      }).then(function (r) { return r.json(); }).then(function (d) {
+        // El servidor recalcula el total y devuelve su propio código de pedido.
+        if (d && d.ok && d.codigo) ESTADO.pago.nube = d.codigo;
+      }).catch(function () { /* sin red: el pedido quedó en el historial local */ });
+    } catch (e) { /* nunca romper el pago por la nube */ }
   }
 
   function textoPedido(m, total, envio) {
