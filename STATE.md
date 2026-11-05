@@ -2825,6 +2825,9 @@ el que cargó el negocio, visible en cualquier teléfono.
   el abierto; carrito con Tomate $1.390 → «Faltan $8.610…» y botón
   «Mínimo $10.000» `disabled=true`. WebGL sigue sin verificarse aquí.
 - **Pendiente**: alta de local in-app (form → JSON + WhatsApp) y probar en teléfono real.
+- **Postulación**: `POSTULACION-SUP.md` — one-pager + guion del formulario de
+  Start-Up Chile BIG 13 (cierra 24-nov-2026 13:00), con tracción dicha sin inflar
+  (los «32 locales» son de OpenStreetMap, no clientes) y ruta paralela CORFO.
 
 ## Sesión 2026-11-04 · Tienda 3D v34: arregla el signo del stick (movimiento) — `7a84b24`
 
