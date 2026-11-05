@@ -732,6 +732,11 @@ window.Mercado = (function () {
     agregar: (p) => { if (p && p.id) { registrar(p); cambiar(p.id, 1); } },
     productos: () => catalogo(),
     // para el visor 3D: código de barras y total de unidades
-    codigoDe, ean13Svg, unidades
+    codigoDe, ean13Svg, unidades,
+    /* El HUD de la tienda 3D pinta el pedido (productos, unidades y total
+       CLP) desde AQUÍ: es el mismo carrito y el mismo catálogo, no una
+       copia. `total()` es el mismo cálculo que usa la vista de Mercado. */
+    total,
+    lineas: () => { hidratar(); return Object.assign({}, carrito); }
   };
 })();

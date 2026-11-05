@@ -1554,6 +1554,10 @@ body.con-scan{overflow:hidden}
   min-height: 420px;
   background: #000;
   overflow: hidden;
+  /* alto real de la barra superior: lo usan el precio bajo la mira, las
+     herramientas, el panel de luces y el minimapa para no pisarse. En
+     móvil la barra baja a dos filas y la variable crece (ver media query). */
+  --t3d-barra: 58px;
 }
 #t3dCanvas { display: block; width: 100%; height: 100%; touch-action: none; }
 
@@ -1831,7 +1835,7 @@ body.con-scan{overflow:hidden}
 
 /* ── Precio bajo la mira (tienda 3D) ────────────────────────────────────── */
 .t3d-precio {
-  position: absolute; left: 10px; top: 62px; z-index: 6;
+  position: absolute; left: 10px; top: calc(var(--t3d-barra) + 4px); z-index: 6;
   width: 164px; padding: 9px 11px;
   display: grid; gap: 2px;
   border-radius: 14px;
@@ -1893,13 +1897,15 @@ body.con-scan{overflow:hidden}
   box-shadow: 0 1px 0 rgba(0,0,0,.35);
 }
 
-/* ── Herramientas de la tienda 3D: luces y cámaras ──────────────────────── */
+/* ── Herramientas de la tienda 3D: luces, cámaras, interactuar y mapa ────
+   Rejilla 2×2: con cuatro botones en columna pisaban el stick izquierdo
+   en pantallas cortas. */
 .t3d-tools {
-  position: absolute; left: 10px; top: 214px; z-index: 6;
-  display: grid; gap: 6px;
+  position: absolute; left: 10px; top: calc(var(--t3d-barra) + 156px); z-index: 6;
+  display: grid; grid-template-columns: repeat(2, 56px); gap: 6px;
 }
 .t3d-tool {
-  width: 52px; min-height: 46px; padding: 5px 2px;
+  width: 56px; min-height: 46px; padding: 5px 2px;
   display: grid; place-items: center; gap: 1px; cursor: pointer;
   border-radius: 13px; border: 1px solid rgba(255,255,255,.14);
   background: rgba(10,12,14,.62);
@@ -1907,11 +1913,11 @@ body.con-scan{overflow:hidden}
   color: var(--tx2); font: inherit;
 }
 .t3d-tool svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; }
-.t3d-tool span { font-size: 8.5px; font-weight: 750; letter-spacing: .02em; }
+.t3d-tool span { font-size: 8.5px; font-weight: 750; letter-spacing: .02em; line-height: 1.15; text-align: center; }
 .t3d-tool[aria-expanded="true"] { color: var(--accent); border-color: rgba(200,255,0,.45); background: rgba(200,255,0,.12); }
 
 .t3d-luces {
-  position: absolute; right: 10px; top: 72px; z-index: 8;
+  position: absolute; right: 10px; top: calc(var(--t3d-barra) + 14px); z-index: 8;
   bottom: calc(288px + env(safe-area-inset-bottom));
   width: min(252px, calc(100% - 92px)); padding: 12px 13px;
   display: grid; gap: 10px; align-content: start;
@@ -1985,12 +1991,27 @@ body.con-scan{overflow:hidden}
   position: absolute; top: 56px; left: 0; right: 0; bottom: 0;
   display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 4px;
 }
-.t3d-cams-grid span {
+.t3d-cams-grid span,
+.t3d-cams-grid button {
   align-self: start; justify-self: start; margin: 8px;
-  padding: 3px 7px; border-radius: 6px;
+  padding: 3px 7px; border-radius: 6px; cursor: pointer;
+  border: 1px solid rgba(200,255,0,.28);
   background: rgba(0,0,0,.66); color: #c8ff00;
-  font-family: var(--mono); font-size: 9.5px; letter-spacing: .08em;
+  font: inherit; font-family: var(--mono); font-size: 9.5px; letter-spacing: .08em;
 }
+.t3d-cams-grid button.on { background: rgba(200,255,0,.9); color: #0a0a0a; border-color: rgba(200,255,0,.9); }
+/* cámara individual: sólo queda el rótulo de la cámara elegida */
+.t3d-cams-grid.solo button:not(.on) { display: none; }
+.t3d-cams-todas {
+  position: absolute; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom));
+  transform: translateX(-50%); z-index: 3; cursor: pointer;
+  padding: 9px 16px; border-radius: 999px;
+  border: 1px solid rgba(200,255,0,.45);
+  background: rgba(8,10,12,.86); color: #c8ff00;
+  font: inherit; font-size: 10.5px; font-weight: 800; letter-spacing: .1em;
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+}
+.t3d-cams-todas[hidden] { display: none; }
 
 /* ── Tirita lateral: oculta los botones ─────────────────────────────────── */
 .t3d-tira {
@@ -2042,11 +2063,13 @@ body.con-scan{overflow:hidden}
 /* ── Modo oculto: sólo sticks, mira, tirita y ayuda ─────────────────────── */
 .t3d.ui-off .t3d-hud,
 .t3d.ui-off .t3d-tools,
+.t3d.ui-off .t3d-map,
 .t3d.ui-off .t3d-run { display: none; }
 
 /* ── Modo cámaras: se apaga todo lo demás ───────────────────────────────── */
 .t3d.cctv .t3d-hud,
 .t3d.cctv .t3d-tools,
+.t3d.cctv .t3d-map,
 .t3d.cctv .t3d-run,
 .t3d.cctv .t3d-precio,
 .t3d.cctv .t3d-mira,
@@ -2192,21 +2215,151 @@ body.con-scan{overflow:hidden}
 body.en-tienda .nav,
 body.en-tienda .topbar { display: none !important; }
 body.en-tienda main { padding: 0; }
+/* `main` ya no tiene padding: el margen lateral negativo de #s-tienda la
+   sacaría 16 px fuera de la pantalla (desborde horizontal en móvil). */
+body.en-tienda #s-tienda { margin-left: 0; margin-right: 0; }
 body.en-tienda .t3d { height: 100dvh; }
 
 .t3d-marca {
-  flex: 1; min-width: 0;
-  display: flex; align-items: center; justify-content: center;
+  flex: 0 1 auto; min-width: 0;
+  display: flex; align-items: center; gap: 8px;
   pointer-events: none;
 }
 .t3d-marca img {
-  width: 42px; height: 42px; display: block;
+  width: 42px; height: 42px; display: block; flex: none;
   filter: drop-shadow(0 6px 18px rgba(0,0,0,.65));
 }
+.t3d-marca-txt {
+  font-size: 10.5px; font-weight: 800; letter-spacing: .17em;
+  color: rgba(255,255,255,.88); white-space: nowrap;
+}
+.t3d-marca-txt b { color: var(--accent); font-weight: 800; }
 
 /* Viñeta cálida: da sensación de encuadre real sin gastar rendimiento */
 .t3d-vineta {
   position: absolute; inset: 0; z-index: 2; pointer-events: none;
   background: radial-gradient(ellipse at 50% 44%,
     rgba(0,0,0,0) 54%, rgba(7,6,3,.36) 100%);
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   TIENDA 3D · HUD de mundo abierto: navegación, pedido y minimapa
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── Navegación de la barra superior ────────────────────────────────────── */
+.t3d-nav {
+  flex: 1 1 auto; min-width: 0;
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+  pointer-events: auto;
+}
+.t3d-nav button {
+  padding: 7px 11px; border-radius: 11px; cursor: pointer;
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(10,12,14,.7);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  color: var(--tx2); font: inherit; font-size: 11px; font-weight: 700;
+  letter-spacing: .04em; white-space: nowrap;
+}
+.t3d-nav button.on {
+  border-color: rgba(200,255,0,.55);
+  background: rgba(200,255,0,.14);
+  color: var(--accent);
+  box-shadow: 0 0 18px -8px rgba(200,255,0,.9);
+}
+.t3d-nav button:active { transform: translateY(1px); }
+
+/* ── Estado del pedido (siempre desde el carrito comercial) ─────────────── */
+.t3d-compra {
+  flex: none; display: flex; align-items: center; gap: 9px;
+  pointer-events: auto;
+}
+.t3d-compra-datos {
+  display: grid; gap: 1px; justify-items: end;
+  padding: 6px 11px; border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.1);
+  background: rgba(10,12,14,.72);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+}
+.t3d-compra-k {
+  font-family: var(--mono); font-size: 8.5px; letter-spacing: .1em;
+  color: var(--tx3); white-space: nowrap;
+}
+.t3d-compra-k b { color: var(--tx); font-weight: 700; }
+.t3d-compra-datos strong {
+  font-size: 14px; font-weight: 850; letter-spacing: -.02em;
+  color: var(--accent); font-variant-numeric: tabular-nums;
+}
+
+/* ── Minimapa real (plano + posición y rumbo del jugador) ───────────────── */
+.t3d-map {
+  position: absolute; right: 30px; top: calc(var(--t3d-barra) + 4px); z-index: 5;
+  width: 148px; padding: 0; cursor: pointer; display: block;
+  appearance: none; -webkit-appearance: none;
+  border-radius: 16px; overflow: hidden;
+  border: 1px solid rgba(255,255,255,.16);
+  background: rgba(8,10,12,.86);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 20px 44px -24px #000;
+}
+.t3d-map canvas { display: block; width: 148px; height: 148px; }
+.t3d-map-lab {
+  position: absolute; left: 7px; bottom: 6px;
+  font-family: var(--mono); font-size: 8px; letter-spacing: .16em;
+  color: rgba(255,255,255,.8); background: rgba(0,0,0,.6);
+  padding: 2px 6px; border-radius: 5px;
+}
+.t3d-map:active { border-color: rgba(200,255,0,.5); }
+/* el panel de luces ocupa la misma esquina: el mapa se aparta mientras abierto */
+.t3d-luces:not([hidden]) ~ .t3d-map { display: none; }
+
+/* ── Plano completo del local ───────────────────────────────────────────── */
+.t3d-map-full {
+  position: absolute; inset: 0; z-index: 11;
+  background: rgba(5,6,7,.95);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+}
+.t3d-map-full[hidden] { display: none; }
+.t3d-map-cuerpo {
+  position: absolute; top: 56px; left: 0; right: 0; bottom: 0;
+  display: grid; gap: 11px; justify-items: center; align-content: start;
+  padding: 14px 12px calc(18px + env(safe-area-inset-bottom));
+  overflow-y: auto; overscroll-behavior: contain;
+}
+.t3d-map-cuerpo canvas {
+  display: block; width: min(76vw, 320px); height: auto;
+  border-radius: 14px; border: 1px solid rgba(255,255,255,.14);
+  background: #0b0d0f; touch-action: manipulation; cursor: crosshair;
+}
+.t3d-map-ley {
+  list-style: none; margin: 0; padding: 0; max-width: min(76vw, 320px);
+  display: flex; flex-wrap: wrap; gap: 6px; justify-content: center;
+}
+.t3d-map-ley li {
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: .06em;
+  color: var(--tx2); padding: 3px 8px; border-radius: 99px;
+  border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.05);
+}
+.t3d-map-ley li.on {
+  border-color: var(--accent); color: var(--accent); background: var(--accent-soft);
+}
+.t3d-map-acc { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+
+/* ── Móvil: la barra baja a dos filas y todo lo demás baja con ella ────── */
+@media (max-width: 760px) {
+  .t3d { --t3d-barra: 92px; }
+  .t3d-hud { flex-wrap: wrap; row-gap: 6px; }
+  .t3d-marca { flex: 1 1 auto; justify-content: flex-start; }
+  .t3d-marca-txt { display: none; }
+  .t3d-nav {
+    flex: 1 0 100%; order: 9; gap: 4px;
+    justify-content: space-between; overflow-x: auto;
+    scrollbar-width: none; -ms-overflow-style: none;
+  }
+  .t3d-nav::-webkit-scrollbar { display: none; }
+  .t3d-nav button { flex: 1 0 auto; padding: 6px 7px; font-size: 10.5px; text-align: center; }
+  .t3d-compra-datos { padding: 5px 9px; }
+  .t3d-compra-k { font-size: 8px; }
+  .t3d-compra-datos strong { font-size: 13px; }
+  .t3d-map { width: 126px; right: 26px; }
+  .t3d-map canvas { width: 126px; height: 126px; }
 }

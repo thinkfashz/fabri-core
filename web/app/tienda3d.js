@@ -81,6 +81,27 @@ window.Tienda3D = (function () {
   let kelvinLuz = 4000, sombraLuz = 0.65, sensCam = 1;
   let camaras = [], cctv = false;
 
+  /* ── LED por grupos ─────────────────────────────────────────────────────
+     Cuatro interruptores independientes en el panel de luces. `techo`,
+     `estante` y `decor` son grupos de geometría real de la escena (se ven
+     y desaparecen); `ambiental` no es geometría: es la aportación de
+     ambient + hemisphere, que `aplicarLuz()` atenúa al apagarlo. Apagar un
+     grupo además modula las luces que lo alimentan, para que el cambio se
+     note en la escena y no sólo en el panel. */
+  const leds = { techo: true, estante: true, ambiental: true, decor: true };
+  const grupoLED = { techo: null, estante: null, decor: null };
+  let reflejoPiso = null, mallaLedEstante = null, mallaGlowEstante = null;
+
+  /* ── HUD de mundo abierto ────────────────────────────────────────────────
+     `catsGondola` es la categoría real de cada góndola (la que reparte
+     `construir`): el plano la muestra tal cual. `destino` es el punto que
+     eligió el usuario en el plano (marcador en el minimapa). `camSolo` es
+     la cámara individual del modo vigilancia; null = las 4 a la vez. */
+  let catsGondola = [];
+  let destino = null;
+  let camSolo = null;
+  let mapaT = 0;                  // último repintado del minimapa (ms)
+
   /* Calidad por dispositivo: el perfil se detecta solo y el usuario puede
      forzar un nivel. Afecta píxeles, tamaño de la sombra y puntos de techo. */
   const CLAVE_CAL = "fcore.tienda3d.calidad";
@@ -91,6 +112,14 @@ window.Tienda3D = (function () {
     baja:  { pr: 1.0,  sombra: 512,  puntos: false }
   };
   let calidad = "auto", perfil = "media";
+  /* ¿Se probó WebGL y se detectó la GPU? Se hace una sola vez por sesión:
+     repetirlo agotaba los contextos vivos del navegador (ver abrir()). */
+  let glOk = null, perfilListo = false;
+  /* Último fallo de `abrir()`: queda a la vista en `window.__t3d().err3d`
+     para no tener que adivinar por qué la escena no arranca. */
+  let ultimoError = "";
+  /* Temporizador del intento de recuperar el contexto WebGL (ver abrir()). */
+  let restoreTimer = 0;
 
   function cargarThree() {
     if (window.THREE) return Promise.resolve(window.THREE);
@@ -104,18 +133,88 @@ window.Tienda3D = (function () {
   }
 
   /* ── texturas generadas ────────────────────────────────────────────────── */
+  /* Piso porcelánico: baldosa de 1,12 m en gris muy claro, juntas finas y
+     uniformes, veteado apenas perceptible. El brillo NO viene de aquí: el
+     reflejo de las luminarias lo aporta `texturaReflejo()` superpuesto, así
+     que se controla por separado (y sin efecto espejo). */
   function texturaPiso() {
     const c = document.createElement("canvas");
     c.width = c.height = 256;
     const g = c.getContext("2d");
-    g.fillStyle = "#f4f5f6"; g.fillRect(0, 0, 256, 256);
-    g.fillStyle = "#eceef0"; g.fillRect(0, 0, 128, 128); g.fillRect(128, 128, 128, 128);
-    g.strokeStyle = "rgba(0,0,0,.06)"; g.lineWidth = 2;
+    g.fillStyle = "#eef0f1"; g.fillRect(0, 0, 256, 256);
+    // dos tonos por baldosa: variación mínima, sin ajedrez marcado
+    g.fillStyle = "#f4f6f7"; g.fillRect(0, 0, 128, 128); g.fillRect(128, 128, 128, 128);
+    g.fillStyle = "#eaedef"; g.fillRect(128, 0, 128, 128); g.fillRect(0, 128, 128, 128);
+    // junta fina y uniforme (2 px ≈ 1 cm a esta escala)
+    g.strokeStyle = "rgba(24,28,30,.11)"; g.lineWidth = 2;
     g.strokeRect(1, 1, 254, 254);
+    g.beginPath();
+    g.moveTo(128, 0); g.lineTo(128, 256);
+    g.moveTo(0, 128); g.lineTo(256, 128);
+    g.stroke();
+    // veta de porcelanato: dos trazos suaves, casi invisibles
+    g.strokeStyle = "rgba(126,138,144,.09)"; g.lineWidth = 3;
+    g.beginPath(); g.moveTo(6, 206); g.bezierCurveTo(74, 148, 128, 244, 250, 164); g.stroke();
+    g.beginPath(); g.moveTo(60, 10); g.bezierCurveTo(140, 60, 150, 96, 240, 74); g.stroke();
     const t = new T.CanvasTexture(c);
     t.wrapS = t.wrapT = T.RepeatWrapping;
     t.repeat.set(16, 17);
     t.anisotropy = 4;
+    return t;
+  }
+
+  /* Reflejos controlados sobre el porcelanato: manchas alargadas bajo cada
+     luminaria de techo y bajo las tiras LED de las góndolas. Un solo plano
+     aditivo = 1 draw call, y se apaga junto al grupo «techo». */
+  function texturaReflejo() {
+    const W = 1024, H = 1138;                 // 18 × 20 m
+    const c = document.createElement("canvas");
+    c.width = W; c.height = H;
+    const g = c.getContext("2d");
+    g.fillStyle = "#000000"; g.fillRect(0, 0, W, H);
+    const px = (x) => ((x + ANCHO / 2) / ANCHO) * W;
+    const pz = (z) => ((z + LARGO / 2) / LARGO) * H;
+    const mancha = (x, z, rx, ry, a) => {
+      g.save();
+      g.translate(px(x), pz(z));
+      g.scale(rx, ry);
+      const rg = g.createRadialGradient(0, 0, 1, 0, 0, 1);
+      rg.addColorStop(0, "rgba(255,247,232," + a + ")");
+      rg.addColorStop(0.45, "rgba(255,243,224," + a * 0.42 + ")");
+      rg.addColorStop(1, "rgba(255,240,220,0)");
+      g.fillStyle = rg;
+      g.beginPath(); g.arc(0, 0, 1, 0, Math.PI * 2); g.fill();
+      g.restore();
+    };
+    // luminarias: 4 columnas × 4 filas, alargadas en el eje del pasillo
+    [-5, -1.7, 1.7, 5].forEach((z) => {
+      [-6, -2, 2, 6].forEach((x) => mancha(x, z, 120, 78, 0.30));
+    });
+    // tiras LED de las góndolas: rastro tenue a lo largo de cada mueble
+    GONDOLAS.forEach((gx) => {
+      for (let z = -4; z <= 4; z += 1.6) mancha(gx, z, 34, 52, 0.11);
+    });
+    // entrada: luz del exterior entrando por el acceso
+    mancha(0, 9.2, 240, 90, 0.16);
+    const t = new T.CanvasTexture(c);
+    t.encoding = T.sRGBEncoding;
+    return t;
+  }
+
+  /* Bajada de luz de una tira LED: degradado vertical que baja desde el
+     filo de la repisa. Va en un plano aditivo de 9 m × 17 cm por lado. */
+  function texturaBajadaLED() {
+    const c = document.createElement("canvas");
+    c.width = 8; c.height = 64;
+    const g = c.getContext("2d");
+    const rg = g.createLinearGradient(0, 0, 0, 64);
+    rg.addColorStop(0, "rgba(255,247,232,.95)");
+    rg.addColorStop(0.35, "rgba(255,243,222,.34)");
+    rg.addColorStop(1, "rgba(255,240,218,0)");
+    g.fillStyle = rg;
+    g.fillRect(0, 0, 8, 64);
+    const t = new T.CanvasTexture(c);
+    t.encoding = T.sRGBEncoding;
     return t;
   }
 
@@ -762,6 +861,10 @@ window.Tienda3D = (function () {
     scene.background = new T.Color(0x08090a);
     scene.fog = new T.Fog(0x0c0e10, 20, 46);
     refs = { piso: null, muro: [], techo: [], metal: [] };
+    // los grupos LED viven dentro de la escena: al reconstruir quedan en
+    // null y los vuelven a crear los bloques de techo, estante y decor
+    grupoLED.techo = null; grupoLED.estante = null; grupoLED.decor = null;
+    reflejoPiso = null; mallaLedEstante = null; mallaGlowEstante = null;
     // si se reconstruye (otro local del mapa), todo lo anterior se descarta
     puertas = [];
     tv = null;
@@ -822,24 +925,58 @@ window.Tienda3D = (function () {
       return p;
     });
 
-    /* piso cerámico, techo con casetones y vigas vistas */
+    /* ── piso porcelánico + reflejos controlados ─────────────────────────
+       Baldosa clara con juntas finas (texturaPiso) y un plano aditivo
+       superpuesto que refleja las luminarias y las tiras LED: superficie
+       reflectante sin efecto espejo y con un solo draw call más. */
     const piso = new T.Mesh(
       new T.PlaneGeometry(ANCHO, LARGO),
-      new T.MeshPhongMaterial({ color: 0xf1ebe0, map: texturaPiso(), shininess: 70, specular: 0x403a32 })
+      new T.MeshPhongMaterial({
+        color: 0xf7f8f9, map: texturaPiso(), shininess: 96, specular: 0x747b80
+      })
     );
     piso.rotation.x = -Math.PI / 2;
     piso.receiveShadow = true;
     scene.add(piso);
     refs.piso = piso.material;
 
+    reflejoPiso = new T.Mesh(
+      new T.PlaneGeometry(ANCHO, LARGO),
+      new T.MeshBasicMaterial({
+        map: texturaReflejo(), transparent: true, opacity: 0.55,
+        depthWrite: false, blending: T.AdditiveBlending
+      })
+    );
+    reflejoPiso.rotation.x = -Math.PI / 2;
+    reflejoPiso.position.y = 0.004;
+
+    /* ── techo industrial ────────────────────────────────────────────────
+       Negro mate, perfiles lineales de aluminio a lo largo del local y
+       tiras LED bajo cada perfil, junto a las luminarias. Todo lo emisivo
+       queda en `grupoLED.techo`: es lo que apaga el interruptor «Techo». */
     const techo = new T.Mesh(
       new T.PlaneGeometry(ANCHO, LARGO),
-      new T.MeshLambertMaterial({ color: 0x15171a })
+      new T.MeshLambertMaterial({ color: 0x0d0f11 })
     );
     techo.rotation.x = Math.PI / 2;
     techo.position.y = ALTO;
     scene.add(techo);
     refs.techo.push({ mat: techo.material, rep: [3, 3.3], nor: 0.5 });
+
+    grupoLED.techo = new T.Group();
+    grupoLED.techo.add(reflejoPiso);         // el reflejo del piso sigue a las luces
+    scene.add(grupoLED.techo);
+
+    const perfilM = new T.MeshLambertMaterial({ color: 0x31373b });
+    const tiraTechoM = new T.MeshBasicMaterial({ color: 0xfff7e8 });
+    [-8, -4, 0, 4, 8].forEach((x) => {
+      const perfil = new T.Mesh(new T.BoxGeometry(0.12, 0.09, LARGO - 0.8), perfilM);
+      perfil.position.set(x, ALTO - 0.1, 0);
+      scene.add(perfil);
+      const tira = new T.Mesh(new T.BoxGeometry(0.05, 0.02, LARGO - 1.6), tiraTechoM);
+      tira.position.set(x, ALTO - 0.155, 0);
+      grupoLED.techo.add(tira);
+    });
 
     const panel = new T.MeshBasicMaterial({ color: 0xfff4de });
     const caseton = new T.MeshLambertMaterial({ color: 0x1b1f23 });
@@ -855,38 +992,43 @@ window.Tienda3D = (function () {
     });
     [ -5, -1.7, 1.7, 5 ].forEach((z) => {
       [ -6, -2, 2, 6 ].forEach((x) => {
-        // carcasa del luminario y su placa debajo, a la vista
+        // carcasa del luminario: estructura, se queda siempre
         const carc = new T.Mesh(new T.BoxGeometry(1.26, 0.12, 0.5), caseton);
         carc.position.set(x, ALTO - 0.06, z);
         scene.add(carc);
+        // placa emisiva, resplandor y haz: se apagan con el grupo «techo»
         const l = new T.Mesh(new T.PlaneGeometry(1.1, 0.34), panel);
         l.rotation.x = Math.PI / 2;
         l.position.set(x, ALTO - 0.125, z);
-        scene.add(l);
-        // resplandor + haz: la lámpara se ve encendida, no pintada
+        grupoLED.techo.add(l);
         const halo = new T.Mesh(geoHalo, glowM);
         halo.rotation.x = Math.PI / 2;
         halo.position.set(x, ALTO - 0.15, z);
-        scene.add(halo);
+        grupoLED.techo.add(halo);
         const cono = new T.Mesh(geoCono, conoM);
         cono.position.set(x, (ALTO - 0.3) / 2 + 0.05, z);
-        scene.add(cono);
+        grupoLED.techo.add(cono);
       });
     });
 
     // vigas negras cruzando el local (sin tocar los luminarios)
     const vigaM = new T.MeshLambertMaterial({ color: 0x0e1013 });
     [ -8, -4, 0, 4, 8 ].forEach((z) => {
-      const v = new T.Mesh(new T.BoxGeometry(ANCHO, 0.16, 0.3), vigaM);
-      v.position.set(0, ALTO - 0.08, z);
+      const v = new T.Mesh(new T.BoxGeometry(ANCHO, 0.12, 0.26), vigaM);
+      v.position.set(0, ALTO - 0.05, z);
       scene.add(v);
     });
 
-    /* Muros negros FORGE con franja lima: la marca vive en la escena y
-       la luz cálida de techo hace que el negro no se sienta frío. */
-    const pared = new T.MeshLambertMaterial({ color: 0x0a0b0c });
+    /* Muros blancos arquitectónicos con paneles negros en las zonas que
+       piden contraste: el fondo del wordmark y la cabecera del pasillo
+       electrónico. Zócalo oscuro y franja lima (grupo «decor»): la marca
+       sigue viva pero el local se ve luminoso, como un super de verdad. */
+    const pared = new T.MeshLambertMaterial({ color: 0xe6e7e3 });
+    const panelNegro = new T.MeshLambertMaterial({ color: 0x0a0b0c });
     const zocalo = new T.MeshLambertMaterial({ color: 0x171a1d });
     const franja = new T.MeshBasicMaterial({ color: 0xc8ff00 });
+    grupoLED.decor = new T.Group();
+    scene.add(grupoLED.decor);
     const muros = [
       [-ANCHO / 2, 0, Math.PI / 2, LARGO],
       [ ANCHO / 2, 0, -Math.PI / 2, LARGO],
@@ -905,43 +1047,92 @@ window.Tienda3D = (function () {
       zk.rotation.y = ry;
       zk.translateZ(0.012);
       scene.add(zk);
-      // franja luminosa lima a la altura del rótulo
+      // franja luminosa lima a la altura del rótulo (elemento decorativo)
       const fr = new T.Mesh(new T.PlaneGeometry(largo, 0.05), franja);
       fr.position.set(x, 2.66, z);
       fr.rotation.y = ry;
       fr.translateZ(0.014);
-      scene.add(fr);
+      grupoLED.decor.add(fr);
     });
 
-    /* wordmark FORGE CORE STOCK sobre el muro del fondo, bajo la franja */
+    // Panel negro detrás del wordmark: la marca (lima + blanca) necesita
+    // fondo oscuro para leerse a distancia sobre el muro claro.
+    const panelFondo = new T.Mesh(new T.PlaneGeometry(7.4, 2.15), panelNegro);
+    panelFondo.position.set(0, 1.8, LARGO / 2 - 0.012);
+    panelFondo.rotation.y = Math.PI;
+    scene.add(panelFondo);
+
+    // Panel negro tras el televisor: cabecera del pasillo electrónico.
+    const panelTV = new T.Mesh(new T.PlaneGeometry(4.6, 2.7), panelNegro);
+    panelTV.position.set(-ANCHO / 2 + 0.012, 1.85, -7);
+    panelTV.rotation.y = Math.PI / 2;
+    scene.add(panelTV);
+
+    /* wordmark FORGE CORE STOCK sobre el panel del fondo, bajo la franja */
     const marca = new T.Mesh(
       new T.PlaneGeometry(6, 1.5),
       new T.MeshBasicMaterial({ map: texturaMarca(), transparent: true, side: T.DoubleSide })
     );
     marca.position.set(0, 1.85, LARGO / 2 - 0.02);
     marca.rotation.y = Math.PI;
-    scene.add(marca);
+    grupoLED.decor.add(marca);
 
     /* góndolas: una categoría por mueble */
     const cats = [...new Set(catalogo.map((p) => p.categoria).filter(Boolean))];
     const porGondola = cats.length ? cats.slice(0, GONDOLAS.length) : ["Pasillo"];
-    const metal = new T.MeshLambertMaterial({ color: 0xc9d0d4 });
-    const borde = new T.MeshLambertMaterial({ color: 0x9aa3a8 });
-    const riel = new T.MeshLambertMaterial({ color: 0xc8ff00 });
+    // el plano reparte las mismas categorías que la escena
+    catsGondola = porGondola.slice();
+    destino = null;
+    camSolo = null;
+    /* ── góndolas: mobiliario comercial, no cajas geométricas ─────────────
+       Repisas y divisiones blancas, testeros (laterales) y zócalo verde
+       lima, y tiras LED FÍSICAS bajo el filo frontal de cada repisa, en los
+       dos lados, con su halo de difusión: geometría emisiva integrada en el
+       mueble, no una línea flotando delante del estante. Las 48 tiras y los
+       48 halos van en dos InstancedMesh = 2 draw calls. */
+    const metal = new T.MeshLambertMaterial({ color: 0xf3f5f6 });    // repisas blancas
+    const borde = new T.MeshLambertMaterial({ color: 0xdfe3e5 });    // divisiones
+    const testero = new T.MeshLambertMaterial({ color: 0xc8ff00 });  // laterales lima
+    const zocaloG = new T.MeshLambertMaterial({ color: 0xc8ff00 });  // zócalo verde
+    const riel = new T.MeshLambertMaterial({ color: 0xf7f8f9 });     // filo blanco
     refs.metal.push({ mat: metal, rep: [1.5, 1.5], nor: 0.4 });
     refs.metal.push({ mat: borde, rep: [1.5, 1.5], nor: 0.4 });
+
+    grupoLED.estante = new T.Group();
+    scene.add(grupoLED.estante);
+    const nLed = GONDOLAS.length * NIVELES.length * 2;
+    mallaLedEstante = new T.InstancedMesh(
+      new T.BoxGeometry(0.03, 0.014, G_LARGO - 0.12),
+      new T.MeshBasicMaterial({ color: 0xfff8ea }), nLed
+    );
+    mallaGlowEstante = new T.InstancedMesh(
+      new T.PlaneGeometry(G_LARGO - 0.12, 0.17),
+      new T.MeshBasicMaterial({
+        map: texturaBajadaLED(), transparent: true, opacity: 0.62,
+        depthWrite: false, blending: T.AdditiveBlending, side: T.DoubleSide
+      }), nLed
+    );
+    mallaLedEstante.frustumCulled = false;
+    mallaGlowEstante.frustumCulled = false;
+    grupoLED.estante.add(mallaLedEstante, mallaGlowEstante);
 
     GONDOLAS.forEach((gx, gi) => {
       const cat = porGondola[gi % porGondola.length];
       const grupo = new T.Group();
 
+      // testeros: los laterales del mueble, en lima
       [-G_LARGO / 2, G_LARGO / 2].forEach((z) => {
-        const p = new T.Mesh(new T.BoxGeometry(G_ANCHO, 2.55, 0.06), metal);
+        const p = new T.Mesh(new T.BoxGeometry(G_ANCHO, 2.55, 0.06), testero);
         p.position.set(gx, 1.27, z);
         p.castShadow = true;
         grupo.add(p);
+        // filete blanco rematando el testero: separa el verde del fondo
+        const rem = new T.Mesh(new T.BoxGeometry(G_ANCHO + 0.03, 0.05, 0.08), riel);
+        rem.position.set(gx, 2.545, z);
+        grupo.add(rem);
       });
-      const base = new T.Mesh(new T.BoxGeometry(G_ANCHO, 0.16, G_LARGO), metal);
+      // zócalo verde: el mueble se apoya en el piso con su base de marca
+      const base = new T.Mesh(new T.BoxGeometry(G_ANCHO + 0.04, 0.16, G_LARGO + 0.04), zocaloG);
       base.position.set(gx, 0.08, 0);
       base.castShadow = true;
       grupo.add(base);
@@ -980,6 +1171,36 @@ window.Tienda3D = (function () {
 
       scene.add(grupo);
     });
+
+    /* Matrices de las tiras LED: una por repisa y por lado, colocadas bajo
+       el filo frontal. El halo va en el mismo índice, ligeramente afuera y
+       apuntando hacia el pasillo, para que la luz "baje" del estante. */
+    {
+      const m4l = new T.Matrix4(), ql = new T.Quaternion(), escL = new T.Vector3(1, 1, 1);
+      const eu = new T.Euler();
+      let li = 0;
+      GONDOLAS.forEach((gx) => {
+        NIVELES.forEach((y) => {
+          [1, -1].forEach((s) => {
+            m4l.compose(
+              new T.Vector3(gx + s * (G_ANCHO / 2 - 0.03), y - 0.037, 0), ql, escL
+            );
+            mallaLedEstante.setMatrixAt(li, m4l);
+
+            eu.set(0, s > 0 ? Math.PI / 2 : -Math.PI / 2, 0);
+            ql.setFromEuler(eu);
+            m4l.compose(
+              new T.Vector3(gx + s * (G_ANCHO / 2 + 0.014), y - 0.062, 0), ql, escL
+            );
+            mallaGlowEstante.setMatrixAt(li, m4l);
+            ql.set(0, 0, 0, 1);
+            li++;
+          });
+        });
+      });
+      mallaLedEstante.instanceMatrix.needsUpdate = true;
+      mallaGlowEstante.instanceMatrix.needsUpdate = true;
+    }
 
     /* ── productos: una portada por nivel de góndola ──────────────────────
        Cada estante almacena un solo SKU (planograma real): las 24 caras
@@ -1351,7 +1572,7 @@ window.Tienda3D = (function () {
     scene.add(carrito);
 
     crearCamaras();
-    aplicarLuz();
+    aplicarLEDs();
 
     mallasProd = mallasGondola.concat(mallasCong);
     raycaster = new T.Raycaster();
@@ -1383,30 +1604,39 @@ window.Tienda3D = (function () {
     // sombra 0 % = relleno lleno (plano); sombra 100 % = contraste marcado
     const relleno = 1 - sombraLuz * 0.6;
 
-    if (luces.amb) luces.amb.intensity = c.amb * intensidadLuz * (0.55 + 0.45 * relleno);
-    if (luces.hemi) luces.hemi.intensity = c.hemi * intensidadLuz * (0.45 + 0.55 * relleno);
+    /* Los interruptores LED modulan la luz real, no sólo la geometría:
+       «Ambiente» atenúa ambient + hemisphere; «Techo» apaga los puntos de
+       luminaria y baja la key, que es la que simula la luz del local. */
+    const kAmb = leds.ambiental ? 1 : 0.16;
+    const kTecho = leds.techo ? 1 : 0.14;
 
-    luces.sol.intensity = c.dir * intensidadLuz;
+    if (luces.amb) luces.amb.intensity = c.amb * intensidadLuz * (0.55 + 0.45 * relleno) * kAmb;
+    if (luces.hemi) luces.hemi.intensity = c.hemi * intensidadLuz * (0.45 + 0.55 * relleno) * kAmb;
+
+    luces.sol.intensity = c.dir * intensidadLuz * (0.5 + 0.5 * kTecho);
     luces.sol.color.setHex(c.color).lerp(tinte, 0.6);
     const a = (orbitaLuz * Math.PI) / 180;
     luces.sol.position.set(Math.cos(a) * 10, 11, Math.sin(a) * 10);
     luces.sol.shadow.normalBias = 0.012 + (1 - sombraLuz) * 0.02;
 
     if (luces.relleno) {
-      luces.relleno.intensity = c.rell * intensidadLuz * (0.4 + 0.6 * relleno);
+      luces.relleno.intensity = c.rell * intensidadLuz * (0.4 + 0.6 * relleno) * (0.45 + 0.55 * kAmb);
       luces.relleno.color.setHex(0xcfe0ff).lerp(tinte, 0.35);
     }
     if (luces.contra) {
       luces.contra.intensity = (luzActual === "lima" ? 0.44 : 0.16) * intensidadLuz;
     }
     luces.puntos.forEach((p) => {
-      p.intensity = 0.36 * intensidadLuz * (0.6 + 0.4 * relleno);
+      p.intensity = 0.36 * intensidadLuz * (0.6 + 0.4 * relleno) * kTecho;
       p.color.setHex(0xffe6c4).lerp(tinte, 0.55);
     });
 
     if (luzTV) luzTV.intensity = 0.55 * intensidadLuz * (luzActual === "cine" ? 1.45 : 1);
 
-    if (renderer) renderer.toneMappingExposure = c.exp * (0.9 + intensidadLuz * 0.14);
+    if (renderer) {
+      renderer.toneMappingExposure = c.exp * (0.9 + intensidadLuz * 0.14) *
+        (leds.ambiental ? 1 : 0.86);
+    }
 
     const d = $("t3dLuzDesc");
     if (d) d.textContent = c.desc;
@@ -1415,6 +1645,21 @@ window.Tienda3D = (function () {
     if (ov) ov.textContent = Math.round(orbitaLuz) + "°";
     if (kv2) kv2.textContent = Math.round(kelvinLuz).toLocaleString("es-CL") + " K";
     if (sv) sv.textContent = Math.round(sombraLuz * 100) + " %";
+  }
+
+  /* Enciende o apaga los cuatro grupos LED de la escena y refleja el
+     estado en el panel (clase `on` + aria-pressed). Se llama al construir
+     y desde cada interruptor. */
+  function aplicarLEDs() {
+    if (grupoLED.techo) grupoLED.techo.visible = leds.techo;
+    if (grupoLED.estante) grupoLED.estante.visible = leds.estante;
+    if (grupoLED.decor) grupoLED.decor.visible = leds.decor;
+    aplicarLuz();
+    document.querySelectorAll("#t3dLeds [data-led]").forEach((b) => {
+      const on = !!leds[b.dataset.led];
+      b.classList.toggle("on", on);
+      b.setAttribute("aria-pressed", String(on));
+    });
   }
 
   /* ── Calidad por dispositivo ─────────────────────────────────────────────
@@ -1487,6 +1732,13 @@ window.Tienda3D = (function () {
   function bucle() {
     if (!vivo) return;
     requestAnimationFrame(bucle);
+    /* Sin renderer (o con el contexto suelto) el bucle sigue vivo pero no
+       dibuja: así no revienta con «renderer null» mientras la gráfica se
+       recupera, y el HUD 2D (minimapa, pedido, fps) sigue respondiendo. */
+    let dibujar = !!renderer;
+    if (dibujar) {
+      try { dibujar = !renderer.getContext().isContextLost(); } catch (e) { dibujar = false; }
+    }
     const dt = Math.min(0.05, reloj.getDelta());
     actualizarVuelos(dt);
 
@@ -1565,36 +1817,57 @@ window.Tienda3D = (function () {
     actualizarCarrito(dt);
     mirarPrecio(performance.now());
 
-    renderer.render(scene, camera);
+    if (dibujar) {
+      renderer.render(scene, camera);
 
-    if (cctv && camaras.length) {
-      const W = renderer.domElement.width, H = renderer.domElement.height;
-      const dpr = renderer.getPixelRatio();
-      const gap = Math.round(4 * dpr), head = Math.round(56 * dpr);
-      const w = Math.floor((W - gap) / 2), h = Math.floor((H - head - gap) / 2);
-      const t = performance.now();
-      renderer.setScissorTest(true);
-      camaras.forEach((cam, i) => {
-        const col = i % 2, row = Math.floor(i / 2);
-        const x = col * (w + gap);
-        const y = row === 0 ? h + gap : 0;
-        // barrido lento, como una cámara de vigilancia
-        cam.lookAt(
-          Math.sin(t / 2600 + i * 1.7) * 2.2,
-          1.1,
-          Math.cos(t / 3400 + i * 1.3) * 2.2
-        );
-        cam.aspect = w / Math.max(1, h);
-        cam.updateProjectionMatrix();
-        renderer.setViewport(x, y, w, h);
-        renderer.setScissor(x, y, w, h);
-        renderer.render(scene, cam);
-      });
-      renderer.setScissorTest(false);
-      renderer.setViewport(0, 0, W, H);
-      renderer.setScissor(0, 0, W, H);
+      if (cctv && camaras.length) {
+        const W = renderer.domElement.width, H = renderer.domElement.height;
+        const dpr = renderer.getPixelRatio();
+        const gap = Math.round(4 * dpr), head = Math.round(56 * dpr);
+        const w = Math.floor((W - gap) / 2), h = Math.floor((H - head - gap) / 2);
+        const t = performance.now();
+        renderer.setScissorTest(true);
+        if (camSolo != null && camaras[camSolo]) {
+          // una sola cámara en pantalla completa, bajo la barra de la vista
+          const cam = camaras[camSolo];
+          cam.aspect = W / Math.max(1, H - head);
+          cam.updateProjectionMatrix();
+          cam.lookAt(
+            Math.sin(t / 2600 + camSolo * 1.7) * 2.2,
+            1.1,
+            Math.cos(t / 3400 + camSolo * 1.3) * 2.2
+          );
+          renderer.setViewport(0, 0, W, H - head);
+          renderer.setScissor(0, 0, W, H - head);
+          renderer.render(scene, cam);
+        } else {
+          camaras.forEach((cam, i) => {
+            const col = i % 2, row = Math.floor(i / 2);
+            const x = col * (w + gap);
+            const y = row === 0 ? h + gap : 0;
+            // barrido lento, como una cámara de vigilancia
+            cam.lookAt(
+              Math.sin(t / 2600 + i * 1.7) * 2.2,
+              1.1,
+              Math.cos(t / 3400 + i * 1.3) * 2.2
+            );
+            cam.aspect = w / Math.max(1, h);
+            cam.updateProjectionMatrix();
+            renderer.setViewport(x, y, w, h);
+            renderer.setScissor(x, y, w, h);
+            renderer.render(scene, cam);
+          });
+        }
+        renderer.setScissorTest(false);
+        renderer.setViewport(0, 0, W, H);
+        renderer.setScissor(0, 0, W, H);
+      }
     }
     frames++;
+
+    // minimapa: a ~12 fps y sólo lo que esté a la vista (pintarMapa decide)
+    const tm = performance.now();
+    if (tm - mapaT > 80) { mapaT = tm; pintarMapa(); }
 
     // fps en vivo: así se ve si la calidad elegida le queda grande al equipo
     fpsCuadros++;
@@ -1604,6 +1877,8 @@ window.Tienda3D = (function () {
       const el = $("t3dFps");
       if (el) el.textContent = Math.round((fpsCuadros * 1000) / (ahora - fpsT0)) + " fps";
       fpsCuadros = 0; fpsT0 = ahora;
+      // el pedido puede cambiar también desde la vista de Mercado
+      actualizarCompra();
     }
   }
 
@@ -1685,20 +1960,15 @@ window.Tienda3D = (function () {
        vista de Mercado falla (p. ej. la vista aún no cargó), no debe dejar
        sin contador ni sin aviso al visor 3D. */
     try { window.Mercado.agregar(p); } catch (e) { /* ya quedó en el carrito */ }
-    actualizarContador();
+    actualizarCompra();
     aviso3d(p);
     carritoAnim = 1;      // el carrito da un salto al recibir algo
   }
 
   let avisoTimer = null;
   function aviso3d(p) {
-    const el = $("t3dAviso");
-    if (!el) return;
-    el.innerHTML = '<b>' + String(p.nombre) + "</b><span>$" +
-      Math.round(p.precio || 0).toLocaleString("es-CL") + " · agregado</span>";
-    el.hidden = false;
-    clearTimeout(avisoTimer);
-    avisoTimer = setTimeout(() => { el.hidden = true; }, 2200);
+    avisoTexto(String(p.nombre), "$" +
+      Math.round(p.precio || 0).toLocaleString("es-CL") + " · agregado");
   }
 
   /* ── ficha del producto ─────────────────────────────────────────────────
@@ -1817,10 +2087,373 @@ window.Tienda3D = (function () {
     cerrarFicha();                       // toque al vacío: cierra la ficha
   }
 
-  function enganchar() {
-    const caja = $("t3dCanvas");
-    const joyEl = $("t3dJoy");
+  /* ══════════════════════════════════════════════════════════════════════
+     HUD DE MUNDO ABIERTO · barra superior, minimapa, pedido y cámaras
+     ══════════════════════════════════════════════════════════════════════ */
 
+  const escHTML = (s) => String(s).replace(/[&<>"]/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  function avisoTexto(a, b) {
+    const el = $("t3dAviso");
+    if (!el) return;
+    el.innerHTML = "<b>" + escHTML(a) + "</b><span>" + escHTML(b) + "</span>";
+    el.hidden = false;
+    clearTimeout(avisoTimer);
+    avisoTimer = setTimeout(() => { el.hidden = true; }, 2200);
+  }
+
+  /* Panel de escena (luces, calidad, cámara) abierto desde la barra */
+  function alternarLuces() {
+    const p = $("t3dLuces"), b = $("t3dLucesBtn");
+    if (!p) return;
+    const abrir = p.hidden;
+    p.hidden = !abrir;
+    if (b) b.setAttribute("aria-expanded", String(abrir));
+    if (abrir) abrirMapa(false);
+  }
+
+  /* Devuelve el cuerpo a la entrada: lo usan «Volver a la entrada», la
+     barra «Tienda» y el plano. */
+  function aEntrada() {
+    pos.x = 0; pos.z = 8.2; yaw = 0; pitch = 0;
+    vel.x = 0; vel.z = 0; fovAct = FOV_BASE;
+    joy.x = joy.y = joyCam.x = joyCam.y = 0;
+    joyS.x = joyS.y = joyCamS.x = joyCamS.y = 0;
+    corriendo = false;
+    const rc = $("t3dCorrer");
+    if (rc) rc.classList.remove("on");
+  }
+
+  /* «Tienda» en la barra: cierra lo que esté abierto y deja la vista limpia */
+  function aTienda() {
+    cerrarFicha();
+    const p = $("t3dLuces"), b = $("t3dLucesBtn");
+    if (p) p.hidden = true;
+    if (b) b.setAttribute("aria-expanded", "false");
+    abrirMapa(false);
+    ponerCctv(false);
+    aEntrada();
+  }
+
+  /* ── Minimapa ────────────────────────────────────────────────────────────
+     Se dibuja con el MISMO layout que la escena: muro, congeladores del
+     fondo, las seis góndolas con su paso real y la entrada. El punto lima
+     es la posición del jugador y el cono, su rumbo. No es un mapa aparte. */
+  function dibujarMapa(g, W, H, grande) {
+    const PX = (x) => ((x + ANCHO / 2) / ANCHO) * W;
+    const PZ = (z) => ((z + LARGO / 2) / LARGO) * H;
+    const rr = (x, y, w, h, r) => {
+      g.beginPath();
+      g.moveTo(x + r, y);
+      g.arcTo(x + w, y, x + w, y + h, r);
+      g.arcTo(x + w, y + h, x, y + h, r);
+      g.arcTo(x, y + h, x, y, r);
+      g.arcTo(x, y, x + w, y, r);
+      g.closePath();
+    };
+    const fin = Math.max(1, W / 300);
+
+    g.fillStyle = "#0a0c0d";
+    g.fillRect(0, 0, W, H);
+    const m = Math.max(3, W * 0.03);
+    g.fillStyle = "#14181b";
+    rr(m, m, W - 2 * m, H - 2 * m, grande ? 12 : 8);
+    g.fill();
+
+    // congeladores contra la pared del fondo (choca() los bloquea en z < -8,5)
+    g.fillStyle = "#1b2730";
+    rr(PX(-8.4), PZ(-9.9), PX(8.4) - PX(-8.4), PZ(-8.6) - PZ(-9.9), 4);
+    g.fill();
+    g.strokeStyle = "rgba(146,216,255,.45)";
+    g.lineWidth = fin;
+    g.stroke();
+
+    // góndolas
+    const anchoG = PX(G_ANCHO / 2) - PX(-G_ANCHO / 2);
+    const altoG = PZ(G_LARGO / 2) - PZ(-G_LARGO / 2);
+    GONDOLAS.forEach((gx, i) => {
+      const sel = destino && destino.gi === i;
+      g.fillStyle = sel ? "#c8ff00" : "#2b3136";
+      rr(PX(gx - G_ANCHO / 2), PZ(-G_LARGO / 2), anchoG, altoG, 4);
+      g.fill();
+      if (!sel) {
+        g.fillStyle = "rgba(255,255,255,.18)";
+        rr(PX(gx - G_ANCHO / 2), PZ(-G_LARGO / 2), anchoG,
+           Math.max(2, H * 0.006), 2);
+        g.fill();
+      }
+      if (grande) {
+        g.fillStyle = sel ? "#0a0c0d" : "#9aa1a7";
+        g.font = "700 " + Math.round(W * 0.03) + "px ui-monospace, monospace";
+        g.textAlign = "center";
+        g.textBaseline = "middle";
+        g.fillText(String(i + 1), PX(gx), PZ(0));
+      }
+    });
+
+    // entrada: franja lima en el muro por donde se entra (z = +LARGO/2)
+    const franja = Math.max(3, H * 0.012);
+    g.fillStyle = "#c8ff00";
+    g.fillRect(PX(-2), PZ(LARGO / 2) - franja, PX(2) - PX(-2), franja);
+    if (grande) {
+      g.fillStyle = "#c8ff00";
+      g.font = "700 " + Math.round(W * 0.024) + "px ui-monospace, monospace";
+      g.textAlign = "center";
+      g.textBaseline = "alphabetic";
+      g.fillText("ENTRADA", PX(0), PZ(LARGO / 2) - franja - 6);
+    }
+
+    // destino elegido en el plano
+    if (destino) {
+      const r = Math.max(7, W * 0.05);
+      g.beginPath();
+      g.arc(PX(destino.x), PZ(destino.z), r, 0, Math.PI * 2);
+      g.fillStyle = "rgba(215,255,53,.22)";
+      g.fill();
+      g.strokeStyle = "#d7ff35";
+      g.lineWidth = Math.max(1.5, W / 170);
+      g.stroke();
+    }
+
+    // jugador: cono de rumbo + punto
+    const R = Math.max(4, W * 0.028);
+    const fx = -Math.sin(yaw), fz = -Math.cos(yaw);
+    g.save();
+    g.translate(PX(pos.x), PZ(pos.z));
+    g.rotate(Math.atan2(fz, fx));
+    g.beginPath();
+    g.moveTo(0, 0);
+    g.lineTo(R * 2.5, -R);
+    g.lineTo(R * 2.5, R);
+    g.closePath();
+    g.fillStyle = "rgba(200,255,0,.32)";
+    g.fill();
+    g.restore();
+
+    g.beginPath();
+    g.arc(PX(pos.x), PZ(pos.z), R, 0, Math.PI * 2);
+    g.fillStyle = "#c8ff00";
+    g.fill();
+    g.lineWidth = Math.max(1, W / 260);
+    g.strokeStyle = "#0a0c0d";
+    g.stroke();
+  }
+
+  /* Repinta sólo lo que está a la vista: el minimapa va a ~12 fps (barato)
+     y el plano, sólo mientras esté abierto. */
+  function pintarMapa() {
+    const c = $("t3dMapaC");
+    if (c && c.offsetParent !== null) {
+      const g = c.getContext("2d");
+      if (g) dibujarMapa(g, c.width, c.height, false);
+    }
+    const b = $("t3dMapaBig");
+    if (b && b.offsetParent !== null) {
+      const g2 = b.getContext("2d");
+      if (g2) dibujarMapa(g2, b.width, b.height, true);
+    }
+  }
+
+  function pintarLeyenda() {
+    const ul = $("t3dMapaLey");
+    if (!ul) return;
+    ul.innerHTML = GONDOLAS.map((gx, i) => {
+      const on = destino && destino.gi === i ? ' class="on"' : "";
+      return "<li" + on + ' data-gi="' + i + '">P' + (i + 1) + " · " +
+        escHTML(catsGondola[i] || "Pasillo") + "</li>";
+    }).join("");
+  }
+
+  /* Elige el pasillo más cercano al punto tocado y marca el destino */
+  function elegirDestino(wx, wz) {
+    let gi = 0, mejor = Infinity;
+    GONDOLAS.forEach((gx, i) => {
+      const d = Math.abs(wx - gx);
+      if (d < mejor) { mejor = d; gi = i; }
+    });
+    destino = {
+      gi: gi, x: GONDOLAS[gi],
+      z: Math.max(-G_LARGO / 2, Math.min(G_LARGO / 2, wz))
+    };
+    const d = $("t3dMapaDato");
+    if (d) d.textContent = "Pasillo " + (gi + 1) + " · " +
+      (catsGondola[gi] || "Pasillo") + " · destino marcado";
+    pintarLeyenda();
+    pintarMapa();
+  }
+
+  function abrirMapa(on) {
+    const f = $("t3dMapaFull"), b = $("t3dMapaBtn");
+    if (!f) return;
+    const ver = on === undefined ? f.hidden : !!on;
+    f.hidden = !ver;
+    if (b) b.setAttribute("aria-expanded", String(ver));
+    if (ver) {
+      ponerCctv(false);                 // el plano manda sobre las cámaras
+      const p = $("t3dLuces"), lb = $("t3dLucesBtn");
+      if (p && !p.hidden) {
+        p.hidden = true;
+        if (lb) lb.setAttribute("aria-expanded", "false");
+      }
+      pintarLeyenda();
+      pintarMapa();
+    }
+  }
+
+  /* ── Pedido en la barra: siempre el carrito comercial ──────────────────── */
+  function actualizarCompra() {
+    actualizarContador();
+    let prod = 0, unid = 0, tot = 0;
+    try {
+      const M = window.Mercado;
+      if (M) {
+        if (M.unidades) unid = M.unidades();
+        if (M.total) tot = M.total();
+        if (M.lineas) prod = Object.keys(M.lineas()).length;
+      }
+      if (!prod) {
+        const c = JSON.parse(localStorage.getItem(CLAVE_CARRITO) || "{}") || {};
+        prod = Object.keys(c).length;
+      }
+    } catch (e) { /* sin carrito o en modo privado */ }
+    const p = $("t3dCompProd"), u = $("t3dCompUnid"), t = $("t3dCompTotal");
+    if (p) p.textContent = prod;
+    if (u) u.textContent = unid;
+    if (t) t.textContent = "$" + Math.round(tot).toLocaleString("es-CL");
+  }
+
+  /* ── Interactuar (botón flotante): lo mismo que tocar, pero con el rayo
+        que sale del centro de la pantalla, para no tener que apuntar con el
+        dedo encima del producto. */
+  function interactuarCentro() {
+    if (!T || !camera || !vivo) return;
+    if (tv && promos.length && rayoCentro([tv]).length) {
+      const p = promos[promoIdx % promos.length];
+      if (p) { agregar(p); mostrarPrecio(p, true); siguientePromo(); }
+      return;
+    }
+    const hits = rayoCentro(mallasProd);
+    if (hits.length) {
+      const p = prodDe(hits[0]);
+      if (p) { abrirFicha(p, hits[0]); return; }
+    }
+    avisoTexto("No hay nada al frente", "acércate a un estante y volvé a tocar");
+  }
+
+  /* ── Cámaras: 4 en cuadrícula o una sola en grande ────────────────────── */
+  function ponerCctv(on) {
+    cctv = on;
+    const raiz = $("t3d");
+    if (raiz) raiz.classList.toggle("cctv", on);
+    const caps = $("t3dCamsFull");
+    if (caps) caps.hidden = !on;
+    const btnCams = $("t3dCamsBtn");
+    if (btnCams) btnCams.setAttribute("aria-expanded", String(on));
+    const p = $("t3dLuces");
+    if (p && on) p.hidden = true;
+    if (!on) {
+      camSolo = null;
+      verCamara(null);
+      camaras.forEach((c) => c.lookAt(0, 1.15, 0));
+      mirar = null;
+      puerta = null;
+    }
+  }
+
+  /* i = null → las 4 a la vez; i = 0..3 → esa cámara en pantalla completa */
+  function verCamara(i) {
+    camSolo = i;
+    const grid = $("t3dCamsGrid"), todas = $("t3dCamsTodas"), nota = $("t3dCamsNota");
+    if (grid) {
+      grid.classList.toggle("solo", i != null);
+      grid.querySelectorAll("[data-cam]").forEach((b) =>
+        b.classList.toggle("on", Number(b.dataset.cam) === i));
+    }
+    if (todas) todas.hidden = i == null;
+    if (nota) nota.textContent = i == null
+      ? "4 vistas en vivo · tocá una para verla en grande"
+      : "Cámara " + (i + 1) + " en vivo · tocá «4 VISTAS» para volver";
+  }
+
+  /* ── Cableado del HUD (se une una vez, al cargar el módulo) ───────────── */
+  function engancharHUD() {
+    // interruptores LED: geometría + luz real del grupo
+    document.querySelectorAll("#t3dLeds [data-led]").forEach((b) => {
+      b.onclick = () => {
+        const k = b.dataset.led;
+        if (!(k in leds)) return;
+        leds[k] = !leds[k];
+        aplicarLEDs();
+      };
+    });
+
+    // barra superior: la navegación va por la API real de la app
+    document.querySelectorAll(".t3d-nav [data-ir]").forEach((b) => {
+      b.onclick = () => {
+        const a = b.dataset.ir;
+        if (a === "mapa") { abrirMapa(); return; }
+        if (a === "escena") { alternarLuces(); return; }
+        if (a === "tienda") { aTienda(); return; }
+        if (window.Fabri && window.Fabri.go) window.Fabri.go(a);
+      };
+    });
+
+    // minimapa: tocarlo abre el plano completo
+    const mini = $("t3dMapa"), btnMapa = $("t3dMapaBtn");
+    if (mini) mini.onclick = () => abrirMapa(true);
+    if (btnMapa) btnMapa.onclick = () => abrirMapa();
+    const mapaSalir = $("t3dMapaSalir");
+    if (mapaSalir) mapaSalir.onclick = () => abrirMapa(false);
+
+    // plano: tocar un pasillo lo identifica y marca el destino
+    const big = $("t3dMapaBig");
+    if (big) big.onclick = (e) => {
+      const r = big.getBoundingClientRect();
+      if (!r.width || !r.height) return;
+      const wx = ((e.clientX - r.left) / r.width) * ANCHO - ANCHO / 2;
+      const wz = ((e.clientY - r.top) / r.height) * LARGO - LARGO / 2;
+      elegirDestino(wx, wz);
+    };
+    const ley = $("t3dMapaLey");
+    if (ley) ley.onclick = (e) => {
+      const li = e.target.closest("li[data-gi]");
+      if (li) elegirDestino(GONDOLAS[Number(li.dataset.gi)], 0);
+    };
+    const mEntrada = $("t3dMapaEntrada");
+    if (mEntrada) mEntrada.onclick = () => { aEntrada(); abrirMapa(false); };
+    const mLimp = $("t3dMapaLimp");
+    if (mLimp) mLimp.onclick = () => {
+      destino = null;
+      const d = $("t3dMapaDato");
+      if (d) d.textContent = "Tocá un pasillo para ver su categoría";
+      pintarLeyenda();
+      pintarMapa();
+    };
+
+    // botón flotante «Interactuar»
+    const inter = $("t3dInter");
+    if (inter) inter.onclick = interactuarCentro;
+
+    // cámaras: una en grande o las cuatro a la vez
+    const grid = $("t3dCamsGrid");
+    if (grid) grid.onclick = (e) => {
+      const b = e.target.closest("button[data-cam]");
+      if (b) verCamara(Number(b.dataset.cam));
+    };
+    const todas = $("t3dCamsTodas");
+    if (todas) todas.onclick = () => verCamara(null);
+    const btnCams = $("t3dCamsBtn"), btnVolver = $("t3dCamsSalir");
+    if (btnCams) btnCams.onclick = () => ponerCctv(!cctv);
+    if (btnVolver) btnVolver.onclick = () => ponerCctv(false);
+  }
+
+  engancharHUD();
+
+  /* Los toques del canvas viven aparte: si el navegador suelta el contexto
+     WebGL hay que cambiar el <canvas> por uno nuevo y volver a cablearlos
+     (ver `abrir()` → «la gráfica se reinició»). */
+  function engancharCanvas(caja) {
     caja.addEventListener("pointerdown", (e) => {
       caja.setPointerCapture(e.pointerId);
       const h = rayo(e.clientX, e.clientY, puertas);
@@ -1870,7 +2503,11 @@ window.Tienda3D = (function () {
     // si el navegador cancela el puntero (llamada, gesto), no queda mirar ni puerta
     caja.addEventListener("pointercancel", () => { puerta = null; mirar = null; });
     caja.addEventListener("lostpointercapture", () => { puerta = null; mirar = null; });
+  }
 
+  function enganchar() {
+    engancharCanvas($("t3dCanvas"));
+    const joyEl = $("t3dJoy");
     engancharStick(joyEl, joy);
     engancharStick($("t3dJoyCam"), joyCam);
 
@@ -1920,21 +2557,9 @@ window.Tienda3D = (function () {
       };
     });
 
-    // Volver a la entrada del local
+    // Volver a la entrada del local (misma rutina que la barra «Tienda»)
     const btnReset = $("t3dReset");
-    if (btnReset) {
-      btnReset.onclick = () => {
-        pos.x = 0; pos.z = 8.2; yaw = 0; pitch = 0;
-        vel.x = 0; vel.z = 0; fovAct = FOV_BASE;
-        // sin inercia residual: al volver a la entrada no debe "seguir" el
-        // último empujón del stick
-        joy.x = joy.y = joyCam.x = joyCam.y = 0;
-        joyS.x = joyS.y = joyCamS.x = joyCamS.y = 0;
-        corriendo = false;
-        const rc = $("t3dCorrer");
-        if (rc) rc.classList.remove("on");
-      };
-    }
+    if (btnReset) btnReset.onclick = aEntrada;
 
     // Cerrar el panel
     const cerrarPanel = $("t3dLucesX");
@@ -1943,26 +2568,8 @@ window.Tienda3D = (function () {
       btnLuz.setAttribute("aria-expanded", "false");
     };
 
-    // Cámaras: 4 vistas en vivo a pantalla completa, con botón de volver
-    const btnCams = $("t3dCamsBtn");
-    const btnVolver = $("t3dCamsSalir");
-    function ponerCctv(on) {
-      cctv = on;
-      const raiz = $("t3d");
-      if (raiz) raiz.classList.toggle("cctv", on);
-      const caps = $("t3dCamsFull");
-      if (caps) caps.hidden = !on;
-      if (btnCams) btnCams.setAttribute("aria-expanded", String(on));
-      const p = $("t3dLuces");
-      if (p && on) p.hidden = true;
-      if (!on) {
-        camaras.forEach((c) => c.lookAt(0, 1.15, 0));
-        mirar = null;
-        puerta = null;
-      }
-    }
-    if (btnCams) btnCams.onclick = () => ponerCctv(!cctv);
-    if (btnVolver) btnVolver.onclick = () => ponerCctv(false);
+    // Cámaras: el cableado vive en engancharHUD() (mismo sitio que el resto
+    // del HUD); aquí ya no se registra nada para no pisar los handlers.
 
     // Tirita lateral: oculta o muestra los botones
     const tira = $("t3dTira");
@@ -2204,21 +2811,95 @@ window.Tienda3D = (function () {
     precioActual = null;
   }
 
+  /* ── Recuperación de la gráfica ───────────────────────────────────────────
+     Cuando `forceContextRestore()` no devuelve el contexto (SwiftShader y
+     GPUs móviles agotadas), se tira el renderer viejo y se monta uno nuevo
+     sobre un <canvas> nuevo con el mismo id. La escena, el catálogo y el
+     carrito no se tocan: three.js vuelve a subir texturas y geometrías al
+     contexto nuevo al primer render. */
+  function reconstruirRenderer() {
+    restoreTimer = 0;
+    try { if (renderer) renderer.dispose(); } catch (e) { /* ya suelto */ }
+    renderer = null;
+    listo = false;
+
+    const viejo = $("t3dCanvas");
+    if (viejo && viejo.parentNode) {
+      const nuevo = document.createElement("canvas");
+      nuevo.id = "t3dCanvas";
+      nuevo.className = viejo.className;
+      nuevo.setAttribute("aria-label",
+        viejo.getAttribute("aria-label") || "Escena 3D de la tienda");
+      viejo.parentNode.replaceChild(nuevo, viejo);
+      engancharCanvas(nuevo);              // los toques van al canvas nuevo
+    }
+    // la escena sigue montada: al volver a `abrir()` sólo se recrea el renderer
+    escenaOk = true;
+    abrir().catch(() => { /* el propio abrir() pinta su error */ });
+  }
+
   async function abrir() {
-    const caja = $("t3dCanvas");
+    let caja = $("t3dCanvas");
     if (!caja) return;
     vivo = true;
     document.body.classList.add("en-tienda");   // nav y topbar ocultos
     $("t3dCargando").hidden = false;
 
     try {
-      const prueba = document.createElement("canvas");
-      const gl = prueba.getContext("webgl2") || prueba.getContext("webgl");
-      if (!gl) throw new Error("WebGL no disponible");
+      /* La prueba de WebGL y el perfil se calculan UNA vez: cada `abrir()`
+         (p. ej. tras «Reintentar») creaba un contexto de prueba y otro para
+         detectar la GPU, y el navegador agota los contextos vivos → a la
+         tercera vez devolvía null y la app decía «no tiene WebGL» con la
+         tarjeta claramente funcionando. */
+      if (glOk === null) {
+        const prueba = document.createElement("canvas");
+        const gl = prueba.getContext("webgl2") || prueba.getContext("webgl");
+        glOk = !!gl;
+        if (gl) {
+          // se suelta ya: sólo servía para saber si había motor gráfico
+          const lose = gl.getExtension("WEBGL_lose_context");
+          if (lose) lose.loseContext();
+        }
+      }
+      if (!glOk) throw new Error("WebGL no disponible");
       T = await cargarThree();
 
-      perfil = detectarPerfil();
-      if (!listo) {
+      if (!perfilListo) { perfil = detectarPerfil(); perfilListo = true; }
+
+      /* Si el navegador suelta el contexto, primero se pide recuperarlo en el
+         mismo <canvas> (`forceContextRestore()`): three.js vuelve a subir las
+         texturas y la escena sigue viva. Si en 1,5 s no regresa (pasa en
+         SwiftShader y en GPUs móviles agotadas), se reconstruye el renderer
+         sobre un <canvas> nuevo con el mismo id: la escena y el catálogo no
+         se tocan, sólo se vuelve a crear la superficie de dibujo. */
+      let ctxPerdido = false;
+      if (renderer) {
+        try { ctxPerdido = !!renderer.getContext().isContextLost(); } catch (e) { ctxPerdido = true; }
+      }
+      if (ctxPerdido) {
+        const c = $("t3dCargando");
+        if (c) {
+          c.hidden = false;
+          c.innerHTML = '<div class="t3d-error"><b>Restaurando la gráfica…</b>' +
+            "<p>El navegador está devolviendo el contexto de dibujo.</p></div>";
+        }
+        if (!restoreTimer) {
+          try { renderer.forceContextRestore(); } catch (e) { /* sin extensión */ }
+          restoreTimer = setTimeout(() => {
+            restoreTimer = 0;
+            let sigue = false;
+            try { sigue = !!(renderer && renderer.getContext().isContextLost()); } catch (e) { sigue = true; }
+            if (sigue) reconstruirRenderer(); else {
+              const cc = $("t3dCargando");
+              if (cc) cc.hidden = true;
+            }
+          }, 1500);
+        }
+        return;
+      }
+      restoreTimer = 0;
+
+      if (!listo || !renderer) {
         renderer = new T.WebGLRenderer({
           canvas: caja, antialias: perfil === "alta", powerPreference: "high-performance"
         });
@@ -2275,10 +2956,12 @@ window.Tienda3D = (function () {
       $("t3dCargando").hidden = true;
       reloj.start();
       bucle();
-      actualizarContador();
+      actualizarCompra();
+      pintarMapa();
     } catch (e) {
       const cajaErr = $("t3dCargando");
       const msg = String((e && e.message) || e);
+      ultimoError = msg;                 // visible en window.__t3d().err3d
       const sinWebgl = /WebGL/i.test(msg);
       cajaErr.hidden = false;
       cajaErr.innerHTML =
@@ -2299,6 +2982,8 @@ window.Tienda3D = (function () {
     document.body.classList.remove("en-tienda");  // vuelve la navegación
     puerta = null;
     mirar = null;
+    abrirMapa(false);                    // no reaparece el plano al volver
+    ponerCctv(false);
     corriendo = false;
     vel.x = vel.z = 0;
     joy.x = joy.y = joyCam.x = joyCam.y = 0;
@@ -2332,10 +3017,30 @@ window.Tienda3D = (function () {
     gond: mallasGondola.length, cong: mallasCong.length,
     ficha: !!fichaP, fichaNom: fichaP ? fichaP.nombre : "", vuelos: vuelos.length,
     local: tiendaActiva, cat: !!catPendiente, escena: escenaOk,
+    err3d: ultimoError,
     // diagnóstico del movimiento: los sticks crudos y la pose del jugador
     joy: { x: +joy.x.toFixed(3), y: +joy.y.toFixed(3) },
     jcam: { x: +joyCam.x.toFixed(3), y: +joyCam.y.toFixed(3) },
     pose: { x: +pos.x.toFixed(3), z: +pos.z.toFixed(3), yaw: +yaw.toFixed(3) },
+    // HUD: qué hay montado y qué dice el pedido (sale del carrito comercial)
+    hud: {
+      mapa: !!$("t3dMapaC"),
+      plano: !!($("t3dMapaFull") && !$("t3dMapaFull").hidden),
+      nav: document.querySelectorAll(".t3d-nav [data-ir]").length,
+      leds: document.querySelectorAll("#t3dLeds [data-led]").length,
+      led: Object.assign({}, leds),
+      // visibilidad REAL de los grupos en la escena (no sólo el botón)
+      ledVis: {
+        techo: grupoLED.techo ? grupoLED.techo.visible : null,
+        estante: grupoLED.estante ? grupoLED.estante.visible : null,
+        decor: grupoLED.decor ? grupoLED.decor.visible : null
+      },
+      cams: document.querySelectorAll("#t3dCamsGrid [data-cam]").length,
+      cctv: cctv, camSolo: camSolo,
+      prod: $("t3dCompProd") ? $("t3dCompProd").textContent : "",
+      unid: $("t3dCompUnid") ? $("t3dCompUnid").textContent : "",
+      total: $("t3dCompTotal") ? $("t3dCompTotal").textContent : ""
+    },
     fov: camera ? Math.round(camera.fov) : 0,
     perdido: !!(renderer && renderer.getContext && renderer.getContext().isContextLost()),
     glerr: renderer && renderer.getContext ? renderer.getContext().getError() : -1

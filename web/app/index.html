@@ -598,15 +598,32 @@
         <div class="t3d" id="t3d">
           <canvas id="t3dCanvas"></canvas>
           <div class="t3d-vineta" aria-hidden="true"></div>
+          <!-- Barra superior: logo F, navegación y el pedido REAL del carrito
+               comercial (Mercado.total/unidades). En móvil baja a dos filas. -->
           <div class="t3d-hud">
             <button class="t3d-btn" id="t3dSalir" type="button" aria-label="Salir de la tienda">←</button>
             <div class="t3d-marca">
               <img src="./icons/logo-f.svg" alt="FORGE CORE STOCK">
+              <span class="t3d-marca-txt">FORGE <b>CORE STOCK</b></span>
             </div>
-            <button class="t3d-btn t3d-car" id="t3dCarrito" type="button" aria-label="Ver pedido">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.4 11.2a2 2 0 0 0 2 1.6h7.8a2 2 0 0 0 2-1.6L21 8H6"/><circle cx="10" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/></svg>
-              <b id="t3dCount" hidden>0</b>
-            </button>
+            <nav class="t3d-nav" aria-label="Navegación de la tienda">
+              <button type="button" data-ir="panel">Inicio</button>
+              <button type="button" data-ir="tienda" class="on">Tienda</button>
+              <button type="button" data-ir="mercado">Productos</button>
+              <button type="button" data-ir="mapa">Mapa</button>
+              <button type="button" data-ir="escena">Config</button>
+            </nav>
+            <div class="t3d-compra">
+              <button class="t3d-btn t3d-car" id="t3dCarrito" type="button" aria-label="Ver pedido">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.4 11.2a2 2 0 0 0 2 1.6h7.8a2 2 0 0 0 2-1.6L21 8H6"/><circle cx="10" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/></svg>
+                <b id="t3dCount" hidden>0</b>
+              </button>
+              <div class="t3d-compra-datos">
+                <span class="t3d-compra-k">PEDIDOS <b id="t3dCompProd">0</b></span>
+                <span class="t3d-compra-k">UNID <b id="t3dCompUnid">0</b></span>
+                <strong id="t3dCompTotal">$0</strong>
+              </div>
+            </div>
           </div>
           <div class="t3d-precio" id="t3dPrecio" hidden>
             <span class="t3d-precio-cat" id="t3dPrecioCat">Producto</span>
@@ -624,15 +641,16 @@
               <button class="t3d-btn" id="t3dCamsSalir" type="button" aria-label="Volver a la tienda">←</button>
               <div class="t3d-info">
                 <b>Cámaras de seguridad</b>
-                <small>4 vistas en vivo · toca ← para volver</small>
+                <small id="t3dCamsNota">4 vistas en vivo · tocá una para verla en grande</small>
               </div>
             </div>
-            <div class="t3d-cams-grid">
-              <span>CAM 1 · PASILLO</span>
-              <span>CAM 2 · PASILLO</span>
-              <span>CAM 3 · CONGELADOS</span>
-              <span>CAM 4 · ENTRADA</span>
+            <div class="t3d-cams-grid" id="t3dCamsGrid">
+              <button type="button" data-cam="0">CAM 1 · PASILLO</button>
+              <button type="button" data-cam="1">CAM 2 · PASILLO</button>
+              <button type="button" data-cam="2">CAM 3 · CONGELADOS</button>
+              <button type="button" data-cam="3">CAM 4 · ENTRADA</button>
             </div>
+            <button class="t3d-cams-todas" id="t3dCamsTodas" type="button" hidden>4 VISTAS</button>
           </div>
 
           <div class="t3d-tools">
@@ -643,6 +661,14 @@
             <button class="t3d-tool" id="t3dCamsBtn" type="button" aria-label="Cámaras" aria-expanded="false">
               <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="7" width="13" height="10" rx="2.5"/><path d="m15.5 11 6-3v8l-6-3z"/></svg>
               <span>Cámaras</span>
+            </button>
+            <button class="t3d-tool" id="t3dInter" type="button" aria-label="Interactuar con lo que miras">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.6v3.2M12 18.2v3.2M2.6 12h3.2M18.2 12h3.2"/></svg>
+              <span>Interactuar</span>
+            </button>
+            <button class="t3d-tool" id="t3dMapaBtn" type="button" aria-label="Abrir el plano del local" aria-expanded="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 6 6-2 6 2 6-2v14l-6 2-6-2-6 2z"/><path d="M9 4v14M15 6v14"/></svg>
+              <span>Mapa</span>
             </button>
           </div>
 
@@ -699,7 +725,49 @@
               <p class="t3d-luz-desc">Detectado: <b id="t3dCalNivel">—</b> · Auto se adapta al equipo</p>
             </div>
 
+            <!-- Interruptores LED independientes: apagan la geometría del
+                 grupo (techo, estantes, marca) y la luz real que lo alimenta. -->
+            <div class="t3d-secc">
+              <span class="t3d-secc-t">LED <small>grupos independientes</small></span>
+              <div class="t3d-presets t3d-presets-4" id="t3dLeds">
+                <button type="button" data-led="techo" class="on">Techo</button>
+                <button type="button" data-led="estante" class="on">Estante</button>
+                <button type="button" data-led="ambiental" class="on">Ambiente</button>
+                <button type="button" data-led="decor" class="on">Marca</button>
+              </div>
+              <p class="t3d-luz-desc">Cada interruptor apaga la geometría y la luz de su grupo en la escena.</p>
+            </div>
+
             <p class="t3d-luz-desc" id="t3dLuzDesc">Espacio cálido y confortable: luz ámbar suave con sombras de contacto.</p>
+          </div>
+
+          <!-- Minimapa REAL: se dibuja con el mismo layout de la escena
+               (GONDOLAS, neveras, entrada) y con la posición y el rumbo del
+               jugador. Tocálo para abrir el plano completo. -->
+          <button class="t3d-map" id="t3dMapa" type="button"
+                  aria-label="Minimapa de la tienda: toca para ver el plano completo">
+            <canvas id="t3dMapaC" width="360" height="360" aria-hidden="true"></canvas>
+            <span class="t3d-map-lab">MAPA</span>
+          </button>
+
+          <!-- Plano completo: tocá un pasillo para identificarlo y fijar el
+               destino de navegación (la guía hasta el producto es FASE 7). -->
+          <div class="t3d-map-full" id="t3dMapaFull" hidden>
+            <div class="t3d-cams-bar">
+              <button class="t3d-btn" id="t3dMapaSalir" type="button" aria-label="Cerrar el plano">←</button>
+              <div class="t3d-info">
+                <b>Plano del local</b>
+                <small id="t3dMapaDato">Tocá un pasillo para ver su categoría</small>
+              </div>
+            </div>
+            <div class="t3d-map-cuerpo">
+              <canvas id="t3dMapaBig" width="540" height="600" aria-hidden="true"></canvas>
+              <ul class="t3d-map-ley" id="t3dMapaLey"></ul>
+              <div class="t3d-map-acc">
+                <button class="t3d-mini" id="t3dMapaEntrada" type="button">Ir a la entrada</button>
+                <button class="t3d-mini" id="t3dMapaLimp" type="button">Quitar destino</button>
+              </div>
+            </div>
           </div>
 
           <div class="t3d-aviso" id="t3dAviso" hidden></div>
