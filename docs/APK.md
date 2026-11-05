@@ -120,6 +120,8 @@ clang del NDK o de Termux.
 cd ~/fabrick-core
 CARGO_BUILD_JOBS=2 bash scripts/compilar.sh
 # → dist/FORGE-CORE-STOCK-<versión>.apk
+# → /storage/emulated/0/Download/FORGE-CORE-STOCK.apk   (fuera del repo)
+# → web/descargas/FORGE-CORE-STOCK.apk                  (la que sirve el sitio)
 ```
 
 Tarda ~3 min (el núcleo Rust es casi todo). El script:
@@ -131,7 +133,29 @@ Tarda ~3 min (el núcleo Rust es casi todo). El script:
 5. compila recursos con `aapt2` (la versión se **lee del manifiesto**);
 6. inserta DEX y `.so`, alinea y firma;
 7. verifica firma y **comprueba que el `versionCode` dentro de la APK coincide**
-   con el del manifiesto (si no, Android no instala encima).
+   con el del manifiesto (si no, Android no instala encima);
+8. **deja la APK siempre fuera del repo** con `scripts/apk-fuera.sh` (ver 4.2).
+
+### 4.2 · La APK siempre por fuera
+
+`dist/` está en `.gitignore`, así que ahí no queda nada instalable «a mano».
+Por eso el build termina copiando el archivo a **dos rutas fijas**, con nombre
+estable (sin versión, para que un atajo viejo siempre apunte a la última
+build):
+
+| Ruta | Para qué |
+|---|---|
+| `/storage/emulated/0/Download/FORGE-CORE-STOCK.apk` | instalar desde el gestor de archivos del teléfono; **fuera del repo** |
+| `web/descargas/FORGE-CORE-STOCK.apk` | el botón «Descargar APK» del sitio (versionada en git a propósito) |
+
+La copia se comprueba byte a byte (`cmp`): si el sistema de archivos no deja
+escribir, avisa pero **no rompe el build**. Se puede refrescar sin recompilar:
+
+```sh
+bash scripts/apk-fuera.sh            # usa la más reciente de dist/
+bash scripts/apk-fuera.sh ruta.apk   # o una en particular
+FORGE_FUERA_DIR=~/apk bash scripts/apk-fuera.sh   # otro destino
+```
 
 ### 4.2 · En la nube (GitHub Actions)
 

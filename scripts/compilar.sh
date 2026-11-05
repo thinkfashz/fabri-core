@@ -170,3 +170,16 @@ DENTRO=$(aapt2 dump badging "$DIST/$NOMBRE.apk" | head -1 | grep -o "versionCode
 TAM=$(stat -c %s "$DIST/$NOMBRE.apk")
 log "APK lista: $DIST/$NOMBRE.apk · $((TAM/1024)) KB"
 aapt2 dump badging "$DIST/$NOMBRE.apk" | head -4
+
+# --- 8. Copia SIEMPRE fuera del repo, en rutas fijas del teléfono --------
+# El usuario instala desde ahí sin andar buscando en dist/ (que además está
+# en .gitignore). Destinos: /storage/emulated/0/Download/FORGE-CORE-STOCK.apk
+# y web/descargas/FORGE-CORE-STOCK.apk (la que sirve el sitio). El nombre es
+# estable, sin versión: un atajo viejo siempre apunta a la última build.
+# Detalle y uso a mano en scripts/apk-fuera.sh.
+log "8/8 dejando la APK fuera del repo"
+if bash "$RAIZ/scripts/apk-fuera.sh" "$DIST/$NOMBRE.apk" 2>&1 | sed 's/^/    /'; then
+  :
+else
+  echo "aviso: la copia por fuera falló; la APK quedó en $DIST/$NOMBRE.apk" >&2
+fi
