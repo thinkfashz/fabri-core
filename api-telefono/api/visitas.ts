@@ -56,7 +56,7 @@ function db(): Pool {
 function cors(res: ServerResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
   res.setHeader('Access-Control-Max-Age', '86400');
 }
 
@@ -267,13 +267,31 @@ async function informe(req: IncomingMessage, res: ServerResponse) {
   });
 }
 
+/* ── DELETE: borrar historial anterior a una fecha (sólo el dueño) ───────
+   Sirve para limpiar pruebas o empezar de cero una campaña. */
+async function borrar(req: IncomingMessage, res: ServerResponse) {
+  if (!autorizado(req)) {
+    return json(res, { ok: false, error: 'requiere Authorization: Bearer del dueño' }, 401);
+  }
+  await asegurar();
+  const url = new URL(String(req.url || ''), 'http://x');
+  const antes = url.searchParams.get('antes');
+  const fecha = antes ? new Date(antes) : new Date();
+  if (Number.isNaN(fecha.getTime())) {
+    return json(res, { ok: false, error: 'fecha inválida (ISO 8601)' }, 400);
+  }
+  const r = await db().query(`DELETE FROM ${TABLA} WHERE ts < $1`, [fecha.toISOString()]);
+  return json(res, { ok: true, borradas: r.rowCount || 0, antes: fecha.toISOString() });
+}
+
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
   cors(res);
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
   try {
     if (req.method === 'POST') return await registrar(req, res);
     if (req.method === 'GET') return await informe(req, res);
-    return json(res, { ok: false, error: 'usa GET o POST' }, 405);
+    if (req.method === 'DELETE') return await borrar(req, res);
+    return json(res, { ok: false, error: 'usa GET, POST o DELETE' }, 405);
   } catch (e) {
     return json(res, { ok: false, error: String((e as Error).message || e).slice(0, 200) }, 500);
   }

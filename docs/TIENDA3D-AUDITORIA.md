@@ -258,3 +258,24 @@ GET  con token                       → total 6 · únicos 5 · CL, por canal y
 En el navegador (con clave real en `sessionStorage`), el panel mostró:
 total 6 · hoy 6 · ayer 0 · únicos 5 · Instagram 2 (100 %), Directo/Facebook/
 Google/WhatsApp 1 cada uno, y la nota con porcentajes. Sin errores de página.
+
+### Corrección CORS del beacon (encontrada en producción)
+La primera versión mandaba el beacon como `application/json`: el navegador
+disparaba un preflight `OPTIONS` y el envío moría con `net::ERR_FAILED`. Se vio
+en la consola de producción («blocked by CORS policy»). Ahora va como
+`text/plain;charset=UTF-8`, que es tipo seguro para CORS y no requiere
+preflight; el servidor parsea el cuerpo igual.
+
+Verificación en producción (puppeteer con UA de Instagram contra
+`https://fabri-core-web.vercel.app/app/#tienda`):
+
+```
+antes:   total 7 · instagram 3
+después: total 8 · instagram 4     ← subió y con el canal correcto
+pantalla: visitante=true, s-tienda=on, escena=true (143 objetos)
+```
+
+### Borrado del historial
+`DELETE /api/visitas?antes=<ISO 8601>` (sólo con token del dueño) borra las
+visitas anteriores a esa fecha. Se usó para limpiar las 8 visitas de prueba:
+el contador quedó en **0**.
