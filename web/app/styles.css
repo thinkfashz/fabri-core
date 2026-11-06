@@ -1557,7 +1557,7 @@ body.con-scan{overflow:hidden}
   /* alto real de la barra superior: lo usan el precio bajo la mira, las
      herramientas, el panel de luces y el minimapa para no pisarse. En
      móvil la barra baja a dos filas y la variable crece (ver media query). */
-  --t3d-barra: 58px;
+  --t3d-barra: 62px;
 }
 #t3dCanvas { display: block; width: 100%; height: 100%; touch-action: none; }
 
@@ -1901,11 +1901,13 @@ body.con-scan{overflow:hidden}
    Rejilla 2×2: con cuatro botones en columna pisaban el stick izquierdo
    en pantallas cortas. */
 .t3d-tools {
-  position: absolute; left: 10px; top: calc(var(--t3d-barra) + 156px); z-index: 6;
-  display: grid; grid-template-columns: repeat(2, 56px); gap: 6px;
+  /* a la derecha, colgando del minimapa: antes iban a la izquierda y tapaban
+     justo el pasillo y la pantalla de ofertas. */
+  position: absolute; left: auto; right: 12px; top: calc(var(--t3d-barra) + 138px); z-index: 6;
+  display: grid; grid-template-columns: repeat(2, 52px); gap: 6px;
 }
 .t3d-tool {
-  width: 56px; min-height: 46px; padding: 5px 2px;
+  width: 52px; min-height: 44px; padding: 4px 2px;
   display: grid; place-items: center; gap: 1px; cursor: pointer;
   border-radius: 13px; border: 1px solid rgba(255,255,255,.14);
   background: rgba(10,12,14,.62);
@@ -1917,9 +1919,9 @@ body.con-scan{overflow:hidden}
 .t3d-tool[aria-expanded="true"] { color: var(--accent); border-color: rgba(200,255,0,.45); background: rgba(200,255,0,.12); }
 
 .t3d-luces {
-  position: absolute; right: 10px; top: calc(var(--t3d-barra) + 14px); z-index: 8;
-  bottom: calc(288px + env(safe-area-inset-bottom));
-  width: min(252px, calc(100% - 92px)); padding: 12px 13px;
+  position: absolute; right: 10px; top: calc(var(--t3d-barra) + 10px); z-index: 8;
+  bottom: calc(196px + env(safe-area-inset-bottom));
+  width: min(272px, calc(100% - 20px)); padding: 13px 14px;
   display: grid; gap: 10px; align-content: start;
   overflow-y: auto; overscroll-behavior: contain;
   border-radius: 18px; border: 1px solid rgba(255,255,255,.14);
@@ -2015,10 +2017,10 @@ body.con-scan{overflow:hidden}
 
 /* ── Tirita lateral: oculta los botones ─────────────────────────────────── */
 .t3d-tira {
-  position: absolute; right: 0; top: 38%; z-index: 7;
+  position: absolute; left: 0; top: 42%; z-index: 7;
   writing-mode: vertical-rl; text-orientation: mixed;
-  padding: 13px 5px; border-radius: 12px 0 0 12px; cursor: pointer;
-  border: 1px solid rgba(255,255,255,.16); border-right: 0;
+  padding: 13px 5px; border-radius: 0 12px 12px 0; cursor: pointer;
+  border: 1px solid rgba(255,255,255,.16); border-left: 0;
   background: rgba(10,12,14,.7);
   backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
   color: var(--tx2); font: inherit; font-size: 10px; font-weight: 800;
@@ -2270,7 +2272,8 @@ body.en-tienda .t3d { height: 100dvh; }
 
 /* ── Estado del pedido (siempre desde el carrito comercial) ─────────────── */
 .t3d-compra {
-  flex: none; display: flex; align-items: center; gap: 9px;
+  flex: none; margin-left: auto;
+  display: flex; align-items: center; gap: 9px;
   pointer-events: auto;
 }
 .t3d-compra-datos {
@@ -2292,8 +2295,8 @@ body.en-tienda .t3d { height: 100dvh; }
 
 /* ── Minimapa real (plano + posición y rumbo del jugador) ───────────────── */
 .t3d-map {
-  position: absolute; right: 30px; top: calc(var(--t3d-barra) + 4px); z-index: 5;
-  width: 148px; padding: 0; cursor: pointer; display: block;
+  position: absolute; right: 12px; top: calc(var(--t3d-barra) + 10px); z-index: 5;
+  width: 118px; padding: 0; cursor: pointer; display: block;
   appearance: none; -webkit-appearance: none;
   border-radius: 16px; overflow: hidden;
   border: 1px solid rgba(255,255,255,.16);
@@ -2301,7 +2304,7 @@ body.en-tienda .t3d { height: 100dvh; }
   backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
   box-shadow: 0 20px 44px -24px #000;
 }
-.t3d-map canvas { display: block; width: 148px; height: 148px; }
+.t3d-map canvas { display: block; width: 118px; height: 118px; }
 .t3d-map-lab {
   position: absolute; left: 7px; bottom: 6px;
   font-family: var(--mono); font-size: 8px; letter-spacing: .16em;
@@ -2311,6 +2314,9 @@ body.en-tienda .t3d { height: 100dvh; }
 .t3d-map:active { border-color: rgba(200,255,0,.5); }
 /* el panel de luces ocupa la misma esquina: el mapa se aparta mientras abierto */
 .t3d-luces:not([hidden]) ~ .t3d-map { display: none; }
+.t3d:has(.t3d-luces:not([hidden])) .t3d-tools { display: none; }
+/* con el panel abierto, «Correr» quedaba debajo: se aparta también */
+.t3d:has(.t3d-luces:not([hidden])) .t3d-run { display: none; }
 
 /* ── Plano completo del local ───────────────────────────────────────────── */
 .t3d-map-full {
@@ -2346,9 +2352,13 @@ body.en-tienda .t3d { height: 100dvh; }
 
 /* ── Móvil: la barra baja a dos filas y todo lo demás baja con ella ────── */
 @media (max-width: 760px) {
-  .t3d { --t3d-barra: 92px; }
+  .t3d { --t3d-barra: 106px; }
   .t3d-hud { flex-wrap: wrap; row-gap: 6px; }
-  .t3d-marca { flex: 1 1 auto; justify-content: flex-start; }
+  /* el logo va centrado respecto de la pantalla, no empujado por los botones */
+  .t3d-marca {
+    position: absolute; left: 50%; top: 0;
+    transform: translateX(-50%); justify-content: center;
+  }
   .t3d-marca-txt { display: none; }
   .t3d-nav {
     flex: 1 0 100%; order: 9; gap: 4px;
@@ -2360,6 +2370,8 @@ body.en-tienda .t3d { height: 100dvh; }
   .t3d-compra-datos { padding: 5px 9px; }
   .t3d-compra-k { font-size: 8px; }
   .t3d-compra-datos strong { font-size: 13px; }
-  .t3d-map { width: 126px; right: 26px; }
-  .t3d-map canvas { width: 126px; height: 126px; }
+  .t3d-map { width: 110px; right: 12px; }
+  .t3d-map canvas { width: 110px; height: 110px; }
+  .t3d-tools { top: calc(var(--t3d-barra) + 130px); grid-template-columns: repeat(2, 50px); }
+  .t3d-tool { width: 50px; min-height: 42px; }
 }

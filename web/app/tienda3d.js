@@ -27,7 +27,7 @@ window.Tienda3D = (function () {
   let T = null;
   let renderer, scene, camera, reloj;
   let vivo = false, listo = false;
-  let puertas = [], tv = null, tvTextura = null, tvCanvas = null;
+  let puertas = [], tv = null, tvTextura = null, tvCanvas = null, tvGrupoRef = null;
   let raycaster, puntero;
   let yaw = 0, pitch = 0;
   const pos = { x: 0, y: 1.66, z: 8.2 };   // altura de los ojos: 1ª persona
@@ -159,6 +159,28 @@ window.Tienda3D = (function () {
     const t = new T.CanvasTexture(c);
     t.wrapS = t.wrapT = T.RepeatWrapping;
     t.repeat.set(9, 10);          // 18×20 m → baldosa de ~1 m
+    t.anisotropy = 4;
+    return t;
+  }
+
+  /* Yeso de muro: casi blanco. La foto HD promediaba RGB(142,135,122), un
+     gris cálido que dejaba las paredes sucias; esta versión ronda 250 y sólo
+     aporta el grano fino del yeso. El relieve lo sigue poniendo el normal map. */
+  function texturaMuro() {
+    const c = document.createElement("canvas");
+    c.width = c.height = 256;
+    const g = c.getContext("2d");
+    g.fillStyle = "#fcfcfb"; g.fillRect(0, 0, 256, 256);
+    for (let i = 0; i < 900; i++) {
+      const x = Math.random() * 256, y = Math.random() * 256;
+      const a = 0.015 + Math.random() * 0.02;
+      g.fillStyle = Math.random() > 0.5
+        ? "rgba(255,255,255," + a + ")" : "rgba(206,209,206," + a + ")";
+      g.fillRect(x, y, 1 + Math.random() * 2, 1 + Math.random() * 2);
+    }
+    const t = new T.CanvasTexture(c);
+    t.wrapS = t.wrapT = T.RepeatWrapping;
+    t.repeat.set(5.5, 1);
     t.anisotropy = 4;
     return t;
   }
@@ -1023,7 +1045,7 @@ window.Tienda3D = (function () {
        piden contraste: el fondo del wordmark y la cabecera del pasillo
        electrónico. Zócalo oscuro y franja lima (grupo «decor»): la marca
        sigue viva pero el local se ve luminoso, como un super de verdad. */
-    const pared = new T.MeshLambertMaterial({ color: 0xe6e7e3 });
+    const pared = new T.MeshLambertMaterial({ color: 0xffffff, map: texturaMuro() });
     const panelNegro = new T.MeshLambertMaterial({ color: 0x0a0b0c });
     const zocalo = new T.MeshLambertMaterial({ color: 0x171a1d });
     const franja = new T.MeshBasicMaterial({ color: 0xc8ff00 });
@@ -1064,7 +1086,7 @@ window.Tienda3D = (function () {
 
     // Panel negro tras el televisor: cabecera del pasillo electrónico.
     const panelTV = new T.Mesh(new T.PlaneGeometry(4.6, 2.7), panelNegro);
-    panelTV.position.set(-ANCHO / 2 + 0.012, 1.85, -7);
+    panelTV.position.set(-ANCHO / 2 + 0.012, 2.05, -6.6);
     panelTV.rotation.y = Math.PI / 2;
     scene.add(panelTV);
 
@@ -1503,34 +1525,39 @@ window.Tienda3D = (function () {
 
     /* televisor en la esquina del fondo, con su herraje de pared */
     const tvGrupo = new T.Group();
-    tvGrupo.position.set(-ANCHO / 2 + 0.14, 2.35, -LARGO / 2 + 2.6);
-    tvGrupo.scale.setScalar(1.15);
-    tvGrupo.rotation.y = Math.PI / 2 - 0.55;
+    /* Antes iba girada 0,55 rad y pegada al muro: su mitad de 1,15 m se hundía
+       en la pared y la pantalla salía recortada. Ahora se separa 0,50 m del
+       muro y gira sólo 0,38 rad, con el brazo apoyado en el muro. La mitad
+       más cercana queda a x≈-8,87 (muro en -9): nunca lo atraviesa. */
+    tvGrupo.position.set(-ANCHO / 2 + 0.50, 2.22, -6.6);
+    tvGrupo.scale.setScalar(1.0);
+    tvGrupo.rotation.y = Math.PI / 2 - 0.38;
 
     tv = crearTV();
-    tv.position.set(0.09, 0, 0.30);
+    tv.position.set(0.09, 0, 0.06);
     tvGrupo.add(tv);
 
     const negro = new T.MeshLambertMaterial({ color: 0x14171a });
     const metalTV = new T.MeshLambertMaterial({ color: 0x4a5056 });
     const marcoTV = new T.Mesh(new T.BoxGeometry(2.12, 1.24, 0.07), negro);
-    marcoTV.position.set(0.09, 0, 0.26);
+    marcoTV.position.set(0.09, 0, 0.02);
     tvGrupo.add(marcoTV);
-    // brazo y placa contra la pared
-    const brazo = new T.Mesh(new T.BoxGeometry(0.5, 0.06, 0.06), metalTV);
-    brazo.position.set(0.09, 0, 0.02);
+    // brazo y placa: van hacia -z local, que con este giro apunta al muro
+    const brazo = new T.Mesh(new T.BoxGeometry(0.06, 0.06, 0.46), metalTV);
+    brazo.position.set(0.09, 0, -0.21);
     tvGrupo.add(brazo);
     const placa = new T.Mesh(new T.BoxGeometry(0.34, 0.34, 0.04), metalTV);
-    placa.position.set(0.09, 0, -0.2);
+    placa.position.set(0.09, 0, -0.44);
     tvGrupo.add(placa);
     const cable = new T.Mesh(new T.BoxGeometry(0.03, 0.9, 0.03), negro);
-    cable.position.set(-0.1, 0.55, 0.02);
+    cable.position.set(-0.02, 0.55, -0.2);
     tvGrupo.add(cable);
     scene.add(tvGrupo);
+    tvGrupoRef = tvGrupo;
 
     // resplandor verde del televisor sobre el pasillo
     luzTV = new T.PointLight(0xd9ffa8, 0.55, 5.5, 2);
-    luzTV.position.set(-8.04, 2.4, -7.02);
+    luzTV.position.set(-8.05, 2.3, -6.6);
     scene.add(luzTV);
 
     /* cámaras de seguridad en las esquinas (la del TV no) */
@@ -2110,6 +2137,9 @@ window.Tienda3D = (function () {
     const abrir = p.hidden;
     p.hidden = !abrir;
     if (b) b.setAttribute("aria-expanded", String(abrir));
+    // el botón «Config» de la barra es otro disparador del mismo panel
+    const nav = document.querySelector('.t3d-nav [data-ir="escena"]');
+    if (nav) nav.setAttribute("aria-expanded", String(abrir));
     if (abrir) abrirMapa(false);
   }
 
@@ -2731,6 +2761,26 @@ window.Tienda3D = (function () {
         ok(t);
       }, undefined, () => ok(null));          // fallo silencioso
     });
+    /* Relieve sin difusa: para muros sólo interesa el normal map, porque su
+       foto de color es gris y apagaría el blanco. */
+    const aplicarNormal = (nor, entradas) => {
+      if (!nor) return;
+      const cache = new Map();
+      entradas.forEach((e) => {
+        if (!e || !e.mat) return;
+        const clave = e.rep[0] + "x" + e.rep[1];
+        let n = cache.get(clave);
+        if (!n) {
+          n = nor.clone();
+          n.needsUpdate = true;
+          n.repeat.set(e.rep[0], e.rep[1]);
+          cache.set(clave, n);
+        }
+        e.mat.normalMap = n;
+        e.mat.normalScale = new T.Vector2(e.nor, e.nor);
+        e.mat.needsUpdate = true;
+      });
+    };
     const aplicar = (base, entradas) => {
       const [diff, nor] = base;
       if (!diff) return;
@@ -2767,7 +2817,7 @@ window.Tienda3D = (function () {
       cargar(RUTAS_TEX.muro[0], true),  cargar(RUTAS_TEX.muro[1], false),
       cargar(RUTAS_TEX.metal[0], true), cargar(RUTAS_TEX.metal[1], false)
     ]).then((t) => {
-      aplicar([t[0], t[1]], refs.muro);
+      aplicarNormal(t[1], refs.muro);      // sólo relieve: el color es blanco
       aplicar([t[2], t[3]], refs.metal);
     }).catch(() => { /* se queda con las texturas de canvas */ });
   }
@@ -3034,6 +3084,23 @@ window.Tienda3D = (function () {
         color: "#" + refs.techo[0].mat.color.getHexString(),
         tieneMapa: !!refs.techo[0].mat.map
       } : null,
+      muro: refs.muro[0] ? {
+        color: "#" + refs.muro[0].mat.color.getHexString(),
+        mapaLienzo: !!(refs.muro[0].mat.map && refs.muro[0].mat.map.image
+          && refs.muro[0].mat.map.image.tagName === "CANVAS"),
+        relieve: !!refs.muro[0].mat.normalMap
+      } : null,
+      tv: (() => {
+        if (!tvGrupoRef || !T) return null;
+        const caja = new T.Box3().setFromObject(tvGrupoRef);
+        return {
+          muroEn: +(-ANCHO / 2).toFixed(3),
+          minX: +caja.min.x.toFixed(3),
+          maxX: +caja.max.x.toFixed(3),
+          atraviesaMuro: caja.min.x < -ANCHO / 2,
+          holguraMuro: +(caja.min.x + ANCHO / 2).toFixed(3)
+        };
+      })(),
       luz: {
         amb: luces.amb ? +luces.amb.intensity.toFixed(3) : null,
         hemi: luces.hemi ? +luces.hemi.intensity.toFixed(3) : null,

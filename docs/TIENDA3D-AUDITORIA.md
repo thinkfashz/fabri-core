@@ -161,3 +161,46 @@ Suites en verde: diseño, boleta, arranque 9/9, inventario 6/6, seguridad 23/23.
 
 **Sigue sin verificar el aspecto final en GPU real**: hay que abrirlo en el
 teléfono para juzgar brillo, reflejos y tono.
+
+## Paredes blancas, TV sin recortes y controles reordenados
+
+### Paredes
+La causa de las paredes grises era la foto `muro-diff.jpg`: promedia
+RGB(142,135,122), un gris cálido que multiplicaba al material. Ahora el muro
+usa `texturaMuro()`, un yeso generado casi blanco (#fcfcfb con grano), y de la
+foto HD se conserva **sólo el normal map** (relieve). Color del material:
+`#ffffff`.
+
+### Televisor
+Estaba girado 0,55 rad y pegado al muro: su mitad de 1,15 m se hundía en la
+pared y la pantalla salía recortada. Ahora se separa 0,50 m, gira 0,38 rad,
+escala 1,0 y el brazo/placa van hacia el muro. Verificado con la caja real
+(`Box3`) del grupo:
+
+```
+muro en x = -9.000
+TV     minX = -8.957  →  holgura 43 mm, atraviesaMuro = false
+```
+
+### Controles
+- Herramientas (Luz, Cámaras, Interactuar, Mapa) pasan de la izquierda —donde
+  tapaban el pasillo y la pantalla de ofertas— a la derecha, colgando del
+  minimapa, en rejilla 2×2 de 52 px.
+- Minimapa más chico (110 px en móvil) y pegado al borde, debajo de la barra.
+- Panel desplegable de luces: más ancho (272 px), ocupa el alto útil, con
+  scroll; al abrirse oculta minimapa, herramientas y «Correr».
+- «Ocultar» pasa al borde izquierdo (a la derecha chocaba con las herramientas).
+- El botón «Config» de la barra ahora también expone `aria-expanded`.
+
+### Logo
+Centrado respecto de la pantalla en móvil (`position:absolute; left:50%`), que
+es donde los botones lo empujaban a la izquierda.
+
+### Medido (sin captura: headless pierde el contexto WebGL)
+Cajas reales a 360×640, 360×780, 412×915 y 1280×800: **0 solapamientos** entre
+barra, logo, minimapa, herramientas, «Correr», sticks y pestaña «Ocultar»;
+logo centrado en las tres medidas móviles. Panel abierto siempre dentro de
+pantalla y con scroll.
+
+Suites en verde: diseño, boleta, arranque 9/9, inventario 6/6, seguridad 23/23.
+`sw.js` → `fcore-v40`.
