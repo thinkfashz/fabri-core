@@ -39,14 +39,16 @@
     sessionStorage.setItem(CLAVE, "1");
 
     var cuerpo = JSON.stringify(datos);
+    /* text/plain es un tipo seguro para CORS: no dispara preflight. Con
+       application/json el navegador manda OPTIONS y el envío falla (probado
+       en producción: net::ERR_FAILED). El servidor parsea el cuerpo igual. */
     if (navigator.sendBeacon) {
-      // sendBeacon con Blob JSON: no bloquea la salida de la página
-      var blob = new Blob([cuerpo], { type: "application/json" });
+      var blob = new Blob([cuerpo], { type: "text/plain;charset=UTF-8" });
       if (navigator.sendBeacon(API, blob)) return;
     }
     fetch(API, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "text/plain;charset=UTF-8" },
       body: cuerpo,
       keepalive: true,
       mode: "cors",
