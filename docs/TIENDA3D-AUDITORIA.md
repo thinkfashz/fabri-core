@@ -204,3 +204,57 @@ pantalla y con scroll.
 
 Suites en verde: diseño, boleta, arranque 9/9, inventario 6/6, seguridad 23/23.
 `sw.js` → `fcore-v40`.
+
+## Acceso libre, metadatos y conteo de visitas por canal
+
+### Acceso libre al visor y al mapa
+- La puerta de acceso tiene ahora **«Entrar al visor 3D sin cuenta»**, que
+  resuelve sin usuario y deja la app en **modo visitante**.
+- Con `#tienda` o `#mercado` se entra directo, sin login.
+- En modo visitante solo son públicas `tienda` (visor + minimapa + plano) y
+  `mercado`. Cualquier otra pantalla (SQL, inventario, boletas, cuenta,
+  consola) abre la cuenta en vez de mostrar datos; al autenticarse se retoma
+  el destino pedido. Verificado: `sql` abre el login y no se muestra.
+
+### Metadatos
+- `<title>`: «FORGE CORE STOCK · Tienda 3D con recorrido».
+- `description`: «Llevamos la experiencia del supermercado a la palma de tus
+  manos…», más `keywords`, `robots`, `canonical`, Open Graph y Twitter Card.
+- JSON-LD: se añade un `WebApplication` «Tienda 3D con recorrido» con
+  `isAccessibleForFree: true` y `featureList` (recorrido, minimapa, catálogo,
+  pedido). El JSON se validó con `JSON.parse`.
+- `manifest.webmanifest`: nombre y descripción nuevos, y atajo «Visor 3D»
+  (`./#tienda`).
+
+### Conteo de visitas (canal de origen)
+- Endpoint nuevo: **`POST/GET /api/visitas`** en `fabri-api` (misma base
+  Postgres ya configurada; tabla `visitas` creada con `IF NOT EXISTS`).
+- El **servidor** clasifica el canal: `utm_source`, navegador interno de la app
+  (Instagram/Facebook/WhatsApp no mandan referrer) y dominio del referrer.
+  Canales: instagram, facebook, whatsapp, google, tiktok, buscador, x,
+  linkedin, qr, directo, otro.
+- **Privacidad**: sin cookies de terceros; sólo un hash SHA-256 (IP + UA + sal)
+  para contar únicos. Se respeta Do Not Track y `?noTrack=1`; los bots se
+  descartan por user-agent; en localhost no se envía nada.
+- Cliente: `web/app/visitas.js`, una visita por sesión (`sendBeacon`).
+- Panel del dueño (`#s-nucleo`): tarjeta con total, hoy, ayer, únicos 30 d y
+  barras por canal. Lee con la **clave de la nube** que ya se usa para el
+  inventario; si falta, la pide (no inventa cifras). Caché de 60 s.
+
+### Probado de verdad
+Con `curl` contra producción:
+
+```
+POST UA "Instagram 300.0"            → canal "instagram"
+POST utm_source=google               → canal "google"
+POST UA "WhatsApp/2.23"              → canal "whatsapp"
+POST UA "FBAN/FBIOS"                 → canal "facebook"
+POST sin referrer ni utm             → canal "directo"
+POST ref "l.instagram.com"           → canal "instagram"
+GET  sin token                       → 401
+GET  con token                       → total 6 · únicos 5 · CL, por canal y ruta
+```
+
+En el navegador (con clave real en `sessionStorage`), el panel mostró:
+total 6 · hoy 6 · ayer 0 · únicos 5 · Instagram 2 (100 %), Directo/Facebook/
+Google/WhatsApp 1 cada uno, y la nota con porcentajes. Sin errores de página.

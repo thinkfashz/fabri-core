@@ -536,6 +536,15 @@ tbody tr:hover td{background:rgba(255,255,255,.025);color:var(--tx)}
   padding-top:13px;border-top:1px solid var(--line);
   font-size:9.6px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--tx4)}
 .login-pie .badge{font-size:9px}
+/* Acceso libre al visor: separado del formulario, para que se vea como una
+   puerta aparte y no como un paso más del registro. */
+.login-libre{
+  margin-top:16px;padding-top:14px;border-top:1px solid var(--line);
+  display:grid;gap:8px;text-align:center;
+}
+.login-libre > span{font-size:10.5px;letter-spacing:.05em;color:var(--tx3);text-transform:uppercase}
+.login-libre small{font-size:10px;line-height:1.5;color:var(--tx4)}
+.login-libre .btn{margin:0}
 
 /* ── paleta de comandos ───────────────────────────────────────────────── */
 .cmdk{position:fixed;inset:0;z-index:160;display:none}
@@ -2374,4 +2383,58 @@ body.en-tienda .t3d { height: 100dvh; }
   .t3d-map canvas { width: 110px; height: 110px; }
   .t3d-tools { top: calc(var(--t3d-barra) + 130px); grid-template-columns: repeat(2, 50px); }
   .t3d-tool { width: 50px; min-height: 42px; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   VISITAS · panel del dueño (canal de origen: Instagram, Facebook, etc.)
+   ══════════════════════════════════════════════════════════════════════ */
+.visitas-card { margin-top: 18px; }
+.visitas-cab {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap;
+}
+.visitas-cab .k { font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--tx3); }
+.visitas-total {
+  font-size: 34px; font-weight: 850; letter-spacing: -.035em; line-height: 1.05;
+  color: var(--tx); font-variant-numeric: tabular-nums;
+}
+.visitas-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.visitas-pills .pill b { color: var(--accent); font-variant-numeric: tabular-nums; }
+
+.visitas-canales { display: grid; gap: 7px; margin: 16px 0 4px; }
+.visitas-canal { display: grid; grid-template-columns: 96px 1fr 46px; align-items: center; gap: 9px; }
+.visitas-canal-k {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11px; color: var(--tx2); text-transform: capitalize; white-space: nowrap;
+}
+.visitas-punto { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--tx3); }
+.visitas-canal-barra {
+  height: 9px; border-radius: 99px; overflow: hidden;
+  background: rgba(255,255,255,.07);
+}
+.visitas-canal-fill {
+  display: block; height: 100%; border-radius: 99px;
+  min-width: 3px; transition: width .5s var(--ease);
+}
+.visitas-canal-n {
+  font-family: var(--mono); font-size: 11px; color: var(--tx2);
+  text-align: right; font-variant-numeric: tabular-nums;
+}
+
+.visitas-pie {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; flex-wrap: wrap; margin-top: 12px;
+  padding-top: 11px; border-top: 1px solid var(--line);
+}
+.visitas-nota { margin: 0; font-size: 10.5px; line-height: 1.5; color: var(--tx4); flex: 1 1 210px; }
+.visitas-clave { display: flex; gap: 6px; flex: 0 1 320px; }
+.visitas-clave .field { margin: 0; font-size: 11px; padding: 7px 9px; }
+
+/* el visitante no ve el panel, pero si llega por hash no se le muestra vacío */
+body.visitante .visitas-card { display: none; }
+
+@media (max-width: 560px) {
+  .visitas-canal { grid-template-columns: 78px 1fr 38px; gap: 7px; }
+  .visitas-total { font-size: 28px; }
+  .visitas-clave { flex: 1 1 100%; }
 }

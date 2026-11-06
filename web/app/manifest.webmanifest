@@ -1,7 +1,7 @@
 {
-  "name": "FORGE CORE STOCK · MercadoPlacer",
+  "name": "FORGE CORE STOCK · Tienda 3D con recorrido",
   "short_name": "FORGE",
-  "description": "Marketplace de barrio y consola FORGE CORE STOCK: mapa, catálogo, carrito y pago.",
+  "description": "Llevamos la experiencia del supermercado a la palma de tus manos: recorrido 3D por los pasillos, minimapa del local, catálogo con precios y pedido.",
   "lang": "es",
   "dir": "ltr",
   "start_url": "./",
@@ -47,6 +47,11 @@
     }
   ],
   "shortcuts": [
+    {
+      "name": "Visor 3D",
+      "description": "Recorrido por la tienda y su mapa, sin cuenta",
+      "url": "./#tienda"
+    },
     {
       "name": "Chat",
       "url": "./#chat"

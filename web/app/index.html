@@ -3,9 +3,29 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>FORGE CORE STOCK · MercadoPlacer y consola en la nube</title>
-<meta name="description" content="FORGE CORE STOCK · MercadoPlacer: marketplace para pequeños comerciantes con mapa de locales cercanos, catálogo con código de barras, carrito y pago simulado. Consola SQL, inventario y agente, todo en el navegador y sin conexión obligatoria.">
+<title>FORGE CORE STOCK · Tienda 3D con recorrido</title>
+<meta name="description" content="Llevamos la experiencia del supermercado a la palma de tus manos. Recorre la tienda en 3D, camina los pasillos, mira productos, precios y stock, y arma tu pedido desde el teléfono. Acceso libre al visor y al mapa.">
+<meta name="keywords" content="FORGE CORE STOCK, tienda 3D, supermercado 3D, recorrido virtual, visor 3D, catálogo, precios, stock, Chile, MercadoPlacer">
+<meta name="author" content="FORGE CORE STOCK">
+<meta name="robots" content="index,follow,max-image-preview:large">
 <meta name="theme-color" content="#050505">
+<link rel="canonical" href="https://fabri-core-web.vercel.app/app/">
+<meta property="og:site_name" content="FORGE CORE STOCK">
+<meta property="og:locale" content="es_CL">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://fabri-core-web.vercel.app/app/">
+<meta property="og:title" content="FORGE CORE STOCK · Tienda 3D con recorrido">
+<meta property="og:description" content="Llevamos la experiencia del supermercado a la palma de tus manos. Recorre la tienda en 3D, camina los pasillos y arma tu pedido desde el teléfono.">
+<meta property="og:image" content="https://fabri-core-web.vercel.app/og.png">
+<meta property="og:image:secure_url" content="https://fabri-core-web.vercel.app/og.png">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Recorrido 3D de la tienda FORGE CORE STOCK">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="FORGE CORE STOCK · Tienda 3D con recorrido">
+<meta name="twitter:description" content="La experiencia del supermercado en la palma de tus manos: recorrido 3D, productos, precios y stock. Acceso libre al visor y al mapa.">
+<meta name="twitter:image" content="https://fabri-core-web.vercel.app/og.png">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" type="image/svg+xml" href="./icons/logo-f.svg">
 <link rel="icon" href="./icons/icon-192.png" sizes="192x192">
@@ -41,6 +61,26 @@
       "currenciesAccepted": "CLP",
       "paymentAccepted": "Efectivo, Tarjeta de crédito, Tarjeta de débito, Transferencia",
       "areaServed": { "@type": "Country", "name": "Chile" }
+    },
+    {
+      "@type": "WebApplication",
+      "@id": "https://fabri-core-web.vercel.app/app/#tienda3d",
+      "name": "FORGE CORE STOCK · Tienda 3D con recorrido",
+      "url": "https://fabri-core-web.vercel.app/app/#tienda",
+      "applicationCategory": "ShoppingApplication",
+      "operatingSystem": "Navegador web",
+      "browserRequirements": "Requiere WebGL",
+      "inLanguage": "es-CL",
+      "isAccessibleForFree": true,
+      "description": "Llevamos la experiencia del supermercado a la palma de tus manos: recorrido 3D por los pasillos, góndolas y cámaras de frío, con minimapa, plano del local, catálogo y pedido. Acceso libre, sin cuenta.",
+      "featureList": [
+        "Recorrido 3D caminable por la tienda",
+        "Minimapa y plano del local",
+        "Catálogo con precios y stock",
+        "Carrito y pedido desde el visor"
+      ],
+      "isPartOf": { "@id": "https://fabri-core-web.vercel.app/#mercadoplacer" },
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "CLP" }
     }
   ]
 }
@@ -316,7 +356,33 @@
             </div>
           </div>
         </div>
-      
+
+        <!-- Visitas a la tienda 3D: total, hoy/ayer, únicos y reparto por canal
+             (Instagram, Facebook, WhatsApp, Google…). Lee /api/visitas con la
+             clave de la nube; sin clave pide una y no muestra nada inventado. -->
+        <div class="card visitas-card" id="visitasCard">
+          <header class="visitas-cab">
+            <div class="grow">
+              <div class="k">Visitas a la tienda 3D</div>
+              <div class="visitas-total" id="visitasTotal">—</div>
+            </div>
+            <div class="visitas-pills">
+              <span class="pill">Hoy <b id="visitasHoy">—</b></span>
+              <span class="pill">Ayer <b id="visitasAyer">—</b></span>
+              <span class="pill">Únicos 30 d <b id="visitasUnicos">—</b></span>
+            </div>
+          </header>
+          <div class="visitas-canales" id="visitasCanales"></div>
+          <div class="visitas-pie">
+            <span class="visitas-nota" id="visitasNota">Cargando visitas…</span>
+            <form class="visitas-clave" id="visitasClaveForm">
+              <input class="field" id="visitasClave" type="password" autocomplete="off"
+                     placeholder="Clave de la nube (para ver las visitas)">
+              <button class="btn ghost sm" id="visitasVer" type="submit">Ver</button>
+            </form>
+          </div>
+        </div>
+
       </section>
 
       <!-- ══════════════ CHAT ══════════════ -->
@@ -993,6 +1059,7 @@
 <script src="./app.js"></script>
 <script src="./cloud.js"></script>
 <script src="./mercado.js"></script>
+<script src="./visitas.js"></script>
         <div class="mp-hoja" id="mpHoja" hidden>
           <div class="mp-hoja-fondo" id="mpHojaFondo"></div>
           <div class="mp-hoja-panel" role="dialog" aria-modal="true" aria-labelledby="mpHojaNombre">

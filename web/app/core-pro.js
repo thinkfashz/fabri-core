@@ -454,6 +454,12 @@
         </div>
         <p class="hint" style="margin-top:10px">Si olvidas la contraseña, la única salida es borrar los datos
           locales. La clave de la nube nunca se guarda en el repositorio.</p>
+        <div class="login-libre">
+          <span>¿Solo quieres ver la tienda?</span>
+          <button class="btn ghost block" id="lgVisitar" type="button">Entrar al visor 3D sin cuenta</button>
+          <small>Recorrido libre por los pasillos, catálogo y mapa. Para inventario,
+            boletas y consola hace falta la cuenta.</small>
+        </div>
       </div>`;
 
     return new Promise(resolve => {
@@ -485,6 +491,14 @@
         }
       };
       $('#lgGo').onclick = go;
+      /* Acceso libre: resuelve sin usuario y deja la app en modo visitante
+         (ver app.js). No crea cuenta ni toca la base. */
+      const visitar = $('#lgVisitar');
+      if (visitar) visitar.onclick = () => {
+        guardarClave();
+        host.classList.remove('on');
+        resolve(null);
+      };
       ['lgPass', 'lgPass2', 'lgKey'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });

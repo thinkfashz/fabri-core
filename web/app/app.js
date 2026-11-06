@@ -188,11 +188,95 @@
       ? 'índice ' + etq + ' comprobado en runtime'
       : 'este motor no trae FTS: búsqueda por LIKE';
     $('#bDb').textContent = 'activo';
+    cargarVisitas();
     fetch('/api/health').then(r => r.json()).then(j => {
       const b = $('#bAg');
       if (j && j.agent === 'configured') { b.textContent = 'conectado'; b.className = 'badge ok'; }
       else { b.textContent = j && j.ok ? 'sin clave' : 'sin backend'; b.className = 'badge warn'; }
     }).catch(() => { const b = $('#bAg'); b.textContent = 'offline'; b.className = 'badge warn'; });
+  }
+
+  /* ── visitas de la tienda (canal de origen) ────────────────────────────
+     Lee /api/visitas de fabri-api con la clave de la nube que el dueño ya
+     usa para el inventario. Sin clave no inventa cifras: pide la clave.
+     Los canales vienen clasificados por el servidor (Instagram, Facebook,
+     WhatsApp, Google…), no por el navegador. */
+  const VISITAS_API = 'https://fabri-api.vercel.app/api/visitas';
+  const CANAL_COLOR = {
+    instagram: '#E1306C', facebook: '#1877F2', whatsapp: '#25D366',
+    google: '#4285F4', tiktok: '#69C9D0', buscador: '#8FA3B0',
+    x: '#A8ADB2', linkedin: '#0A66C2', qr: '#C8FF00',
+    directo: '#C8FF00', otro: '#5A626A'
+  };
+  const CANAL_NOMBRE = {
+    instagram: 'Instagram', facebook: 'Facebook', whatsapp: 'WhatsApp',
+    google: 'Google', tiktok: 'TikTok', buscador: 'Buscadores',
+    x: 'X / Twitter', linkedin: 'LinkedIn', qr: 'QR / cartel',
+    directo: 'Directo', otro: 'Otros'
+  };
+  let visitasCargando = false;
+  let visitasT0 = 0;
+
+  async function cargarVisitas(forzar) {
+    const caja = $('#visitasCanales');
+    if (!caja || visitasCargando || S.visitante) return;
+    if (!forzar && Date.now() - visitasT0 < 60000) return;
+
+    const clave = (sessionStorage.getItem('fabri.invKey') || '').trim();
+    const nota = $('#visitasNota');
+    const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+
+    if (!clave) {
+      caja.innerHTML = '';
+      ['visitasTotal', 'visitasHoy', 'visitasAyer', 'visitasUnicos'].forEach(id => setTxt(id, '—'));
+      if (nota) nota.textContent = 'Entra la clave de la nube para ver las visitas y de qué canal llegan.';
+      return;
+    }
+
+    visitasCargando = true;
+    try {
+      const r = await fetch(VISITAS_API + '?dias=30', {
+        headers: { Authorization: 'Bearer ' + clave }
+      });
+      const j = await r.json().catch(() => null);
+      if (!r.ok || !j || !j.ok) throw new Error((j && j.error) || 'no se pudo leer el conteo');
+
+      setTxt('visitasTotal', Number(j.total || 0).toLocaleString('es-CL'));
+      setTxt('visitasHoy', Number(j.hoy || 0).toLocaleString('es-CL'));
+      setTxt('visitasAyer', Number(j.ayer || 0).toLocaleString('es-CL'));
+      setTxt('visitasUnicos', Number(j.unicos || 0).toLocaleString('es-CL'));
+
+      const canales = Array.isArray(j.canales) ? j.canales : [];
+      if (!canales.length) {
+        caja.innerHTML = '<p class="visitas-nota">Todavía no hay visitas registradas en los últimos 30 días.</p>';
+      } else {
+        const max = Math.max(...canales.map(c => Number(c.n) || 0)) || 1;
+        caja.innerHTML = canales.map((c) => {
+          const k = String(c.canal || 'otro');
+          const n = Number(c.n) || 0;
+          const ancho = Math.max(3, Math.round((n / max) * 100));
+          const color = CANAL_COLOR[k] || CANAL_COLOR.otro;
+          return '<div class="visitas-canal">' +
+            '<span class="visitas-canal-k"><i class="visitas-punto" style="background:' + color + '"></i>' +
+              esc(CANAL_NOMBRE[k] || k) + '</span>' +
+            '<span class="visitas-canal-barra"><i class="visitas-canal-fill" style="width:' + ancho +
+              '%;background:' + color + '"></i></span>' +
+            '<b class="visitas-canal-n">' + n.toLocaleString('es-CL') + '</b>' +
+          '</div>';
+        }).join('');
+      }
+      if (nota) {
+        const pct = canales.slice(0, 3).map(c =>
+          (CANAL_NOMBRE[c.canal] || c.canal) + ' ' + c.pct + '%').join(' · ');
+        nota.textContent = 'Últimos ' + (j.dias || 30) + ' días' +
+          (pct ? ' · ' + pct : '') + ' · sin cookies de terceros';
+      }
+      visitasT0 = Date.now();
+      ev('visitas', 'leídas ' + Number(j.total || 0));
+    } catch (e) {
+      caja.innerHTML = '<p class="visitas-nota">' + esc('No pude leer las visitas: ' + e.message) + '</p>';
+      if (nota) nota.textContent = 'Revisa que la clave de la nube sea la del dueño.';
+    } finally { visitasCargando = false; }
   }
 
   /* ── chat ─────────────────────────────────────────────────────────────── */
@@ -372,7 +456,24 @@
   })();
 
   /* ── navegación ───────────────────────────────────────────────────────── */
+  /* Pantallas de acceso libre: el visor 3D (con su minimapa y plano) y el
+     catálogo del mercado. Todo lo demás (inventario, SQL, boletas, cuenta,
+     consola) sigue exigiendo sesión. */
+  const PUBLICAS = { tienda: 1, mercado: 1 };
+
   function go(id) {
+    /* En modo visitante, entrar a una pantalla privada abre la cuenta en vez
+       de mostrar datos. Al autenticarse se retoma el destino pedido. */
+    if (S.visitante && !PUBLICAS[id] && window.Pro && Pro.gate) {
+      Pro.gate().then((u) => {
+        if (!u) return;
+        S.visitante = false;
+        document.body.classList.remove("visitante");
+        window.Fabri.user = u;
+        go(id);
+      });
+      return;
+    }
     if (window.Tienda3D) Tienda3D.cerrar();
     $$('.screen').forEach(s => s.classList.toggle('on', s.id === 's-' + id));
     $$('.nav button').forEach(b => b.classList.toggle('on', b.dataset.go === id));
@@ -511,6 +612,16 @@
       else toast('Usa el menú del navegador → “Agregar a pantalla de inicio”');
     };
 
+    const vForm = $('#visitasClaveForm');
+    if (vForm) vForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const k = ($('#visitasClave').value || '').trim();
+      if (!k) return;
+      sessionStorage.setItem('fabri.invKey', k);
+      $('#visitasClave').value = '';
+      visitasT0 = 0;
+      cargarVisitas(true);
+    });
     // base
     try {
       await IDB.open();
@@ -520,14 +631,30 @@
       // (z-index 100 > 90) el usuario ve los campos pero ningún toque llega.
       quitarBoot();
       CoreAuth.init();
-      const user = await Pro.gate();
-      window.Fabri.user = user;
+      /* Acceso libre al visor y al mapa. Con #tienda o #mercado se entra
+         directo, sin cuenta; el resto de la consola sigue pidiendo sesión. */
+      const pedida = String(location.hash || "").replace("#", "");
+      const libre = !!PUBLICAS[pedida];
+      let user = await CoreAuth.current();
+      if (!user && !libre) user = await Pro.gate();
+      if (user) {
+        window.Fabri.user = user;
+      } else {
+        S.visitante = true;
+        document.body.classList.add("visitante");
+        window.Fabri.user = null;
+        ev("acceso", "visor público");
+      }
       $('#ver').textContent = 'nube · v2.0 · ' + (S.ftsModo === 'like' ? 'LIKE' : S.ftsModo.toUpperCase());
       // un fallo de una vista no debe tumbar el arranque
       const safe = fn => { try { fn(); } catch (e) { console.error(e); ev('error', String(e.message).slice(0, 40)); } };
       safe(renderPanel); safe(renderMem);
-      go(hash && document.getElementById('s-' + hash) ? hash : 'panel');
-      pushMsg('assistant', 'Listo. Esta consola corre entera en tu navegador: la base es SQLite real y sobrevive a las recargas. Pregúntame algo, abre la consola SQL o revisa los gráficos del panel.');
+      const destino = hash && document.getElementById('s-' + hash)
+        ? hash : (S.visitante ? 'tienda' : 'panel');
+      go(destino);
+      if (!S.visitante) {
+        pushMsg('assistant', 'Listo. Esta consola corre entera en tu navegador: la base es SQLite real y sobrevive a las recargas. Pregúntame algo, abre la consola SQL o revisa los gráficos del panel.');
+      }
       ev('api', 'núcleo iniciado');
     } catch (e) {
       quitarBoot();
