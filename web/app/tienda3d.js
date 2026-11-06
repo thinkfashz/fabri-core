@@ -32,14 +32,18 @@ window.Tienda3D = (function () {
   let yaw = 0, pitch = 0;
   const pos = { x: 0, y: 1.66, z: 8.2 };   // altura de los ojos: 1ª persona
   const vel = { x: 0, z: 0 };              // inercia: arranca y frena suave
-  const FOV_BASE = 68;                     // encuadre humano, no pezón
-  let fovAct = FOV_BASE;
+  /* Campo de visión: 62° es el encuadre "cine" (ni ojo de pez ni tele).
+     Se puede mover entre 50 y 85 desde el panel y queda guardado. */
+  const FOV_DEF = 62;
+  let fovBase = FOV_DEF;
+  let fovAct = FOV_DEF;
   const teclas = {};
   let joy = { x: 0, y: 0 };
   let joyCam = { x: 0, y: 0 };
   const joyS = { x: 0, y: 0 }, joyCamS = { x: 0, y: 0 };   // versión suavizada
   let corriendo = false;
-  let carrito = null, carritoRuedas = [], carritoAnim = 0;
+  let carrito = null, carritoCesta = null, carritoRuedas = [], carritoAnim = 0;
+  let cestaItems = [], cestaN = 0;   // lo que ya cayó dentro y se mantiene
   let mirar = null;      // arrastre de cámara
   let puerta = null;     // arrastre de puerta de congelador
   let promos = [], promoIdx = 0, promoReloj = null, promoT0 = 0;
@@ -64,18 +68,18 @@ window.Tienda3D = (function () {
      negro, y puntos de techo cálidos. El preset define el ambiente. */
   const luces = { amb: null, hemi: null, sol: null, relleno: null, contra: null, puntos: [] };
   const LUCES = {
-    confort: { amb: 0.42, hemi: 0.46, dir: 0.78, rell: 0.26, color: 0xfff8ef, exp: 1.00,
-      desc: "Espacio cálido y confortable: luz ámbar suave con sombras de contacto." },
-    calido:  { amb: 0.27, hemi: 0.30, dir: 0.56, rell: 0.18, color: 0xffe0b0, exp: 0.97,
+    confort: { amb: 0.50, hemi: 0.56, dir: 0.88, rell: 0.32, color: 0xfff9f2, exp: 1.06,
+      desc: "Luz de supermercado: blanca, pareja y brillante, con sombras suaves." },
+    calido:  { amb: 0.34, hemi: 0.38, dir: 0.66, rell: 0.24, color: 0xffe0b0, exp: 1.02,
       desc: "Luz de tienda de barrio: tono ámbar y sombras marcadas." },
-    neutro:  { amb: 0.31, hemi: 0.35, dir: 0.58, rell: 0.24, color: 0xffffff, exp: 0.95,
+    neutro:  { amb: 0.40, hemi: 0.46, dir: 0.74, rell: 0.30, color: 0xffffff, exp: 1.03,
       desc: "Luz pareja de supermercado: blanco neutro y sombras suaves." },
-    frio:    { amb: 0.28, hemi: 0.32, dir: 0.52, rell: 0.28, color: 0xd6e9ff, exp: 0.95,
+    frio:    { amb: 0.36, hemi: 0.42, dir: 0.66, rell: 0.32, color: 0xd6e9ff, exp: 1.02,
       desc: "Tono de cámara frigorífica: azulado y limpio." },
-    cine:    { amb: 0.15, hemi: 0.16, dir: 0.92, rell: 0.10, color: 0xfff3e0, exp: 0.88,
+    cine:    { amb: 0.22, hemi: 0.24, dir: 0.98, rell: 0.14, color: 0xfff3e0, exp: 0.98,
       desc: "Contraste cinematográfico: sombras profundas y foco cálido." },
-    lima:    { amb: 0.25, hemi: 0.30, dir: 0.56, rell: 0.20, color: 0xf2ffe0, exp: 0.97,
-      desc: "Resplandor lima FORGE: contra-luz verde sobre muros negros." }
+    lima:    { amb: 0.34, hemi: 0.40, dir: 0.68, rell: 0.26, color: 0xf2ffe0, exp: 1.02,
+      desc: "Resplandor lima FORGE: contra-luz verde sobre muros claros." }
   };
   let luzActual = "confort", intensidadLuz = 1, orbitaLuz = 20;
   let kelvinLuz = 5000, sombraLuz = 0.65, sensCam = 1;
@@ -106,6 +110,7 @@ window.Tienda3D = (function () {
      forzar un nivel. Afecta píxeles, tamaño de la sombra y puntos de techo. */
   const CLAVE_CAL = "fcore.tienda3d.calidad";
   const CLAVE_SENS = "fcore.tienda3d.sens";
+  const CLAVE_FOV = "fcore.tienda3d.fov";
   const NIVELES_CALIDAD = {
     alta:  { pr: 1.45, sombra: 2048, puntos: true },
     media: { pr: 1.15, sombra: 1024, puntos: true },
@@ -139,8 +144,9 @@ window.Tienda3D = (function () {
      que se controla por separado (y sin efecto espejo). */
   function texturaPiso() {
     const c = document.createElement("canvas");
-    c.width = c.height = 256;
+    c.width = c.height = 512;
     const g = c.getContext("2d");
+    g.scale(2, 2);            // se dibuja en 256 y se rasteriza a 512
     g.fillStyle = "#f7f8f8"; g.fillRect(0, 0, 256, 256);
     // cerámica blanca: baldosas casi blancas con variación mínima
     g.fillStyle = "#fbfcfc"; g.fillRect(0, 0, 128, 128); g.fillRect(128, 128, 128, 128);
@@ -159,7 +165,7 @@ window.Tienda3D = (function () {
     const t = new T.CanvasTexture(c);
     t.wrapS = t.wrapT = T.RepeatWrapping;
     t.repeat.set(9, 10);          // 18×20 m → baldosa de ~1 m
-    t.anisotropy = 4;
+    t.anisotropy = 8;
     return t;
   }
 
@@ -242,6 +248,21 @@ window.Tienda3D = (function () {
 
   /* Halo radial del luminario: mancha de luz suave que simula el
      resplandor de la lámpara sobre el plafón. */
+  /* Sombra de contacto: mancha radial oscura que se desvanece. Ancla los
+     muebles al piso y es lo que más "asienta" una escena 3D. */
+  function texturaContacto() {
+    const c = document.createElement("canvas");
+    c.width = c.height = 128;
+    const g = c.getContext("2d");
+    const rg = g.createRadialGradient(64, 64, 6, 64, 64, 64);
+    rg.addColorStop(0, "rgba(10,13,15,.62)");
+    rg.addColorStop(0.55, "rgba(10,13,15,.26)");
+    rg.addColorStop(1, "rgba(10,13,15,0)");
+    g.fillStyle = rg;
+    g.fillRect(0, 0, 128, 128);
+    return new T.CanvasTexture(c);
+  }
+
   function texturaGlow() {
     const c = document.createElement("canvas");
     c.width = c.height = 128;
@@ -806,6 +827,8 @@ window.Tienda3D = (function () {
      ruedas. Camina un metro al frente del jugador y frena si hay un mueble. */
   function crearCarrito() {
     carritoRuedas = [];
+    cestaItems = [];
+    cestaN = 0;
     const g = new T.Group();
     const malla = new T.MeshLambertMaterial({ color: 0xc3cbd1 });
     refs.metal.push({ mat: malla, rep: [1, 1], nor: 0.4 });
@@ -847,6 +870,11 @@ window.Tienda3D = (function () {
       g.add(eje);
       carritoRuedas.push(disco);
     });
+
+    /* Cesta: grupo vacío donde aterrizan los productos. Va dentro del
+       carrito, así que se mueven con él y no se despegan al caminar. */
+    carritoCesta = new T.Group();
+    g.add(carritoCesta);
     return g;
   }
 
@@ -881,7 +909,7 @@ window.Tienda3D = (function () {
   function construir(catalogo) {
     scene = new T.Scene();
     scene.background = new T.Color(0x08090a);
-    scene.fog = new T.Fog(0x0c0e10, 20, 46);
+    scene.fog = new T.Fog(0xeef1f2, 30, 62);   // bruma clara: da fondo sin ensuciar
     refs = { piso: null, muro: [], techo: [], metal: [] };
     // los grupos LED viven dentro de la escena: al reconstruir quedan en
     // null y los vuelven a crear los bloques de techo, estante y decor
@@ -896,7 +924,7 @@ window.Tienda3D = (function () {
     mallasCong = [];
     mallasProd = [];
 
-    camera = new T.PerspectiveCamera(FOV_BASE, 1, 0.05, 70);
+    camera = new T.PerspectiveCamera(fovBase, 1, 0.05, 90);
 
     /* ── Iluminación profesional ─────────────────────────────────────────
        Tres puntos adaptados al local: key cálida con sombra de contacto,
@@ -915,11 +943,13 @@ window.Tienda3D = (function () {
     sol.position.set(6, 11, 8);
     sol.castShadow = true;
     sol.shadow.mapSize.set(2048, 2048);
-    sol.shadow.camera.left = -14;
-    sol.shadow.camera.right = 14;
-    sol.shadow.camera.top = 13;
-    sol.shadow.camera.bottom = -13;
-    sol.shadow.camera.far = 32;
+    /* Ajustada al local (18 × 20 m): el mismo mapa de sombra rinde casi el
+       doble de detalle que con el encuadre holgado anterior. */
+    sol.shadow.camera.left = -10;
+    sol.shadow.camera.right = 10;
+    sol.shadow.camera.top = 11;
+    sol.shadow.camera.bottom = -11;
+    sol.shadow.camera.far = 30;
     sol.shadow.bias = -0.0006;
     sol.shadow.normalBias = 0.022;      // sin acné en las baldosas
     sol.shadow.radius = 2.5;
@@ -940,8 +970,8 @@ window.Tienda3D = (function () {
        piso sin apagar la key. Bajo cada luminario cae un halo radial y un
        cono de luz apenas visible (aditivo α 0,045): es lo que hace que la
        lámpara se "note" encendida en vez de ser un rectángulo blanco. */
-    luces.puntos = [-6, 0, 6].reduce((acc, x) => acc.concat([[x, -3.35], [x, 3.35]]), []).map(([x, z]) => {
-      const p = new T.PointLight(0xffe6c4, 0.36, 12, 2);
+    luces.puntos = [-6, -2, 2, 6].reduce((acc, x) => acc.concat([[x, -3.35], [x, 3.35]]), []).map(([x, z]) => {
+      const p = new T.PointLight(0xffe6c4, 0.36, 14, 2);
       p.position.set(x, 2.9, z);
       scene.add(p);
       return p;
@@ -1112,6 +1142,14 @@ window.Tienda3D = (function () {
        dos lados, con su halo de difusión: geometría emisiva integrada en el
        mueble, no una línea flotando delante del estante. Las 48 tiras y los
        48 halos van en dos InstancedMesh = 2 draw calls. */
+    /* Sombra de contacto (se usa en góndolas y neveras): se declara antes
+       del primer uso para no caer en la zona muerta de `const`. */
+    const texturaSombra = texturaContacto();
+    const contacto = new T.MeshBasicMaterial({
+      map: texturaSombra, transparent: true, opacity: 0.85,
+      depthWrite: false
+    });
+
     const metal = new T.MeshLambertMaterial({ color: 0xf3f5f6 });    // repisas blancas
     const borde = new T.MeshLambertMaterial({ color: 0xdfe3e5 });    // divisiones
     const testero = new T.MeshLambertMaterial({ color: 0xc8ff00 });  // laterales lima
@@ -1153,6 +1191,14 @@ window.Tienda3D = (function () {
         rem.position.set(gx, 2.545, z);
         grupo.add(rem);
       });
+      // sombra de contacto bajo el mueble: lo asienta en el porcelanato
+      const sombraG = new T.Mesh(
+        new T.PlaneGeometry(G_ANCHO + 1.0, G_LARGO + 0.8), contacto
+      );
+      sombraG.rotation.x = -Math.PI / 2;
+      sombraG.position.set(gx, 0.008, 0);
+      grupo.add(sombraG);
+
       // zócalo verde: el mueble se apoya en el piso con su base de marca
       const base = new T.Mesh(new T.BoxGeometry(G_ANCHO + 0.04, 0.16, G_LARGO + 0.04), zocaloG);
       base.position.set(gx, 0.08, 0);
@@ -1383,9 +1429,6 @@ window.Tienda3D = (function () {
     };
     const UP = new T.Vector3(0, 1, 0);
     // sombra de contacto: mancha suave bajo el mueble, como en un local real
-    const contacto = new T.MeshBasicMaterial({
-      color: 0x000000, transparent: true, opacity: 0.3, depthWrite: false
-    });
 
     function crearCongelador(cx, cz, rotY) {
       const g = new T.Group();
@@ -1724,6 +1767,8 @@ window.Tienda3D = (function () {
     }
     luces.puntos.forEach((p, i) => { p.visible = q.puntos || i < 2; });
     ajustar();
+    const raizCal = $("t3d");
+    if (raizCal) raizCal.classList.toggle("cine-off", nivel === "baja");
     const etq = $("t3dCalNivel");
     if (etq) etq.textContent = nivel;
     document.querySelectorAll("#t3dCal [data-cal]").forEach((b) => {
@@ -1755,6 +1800,7 @@ window.Tienda3D = (function () {
 
   /* ── bucle ─────────────────────────────────────────────────────────────── */
   let bob = 0, frames = 0, fpsCuadros = 0, fpsT0 = 0;
+  let camX = 0, camY = 1.66, camZ = 8.2, camListo = false;
 
   function bucle() {
     if (!vivo) return;
@@ -1768,6 +1814,7 @@ window.Tienda3D = (function () {
     }
     const dt = Math.min(0.05, reloj.getDelta());
     actualizarVuelos(dt);
+    actualizarCesta(dt);
 
     /* ── Entrada ─────────────────────────────────────────────────────────
        El stick izquierdo SOLO mueve (relativo a la cámara, con strafe) y
@@ -1786,10 +1833,18 @@ window.Tienda3D = (function () {
     let lateral = (teclas.KeyD ? 1 : 0) - (teclas.KeyA ? 1 : 0);
     let miraX = (teclas.ArrowRight ? 1 : 0) - (teclas.ArrowLeft ? 1 : 0);
     let miraY = 0;
-    avance += -joyS.y;
-    lateral += joyS.x;
-    miraX += joyCamS.x;
-    miraY += joyCamS.y;
+    /* Zona muerta: por debajo de 0,06 el stick no manda nada (el pulgar
+       tiembla y antes la imagen "respiraba" sola). Se reescala el resto
+       para que el paso arranque igual de fino. */
+    const muerto = (v) => {
+      const a = Math.abs(v);
+      if (a < 0.06) return 0;
+      return Math.sign(v) * Math.min(1, (a - 0.06) / 0.94);
+    };
+    avance += muerto(-joyS.y);
+    lateral += muerto(joyS.x);
+    miraX += muerto(joyCamS.x);
+    miraY += muerto(joyCamS.y);
 
     // normalizado: en diagonal no se acelera la marcha
     const magIn = Math.hypot(avance, lateral);
@@ -1813,26 +1868,38 @@ window.Tienda3D = (function () {
     vel.x += (objX - vel.x) * kAcel;
     vel.z += (objZ - vel.z) * kAcel;
 
-    const nx = pos.x + vel.x * dt;
-    const nz = pos.z + vel.z * dt;
-    if (!choca(nx, pos.z)) pos.x = nx; else vel.x = 0;
-    if (!choca(pos.x, nz)) pos.z = nz; else vel.z = 0;
+    /* Avance en micro-pasos de 12 cm como máximo: al rozar un mueble se
+       desliza en vez de trabarse, y a 3,2 m/s no se atraviesa nada. */
+    const pasoMax = 0.12;
+    const dist = Math.hypot(vel.x, vel.z) * dt;
+    const trozos = Math.max(1, Math.ceil(dist / pasoMax));
+    for (let i = 0; i < trozos; i++) {
+      const nx = pos.x + (vel.x * dt) / trozos;
+      const nz = pos.z + (vel.z * dt) / trozos;
+      if (!choca(nx, pos.z)) pos.x = nx; else vel.x *= 0.4;
+      if (!choca(pos.x, nz)) pos.z = nz; else vel.z *= 0.4;
+    }
 
     /* ── Primera persona ───────────────────────────────────────────────
        Ojos a 1,66 m y paso con balanceo proporcional a la velocidad
        real (vertical, lateral y una mínima inclinación de cabeza), más
        un leve agrandar del encuadre al correr. */
     const rapido = Math.hypot(vel.x, vel.z);
-    bob += rapido * dt * 4.0;
+    bob += rapido * dt * 3.6;
     const paso = Math.min(1, rapido / 1.6);
-    camera.position.set(
-      pos.x + Math.sin(bob * 0.5) * 0.012 * paso,
-      pos.y + Math.sin(bob) * 0.017 * paso,
-      pos.z
-    );
-    const fovObj = FOV_BASE + (corriendoAhora && rapido > 0.4 ? 5 : 0);
+    const objX2 = pos.x + Math.sin(bob * 0.5) * 0.008 * paso;
+    const objY2 = pos.y + Math.sin(bob) * 0.011 * paso;
+    /* La cámara persigue la pose del cuerpo con su propia inercia: quita el
+       micro-temblor del paso sin retrasar la mirada. */
+    if (!camListo) { camX = objX2; camY = objY2; camZ = pos.z; camListo = true; }
+    const kCam = 1 - Math.exp(-dt * 16);
+    camX += (objX2 - camX) * kCam;
+    camY += (objY2 - camY) * kCam;
+    camZ += (pos.z - camZ) * kCam;
+    camera.position.set(camX, camY, camZ);
+    const fovObj = fovBase + (corriendoAhora && rapido > 0.4 ? 4 : 0);
     if (Math.abs(fovObj - fovAct) > 0.02) {
-      fovAct += (fovObj - fovAct) * (1 - Math.exp(-dt * 5));
+      fovAct += (fovObj - fovAct) * (1 - Math.exp(-dt * 3.2));
       camera.fov = fovAct;
       camera.updateProjectionMatrix();
     }
@@ -2072,14 +2139,66 @@ window.Tienda3D = (function () {
       : new T.MeshBasicMaterial({ color: TINTES[p && p.categoria] || 0xc8ff00 });
     const mesh = new T.Mesh(new T.BoxGeometry(0.22, 0.28, 0.16), mat);
     mesh.position.copy(origen);
+    mesh.castShadow = true;
     scene.add(mesh);
-    vuelos.push({ mesh: mesh, t: 0, origen: origen, destino: destino });
+    vuelos.push({ mesh: mesh, t: 0, origen: origen, destino: destino, aCesta: true });
+  }
+
+  /* El producto ya llegó: se mete en la cesta, cae al hueco y se queda.
+     Máximo 12 visibles; el más viejo se retira para no llenar la GPU. */
+  function soltarEnCesta(mesh) {
+    if (!carritoCesta) { scene.remove(mesh); return; }
+    scene.remove(mesh);
+    const i = cestaN++;
+    const col = i % 3, fila = Math.floor(i / 3) % 3, capa = Math.floor(i / 9) % 2;
+    const x = -0.20 + col * 0.20;
+    const z = -0.13 + fila * 0.13;
+    const y = 0.36 + capa * 0.11;
+    mesh.scale.setScalar(0.66);
+    mesh.rotation.set(0, (Math.random() - 0.5) * 0.6, (Math.random() - 0.5) * 0.25);
+    mesh.position.set(x, y + 0.18, z);
+    carritoCesta.add(mesh);
+    cestaItems.push({ mesh: mesh, y: y, t: 0 });
+    while (cestaItems.length > 12) {
+      const viejo = cestaItems.shift();
+      carritoCesta.remove(viejo.mesh);
+      viejo.mesh.geometry.dispose();
+      if (viejo.mesh.material && viejo.mesh.material.dispose) viejo.mesh.material.dispose();
+    }
+  }
+
+  function actualizarCesta(dt) {
+    if (!cestaItems.length) return;
+    for (let k = 0; k < cestaItems.length; k++) {
+      const it = cestaItems[k];
+      if (it.t >= 1) continue;
+      it.t = Math.min(1, it.t + dt / 0.42);
+      const e = 1 - Math.pow(1 - it.t, 3);          // frenada al caer
+      it.mesh.position.y = it.y + 0.18 * (1 - e);
+    }
+  }
+
+  function limpiarCesta() {
+    if (!carritoCesta) return;
+    cestaItems.forEach((it) => {
+      carritoCesta.remove(it.mesh);
+      it.mesh.geometry.dispose();
+      if (it.mesh.material && it.mesh.material.dispose) it.mesh.material.dispose();
+    });
+    cestaItems = [];
+    cestaN = 0;
   }
 
   function actualizarVuelos(dt) {
     if (!vuelos.length || !scene) return;
+    const tmp = new T.Vector3();
     for (let k = vuelos.length - 1; k >= 0; k--) {
       const v = vuelos[k];
+      /* el destino se recalcula: el carrito se mueve mientras la caja vuela */
+      if (v.aCesta && carrito) {
+        carrito.localToWorld(tmp.set(0, 0.5, 0));
+        v.destino.copy(tmp);
+      }
       v.t = Math.min(1, v.t + dt / 0.6);
       const e = v.t * v.t * (3 - 2 * v.t);              // suavizado
       v.mesh.position.lerpVectors(v.origen, v.destino, e);
@@ -2087,9 +2206,12 @@ window.Tienda3D = (function () {
       v.mesh.rotation.y += dt * 7;
       v.mesh.rotation.x += dt * 3;
       if (v.t >= 1) {
-        scene.remove(v.mesh);
-        v.mesh.geometry.dispose();
-        if (v.mesh.material && v.mesh.material.dispose) v.mesh.material.dispose();
+        if (v.aCesta) soltarEnCesta(v.mesh);
+        else {
+          scene.remove(v.mesh);
+          v.mesh.geometry.dispose();
+          if (v.mesh.material && v.mesh.material.dispose) v.mesh.material.dispose();
+        }
         vuelos.splice(k, 1);
         carritoAnim = 1;                                // el carrito recibe
       }
@@ -2147,10 +2269,11 @@ window.Tienda3D = (function () {
      barra «Tienda» y el plano. */
   function aEntrada() {
     pos.x = 0; pos.z = 8.2; yaw = 0; pitch = 0;
-    vel.x = 0; vel.z = 0; fovAct = FOV_BASE;
+    vel.x = 0; vel.z = 0; fovAct = fovBase;
     joy.x = joy.y = joyCam.x = joyCam.y = 0;
     joyS.x = joyS.y = joyCamS.x = joyCamS.y = 0;
     corriendo = false;
+    camListo = false;                 // la cámara salta, no se desliza
     const rc = $("t3dCorrer");
     if (rc) rc.classList.remove("on");
   }
@@ -2347,6 +2470,7 @@ window.Tienda3D = (function () {
         prod = Object.keys(c).length;
       }
     } catch (e) { /* sin carrito o en modo privado */ }
+    if (!unid && cestaItems.length) limpiarCesta();
     const p = $("t3dCompProd"), u = $("t3dCompUnid"), t = $("t3dCompTotal");
     if (p) p.textContent = prod;
     if (u) u.textContent = unid;
@@ -2567,6 +2691,20 @@ window.Tienda3D = (function () {
     if (rangoSom) rangoSom.oninput = () => { sombraLuz = Number(rangoSom.value) / 100; aplicarLuz(); };
 
     // Sensibilidad de cámara (se guarda en el equipo)
+    const rangoFov = $("t3dFov");
+    if (rangoFov) {
+      rangoFov.value = Math.round(fovBase);
+      const out = $("t3dFovVal");
+      if (out) out.textContent = Math.round(fovBase) + "°";
+      rangoFov.oninput = () => {
+        fovBase = Number(rangoFov.value) || FOV_DEF;
+        fovAct = fovBase;
+        if (camera) { camera.fov = fovBase; camera.updateProjectionMatrix(); }
+        if (out) out.textContent = Math.round(fovBase) + "°";
+        try { localStorage.setItem(CLAVE_FOV, String(fovBase)); } catch (e) { /* privado */ }
+      };
+    }
+
     const rangoSen = $("t3dSen");
     if (rangoSen) {
       rangoSen.value = Math.round(sensCam * 100);
@@ -2983,6 +3121,8 @@ window.Tienda3D = (function () {
           if (cal && (cal === "auto" || NIVELES_CALIDAD[cal])) calidad = cal;
           const se = Number(localStorage.getItem(CLAVE_SENS));
           if (se >= 40 && se <= 180) sensCam = se / 100;
+          const fv = Number(localStorage.getItem(CLAVE_FOV));
+          if (fv >= 50 && fv <= 85) { fovBase = fv; fovAct = fv; camera.fov = fv; camera.updateProjectionMatrix(); }
         } catch (e) { /* modo privado */ }
         listo = true;
       }
@@ -3133,6 +3273,8 @@ window.Tienda3D = (function () {
       total: $("t3dCompTotal") ? $("t3dCompTotal").textContent : ""
     },
     fov: camera ? Math.round(camera.fov) : 0,
+    fovBase: fovBase,
+    cesta: cestaItems.length,
     perdido: !!(renderer && renderer.getContext && renderer.getContext().isContextLost()),
     glerr: renderer && renderer.getContext ? renderer.getContext().getError() : -1
   });

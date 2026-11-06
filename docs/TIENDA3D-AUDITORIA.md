@@ -279,3 +279,59 @@ pantalla: visitante=true, s-tienda=on, escena=true (143 objetos)
 `DELETE /api/visitas?antes=<ISO 8601>` (sólo con token del dueño) borra las
 visitas anteriores a esa fecha. Se usó para limpiar las 8 visitas de prueba:
 el contador quedó en **0**.
+
+## Campo de visión, recorrido suave, carrito con caída y luz cinematográfica
+
+### Por qué seguimos con Three.js
+Se evaluó meter otro motor (PlayCanvas, Babylon, Filament). Se descartó: la app
+ya usa **Three.js (MIT, gratis)** vendorizado, y añadir un segundo motor
+duplicaría el peso, el arranque y el consumo de RAM en un teléfono que ya va
+justo. Lo que hacía falta no era otro motor, sino exprimir el que hay.
+
+### Cámara y recorrido
+- **Campo de visión ajustable** en el panel (*Cámara → Campo de visión*),
+  50–85°, por defecto **62°** (encuadre de cine, no ojo de pez). Se guarda en
+  `fcore.tienda3d.fov`. Verificado: al mover el control a 70, la cámara pasa a
+  70 y queda guardado.
+- **Zona muerta** de 0,06 en los sticks: el pulgar ya no mueve la cámara con
+  temblores.
+- **Micro-pasos de 12 cm** en la colisión: al rozar un mueble se desliza en vez
+  de trabarse y no se atraviesa nada a 3,2 m/s.
+- **Cámara con inercia propia** (persigue la pose del cuerpo): quita el
+  micro-temblor del paso sin retrasar la mirada. Balanceo reducido.
+
+### Carrito: el producto cae y se queda
+- Al añadir, la caja vuela en arco **hacia la cesta viva del carrito** (el
+  destino se recalcula cada frame, así que sirve aunque el carrito se mueva).
+- Al llegar, entra en la cesta, cae con desaceleración a una rejilla de 3×3×2
+  y **queda visible**. Máximo 12 piezas para no castigar la GPU.
+- Si el carrito comercial queda vacío, la cesta 3D se limpia sola.
+
+### Iluminación y nitidez
+- Presets **más claros** (ambiente, hemisférica y key suben ~20 %); el de
+  confort pasa a ser luz de supermercado.
+- **Sombra más nítida**: la cámara de sombra se ajusta al local (±10 × ±11 m)
+  en vez del encuadre holgado; el mismo mapa rinde casi el doble de detalle.
+- **8 luminarias** de techo en vez de 6, con más alcance.
+- **Niebla clara** (`0xeef1f2`, 30–62 m): da profundidad sin oscurecer el fondo.
+- **Sombras de contacto** con degradado radial bajo góndolas y neveras: anclan
+  los muebles al porcelanato (antes eran rectángulos negros duros).
+- **Piso a 512 px** con anisotropía 8: juntas más finas en perspectiva.
+- **Graduación de color** por CSS sobre el canvas (saturación 1,07 · contraste
+  1,05 · brillo 1,015), sin post-proceso WebGL. Se apaga sola en calidad BAJA
+  (clase `cine-off`).
+
+### Verificado en la escena (sonda `__t3d()`)
+```
+fov 62 · fovBase 62 → slider a 70 → fov 70, guardado "70"
+luz: amb 0.412 · hemi 0.44 · sol 0.88 (antes 0.346 / 0.361 / 0.78)
+muro: #ffffff con textura de lienzo y relieve · hijos 145 · err3d ""
+añadir 1 producto → cesta 1 · añadir otro → cesta 2
+```
+
+Suites: diseño, boleta, arranque 9/9, inventario 6/6, seguridad 23/23.
+`sw.js` → `fcore-v44`.
+
+**Sin verificar visualmente**: el contexto WebGL muere en headless a los pocos
+segundos, así que el juicio de brillo, reflejos y "look" final hay que hacerlo
+en el teléfono.

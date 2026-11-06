@@ -2438,3 +2438,11 @@ body.visitante .visitas-card { display: none; }
   .visitas-total { font-size: 28px; }
   .visitas-clave { flex: 1 1 100%; }
 }
+
+/* ── Graduación cinematográfica del visor ────────────────────────────────
+   Saturación y contraste suaves sobre el canvas (composición GPU, sin
+   post-proceso de WebGL). Se apaga en calidad BAJA con `.cine-off`. */
+.t3d #t3dCanvas {
+  filter: saturate(1.07) contrast(1.05) brightness(1.015);
+}
+.t3d.cine-off #t3dCanvas { filter: none; }
