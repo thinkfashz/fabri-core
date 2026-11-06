@@ -64,7 +64,7 @@ window.Tienda3D = (function () {
      negro, y puntos de techo cálidos. El preset define el ambiente. */
   const luces = { amb: null, hemi: null, sol: null, relleno: null, contra: null, puntos: [] };
   const LUCES = {
-    confort: { amb: 0.30, hemi: 0.34, dir: 0.62, rell: 0.22, color: 0xffe9cf, exp: 1.00,
+    confort: { amb: 0.42, hemi: 0.46, dir: 0.78, rell: 0.26, color: 0xfff8ef, exp: 1.00,
       desc: "Espacio cálido y confortable: luz ámbar suave con sombras de contacto." },
     calido:  { amb: 0.27, hemi: 0.30, dir: 0.56, rell: 0.18, color: 0xffe0b0, exp: 0.97,
       desc: "Luz de tienda de barrio: tono ámbar y sombras marcadas." },
@@ -78,7 +78,7 @@ window.Tienda3D = (function () {
       desc: "Resplandor lima FORGE: contra-luz verde sobre muros negros." }
   };
   let luzActual = "confort", intensidadLuz = 1, orbitaLuz = 20;
-  let kelvinLuz = 4000, sombraLuz = 0.65, sensCam = 1;
+  let kelvinLuz = 5000, sombraLuz = 0.65, sensCam = 1;
   let camaras = [], cctv = false;
 
   /* ── LED por grupos ─────────────────────────────────────────────────────
@@ -141,12 +141,12 @@ window.Tienda3D = (function () {
     const c = document.createElement("canvas");
     c.width = c.height = 256;
     const g = c.getContext("2d");
-    g.fillStyle = "#eef0f1"; g.fillRect(0, 0, 256, 256);
-    // dos tonos por baldosa: variación mínima, sin ajedrez marcado
-    g.fillStyle = "#f4f6f7"; g.fillRect(0, 0, 128, 128); g.fillRect(128, 128, 128, 128);
-    g.fillStyle = "#eaedef"; g.fillRect(128, 0, 128, 128); g.fillRect(0, 128, 128, 128);
-    // junta fina y uniforme (2 px ≈ 1 cm a esta escala)
-    g.strokeStyle = "rgba(24,28,30,.11)"; g.lineWidth = 2;
+    g.fillStyle = "#f7f8f8"; g.fillRect(0, 0, 256, 256);
+    // cerámica blanca: baldosas casi blancas con variación mínima
+    g.fillStyle = "#fbfcfc"; g.fillRect(0, 0, 128, 128); g.fillRect(128, 128, 128, 128);
+    g.fillStyle = "#f2f4f4"; g.fillRect(128, 0, 128, 128); g.fillRect(0, 128, 128, 128);
+    // junta fina y uniforme (2 px ≈ 1 cm a esta escala), más marcada
+    g.strokeStyle = "rgba(60,66,70,.22)"; g.lineWidth = 2;
     g.strokeRect(1, 1, 254, 254);
     g.beginPath();
     g.moveTo(128, 0); g.lineTo(128, 256);
@@ -158,7 +158,7 @@ window.Tienda3D = (function () {
     g.beginPath(); g.moveTo(60, 10); g.bezierCurveTo(140, 60, 150, 96, 240, 74); g.stroke();
     const t = new T.CanvasTexture(c);
     t.wrapS = t.wrapT = T.RepeatWrapping;
-    t.repeat.set(16, 17);
+    t.repeat.set(9, 10);          // 18×20 m → baldosa de ~1 m
     t.anisotropy = 4;
     return t;
   }
@@ -881,15 +881,15 @@ window.Tienda3D = (function () {
        relleno frío que levanta las sombras sin aplastarlas, y una
        contra-luz lima que separa los muebles del muro negro. El tono
        fino lo da el control de temperatura (kelvin) del panel. */
-    const amb = new T.AmbientLight(0xfff4e6, 0.30);
+    const amb = new T.AmbientLight(0xfff8ef, 0.42);
     scene.add(amb);
     luces.amb = amb;
 
-    const hemi = new T.HemisphereLight(0xfff2df, 0x14161a, 0.34);
+    const hemi = new T.HemisphereLight(0xfff8ef, 0x9aa0a4, 0.46);
     scene.add(hemi);
     luces.hemi = hemi;
 
-    const sol = new T.DirectionalLight(0xffe9cf, 0.62);
+    const sol = new T.DirectionalLight(0xfff8ef, 0.78);
     sol.position.set(6, 11, 8);
     sol.castShadow = true;
     sol.shadow.mapSize.set(2048, 2048);
@@ -932,7 +932,7 @@ window.Tienda3D = (function () {
     const piso = new T.Mesh(
       new T.PlaneGeometry(ANCHO, LARGO),
       new T.MeshPhongMaterial({
-        color: 0xf7f8f9, map: texturaPiso(), shininess: 96, specular: 0x747b80
+        color: 0xffffff, map: texturaPiso(), shininess: 64, specular: 0x4a4f54
       })
     );
     piso.rotation.x = -Math.PI / 2;
@@ -943,7 +943,7 @@ window.Tienda3D = (function () {
     reflejoPiso = new T.Mesh(
       new T.PlaneGeometry(ANCHO, LARGO),
       new T.MeshBasicMaterial({
-        map: texturaReflejo(), transparent: true, opacity: 0.55,
+        map: texturaReflejo(), transparent: true, opacity: 0.34,
         depthWrite: false, blending: T.AdditiveBlending
       })
     );
@@ -956,7 +956,7 @@ window.Tienda3D = (function () {
        queda en `grupoLED.techo`: es lo que apaga el interruptor «Techo». */
     const techo = new T.Mesh(
       new T.PlaneGeometry(ANCHO, LARGO),
-      new T.MeshLambertMaterial({ color: 0x0d0f11 })
+      new T.MeshLambertMaterial({ color: 0xe4e7e9 })
     );
     techo.rotation.x = Math.PI / 2;
     techo.position.y = ALTO;
@@ -967,8 +967,8 @@ window.Tienda3D = (function () {
     grupoLED.techo.add(reflejoPiso);         // el reflejo del piso sigue a las luces
     scene.add(grupoLED.techo);
 
-    const perfilM = new T.MeshLambertMaterial({ color: 0x31373b });
-    const tiraTechoM = new T.MeshBasicMaterial({ color: 0xfff7e8 });
+    const perfilM = new T.MeshLambertMaterial({ color: 0xb9bec2 });
+    const tiraTechoM = new T.MeshBasicMaterial({ color: 0xfff3c4 });
     [-8, -4, 0, 4, 8].forEach((x) => {
       const perfil = new T.Mesh(new T.BoxGeometry(0.12, 0.09, LARGO - 0.8), perfilM);
       perfil.position.set(x, ALTO - 0.1, 0);
@@ -979,7 +979,7 @@ window.Tienda3D = (function () {
     });
 
     const panel = new T.MeshBasicMaterial({ color: 0xfff4de });
-    const caseton = new T.MeshLambertMaterial({ color: 0x1b1f23 });
+    const caseton = new T.MeshLambertMaterial({ color: 0xdfe3e5 });
     const geoHalo = new T.PlaneGeometry(2.1, 1.3);
     const glowM = new T.MeshBasicMaterial({
       map: texturaGlow(), transparent: true, opacity: 0.55, depthWrite: false,
@@ -2711,10 +2711,11 @@ window.Tienda3D = (function () {
      Piso cerámico, muro de yeso, techo de hormigón y metal de estante en
      1k con su mapa normal. Si alguna no carga (sin red, primer arranque),
      se queda la textura de canvas de fallback sin avisos. */
+  /* Sólo muro y metal llevan textura HD. El piso usa la cerámica blanca
+     generada por canvas y el techo va en color plano claro: las fotos
+     originales de piso (beige) y techo (oscura) no son las que se quieren. */
   const RUTAS_TEX = {
-    piso:  ["./texturas/piso-diff.jpg",  "./texturas/piso-nor.jpg"],
     muro:  ["./texturas/muro-diff.jpg",  "./texturas/muro-nor.jpg"],
-    techo: ["./texturas/techo-diff.jpg", "./texturas/techo-nor.jpg"],
     metal: ["./texturas/metal-diff.jpg", "./texturas/metal-nor.jpg"]
   };
 
@@ -2758,16 +2759,16 @@ window.Tienda3D = (function () {
         e.mat.needsUpdate = true;
       });
     };
+    /* Piso y techo NO llevan textura HD: la del piso era beige/marrón y
+       teñía la cerámica blanca, y la del techo lo dejaba casi negro. Se
+       generan por canvas (texturaPiso) y con color plano, respectivamente.
+       Así tampoco se descargan dos pares de JPG que no se usaban. */
     Promise.all([
-      cargar(RUTAS_TEX.piso[0], true),  cargar(RUTAS_TEX.piso[1], false),
       cargar(RUTAS_TEX.muro[0], true),  cargar(RUTAS_TEX.muro[1], false),
-      cargar(RUTAS_TEX.techo[0], true), cargar(RUTAS_TEX.techo[1], false),
       cargar(RUTAS_TEX.metal[0], true), cargar(RUTAS_TEX.metal[1], false)
     ]).then((t) => {
-      aplicar([t[0], t[1]], [{ mat: refs.piso, rep: [10, 11], nor: 0.65 }]);
-      aplicar([t[2], t[3]], refs.muro);
-      aplicar([t[4], t[5]], refs.techo);
-      aplicar([t[6], t[7]], refs.metal);
+      aplicar([t[0], t[1]], refs.muro);
+      aplicar([t[2], t[3]], refs.metal);
     }).catch(() => { /* se queda con las texturas de canvas */ });
   }
 
@@ -3018,6 +3019,29 @@ window.Tienda3D = (function () {
     ficha: !!fichaP, fichaNom: fichaP ? fichaP.nombre : "", vuelos: vuelos.length,
     local: tiendaActiva, cat: !!catPendiente, escena: escenaOk,
     err3d: ultimoError,
+    /* Estado real de los materiales de piso y techo y de la luz base:
+       sirve para verificar la cerámica blanca sin depender de una captura
+       (en headless el contexto WebGL muere a los pocos segundos). */
+    mat: {
+      piso: refs.piso ? {
+        color: "#" + refs.piso.color.getHexString(),
+        brillo: refs.piso.shininess,
+        especular: "#" + (refs.piso.specular ? refs.piso.specular.getHexString() : ""),
+        mapaLienzo: !!(refs.piso.map && refs.piso.map.image && refs.piso.map.image.tagName === "CANVAS"),
+        repeticion: refs.piso.map ? [refs.piso.map.repeat.x, refs.piso.map.repeat.y] : null
+      } : null,
+      techo: refs.techo[0] ? {
+        color: "#" + refs.techo[0].mat.color.getHexString(),
+        tieneMapa: !!refs.techo[0].mat.map
+      } : null,
+      luz: {
+        amb: luces.amb ? +luces.amb.intensity.toFixed(3) : null,
+        hemi: luces.hemi ? +luces.hemi.intensity.toFixed(3) : null,
+        sol: luces.sol ? +luces.sol.intensity.toFixed(3) : null,
+        kelvin: kelvinLuz,
+        ledTecho: leds.techo
+      }
+    },
     // diagnóstico del movimiento: los sticks crudos y la pose del jugador
     joy: { x: +joy.x.toFixed(3), y: +joy.y.toFixed(3) },
     jcam: { x: +joyCam.x.toFixed(3), y: +joyCam.y.toFixed(3) },

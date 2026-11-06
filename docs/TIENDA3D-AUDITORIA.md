@@ -126,3 +126,38 @@ viewport móvil 360×640, calidad BAJA, servidor estático local.
 `tests/web/diseno.js` (48 comprobaciones), `tests/web/boleta.js` (15),
 `tests/arranque/correr.sh` (9/9), `tests/inventario/correr.sh` (6/6),
 `tests/seguridad/correr.sh` (23/23). `web/app/sw.js` sube a `fcore-v38`.
+
+## Piso de cerámica blanca y luz de supermercado
+
+Cambio pedido contra la imagen de referencia (pasillo de supermercado con
+porcelanato blanco brillante y techo claro con franjas LED).
+
+### Qué se cambió
+- **Piso**: se dejó de aplicar `texturas/piso-diff.jpg` (beige/marrón), que
+  teñía la cerámica. Ahora manda `texturaPiso()`: base `#ffffff`, baldosas casi
+  blancas con junta gris visible, `shininess 64` y especular `#4a4f54` para el
+  brillo de porcelanato. Escala corregida a `repeat 9×10` → baldosa de ~1 m
+  (antes 0,56 m).
+- **Techo**: fuera `texturas/techo-diff.jpg` (oscura). Plano `#e4e7e9`,
+  perfiles de aluminio `#b9bec2` y carcasas de luminaria `#dfe3e5`. Las tiras
+  LED pasan a blanco cálido `#fff3c4`, que rinde amarillo como la referencia.
+- **Luz**: `sol` 0.50 → 0.62 → **0.74**; ambiente y hemisférica más altas; la
+  temperatura por defecto sube de 4000 K a 5000 K (blanco neutro de súper).
+  El reflejo del piso baja a opacidad 0.34 para que no lave la cerámica.
+- Se dejan de descargar `piso-*.jpg` y `techo-*.jpg` (ya no se usan).
+
+### Verificación
+Consultado en vivo vía `window.__t3d().mat` (no por captura: en headless
+SwiftShader pierde el contexto WebGL a los pocos segundos):
+
+```
+piso  : #ffffff, brillo 64, mapa de canvas, repeat 9×10
+techo : #e4e7e9, sin mapa
+luz   : amb 0.346, hemi 0.361, sol 0.78, kelvin 5000
+```
+
+Suites en verde: diseño, boleta, arranque 9/9, inventario 6/6, seguridad 23/23.
+`sw.js` → `fcore-v39`.
+
+**Sigue sin verificar el aspecto final en GPU real**: hay que abrirlo en el
+teléfono para juzgar brillo, reflejos y tono.
