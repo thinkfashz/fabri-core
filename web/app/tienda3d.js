@@ -95,6 +95,7 @@ window.Tienda3D = (function () {
   const leds = { techo: true, estante: true, ambiental: true, decor: true };
   const grupoLED = { techo: null, estante: null, decor: null };
   let reflejoPiso = null, mallaLedEstante = null, mallaGlowEstante = null;
+  let mallasContacto = [];   // sombras de contacto (se apagan en calidad baja)
 
   /* ── HUD de mundo abierto ────────────────────────────────────────────────
      `catsGondola` es la categoría real de cada góndola (la que reparte
@@ -111,10 +112,14 @@ window.Tienda3D = (function () {
   const CLAVE_CAL = "fcore.tienda3d.calidad";
   const CLAVE_SENS = "fcore.tienda3d.sens";
   const CLAVE_FOV = "fcore.tienda3d.fov";
+  /* `pr` = densidad de píxeles, `sombra` = lado del mapa, `puntos` = luces
+     reales, `contacto` = sombras de contacto (overdraw), `sombras` = encender
+     el mapa de sombras. En móvil lo caro es el relleno: por eso baja recorta
+     densidad, luces y sombras antes que geometría. */
   const NIVELES_CALIDAD = {
-    alta:  { pr: 1.45, sombra: 2048, puntos: true },
-    media: { pr: 1.15, sombra: 1024, puntos: true },
-    baja:  { pr: 1.0,  sombra: 512,  puntos: false }
+    alta:  { pr: 1.5,  sombra: 2048, puntos: true,  contacto: true,  sombras: true },
+    media: { pr: 1.2,  sombra: 1024, puntos: true,  contacto: true,  sombras: true },
+    baja:  { pr: 0.95, sombra: 512,  puntos: false, contacto: false, sombras: false }
   };
   let calidad = "auto", perfil = "media";
   /* ¿Se probó WebGL y se detectó la GPU? Se hace una sola vez por sesión:
@@ -915,6 +920,7 @@ window.Tienda3D = (function () {
     // null y los vuelven a crear los bloques de techo, estante y decor
     grupoLED.techo = null; grupoLED.estante = null; grupoLED.decor = null;
     reflejoPiso = null; mallaLedEstante = null; mallaGlowEstante = null;
+    mallasContacto = [];
     // si se reconstruye (otro local del mapa), todo lo anterior se descarta
     puertas = [];
     tv = null;
@@ -970,8 +976,11 @@ window.Tienda3D = (function () {
        piso sin apagar la key. Bajo cada luminario cae un halo radial y un
        cono de luz apenas visible (aditivo α 0,045): es lo que hace que la
        lámpara se "note" encendida en vez de ser un rectángulo blanco. */
-    luces.puntos = [-6, -2, 2, 6].reduce((acc, x) => acc.concat([[x, -3.35], [x, 3.35]]), []).map(([x, z]) => {
-      const p = new T.PointLight(0xffe6c4, 0.36, 14, 2);
+    /* 4 luminarias reales (2×2). Ocho multiplicaban el coste por fragmento de
+       todos los materiales sin aportar casi nada: el resto del techo ya lleva
+       tiras y placas emisivas. */
+    luces.puntos = [-4.5, 4.5].reduce((acc, x) => acc.concat([[x, -3.35], [x, 3.35]]), []).map(([x, z]) => {
+      const p = new T.PointLight(0xffe6c4, 0.5, 16, 0);
       p.position.set(x, 2.9, z);
       scene.add(p);
       return p;
@@ -1193,11 +1202,12 @@ window.Tienda3D = (function () {
       });
       // sombra de contacto bajo el mueble: lo asienta en el porcelanato
       const sombraG = new T.Mesh(
-        new T.PlaneGeometry(G_ANCHO + 1.0, G_LARGO + 0.8), contacto
+        new T.PlaneGeometry(G_ANCHO + 0.7, G_LARGO + 0.5), contacto
       );
       sombraG.rotation.x = -Math.PI / 2;
       sombraG.position.set(gx, 0.008, 0);
       grupo.add(sombraG);
+      mallasContacto.push(sombraG);
 
       // zócalo verde: el mueble se apoya en el piso con su base de marca
       const base = new T.Mesh(new T.BoxGeometry(G_ANCHO + 0.04, 0.16, G_LARGO + 0.04), zocaloG);
@@ -1468,11 +1478,12 @@ window.Tienda3D = (function () {
       g.add(led);
 
       const sombraPiso = new T.Mesh(
-        new T.PlaneGeometry(W_CONG + 0.5, D_CONG + 0.75), contacto
+        new T.PlaneGeometry(W_CONG + 0.4, D_CONG + 0.6), contacto
       );
       sombraPiso.rotation.x = -Math.PI / 2;
       sombraPiso.position.set(0, 0.012, 0.12);
       g.add(sombraPiso);
+      mallasContacto.push(sombraPiso);
 
       const bufer = { caja: [[], [], [], []], cil: [] };
 
@@ -1697,7 +1708,7 @@ window.Tienda3D = (function () {
       luces.contra.intensity = (luzActual === "lima" ? 0.44 : 0.16) * intensidadLuz;
     }
     luces.puntos.forEach((p) => {
-      p.intensity = 0.36 * intensidadLuz * (0.6 + 0.4 * relleno) * kTecho;
+      p.intensity = 0.5 * intensidadLuz * (0.6 + 0.4 * relleno) * kTecho;
       p.color.setHex(0xffe6c4).lerp(tinte, 0.55);
     });
 
@@ -1759,16 +1770,18 @@ window.Tienda3D = (function () {
     const nivel = calidad === "auto" ? perfil : calidad;
     const q = NIVELES_CALIDAD[nivel] || NIVELES_CALIDAD.media;
     renderer.setPixelRatio(Math.min(q.pr, window.devicePixelRatio || 1));
-    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.enabled = !!q.sombras;
+    renderer.shadowMap.needsUpdate = !!q.sombras;
     const sh = luces.sol.shadow;
     if (sh.mapSize.x !== q.sombra) {
       sh.mapSize.set(q.sombra, q.sombra);
       if (sh.map) { sh.map.dispose(); sh.map = null; }   // se regenera al tamaño nuevo
     }
-    luces.puntos.forEach((p, i) => { p.visible = q.puntos || i < 2; });
+    luces.puntos.forEach((p, i) => { p.visible = q.puntos || i < 1; });
+    mallasContacto.forEach((m) => { m.visible = !!q.contacto; });
     ajustar();
     const raizCal = $("t3d");
-    if (raizCal) raizCal.classList.toggle("cine-off", nivel === "baja");
+    if (raizCal) raizCal.classList.toggle("cine-on", nivel === "alta");
     const etq = $("t3dCalNivel");
     if (etq) etq.textContent = nivel;
     document.querySelectorAll("#t3dCal [data-cal]").forEach((b) => {
@@ -1800,7 +1813,7 @@ window.Tienda3D = (function () {
 
   /* ── bucle ─────────────────────────────────────────────────────────────── */
   let bob = 0, frames = 0, fpsCuadros = 0, fpsT0 = 0;
-  let camX = 0, camY = 1.66, camZ = 8.2, camListo = false;
+  let sombraT = 0, fpsBajos = 0;
 
   function bucle() {
     if (!vivo) return;
@@ -1812,7 +1825,7 @@ window.Tienda3D = (function () {
     if (dibujar) {
       try { dibujar = !renderer.getContext().isContextLost(); } catch (e) { dibujar = false; }
     }
-    const dt = Math.min(0.05, reloj.getDelta());
+    const dt = Math.min(0.1, reloj.getDelta());   // en equipos lentos el paso no se frena
     actualizarVuelos(dt);
     actualizarCesta(dt);
 
@@ -1821,7 +1834,7 @@ window.Tienda3D = (function () {
        el derecho SOLO mira: antes los dos giraban a la vez y la cámara
        se "desviaba" hacia un lado. Suavizado exponencial independiente
        del frame: rápido en la mirada (sin lag) y más blando en el paso. */
-    const kMov = 1 - Math.exp(-dt * 9);     // el cuerpo arranca y frena suave
+    const kMov = 1 - Math.exp(-dt * 14);    // arranca rápido y frena suave
     const kMir = 1 - Math.exp(-dt * 20);    // la mirada sigue el dedo al tiro
     joyS.x += (joy.x - joyS.x) * kMov;
     joyS.y += (joy.y - joyS.y) * kMov;
@@ -1859,12 +1872,12 @@ window.Tienda3D = (function () {
        4,8 y se "volaba" el pasillo). La velocidad se acerca al objetivo
        con una exponencial: arranca suave, frena suave, sin tirones. */
     const corriendoAhora = corriendo || teclas.ShiftLeft || teclas.ShiftRight;
-    const velMax = corriendoAhora ? 3.2 : 1.6;
+    const velMax = corriendoAhora ? 4.2 : 2.0;   // paso firme, no arrastrado
     const fx = -Math.sin(yaw), fz = -Math.cos(yaw);     // adelante
     const dx = Math.cos(yaw), dz = -Math.sin(yaw);      // derecha
     const objX = (fx * avance + dx * lateral) * velMax;
     const objZ = (fz * avance + dz * lateral) * velMax;
-    const kAcel = 1 - Math.exp(-dt * (avance || lateral ? 9 : 13));
+    const kAcel = 1 - Math.exp(-dt * (avance || lateral ? 16 : 20));
     vel.x += (objX - vel.x) * kAcel;
     vel.z += (objZ - vel.z) * kAcel;
 
@@ -1887,31 +1900,36 @@ window.Tienda3D = (function () {
     const rapido = Math.hypot(vel.x, vel.z);
     bob += rapido * dt * 3.6;
     const paso = Math.min(1, rapido / 1.6);
-    const objX2 = pos.x + Math.sin(bob * 0.5) * 0.008 * paso;
-    const objY2 = pos.y + Math.sin(bob) * 0.011 * paso;
-    /* La cámara persigue la pose del cuerpo con su propia inercia: quita el
-       micro-temblor del paso sin retrasar la mirada. */
-    if (!camListo) { camX = objX2; camY = objY2; camZ = pos.z; camListo = true; }
-    const kCam = 1 - Math.exp(-dt * 16);
-    camX += (objX2 - camX) * kCam;
-    camY += (objY2 - camY) * kCam;
-    camZ += (pos.z - camZ) * kCam;
-    camera.position.set(camX, camY, camZ);
-    const fovObj = fovBase + (corriendoAhora && rapido > 0.4 ? 4 : 0);
+    /* La cámara va pegada al cuerpo: sin inercia propia. Esa inercia era la
+       que hacía "flotar" la vista al girar y al frenar. El balanceo queda en
+       milímetros, sólo como señal de paso. */
+    camera.position.set(
+      pos.x + Math.sin(bob * 0.5) * 0.004 * paso,
+      pos.y + Math.sin(bob) * 0.006 * paso,
+      pos.z
+    );
+    const fovObj = fovBase + (corriendoAhora && rapido > 0.4 ? 2 : 0);
     if (Math.abs(fovObj - fovAct) > 0.02) {
-      fovAct += (fovObj - fovAct) * (1 - Math.exp(-dt * 3.2));
+      fovAct += (fovObj - fovAct) * (1 - Math.exp(-dt * 9));
       camera.fov = fovAct;
       camera.updateProjectionMatrix();
     }
     camera.rotation.set(0, 0, 0);
     camera.rotateY(yaw);
     camera.rotateX(pitch);
-    camera.rotateZ(Math.sin(bob) * 0.006 * paso);
+    /* sin rotateZ: inclinar la cabeza con el paso desestabilizaba el
+       horizonte (se notaba como "desbalance" al caminar). */
 
     actualizarCarrito(dt);
     mirarPrecio(performance.now());
 
     if (dibujar) {
+      /* Sombras: el local es casi estático (sólo el carrito se mueve), así
+         que se recalculan 2-3 veces por segundo en vez de en cada frame. */
+      if (renderer.shadowMap.enabled) {
+        const ts = performance.now();
+        if (ts - sombraT > 400) { sombraT = ts; renderer.shadowMap.needsUpdate = true; }
+      }
       renderer.render(scene, camera);
 
       if (cctv && camaras.length) {
@@ -1968,9 +1986,22 @@ window.Tienda3D = (function () {
     const ahora = performance.now();
     if (!fpsT0) fpsT0 = ahora;
     if (ahora - fpsT0 >= 1000) {
+      const fpsHoy = Math.round((fpsCuadros * 1000) / (ahora - fpsT0));
       const el = $("t3dFps");
-      if (el) el.textContent = Math.round((fpsCuadros * 1000) / (ahora - fpsT0)) + " fps";
+      if (el) el.textContent = fpsHoy + " fps";
       fpsCuadros = 0; fpsT0 = ahora;
+
+      /* Auto-ajuste: si el recorrido va por debajo de 32 fps dos segundos
+         seguidos, se recorta densidad y efectos en vez de dejar que se
+         arrastre. Nunca sube sola: eso produce oscilaciones. */
+      if (calidad === "auto") {
+        if (fpsHoy > 0 && fpsHoy < 32) fpsBajos++; else fpsBajos = 0;
+        if (fpsBajos >= 2) {
+          fpsBajos = 0;
+          if (perfil === "alta") { perfil = "media"; aplicarCalidad(); avisoTexto("Calidad media", "para mantener el recorrido fluido"); }
+          else if (perfil === "media") { perfil = "baja"; aplicarCalidad(); avisoTexto("Calidad baja", "el equipo va justo: se prioriza la fluidez"); }
+        }
+      }
       // el pedido puede cambiar también desde la vista de Mercado
       actualizarCompra();
     }
@@ -2273,7 +2304,6 @@ window.Tienda3D = (function () {
     joy.x = joy.y = joyCam.x = joyCam.y = 0;
     joyS.x = joyS.y = joyCamS.x = joyCamS.y = 0;
     corriendo = false;
-    camListo = false;                 // la cámara salta, no se desliza
     const rc = $("t3dCorrer");
     if (rc) rc.classList.remove("on");
   }
@@ -3098,6 +3128,10 @@ window.Tienda3D = (function () {
         renderer.toneMappingExposure = 0.92;
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = T.PCFSoftShadowMap;
+        /* La sombra se recalcula por tandas (ver bucle): el local es casi
+           estático y recalcularla en cada frame era el gasto más grande. */
+        renderer.shadowMap.autoUpdate = false;
+        renderer.shadowMap.needsUpdate = true;
 
         caja.addEventListener("webglcontextlost", (e) => {
           e.preventDefault();
@@ -3274,6 +3308,13 @@ window.Tienda3D = (function () {
     },
     fov: camera ? Math.round(camera.fov) : 0,
     fovBase: fovBase,
+    perfil: perfil, calidad: calidad,
+    cam: camera ? {
+      x: +camera.position.x.toFixed(3),
+      y: +camera.position.y.toFixed(3),
+      z: +camera.position.z.toFixed(3),
+      rotZ: +camera.rotation.z.toFixed(4)
+    } : null,
     cesta: cestaItems.length,
     perdido: !!(renderer && renderer.getContext && renderer.getContext().isContextLost()),
     glerr: renderer && renderer.getContext ? renderer.getContext().getError() : -1

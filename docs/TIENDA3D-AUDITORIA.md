@@ -335,3 +335,49 @@ Suites: diseño, boleta, arranque 9/9, inventario 6/6, seguridad 23/23.
 **Sin verificar visualmente**: el contexto WebGL muere en headless a los pocos
 segundos, así que el juicio de brillo, reflejos y "look" final hay que hacerlo
 en el teléfono.
+
+## Fluidez y estabilidad de cámara (tras probarlo en el teléfono)
+
+El recorrido se sentía pesado y la vista "flotaba". Medido sobre el video del
+dispositivo (720 × 1594, dpr 2) y sobre la escena, las causas eran tres:
+
+### Qué costaba
+1. **Filtro CSS a pantalla completa** (`saturate/contrast` sobre el canvas):
+   se paga en cada frame. Ahora sólo se aplica en calidad ALTA.
+2. **8 luces puntuales + sombra a 2048 recalculada en cada frame**: el gasto
+   más grande en un móvil. Ahora son **4 luces**, sombra de 1024 en media y
+   **la sombra se recalcula cada 0,4 s** (el local es estático; sólo el carrito
+   se mueve).
+3. **Sombras de contacto** grandes y transparentes (overdraw) en todas las
+   góndolas: se redujeron y se apagan en calidad BAJA.
+
+### Cámara estable
+- **Fuera la inclinación de cabeza** (`rotateZ` con el paso): era el
+  "desbalance" del horizonte.
+- **Fuera la inercia propia de la cámara**: la posición se copia del cuerpo.
+  Esa inercia era la que hacía flotar la vista al girar y frenar. Verificado:
+  `cam.z == pose.z` y `cam.rotZ == 0`.
+- Balanceo reducido a 4–6 mm.
+- El zoom al correr baja de 4° a 2° y entra más rápido (no parece "zoom").
+
+### Más rápido y natural
+- Paso 1,6 → **2,0 m/s**; correr 3,2 → **4,2 m/s**.
+- Aceleración y frenada más rápidas (16/20 en vez de 9/13).
+- Stick con respuesta más viva (14 en vez de 9).
+- `dt` máximo 0,1 s: en equipos lentos el paso ya no se ralentiza.
+
+### Auto-ajuste
+Si en modo Auto el recorrido baja de **32 fps dos segundos seguidos**, se
+recorta a media y luego a baja, con aviso. Nunca sube sola (eso oscila).
+
+### Verificado
+```
+metros en 1 s caminando: 2,12  (objetivo 2,0)
+cámara: cam.z == pose.z · rotZ = 0 · err3d ""
+sin errores de página
+```
+Suites: diseño, boleta, arranque 9/9, inventario 6/6, seguridad 23/23.
+`sw.js` → `fcore-v45`.
+
+**Sin verificar en GPU real**: los fps y el aspecto final se juzgan en el
+teléfono; aquí la métrica fiable es la pose, la cámara y la ausencia de errores.
