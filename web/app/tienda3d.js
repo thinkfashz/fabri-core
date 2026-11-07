@@ -375,39 +375,52 @@ window.Tienda3D = (function () {
     const n = Math.max(1, items.length);
     const celda = (W - barra) / n;
 
-    /* Un producto por estante (como en un súper de verdad): nombre a la
-       izquierda y precio a la derecha, ambos en tamaño grande. Con96 px de
-       alto mapeando los 0,27 m del placo, un precio de 60 px son ~17 cm:
-       se lee desde el otro extremo del pasillo. */
+    /* Etiquetas pequeñas repetidas a lo largo del placo: un cartel único de
+       9 m con el precio gigante no existe en ningún súper. Cada etiqueta
+       mide ~3,4 veces su alto, como una etiqueta de góndola real. */
     if (n === 1) {
       const p = items[0] || {};
-      const m = Math.round(W * 0.022);
-      g.textBaseline = "middle";
-      g.textAlign = "left";
-      let fs = Math.round(H * 0.46);
-      const nom = String(p.nombre || "");
-      do {
-        g.font = "800 " + fs + "px -apple-system, Segoe UI, Roboto, sans-serif";
-        if (g.measureText(nom).width <= W * 0.55) break;
-        fs -= Math.max(2, Math.round(H * 0.04));
-      } while (fs > Math.round(H * 0.24));
-      g.fillStyle = "#101214";
-      g.fillText(nom, barra + m, H * 0.52);
+      const nombre = String(p.nombre || "");
+      const corte = nombre.indexOf("·");
+      const titulo = corte > 0 ? nombre.slice(0, corte).trim() : nombre;
+      const pres = corte > 0 ? nombre.slice(corte + 1).trim() : "";
+      const precio = "$" + Math.round(p.precio || 0).toLocaleString("es-CL");
 
-      const txt = "$" + Math.round(p.precio || 0).toLocaleString("es-CL");
-      let fp = Math.round(H * 0.62);
-      do {
+      const anchoEt = Math.max(24, Math.round(H * 3.4));
+      const celdas = Math.max(1, Math.floor((W - barra) / anchoEt));
+      const celda = (W - barra) / celdas;
+
+      for (let i = 0; i < celdas; i++) {
+        const x = barra + i * celda;
+        g.fillStyle = "#fbfaf5";
+        g.fillRect(x + 1, 1, celda - 2, H - 2);
+        g.fillStyle = "#c8ff00";
+        g.fillRect(x + 1, 1, Math.max(2, Math.round(celda * 0.03)), H - 2);
+
+        g.textAlign = "left";
+        g.textBaseline = "middle";
+        g.fillStyle = "#3d3a33";
+        g.font = "700 " + Math.round(H * 0.20) + "px -apple-system, Segoe UI, Roboto, sans-serif";
+        let nom = titulo;
+        while (nom.length > 3 && g.measureText(nom).width > celda * 0.80) nom = nom.slice(0, -1);
+        g.fillText(nom, x + celda * 0.10, H * 0.24);
+
+        g.fillStyle = "#101214";
+        let fp = Math.round(H * 0.44);
         g.font = "900 " + fp + "px -apple-system, Segoe UI, Roboto, sans-serif";
-        if (g.measureText(txt).width <= W * 0.32) break;
-        fp -= Math.max(2, Math.round(H * 0.04));
-      } while (fp > Math.round(H * 0.32));
-      const anchoPrecio = g.measureText(txt).width;
-      g.textAlign = "right";
-      g.fillStyle = "#101214";
-      g.fillText(txt, W - m, H * 0.52);
-      g.font = "700 " + Math.round(H * 0.18) + "px -apple-system, Segoe UI, Roboto, sans-serif";
-      g.fillStyle = "rgba(27,26,20,.55)";
-      g.fillText("c/u", W - m - anchoPrecio - Math.round(H * 0.16), H * 0.58);
+        while (fp > 7 && g.measureText(precio).width > celda * 0.84) {
+          fp -= 1;
+          g.font = "900 " + fp + "px -apple-system, Segoe UI, Roboto, sans-serif";
+        }
+        g.fillText(precio, x + celda * 0.10, H * 0.68);
+
+        if (pres) {
+          g.fillStyle = "rgba(27,26,20,.55)";
+          g.font = "600 " + Math.round(H * 0.14) + "px -apple-system, Segoe UI, Roboto, sans-serif";
+          g.fillText(pres, x + celda * 0.10, H * 0.88);
+        }
+        if (i) { g.fillStyle = "rgba(27,26,20,.12)"; g.fillRect(x, 3, 1, H - 6); }
+      }
 
       const t1 = new T.CanvasTexture(c);
       t1.encoding = T.sRGBEncoding;
@@ -696,6 +709,335 @@ window.Tienda3D = (function () {
     t.anisotropy = anisoMax();
     return t;
   }
+
+  /* ── productos: geometría real por familia ───────────────────────────────
+     Cada familia tiene su silueta (botella torneada, lata con rebordes, caja
+     de cartón con esquinas suaves, bolsa blanda con pliegues, frasco, vaso).
+     La etiqueta va en una malla aparte para que el texto quede derecho y
+     mirando al pasillo: antes la misma portada se pegaba en las 6 caras de
+     una caja y la cara del pasillo la mostraba girada y espejada. */
+  const GEO_FORMA = {};
+  const GEO_ETIQUETA = {};
+
+  const TAMANO = {
+    botella: { ancho: 0.086, alto: 0.30, fondo: 0.086, fondoGeo: 1.00 },
+    vidrio:  { ancho: 0.078, alto: 0.31, fondo: 0.078, fondoGeo: 1.00 },
+    lata:    { ancho: 0.066, alto: 0.12, fondo: 0.066, fondoGeo: 1.00 },
+    frasco:  { ancho: 0.082, alto: 0.14, fondo: 0.082, fondoGeo: 1.00 },
+    yogur:   { ancho: 0.076, alto: 0.11, fondo: 0.076, fondoGeo: 1.00 },
+    tetra:   { ancho: 0.095, alto: 0.25, fondo: 0.065, fondoGeo: 0.55 },
+    caja:    { ancho: 0.170, alto: 0.26, fondo: 0.070, fondoGeo: 0.70 },
+    bolsa:   { ancho: 0.160, alto: 0.27, fondo: 0.090, fondoGeo: 0.46 }
+  };
+
+  /* El nombre manda: un súper no tiene 15 cajas iguales. */
+  function formaDe(p) {
+    const n = String((p && p.nombre) || "").toLowerCase();
+    if (/atún|atun|conserva|sardina|cerveza lata|lata de|bebida lata/.test(n)) return "lata";
+    if (/vino|cerveza|mermelada|salsa/.test(n)) return "vidrio";
+    if (/leche|jugo|néctar|nectar|té frío|te frio|bebida vegetal/.test(n)) return "tetra";
+    if (/aceite|bebida|agua|detergente|cloro|limpiador|shampoo|suavizante/.test(n)) return "botella";
+    if (/café|cafe|miel|té en|te en|saquitos/.test(n)) return "frasco";
+    if (/yogur|helado|flan|postre|crema/.test(n)) return "yogur";
+    if (/arroz|harina|azúcar|azucar|sal\b|lentejas|porotos|fideos|pasta|pan de molde|galleta|papas fritas|snack|legumbre/.test(n)) return "bolsa";
+    return "caja";
+  }
+
+  function redondeado(w, h, r) {
+    const sh = new T.Shape();
+    const x = -w / 2, y = -h / 2;
+    sh.moveTo(x + r, y);
+    sh.lineTo(x + w - r, y);
+    sh.quadraticCurveTo(x + w, y, x + w, y + r);
+    sh.lineTo(x + w, y + h - r);
+    sh.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    sh.lineTo(x + r, y + h);
+    sh.quadraticCurveTo(x, y + h, x, y + h - r);
+    sh.lineTo(x, y + r);
+    sh.quadraticCurveTo(x, y, x + r, y);
+    return sh;
+  }
+
+  function torno(pts, seg) {
+    const v = pts.map((q) => new T.Vector2(q[0], q[1]));
+    const g = new T.LatheGeometry(v, seg || 24);
+    g.translate(0, -0.5, 0);          // centrada en Y: la matriz escala desde el centro
+    return g;
+  }
+
+  function geoForma(forma) {
+    if (GEO_FORMA[forma]) return GEO_FORMA[forma];
+    let g;
+    if (forma === "botella") {
+      g = torno([
+        [0.00, 0.00], [0.38, 0.00], [0.47, 0.03], [0.50, 0.10], [0.50, 0.55],
+        [0.47, 0.61], [0.39, 0.68], [0.26, 0.76], [0.19, 0.82], [0.18, 0.86],
+        [0.21, 0.885], [0.18, 0.91], [0.18, 0.97], [0.20, 1.00], [0.00, 1.00]
+      ], 24);
+    } else if (forma === "vidrio") {
+      g = torno([
+        [0.00, 0.00], [0.40, 0.00], [0.47, 0.04], [0.50, 0.10], [0.50, 0.54],
+        [0.46, 0.61], [0.30, 0.70], [0.16, 0.79], [0.13, 0.86], [0.15, 0.90],
+        [0.13, 0.94], [0.13, 1.00], [0.00, 1.00]
+      ], 24);
+    } else if (forma === "lata") {
+      g = torno([
+        [0.00, 0.00], [0.40, 0.00], [0.46, 0.02], [0.50, 0.05], [0.50, 0.95],
+        [0.46, 0.98], [0.40, 1.00], [0.00, 1.00]
+      ], 24);
+    } else if (forma === "frasco") {
+      g = torno([
+        [0.00, 0.00], [0.42, 0.00], [0.50, 0.04], [0.50, 0.60], [0.46, 0.67],
+        [0.34, 0.73], [0.30, 0.79], [0.32, 0.83], [0.30, 0.87], [0.30, 1.00],
+        [0.00, 1.00]
+      ], 22);
+    } else if (forma === "yogur") {
+      g = torno([
+        [0.00, 0.00], [0.30, 0.00], [0.34, 0.03], [0.44, 0.70], [0.50, 0.88],
+        [0.53, 0.93], [0.48, 1.00], [0.00, 1.00]
+      ], 22);
+    } else if (forma === "tetra") {
+      const sh = new T.Shape();
+      sh.moveTo(-0.5, -0.5); sh.lineTo(0.5, -0.5); sh.lineTo(0.5, 0.28);
+      sh.lineTo(0.0, 0.5); sh.lineTo(-0.5, 0.28); sh.closePath();
+      g = new T.ExtrudeGeometry(sh, {
+        depth: 0.55, bevelEnabled: true, bevelSize: 0.015,
+        bevelThickness: 0.015, bevelSegments: 2, curveSegments: 4
+      });
+      g.translate(0, 0, -0.275);
+    } else if (forma === "bolsa") {
+      g = new T.ExtrudeGeometry(redondeado(0.94, 0.98, 0.10), {
+        depth: 0.46, bevelEnabled: true, bevelSize: 0.06,
+        bevelThickness: 0.06, bevelSegments: 3, curveSegments: 6
+      });
+      g.translate(0, 0, -0.23);
+      const pos = g.attributes.position;
+      for (let i = 0; i < pos.count; i++) {
+        const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+        const onda = Math.sin(y * 9 + x * 5) * 0.012 + Math.sin(x * 13) * 0.008;
+        pos.setZ(i, z + (z > 0 ? onda : -onda));
+      }
+      g.computeVertexNormals();
+    } else {
+      g = new T.ExtrudeGeometry(redondeado(0.96, 0.96, 0.06), {
+        depth: 0.70, bevelEnabled: true, bevelSize: 0.018,
+        bevelThickness: 0.018, bevelSegments: 2, curveSegments: 4
+      });
+      g.translate(0, 0, -0.35);
+    }
+    GEO_FORMA[forma] = g;
+    return g;
+  }
+
+  /* Etiqueta: banda curva en envases redondos, plano en cajas y bolsas.
+     Va en +Z para que al girar el envase hacia el pasillo el texto quede
+     derecho (no espejado ni girado 90°). */
+  function geoEtiqueta(forma) {
+    if (GEO_ETIQUETA[forma]) return GEO_ETIQUETA[forma];
+    const arco = 2.35;
+    let g;
+    if (forma === "botella" || forma === "vidrio" || forma === "lata" || forma === "frasco") {
+      const cfg = {
+        botella: [0.42, -0.055], vidrio: [0.38, -0.075],
+        lata: [0.72, 0.00], frasco: [0.56, -0.015]
+      }[forma];
+      g = new T.CylinderGeometry(0.515, 0.515, cfg[0], 26, 1, true, -arco / 2, arco);
+      g.translate(0, cfg[1], 0);
+    } else if (forma === "tetra") {
+      g = new T.PlaneGeometry(0.90, 0.70);
+      g.translate(0, -0.06, 0.285);
+    } else if (forma === "bolsa") {
+      g = new T.PlaneGeometry(0.86, 0.86);
+      g.translate(0, 0, 0.245);
+    } else if (forma === "yogur") {
+      g = new T.PlaneGeometry(0.82, 0.62);
+      g.translate(0, 0.02, 0.515);
+    } else {
+      g = new T.PlaneGeometry(0.94, 0.94);
+      g.translate(0, 0, 0.365);
+    }
+    GEO_ETIQUETA[forma] = g;
+    return g;
+  }
+
+  function mezclaNum(a, b, k) {
+    const ar = (a >> 16) & 255, ag = (a >> 8) & 255, ab = a & 255;
+    const br = (b >> 16) & 255, bg = (b >> 8) & 255, bb = b & 255;
+    return (Math.round(ar + (br - ar) * k) << 16) |
+      (Math.round(ag + (bg - ag) * k) << 8) |
+      Math.round(ab + (bb - ab) * k);
+  }
+
+  /* Color propio por producto: la categoría da la familia y el nombre
+     desplaza el tono, así dos productos de la misma góndola no salen
+     idénticos. */
+  function colorDe(p) {
+    const t = p && p.tinte;
+    if (typeof t === "string" && /^#[0-9a-f]{6}$/i.test(t)) return t.toLowerCase();
+    if (typeof t === "number") return hex(t);
+    const base = tinteDe(p && p.categoria);
+    const s = String((p && p.nombre) || "");
+    let h = 0;
+    for (let i = 0; i < s.length; i++) h = (h * 37 + s.charCodeAt(i)) >>> 0;
+    return hex(mezclaNum(base, PALETA[h % PALETA.length], 0.42));
+  }
+
+  function luminancia(c) {
+    const r = parseInt(c.slice(1, 3), 16), g = parseInt(c.slice(3, 5), 16), b = parseInt(c.slice(5, 7), 16);
+    return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  }
+
+  function matForma(forma, p) {
+    const t = colorDe(p);
+    if (forma === "vidrio") {
+      return new T.MeshPhysicalMaterial({
+        color: new T.Color(t).multiplyScalar(0.55), roughness: 0.10, metalness: 0.05,
+        transparent: true, opacity: 0.88, ior: 1.5, specularIntensity: 1
+      });
+    }
+    if (forma === "lata") {
+      return new T.MeshPhongMaterial({ color: 0xc9ced3, specular: 0xffffff, shininess: 150, reflectivity: 0.9 });
+    }
+    if (forma === "botella") {
+      return new T.MeshPhongMaterial({ color: 0xeaf4fb, specular: 0xffffff, shininess: 95, transparent: true, opacity: 0.94 });
+    }
+    if (forma === "frasco") {
+      return new T.MeshPhongMaterial({ color: t, specular: 0xffffff, shininess: 120, transparent: true, opacity: 0.9 });
+    }
+    if (forma === "yogur") {
+      return new T.MeshPhongMaterial({ color: 0xf7f7f3, specular: 0xffffff, shininess: 45 });
+    }
+    if (forma === "bolsa") {
+      return new T.MeshPhongMaterial({ color: t, specular: 0xffffff, shininess: 60 });
+    }
+    return new T.MeshLambertMaterial({ color: t });
+  }
+
+  /* Etiqueta de envase: banda de marca, panel de papel con el nombre,
+     presentación y código de barras simulado. Nada de una portada cuadrada
+     repetida en todas las caras. */
+  function dibuEtiqueta(g, W, H, o) {
+    const tinte = o.tinte || "#8a8f94";
+    const oscuro = mezcla(tinte, "#05070a", 0.70);
+    const claro = mezcla(tinte, "#ffffff", 0.50);
+    const oscura = luminancia(tinte) < 0.62;
+
+    const grad = g.createLinearGradient(0, 0, 0, H);
+    grad.addColorStop(0, claro);
+    grad.addColorStop(0.5, tinte);
+    grad.addColorStop(1, oscuro);
+    g.fillStyle = grad;
+    g.fillRect(0, 0, W, H);
+
+    g.save();
+    g.globalAlpha = 0.13;
+    g.fillStyle = oscura ? "#ffffff" : "#05070a";
+    g.beginPath();
+    g.ellipse(W * 0.5, H * 0.44, W * 0.46, H * 0.30, 0, 0, Math.PI * 2);
+    g.fill();
+    g.restore();
+
+    const bh = Math.round(H * 0.135);
+    g.fillStyle = "rgba(6,8,10,.92)";
+    g.fillRect(0, 0, W, bh);
+    g.fillStyle = tinte;
+    g.fillRect(0, bh - Math.max(2, Math.round(H * 0.010)), W, Math.max(2, Math.round(H * 0.010)));
+    g.textAlign = "left";
+    g.textBaseline = "middle";
+    g.fillStyle = "#ffffff";
+    g.font = "800 " + Math.round(bh * 0.40) + "px -apple-system, Segoe UI, Roboto, sans-serif";
+    g.fillText("CORE STOCK", W * 0.055, bh * 0.52);
+    g.fillStyle = tinte;
+    g.fillRect(W * 0.865, bh * 0.28, W * 0.08, bh * 0.44);
+
+    const px = W * 0.055, pw = W * 0.89;
+    const py = H * 0.185, ph = H * 0.535;
+    const r = Math.round(H * 0.03);
+    g.fillStyle = "rgba(250,248,241,.96)";
+    g.beginPath();
+    g.moveTo(px + r, py);
+    g.lineTo(px + pw - r, py);
+    g.quadraticCurveTo(px + pw, py, px + pw, py + r);
+    g.lineTo(px + pw, py + ph - r);
+    g.quadraticCurveTo(px + pw, py + ph, px + pw - r, py + ph);
+    g.lineTo(px + r, py + ph);
+    g.quadraticCurveTo(px, py + ph, px, py + ph - r);
+    g.lineTo(px, py + r);
+    g.quadraticCurveTo(px, py, px + r, py);
+    g.fill();
+    g.fillStyle = tinte;
+    g.fillRect(px, py, pw, Math.max(2, Math.round(H * 0.012)));
+
+    const nombre = String(o.nombre || "");
+    const corte = nombre.indexOf("·");
+    const titulo = corte > 0 ? nombre.slice(0, corte).trim() : nombre;
+    const pres = corte > 0 ? nombre.slice(corte + 1).trim() : "";
+
+    g.textAlign = "center";
+    g.textBaseline = "middle";
+    /* El tamaño se decide midiendo el ancho REAL de la línea más larga: una
+       palabra sola («Detergente») no se parte y antes se salía del papel. */
+    const maxW = pw * 0.86;
+    const maxH = ph * 0.64;
+    let fs = Math.round(H * 0.135);
+    let lineas;
+    for (;;) {
+      g.font = "900 " + fs + "px -apple-system, Segoe UI, Roboto, sans-serif";
+      lineas = envolver(g, titulo, maxW, 4);
+      let ancho = 0;
+      lineas.forEach((l) => { ancho = Math.max(ancho, g.measureText(l).width); });
+      if ((ancho <= maxW && lineas.length * fs * 1.12 <= maxH) ||
+          fs <= Math.round(H * 0.058)) break;
+      fs -= Math.max(1, Math.round(H * 0.005));
+    }
+    g.fillStyle = "#121416";
+    const lh = fs * 1.08;
+    const y0 = py + ph * 0.44 - ((lineas.length - 1) * lh) / 2;
+    lineas.forEach((l, i) => g.fillText(l, W * 0.5, y0 + i * lh));
+
+    if (pres) {
+      g.font = "700 " + Math.round(H * 0.062) + "px -apple-system, Segoe UI, Roboto, sans-serif";
+      const tw = g.measureText(pres).width;
+      const bw = tw + W * 0.10, bh2 = H * 0.085;
+      const bx = W * 0.5 - bw / 2, by = py + ph - bh2 - H * 0.030;
+      g.fillStyle = "#0a0c0e";
+      g.beginPath();
+      const rr = bh2 / 2;
+      g.moveTo(bx + rr, by);
+      g.lineTo(bx + bw - rr, by);
+      g.arc(bx + bw - rr, by + rr, rr, -Math.PI / 2, Math.PI / 2);
+      g.lineTo(bx + rr, by + bh2);
+      g.arc(bx + rr, by + rr, rr, Math.PI / 2, Math.PI * 1.5);
+      g.fill();
+      g.fillStyle = "#ffffff";
+      g.fillText(pres, W * 0.5, by + bh2 * 0.54);
+    }
+
+    const bw2 = W * 0.42, bh3 = H * 0.062;
+    const bx2 = W * 0.5 - bw2 / 2, by2 = H * 0.855;
+    g.fillStyle = "rgba(250,248,241,.95)";
+    g.fillRect(bx2 - W * 0.02, by2 - H * 0.012, bw2 + W * 0.04, bh3 + H * 0.024);
+    let x = bx2, seed = 17;
+    while (x < bx2 + bw2) {
+      seed = (seed * 48271) % 2147483647;
+      const w = 1 + (seed % 3);
+      if (seed % 2) { g.fillStyle = "#0a0c0e"; g.fillRect(x, by2, w, bh3); }
+      x += w + 1 + (seed % 2);
+    }
+  }
+
+  function texturaEtiqueta(p, S) {
+    const W = S || 256, H = Math.round(W * 1.5);
+    const c = document.createElement("canvas");
+    c.width = W; c.height = H;
+    const g = c.getContext("2d");
+    dibuEtiqueta(g, W, H, { nombre: p && p.nombre, tinte: colorDe(p) });
+    const t = new T.CanvasTexture(c);
+    t.encoding = T.sRGBEncoding;
+    t.anisotropy = anisoMax();
+    return t;
+  }
+
 
   function crearTV() {
     const c = document.createElement("canvas");
@@ -1285,7 +1627,6 @@ window.Tienda3D = (function () {
        llevan su propia portada dibujada y una tira con el precio en
        grande. Una InstancedMesh por nivel = 24 dibujados y raycast
        directo contra su `userData.mapa`. */
-    const geo = new T.BoxGeometry(0.22, 0.28, 0.16);
     const paso = 0.31;
     const porFila = Math.floor(G_LARGO / paso) - 1;
     mallasGondola = [];
@@ -1294,7 +1635,7 @@ window.Tienda3D = (function () {
     const m4 = new T.Matrix4();
     const q = new T.Quaternion();
     const esc = new T.Vector3();
-    const color = new T.Color();
+    const EJE_Y = new T.Vector3(0, 1, 0);
 
     GONDOLAS.forEach((gx, gi) => {
       const cat = porGondola[gi % porGondola.length];
@@ -1305,12 +1646,8 @@ window.Tienda3D = (function () {
 
       NIVELES.forEach((y, ni) => {
         const p = bolsa[(gi * NIVELES.length + ni) % bolsa.length];
-        // portada del envase: canvas vectorial propio, 256² ≈ 260 kB
-        const portada = texturaPortada({
-          cat: p.categoria || cat, nombre: p.nombre, texto: p.nombre,
-          picto: pictoDe(p), conNombre: true, S: 256
-        });
-        const mat = new T.MeshLambertMaterial({ color: 0xffffff, map: portada });
+        const forma = formaDe(p);
+        const tam = TAMANO[forma] || TAMANO.caja;
 
         const caras = [];
         [1, -1].forEach((lado) => {
@@ -1320,39 +1657,58 @@ window.Tienda3D = (function () {
           }
         });
 
-        const mesh = new T.InstancedMesh(geo, mat, Math.max(1, caras.length));
+        /* Cuerpo: geometría propia de la familia (botella torneada, lata con
+           rebordes, caja de cartón redondeada, bolsa con pliegues…). */
+        const mesh = new T.InstancedMesh(
+          geoForma(forma), matForma(forma, p), Math.max(1, caras.length)
+        );
         mesh.castShadow = true;
         mesh.receiveShadow = true;
+
+        /* Etiqueta: malla aparte, mirando al pasillo. Banda curva en los
+           envases redondos y plano en cajas y bolsas. */
+        const meshEt = new T.InstancedMesh(
+          geoEtiqueta(forma),
+          new T.MeshLambertMaterial({ map: texturaEtiqueta(p, 256) }),
+          Math.max(1, caras.length)
+        );
+        meshEt.castShadow = false;
+        meshEt.receiveShadow = false;
+
         caras.forEach((d, i) => {
-          const alto = 0.24 + ((i + d.c) % 3) * 0.05;
-          const ancho = 0.19 + ((i + ni) % 3) * 0.03;
-          const x = gx + d.lado * (G_ANCHO / 2 - 0.12);
+          const var_ = 1 + (((i + d.c) % 5) - 2) * 0.016;    // ±3 % de variedad
+          const alto = tam.alto * var_;
+          const ancho = tam.ancho * (1 + ((i + ni) % 3) * 0.018);
+          const fondo = tam.fondo * var_;
+          const x = gx + d.lado * (G_ANCHO / 2 - 0.09);
           const z = -G_LARGO / 2 + 0.6 + d.c * paso;
+          // el +Z del envase mira al pasillo
+          q.setFromAxisAngle(EJE_Y, d.lado > 0 ? Math.PI / 2 : -Math.PI / 2);
           m4.compose(
             new T.Vector3(x, y + alto / 2 + 0.03, z),
             q,
-            esc.set(ancho / 0.22, alto / 0.28, 1)
+            esc.set(ancho, alto, fondo / tam.fondoGeo)
           );
           mesh.setMatrixAt(i, m4);
-          // la portada manda: sólo variación de brillo entre unidades
-          const brillo = 0.94 + ((i % 5) - 2) * 0.03;
-          color.setRGB(brillo, brillo, brillo);
-          mesh.setColorAt(i, color);
+          meshEt.setMatrixAt(i, m4);
         });
         mesh.count = caras.length;
         mesh.instanceMatrix.needsUpdate = true;
-        if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+        meshEt.count = caras.length;
+        meshEt.instanceMatrix.needsUpdate = true;
         mesh.userData.mapa = caras.map(() => p);
+        meshEt.userData.mapa = mesh.userData.mapa;
         scene.add(mesh);
+        scene.add(meshEt);
         mallasGondola.push(mesh);
 
-        // tira del estante: el producto del nivel, precio en grande
+        // tira del estante: etiquetas chicas repetidas, como en un súper
         const matTira = new T.MeshBasicMaterial({
-          map: texturaTira([p], 3072, 96), side: T.DoubleSide
+          map: texturaTira([p], 3072, 48), side: T.DoubleSide
         });
         [1, -1].forEach((lado) => {
-          const tira = new T.Mesh(new T.PlaneGeometry(G_LARGO - 0.14, 0.27), matTira);
-          tira.position.set(gx + lado * (G_ANCHO / 2 + 0.013), y - 0.095, 0);
+          const tira = new T.Mesh(new T.PlaneGeometry(G_LARGO - 0.14, 0.14), matTira);
+          tira.position.set(gx + lado * (G_ANCHO / 2 + 0.013), y - 0.10, 0);
           tira.rotation.y = lado > 0 ? Math.PI / 2 : -Math.PI / 2;
           scene.add(tira);
         });

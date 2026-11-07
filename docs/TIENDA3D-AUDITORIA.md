@@ -381,3 +381,63 @@ Suites: diseño, boleta, arranque 9/9, inventario 6/6, seguridad 23/23.
 
 **Sin verificar en GPU real**: los fps y el aspecto final se juzgan en el
 teléfono; aquí la métrica fiable es la pose, la cámara y la ausencia de errores.
+
+---
+
+## Productos con envase propio (v46)
+
+### Qué estaba mal
+En las capturas del teléfono los productos eran **el mismo prisma de 22 cm**
+con una **portada cuadrada pegada en las seis caras**: la caja mostraba el
+dibujo repetido en todos los lados, y la cara que miraba al pasillo salía
+**girada y espejada**. El precio del estante era **un cartel único de 9 m**
+con un número gigante, algo que no existe en ningún supermercado.
+
+### Qué se cambió (`web/app/tienda3d.js`)
+1. **Geometría por familia de producto**, no una caja para todo:
+   - `LatheGeometry` torneada: `botella`, `vidrio`, `lata`, `frasco`, `yogur`
+     (cada una con su silueta: hombro, cuello, rebordes de lata, boca ancha).
+   - `ExtrudeGeometry` con esquinas redondeadas: `caja`, `bolsa` (con pliegues
+     por desplazamiento de vértices) y `tetra` (envase de leche/jugo con
+     piñón superior).
+   - La familia se decide **por el nombre** (`formaDe`), porque el visor usa el
+     catálogo de supermercado de `placer.js` y no el POS de `mercado.js`.
+2. **Etiqueta en malla aparte**, siempre orientada al pasillo:
+   - banda curva (`CylinderGeometry` de 135°) en los envases redondos;
+   - plano en cajas, bolsas y tetra.
+   El texto ya no se repite en las seis caras ni sale espejado.
+3. **Materiales diferenciados**: vidrio `MeshPhysicalMaterial` (transparente,
+   IOR 1,5), lata y botella `MeshPhongMaterial` con brillo alto, frasco
+   translúcido, caja `MeshLambertMaterial` mate.
+4. **Color propio por producto** (`colorDe`): el tinte de la categoría se
+   mezcla con un color de `PALETA` derivado del hash del nombre, así dos
+   productos de la misma góndola no salen idénticos.
+5. **Etiqueta dibujada** (`dibuEtiqueta`): banda de marca, panel de papel con
+   el nombre, presentación en pastilla y código de barras simulado. El tamaño
+   de letra se elige **midiendo el ancho real** de la línea (una palabra sola
+   como «Detergente» se salía del papel).
+6. **Tira de precios real**: etiquetas chicas repetidas cada ~3,4 veces su
+   alto (plano de 0,14 m en vez de 0,27 m), con nombre, precio y presentación.
+7. **Rendimiento intacto**: sigue habiendo **una `InstancedMesh` de cuerpos y
+   otra de etiquetas por nivel**; el raycast usa sólo los cuerpos, así que
+   tocar un producto sigue abriendo su ficha y agregándolo al carrito.
+
+### Verificado (sonda `window.__t3d()` en headless)
+```
+err3d ""  ·  hijos 165  ·  góndola 24 niveles  ·  neveras 28 niveles
+geometrías: LatheGeometry, ExtrudeGeometry, CylinderGeometry, PlaneGeometry
+materiales: MeshPhongMaterial, MeshPhysicalMaterial, MeshLambertMaterial
+24 etiquetas con mapa · 0 errores de página
+```
+Texturas revisadas como PNG (generadas directamente del canvas 2D):
+`etq0`–`etq5` y `tira.png`. Colores medidos: Arroz `#d7aba9`,
+Aceite `#e8bb3e`, Leche `#77eb4d`, Café `#ff8a6b`, Detergente `#9fa4e6`,
+Bebida `#4ebecb`.
+
+Suites: `diseno` 48, `boleta` 15, `arranque` 9/9, `inventario` 6/6,
+`seguridad` 23/23. `sw.js` → `fcore-v46`.
+
+**No verificado aquí**: el aspecto final en GPU real. En headless
+(SwiftShader) el contexto WebGL muere a los 10–25 s, así que la captura no es
+fiable; además Chrome vacía el canvas de una `CanvasTexture` después de subirla
+a la GPU. La comprobación es por sonda y por las texturas 2D, no por captura.
