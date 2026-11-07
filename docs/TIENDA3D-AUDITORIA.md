@@ -440,7 +440,7 @@ Aceite `#e8bb3e`, Leche `#77eb4d`, Café `#ff8a6b`, Detergente `#9fa4e6`,
 Bebida `#4ebecb`.
 
 Suites: `diseno` 48, `boleta` 15, `arranque` 9/9, `inventario` 6/6,
-`seguridad` 23/23. `sw.js` → `fcore-v46`.
+`seguridad` 23/23. `sw.js` → `fcore-v47`.
 
 **No verificado aquí**: el aspecto final en GPU real. En headless
 (SwiftShader) el contexto WebGL muere a los 10–25 s, así que la captura no es
