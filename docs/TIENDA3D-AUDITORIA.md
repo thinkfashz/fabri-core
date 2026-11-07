@@ -630,3 +630,76 @@ Suites: `diseno` ✔ · `boleta` 15 ✔ · `arranque` 9/9 ✔ · `inventario` 6/
 contexto WebGL se pierde a los pocos segundos y la captura sale negra o con
 «La gráfica se reinició»; por eso la comprobación es por sonda, por geometría
 medida y por las texturas 2D, no por captura de la escena.
+
+## Ronda 4 · robustez del visor y señalización colgante (v50)
+
+Objetivo: que la tienda aguante fallos y equipos flojos sin quedarse a medias,
+y que el local se lea como súper desde la puerta.
+
+### Red de seguridad del decorado
+- La zona fresca, las neveras de isla, los anuncios y la señalización se
+  construyen **cada uno en su `try/catch`**. Un fallo ya no aborta `construir()`
+  (antes una excepción en el decorado dejaba la escena sin góndolas ni carrito).
+- El mensaje queda en `__t3d().decoErr` y se avisa por consola.
+- **Probado de verdad**: se inyectó `throw new Error("fallo inyectado a
+  proposito")` al inicio de `crearAnuncios()` y la tienda abrió igual —
+  `gond 24 · cong 29 · frescos 12 · refri 8 · senales 10 · err3d ""`,
+  `decoErr "fallo inyectado a proposito"` y un `console.warn` «decorado 3D».
+  El error se retiró después y `node --check` quedó en verde.
+
+### Zona fresca adaptativa (sin reconstruir la escena)
+- Las pilas de fruta se dibujan con `InstancedMesh.count`: bajar la calidad
+  **recorta piezas en caliente**, no destruye ni reconstruye nada.
+- `ajustarZonaFresca()` se llama al construir y en cada cambio de calidad.
+- Tope por caja: **alta 20 · media 14 · baja 8** (240 / 168 / 96 piezas en total,
+  medido en la sonda como `frescosN`).
+- Las tapas se apagan en `baja` y la luz puntual de la zona sigue el perfil.
+- `__t3d()` ahora informa `frescosN`, `senales`, `cal` y `decoErr`.
+
+### Carrito
+- **No nace dentro de la isla**: nace en un hueco libre (0,95 · 7,85 junto al
+  jugador, antes (0 · 6,7) dentro de la isla central de verduras).
+- **Destino por prioridad**: delante (sin acercarse a menos de 1 m), costados y
+  por último atrás. Antes, con el frente tapado, el carro se plantaba a 0,5 m de
+  la cámara. Medido: caminando hasta la isla el carro queda a **1,25 m** detrás.
+
+### Guardas de datos
+- `crearZonaFresca` sale limpio si no hay islas; un tipo mal escrito en
+  `FRESCOS` se salta sin romper la caja; `crearIslaRefri` ignora una isla sin
+  productos. `destruirEscena` y `construir` reinician todos los contadores de la
+  zona fresca.
+
+### Pasillo: 1,7 m entre isla y nevera
+Las islas refrigeradas pasaron de `z = 8,9` a `z = 9,15`: el hueco hasta las
+islas de verdura (tope en 7,0) queda en 1,7 m y se puede pasar con el margen de
+colisión de 0,4 m.
+
+### Señalización colgante de pasillo
+- Un cartel por pasillo (5) con la **categoría real** del mueble y su número,
+  dos caras por cartel para que el texto no se lea espejado: 10 placas, 5
+  materiales (la textura se comparte entre ambas caras).
+- Placo de **1,52 × 0,38 m** (4:1, igual que el lienzo de `texturaCartel`) a
+  `y = 2,90`, dentro del pasillo de 1,78 m: `4,92 – 6,44` en el pasillo de 5,68.
+- Varillas de 0,11 m en **un solo `InstancedMesh`** (20 piezas, 1 draw call).
+- Holgura medida: producto más alto a **2,53 m** (centro 2,39 + media altura),
+  cartel desde **2,71** → 18 cm libres; techo a 3,20.
+
+### Verificado
+```
+node --check web/app/tienda3d.js → OK
+__t3d()  err3d "" · gond 24 · cong 29 · frescos 12 · refri 8
+         frescosN 168 (media) · senales 10 · decoErr "" · hijos 267
+calidad alta → frescosN 240 · baja → 96      (en caliente, sin recargar)
+0 errores de página · 0 errores de consola propios
+```
+Cajas medidas con `instanceMatrix` + `matrixWorld`: isla de verdura
+`y 0 – 2,92`, nevera `y 0,06 – 2,27`, pilas dentro de su caja.
+Carrito: nace en `(0,95 · 7,85)`, tras caminar queda a 1,25 m del jugador.
+
+Suites: `diseno` ✔ · `boleta` 15 ✔ · `arranque` 9/9 ✔ · `inventario` 6/6 ✔ ·
+`seguridad` 23/23 ✔. `sw.js` → **`fcore-v50`**.
+
+**No verificado aquí**: aspecto en GPU real y FPS. Este headless (SwiftShader)
+pierde el contexto WebGL a los pocos segundos —de ahí los
+«WebGL context could not be created» al cambiar de calidad— así que todo se
+comprueba por sonda, geometría medida y texturas 2D.

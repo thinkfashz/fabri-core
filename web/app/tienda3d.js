@@ -58,6 +58,12 @@ window.Tienda3D = (function () {
      cada una guarda su propio `userData.mapa` de productos. */
   let mallasGondola = [], mallasCong = [], mallasProd = [];
   let frescosMallas = 0, refriMallas = 0;   // islas de verdura y refrigerados
+  /* Zona fresca adaptable: las pilas se dibujan con `mesh.count` (no se
+     destruyen al bajar la calidad) y el resto son piezas que se apagan.
+     `decoErr` guarda el fallo del decorado para no perder la tienda entera
+     si una pieza nueva sale mal. */
+  let frescosPilas = [], tapasGondola = [], luzFresca = null, decoErr = "";
+  let senalesMallas = 0;                    // carteles colgantes de pasillo
   let vuelos = [];                 // cajas volando hacia el carrito
   let fichaP = null, fichaOrigen = null;   // producto en la ficha abierta
   /* Materiales que reciben textura HD (Poly Haven / ambientCG, CC0).
@@ -1317,12 +1323,36 @@ window.Tienda3D = (function () {
     return g;
   }
 
+  /* Destino del carrito, por prioridad: delante (sin acercarse a menos de
+     1 m, que se mete en la cámara), al costado y por último atrás. Antes,
+     cuando el frente estaba tapado —y con la zona fresca en la entrada
+     siempre lo está—, el carro se plantaba a 0,5 m de los ojos. */
+  function destinoCarrito() {
+    const fx = -Math.sin(yaw), fz = -Math.cos(yaw);
+    const rx = -fz, rz = fx;                     // perpendicular derecha
+    for (let d = 1.5; d >= 1.0; d -= 0.1) {
+      const x = pos.x + fx * d, z = pos.z + fz * d;
+      if (!choca(x, z)) return { x: x, z: z };
+    }
+    for (let i = 0; i < 2; i++) {
+      const sg = i ? -1 : 1;
+      const x = pos.x + rx * sg * 0.95 + fx * 0.35;
+      const z = pos.z + rz * sg * 0.95 + fz * 0.35;
+      if (!choca(x, z)) return { x: x, z: z };
+    }
+    const xb = pos.x - fx * 1.25, zb = pos.z - fz * 1.25;
+    if (!choca(xb, zb)) return { x: xb, z: zb };
+    return { x: pos.x + fx * 1.1, z: pos.z + fz * 1.1 };
+  }
+
+  /* Posición inicial: la misma regla que en marcha (con la zona fresca, el
+     punto de siempre (0 · −1,5) caía dentro de la isla central). */
+  function huecoCarrito() { return destinoCarrito(); }
+
   function actualizarCarrito(dt) {
     if (!carrito) return;
-    const fx = -Math.sin(yaw), fz = -Math.cos(yaw);
-    let dist = 1.5;
-    while (dist > 0.5 && choca(pos.x + fx * dist, pos.z + fz * dist)) dist -= 0.14;
-    const tx = pos.x + fx * dist, tz = pos.z + fz * dist;
+    const d0 = destinoCarrito();
+    const tx = d0.x, tz = d0.z;
     const k = Math.min(1, dt * 6);
     const dx = tx - carrito.position.x, dz = tz - carrito.position.z;
     const mov = Math.hypot(dx, dz) * k;
@@ -1369,7 +1399,7 @@ window.Tienda3D = (function () {
     { x: 4.8,  z: 6.4, items: ["cebolla", "pimiento", "brocoli", "limon"] }
   ];
   const REFRIGERADOS = [
-    { x: -4.8, z: 8.9, titulo: "REFRIGERIO",
+    { x: -4.8, z: 9.15, titulo: "REFRIGERIO",
       items: [
         { nombre: "Chocolate · 100 g", precio: 1290, categoria: "Refrigerio" },
         { nombre: "Galleta surtida · 200 g", precio: 1490, categoria: "Refrigerio" },
@@ -1381,7 +1411,7 @@ window.Tienda3D = (function () {
         { nombre: "Barra cereal · 40 g", precio: 790, categoria: "Refrigerio" },
         { nombre: "Café listo · 250 ml", precio: 1590, categoria: "Bebidas" }
       ] },
-    { x: 4.8, z: 8.9, titulo: "REFRIGERADOS",
+    { x: 4.8, z: 9.15, titulo: "REFRIGERADOS",
       items: [
         { nombre: "Leche entera · 1 L", precio: 1790, categoria: "Lácteos" },
         { nombre: "Yogur natural · 1 kg", precio: 2490, categoria: "Lácteos" },
@@ -1606,6 +1636,7 @@ window.Tienda3D = (function () {
   }
 
   function crearZonaFresca() {
+    if (!ISLAS_FRESCAS.length) return;
     const madera = new T.MeshLambertMaterial({ color: 0x7a5433 });
     const maderaOsc = new T.MeshLambertMaterial({ color: 0x4c3421 });
     const verde = new T.MeshLambertMaterial({ color: 0x1d5a2c });
@@ -1640,6 +1671,7 @@ window.Tienda3D = (function () {
           caja(0.56, 0.04, 0.54, x, 0.70, z, madera, g);
           const tipo = isla.items[(k + (lado > 0 ? 2 : 0)) % isla.items.length];
           const F = FRESCOS[tipo];
+          if (!F) return;                 // tipo mal escrito: se salta la caja
           const prod = {
             id: "fresco-" + tipo + "-" + ii,
             nombre: F.nombre, categoria: "Frutas y verduras",
@@ -1719,6 +1751,7 @@ window.Tienda3D = (function () {
       mesh.instanceMatrix.needsUpdate = true;
       if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
       mesh.name = "fresco-" + tipo;
+      frescosPilas.push({ mesh: mesh, n: e.mats.length });
       mesh.castShadow = true;
       mesh.receiveShadow = true;
       mesh.frustumCulled = false;
@@ -1738,7 +1771,7 @@ window.Tienda3D = (function () {
       pnl.position.set(isla.x, 2.99, isla.z);
       if (grupoLED.techo) grupoLED.techo.add(pnl); else scene.add(pnl);
     });
-    const luzFresca = new T.PointLight(0xfff0d8, 0.6, 15, 0);
+    luzFresca = new T.PointLight(0xfff0d8, 0.6, 15, 0);
     luzFresca.position.set(0, 2.8, 7.2);
     scene.add(luzFresca);
 
@@ -1760,6 +1793,7 @@ window.Tienda3D = (function () {
   /* Isla refrigerada de una cara: tres repisas iluminadas, productos de las
      mismas familias que la góndola y cartel de categoría. */
   function crearIslaRefri(cfg) {
+    if (!cfg || !cfg.items || !cfg.items.length) return;
     const g = new T.Group();
     g.name = "isla-refri-" + cfg.titulo;
     g.position.set(cfg.x, 0, cfg.z);
@@ -1950,6 +1984,48 @@ window.Tienda3D = (function () {
     });
   }
 
+  /* Señalización colgante de pasillo: un cartel por pasillo, a la altura de
+     la vista y por encima de los productos, con la categoría real del mueble
+     y su número. Es lo que hace que un local se lea como súper desde la
+     entrada, y no solo de cerca. Dos caras por cartel (una por sentido de
+     marcha) para que el texto nunca se vea espejado. */
+  function crearSenalesPasillo() {
+    if (!catsGondola.length) return;
+    const poste = new T.MeshLambertMaterial({ color: 0x2a3036 });
+    const varillas = [];
+    for (let i = 0; i < GONDOLAS.length - 1; i++) {
+      const x = (GONDOLAS[i] + GONDOLAS[i + 1]) / 2;
+      const cat = catsGondola[i] || catsGondola[i + 1] || "Pasillo";
+      const mat = new T.MeshBasicMaterial({
+        map: texturaCartel(cat, i + 1), side: T.FrontSide
+      });
+      // 1024×256 = 4:1; el placo conserva esa proporción y cabe en el
+      // pasillo (1,78 m entre caras) sin tocar los productos del nivel alto
+      [0, Math.PI].forEach((ry, k) => {
+        const m = new T.Mesh(new T.PlaneGeometry(1.52, 0.38), mat);
+        m.name = "senal-" + cat;
+        m.position.set(x, 2.90, k ? -0.012 : 0.012);
+        m.rotation.y = ry;
+        scene.add(m);
+        senalesMallas++;
+      });
+      [-0.72, 0.72].forEach((dx) => varillas.push([x + dx, 0]));
+    }
+    if (varillas.length) {
+      const im = new T.InstancedMesh(
+        new T.BoxGeometry(0.03, 0.11, 0.03), poste, varillas.length
+      );
+      const m4 = new T.Matrix4();
+      varillas.forEach((v, i) => {
+        m4.makeTranslation(v[0], 3.145, v[1]);
+        im.setMatrixAt(i, m4);
+      });
+      im.instanceMatrix.needsUpdate = true;
+      im.castShadow = false;
+      scene.add(im);
+    }
+  }
+
   /* ── construcción ──────────────────────────────────────────────────────── */
   function construir(catalogo) {
     scene = new T.Scene();
@@ -1971,6 +2047,11 @@ window.Tienda3D = (function () {
     mallasProd = [];
     frescosMallas = 0;
     refriMallas = 0;
+    frescosPilas = [];
+    tapasGondola = [];
+    luzFresca = null;
+    decoErr = "";
+    senalesMallas = 0;
 
     camera = new T.PerspectiveCamera(fovBase, 1, 0.05, 90);
 
@@ -2429,6 +2510,7 @@ window.Tienda3D = (function () {
           tapas.castShadow = true;
           tapas.userData.mapa = mesh.userData.mapa;
           scene.add(tapas);
+          tapasGondola.push(tapas);
         }
 
         /* Etiqueta: malla aparte, mirando al pasillo. Banda curva en los
@@ -2762,14 +2844,26 @@ window.Tienda3D = (function () {
     tvReloj = setInterval(() => { if (vivo) pintarTV(); }, 1000);
 
     /* Zona fresca de entrada: islas de verdura, islas refrigeradas y los
-       anuncios de pared. Es lo primero que se ve al entrar. */
-    crearZonaFresca();
-    REFRIGERADOS.forEach((cfg) => crearIslaRefri(cfg));
-    crearAnuncios();
+       anuncios. Va en su propio try/catch por pieza: si una sale mal, la
+       tienda sigue abriendo con góndolas y neveras y el fallo queda en
+       `__t3d().decoErr` en vez de dejar la escena a medias. */
+    const deco = [crearZonaFresca, crearAnuncios, crearSenalesPasillo]
+      .concat(REFRIGERADOS.map((cfg) => () => crearIslaRefri(cfg)));
+    deco.forEach((fn) => {
+      try {
+        fn();
+      } catch (e) {
+        if (!decoErr) decoErr = String((e && e.message) || e).slice(0, 120);
+        if (window.console && console.warn) console.warn("decorado 3D:", e);
+      }
+    });
 
     carrito = crearCarrito();
     carrito.scale.setScalar(1.05);
-    carrito.position.set(pos.x, 0, pos.z - 1.5);
+    /* El carrito nace en un hueco libre: antes aparecía dentro de la isla
+       central de verduras. */
+    const hueco = huecoCarrito();
+    carrito.position.set(hueco.x, 0, hueco.z);
     carrito.rotation.y = yaw;
     scene.add(carrito);
 
@@ -2777,6 +2871,7 @@ window.Tienda3D = (function () {
     aplicarLEDs();
 
     mallasProd = mallasGondola.concat(mallasCong, mallasProd);
+    ajustarZonaFresca();
     raycaster = new T.Raycaster();
     puntero = new T.Vector2();
     reloj = new T.Clock();
@@ -2908,6 +3003,22 @@ window.Tienda3D = (function () {
     document.querySelectorAll("#t3dCal [data-cal]").forEach((b) => {
       b.classList.toggle("on", b.dataset.cal === calidad);
     });
+    ajustarZonaFresca();
+  }
+
+  /* La zona fresca se adapta al perfil sin reconstruir la escena:
+     `InstancedMesh.count` dibuja menos piezas y las tapas se apagan. En
+     `baja` la caja se ve igual de llena (8 frutas alcanzan), pero cuesta
+     un tercio de los vértices y del overdraw. */
+  function ajustarZonaFresca() {
+    const nivel = calidad === "auto" ? perfil : calidad;
+    const q = NIVELES_CALIDAD[nivel] || NIVELES_CALIDAD.media;
+    const tope = { alta: 20, media: 14, baja: 8 }[nivel] || 14;
+    frescosPilas.forEach((e) => {
+      if (e && e.mesh) e.mesh.count = Math.min(e.n, tope);
+    });
+    tapasGondola.forEach((m) => { if (m) m.visible = nivel !== "baja"; });
+    if (luzFresca) luzFresca.visible = !!q.puntos;
   }
 
   function crearCamaras() {
@@ -4199,6 +4310,8 @@ window.Tienda3D = (function () {
     catUsada = null;
     refs = { piso: null, muro: [], techo: [], metal: [] };
     mallasGondola = []; mallasCong = []; mallasProd = [];
+    frescosMallas = 0; refriMallas = 0; senalesMallas = 0;
+    frescosPilas = []; tapasGondola = []; luzFresca = null;
     puertas = []; tv = null; tvTextura = null; tvCanvas = null;
     luzTV = null; camaras = []; carrito = null; carritoRuedas = [];
     promos = []; vuelos = [];
@@ -4427,6 +4540,10 @@ window.Tienda3D = (function () {
     // mallas seleccionables: niveles de góndola + niveles de nevera
     gond: mallasGondola.length, cong: mallasCong.length,
     frescos: frescosMallas, refri: refriMallas,
+    frescosN: frescosPilas.reduce((n, e) => n + (e.mesh ? e.mesh.count : 0), 0),
+    senales: senalesMallas,
+    cal: calidad === "auto" ? perfil : calidad,
+    decoErr: decoErr,
     ficha: !!fichaP, fichaNom: fichaP ? fichaP.nombre : "", vuelos: vuelos.length,
     local: tiendaActiva, cat: !!catPendiente, escena: escenaOk,
     err3d: ultimoError,
