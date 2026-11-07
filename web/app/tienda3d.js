@@ -68,17 +68,17 @@ window.Tienda3D = (function () {
      negro, y puntos de techo cálidos. El preset define el ambiente. */
   const luces = { amb: null, hemi: null, sol: null, relleno: null, contra: null, puntos: [] };
   const LUCES = {
-    confort: { amb: 0.50, hemi: 0.56, dir: 0.88, rell: 0.32, color: 0xfff9f2, exp: 1.06,
+    confort: { amb: 0.62, hemi: 0.68, dir: 0.95, rell: 0.34, color: 0xfff9f2, exp: 1.16,
       desc: "Luz de supermercado: blanca, pareja y brillante, con sombras suaves." },
-    calido:  { amb: 0.34, hemi: 0.38, dir: 0.66, rell: 0.24, color: 0xffe0b0, exp: 1.02,
+    calido:  { amb: 0.42, hemi: 0.46, dir: 0.72, rell: 0.26, color: 0xffe0b0, exp: 1.10,
       desc: "Luz de tienda de barrio: tono ámbar y sombras marcadas." },
-    neutro:  { amb: 0.40, hemi: 0.46, dir: 0.74, rell: 0.30, color: 0xffffff, exp: 1.03,
+    neutro:  { amb: 0.50, hemi: 0.58, dir: 0.82, rell: 0.32, color: 0xffffff, exp: 1.12,
       desc: "Luz pareja de supermercado: blanco neutro y sombras suaves." },
-    frio:    { amb: 0.36, hemi: 0.42, dir: 0.66, rell: 0.32, color: 0xd6e9ff, exp: 1.02,
+    frio:    { amb: 0.44, hemi: 0.52, dir: 0.72, rell: 0.34, color: 0xd6e9ff, exp: 1.10,
       desc: "Tono de cámara frigorífica: azulado y limpio." },
-    cine:    { amb: 0.22, hemi: 0.24, dir: 0.98, rell: 0.14, color: 0xfff3e0, exp: 0.98,
+    cine:    { amb: 0.26, hemi: 0.28, dir: 1.02, rell: 0.16, color: 0xfff3e0, exp: 1.04,
       desc: "Contraste cinematográfico: sombras profundas y foco cálido." },
-    lima:    { amb: 0.34, hemi: 0.40, dir: 0.68, rell: 0.26, color: 0xf2ffe0, exp: 1.02,
+    lima:    { amb: 0.42, hemi: 0.48, dir: 0.74, rell: 0.28, color: 0xf2ffe0, exp: 1.10,
       desc: "Resplandor lima FORGE: contra-luz verde sobre muros claros." }
   };
   let luzActual = "confort", intensidadLuz = 1, orbitaLuz = 20;
@@ -117,9 +117,9 @@ window.Tienda3D = (function () {
      el mapa de sombras. En móvil lo caro es el relleno: por eso baja recorta
      densidad, luces y sombras antes que geometría. */
   const NIVELES_CALIDAD = {
-    alta:  { pr: 1.5,  sombra: 2048, puntos: true,  contacto: true,  sombras: true },
-    media: { pr: 1.2,  sombra: 1024, puntos: true,  contacto: true,  sombras: true },
-    baja:  { pr: 0.95, sombra: 512,  puntos: false, contacto: false, sombras: false }
+    alta:  { pr: 1.35, sombra: 1536, puntos: true,  contacto: true,  sombras: true },
+    media: { pr: 1.05, sombra: 1024, puntos: false, contacto: false, sombras: true },
+    baja:  { pr: 0.85, sombra: 512,  puntos: false, contacto: false, sombras: false }
   };
   let calidad = "auto", perfil = "media";
   /* ¿Se probó WebGL y se detectó la GPU? Se hace una sola vez por sesión:
@@ -882,27 +882,71 @@ window.Tienda3D = (function () {
     return hex(mezclaNum(base, PALETA[h % PALETA.length], 0.42));
   }
 
+  /* Marcas de la casa: se reparten por hash del nombre, así dos productos
+     distintos no comparten etiqueta y se lee como un súper real. */
+  const MARCAS = [
+    "ANDINA", "CUMBRE", "TRÉBOL", "COSTA", "AURORA",
+    "DEL VALLE", "NORTE", "SOLAR", "PRADERA", "VOLCÁN"
+  ];
+  function marcaDe(p) {
+    const s = String((p && p.nombre) || "");
+    let h = 7;
+    for (let i = 0; i < s.length; i++) h = (h * 33 + s.charCodeAt(i)) >>> 0;
+    return MARCAS[h % MARCAS.length];
+  }
+  const FAMILIA_TXT = {
+    botella: "BOTELLA", vidrio: "VIDRIO", lata: "LATA", frasco: "FRASCO",
+    yogur: "POTE", tetra: "TETRA", caja: "CAJA", bolsa: "BOLSA"
+  };
+  const FAMILIA_PICTO = {
+    botella: "botella", vidrio: "botella", lata: "lata", frasco: "tubo",
+    yogur: "tubo", tetra: "caja", caja: "caja", bolsa: "bolsa"
+  };
+
   function luminancia(c) {
     const r = parseInt(c.slice(1, 3), 16), g = parseInt(c.slice(3, 5), 16), b = parseInt(c.slice(5, 7), 16);
     return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
   }
 
-  function matForma(forma, p) {
-    const t = colorDe(p);
+  /* Entorno precalculado (PMREM) con el techo y las paredes del local: es
+     lo que hace que una lata o una botella devuelvan un reflejo creíble en
+     vez de un plano muerto. Se genera una sola vez por renderer. */
+  let entornoMap = null;
+
+  function matForma(forma, p, sinColor) {
+    const t = sinColor ? "#ffffff" : colorDe(p);
+    const conEnv = (m, fuerza) => {
+      if (entornoMap) {
+        m.envMap = entornoMap;
+        m.reflectivity = fuerza;
+        m.combine = T.MixOperation;
+      }
+      return m;
+    };
     if (forma === "vidrio") {
-      return new T.MeshStandardMaterial({
+      const m = new T.MeshStandardMaterial({
         color: new T.Color(t).multiplyScalar(0.55), roughness: 0.12,
         metalness: 0.05, transparent: true, opacity: 0.88
       });
+      if (entornoMap) { m.envMap = entornoMap; m.envMapIntensity = 1.15; }
+      return m;
     }
     if (forma === "lata") {
-      return new T.MeshPhongMaterial({ color: 0xc9ced3, specular: 0xffffff, shininess: 150, reflectivity: 0.9 });
+      return conEnv(new T.MeshPhongMaterial({
+        color: 0xc9ced3, specular: 0xffffff, shininess: 150
+      }), 0.85);
     }
     if (forma === "botella") {
-      return new T.MeshPhongMaterial({ color: 0xeaf4fb, specular: 0xffffff, shininess: 95, transparent: true, opacity: 0.94 });
+      return conEnv(new T.MeshPhongMaterial({
+        color: 0xeaf4fb, specular: 0xffffff, shininess: 110,
+        transparent: true, opacity: 0.94
+      }), 0.55);
     }
     if (forma === "frasco") {
-      return new T.MeshPhongMaterial({ color: t, specular: 0xffffff, shininess: 120, transparent: true, opacity: 0.9 });
+      return conEnv(new T.MeshPhongMaterial({
+        color: t, specular: 0xffffff, shininess: 130,
+        transparent: true, opacity: 0.9
+      }), 0.5);
     }
     if (forma === "yogur") {
       return new T.MeshPhongMaterial({ color: 0xf7f7f3, specular: 0xffffff, shininess: 45 });
@@ -911,6 +955,38 @@ window.Tienda3D = (function () {
       return new T.MeshPhongMaterial({ color: t, specular: 0xffffff, shininess: 60 });
     }
     return new T.MeshLambertMaterial({ color: t });
+  }
+
+  /* Sala mínima para el PMREM: techo luminoso, pared cálida, pared fría y
+     piso oscuro. Cuesta una sola pasada al abrir; después todos los
+     materiales reflectantes leen la misma textura. */
+  function crearEntorno() {
+    if (!T || !renderer || entornoMap) return;
+    try {
+      const pm = new T.PMREMGenerator(renderer);
+      pm.compileCubemapShader();
+      const sala = new T.Scene();
+      const cara = (w, h, color, x, y, z, rx, ry) => {
+        const m = new T.Mesh(new T.PlaneGeometry(w, h), new T.MeshBasicMaterial({ color: color }));
+        m.position.set(x, y, z);
+        if (rx) m.rotation.x = rx;
+        if (ry) m.rotation.y = ry;
+        sala.add(m);
+      };
+      cara(26, 26, 0x2a2d31, 0, -5.9, 0, -Math.PI / 2, 0);   // piso
+      cara(10, 16, 0xfff6e2, 0, 5.85, 0, Math.PI / 2, 0);    // techo encendido
+      cara(18, 6, 0xffd9a8, -11.8, 0.6, 0, 0, Math.PI / 2);  // pared cálida
+      cara(18, 6, 0xbcd6ff, 11.8, 0.6, 0, 0, -Math.PI / 2);  // pared fría
+      cara(26, 12, 0x555b62, 0, 0.6, -11.8, 0, 0);           // fondo
+      cara(26, 12, 0x4a5058, 0, 0.6, 11.8, 0, Math.PI);      // frente
+      const rt = pm.fromScene(sala, 0.035);
+      entornoMap = rt.texture;
+      pm.dispose();
+      sala.traverse((o) => {
+        if (o.geometry) o.geometry.dispose();
+        if (o.material) o.material.dispose();
+      });
+    } catch (e) { entornoMap = null; }
   }
 
   /* Etiqueta de envase: banda de marca, panel de papel con el nombre,
@@ -942,13 +1018,25 @@ window.Tienda3D = (function () {
     g.fillRect(0, 0, W, bh);
     g.fillStyle = tinte;
     g.fillRect(0, bh - Math.max(2, Math.round(H * 0.010)), W, Math.max(2, Math.round(H * 0.010)));
-    g.textAlign = "left";
+
+    /* Marca a la izquierda y familia a la derecha: así se distingue una
+       lata de una botella antes de leer el nombre. */
+    const marca = String(o.marca || "CORE STOCK");
+    const familia = FAMILIA_TXT[o.forma] || "PRODUCTO";
     g.textBaseline = "middle";
+    g.textAlign = "left";
     g.fillStyle = "#ffffff";
-    g.font = "800 " + Math.round(bh * 0.40) + "px -apple-system, Segoe UI, Roboto, sans-serif";
-    g.fillText("CORE STOCK", W * 0.055, bh * 0.52);
+    let fm = Math.round(bh * 0.40);
+    g.font = "800 " + fm + "px -apple-system, Segoe UI, Roboto, sans-serif";
+    while (fm > 7 && g.measureText(marca).width > W * 0.60) {
+      fm -= 1;
+      g.font = "800 " + fm + "px -apple-system, Segoe UI, Roboto, sans-serif";
+    }
+    g.fillText(marca, W * 0.055, bh * 0.52);
+    g.textAlign = "right";
     g.fillStyle = tinte;
-    g.fillRect(W * 0.865, bh * 0.28, W * 0.08, bh * 0.44);
+    g.font = "800 " + Math.round(bh * 0.28) + "px -apple-system, Segoe UI, Roboto, sans-serif";
+    g.fillText(familia, W * 0.945, bh * 0.53);
 
     const px = W * 0.055, pw = W * 0.89;
     const py = H * 0.185, ph = H * 0.535;
@@ -1031,7 +1119,10 @@ window.Tienda3D = (function () {
     const c = document.createElement("canvas");
     c.width = W; c.height = H;
     const g = c.getContext("2d");
-    dibuEtiqueta(g, W, H, { nombre: p && p.nombre, tinte: colorDe(p) });
+    dibuEtiqueta(g, W, H, {
+      nombre: p && p.nombre, tinte: colorDe(p),
+      marca: marcaDe(p), forma: formaDe(p)
+    });
     const t = new T.CanvasTexture(c);
     t.encoding = T.sRGBEncoding;
     t.anisotropy = anisoMax();
@@ -1770,29 +1861,9 @@ window.Tienda3D = (function () {
     const NIV_CONG = [0.45, 0.95, 1.45, 1.98];
     const H_CONG = 2.45, W_CONG = 2.4, D_CONG = 1.05;
 
-    // Portada por estante de congelados (una por nivel, compartida por las
-    // 7 neveras): cajas y bolsas llevan envase dibujado; botellas y tubos
-    // conservan el color del plástico.
-    const TIT_CONG = ["Cocina", "Helados", "Bebidas", "Postres"];
-    const PICTO_CONG = ["caja", "tubo", "botella", "bolsa"];
-    const matCajaCong = CONG_NIVELES.map((items, ni) => new T.MeshLambertMaterial({
-      color: 0xffffff,
-      map: texturaPortada({ cat: "Congelados", texto: TIT_CONG[ni], picto: PICTO_CONG[ni], S: 256 })
-    }));
-
     // una tira por estante, compartida por las 7 neveras
     const tirasCong = CONG_NIVELES.map((n) => texturaTira(n, 1536, 128));
 
-    // productos instanciados: 2 draw calls por nevera en vez de 60 sueltos
-    const geoCajaC = new T.BoxGeometry(1, 1, 1);
-    const geoCilC = new T.CylinderGeometry(0.5, 0.5, 1, 10);
-    const matProd = new T.MeshLambertMaterial({ color: 0xffffff });
-    const COLS = {
-      caja: [0xff8a3d, 0xe8c87a, 0xd98a3d, 0xffb020],
-      bolsa: [0x6fbf73, 0x3ddc84, 0x9fd88f, 0xc8f542],
-      tubo: [0xff9ec4, 0xb48cff, 0xffd6e7, 0xc8b6ff],
-      botella: [0x9fd8ff, 0xffffff, 0xcfe9ff, 0xffe3ef]
-    };
     const UP = new T.Vector3(0, 1, 0);
     // sombra de contacto: mancha suave bajo el mueble, como en un local real
 
@@ -1841,9 +1912,8 @@ window.Tienda3D = (function () {
       g.add(sombraPiso);
       mallasContacto.push(sombraPiso);
 
-      const bufer = { caja: [[], [], [], []], cil: [] };
-
-      // 4 estantes: repisa + tira de precios + dos filas de productos
+      // 4 estantes: repisa + tira de precios (los productos van aparte,
+      // compartidos por las 7 neveras)
       CONG_NIVELES.forEach((items, ni) => {
         const sy = NIV_CONG[ni];
         caja(W_CONG - 0.2, 0.045, D_CONG - 0.16, 0, sy, -0.02, repisa);
@@ -1854,55 +1924,7 @@ window.Tienda3D = (function () {
         );
         tira.position.set(0, sy - 0.075, D_CONG / 2 - 0.08);
         g.add(tira);
-
-        [0.2, -0.12].forEach((z, fila) => {
-          items.forEach((it, k) => {
-            const alto = it.tipo === "botella" ? 0.26 : it.tipo === "tubo" ? 0.14
-              : it.tipo === "bolsa" ? 0.26 : 0.2;
-            const ancho = it.tipo === "botella" ? 0.1 : it.tipo === "tubo" ? 0.17
-              : it.tipo === "bolsa" ? 0.24 : 0.3;
-            const fondo = it.tipo === "bolsa" ? 0.12 : it.tipo === "caja" ? 0.2 : 0.1;
-            const m = new T.Matrix4();
-            m.compose(
-              new T.Vector3(-0.92 + k * 0.368 + (fila ? 0.05 : 0),
-                            sy + 0.025 + alto / 2, z),
-              new T.Quaternion().setFromAxisAngle(UP, (((k + fila) % 3) - 1) * 0.12),
-              new T.Vector3(ancho, alto, fondo)
-            );
-            const esCaja = it.tipo === "caja" || it.tipo === "bolsa";
-            const prod = {
-              id: "cong-" + ni + "-" + k, nombre: it.nombre,
-              categoria: "Congelados", precio: it.precio, tipo: it.tipo,
-              stock: 8 + ((ni * 7 + k * 5) % 26)
-            };
-            const d = { m: m, color: COLS[it.tipo][(k + fila) % 4], p: prod };
-            if (esCaja) bufer.caja[ni].push(d); else bufer.cil.push(d);
-          });
-        });
       });
-
-      const tmpC = new T.Color();
-      // una malla por nivel (caja/bolsa con portada) y otra por las redondas
-      const armar = (arr, geo, mat) => {
-        if (!arr || !arr.length) return;
-        const mesh = new T.InstancedMesh(geo, mat, arr.length);
-        const conMapa = !!(mat && mat.map);
-        arr.forEach((d, k) => {
-          mesh.setMatrixAt(k, d.m);
-          if (conMapa) tmpC.setRGB(0.95, 0.95, 0.95);   // la portada manda
-          else tmpC.setHex(d.color);
-          mesh.setColorAt(k, tmpC);
-        });
-        mesh.instanceMatrix.needsUpdate = true;
-        if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-        mesh.castShadow = true;
-        mesh.receiveShadow = true;
-        mesh.userData.mapa = arr.map((d) => d.p);
-        g.add(mesh);
-        mallasCong.push(mesh);
-      };
-      bufer.caja.forEach((arr, ni) => armar(arr, geoCajaC, matCajaCong[ni]));
-      armar(bufer.cil, geoCilC, matProd);
 
       // puertas de vidrio corredizas: una fija y una que corre por delante
       [-0.56, 0.56].forEach((hx, hi) => {
@@ -1931,7 +1953,83 @@ window.Tienda3D = (function () {
     }
 
     // Pasillo largo de congeladores en la pared del fondo (miran a la tienda).
-    [-7.65, -5.1, -2.55, 0, 2.55, 5.1, 7.65].forEach((cx) => crearCongelador(cx, -LARGO / 2 + 0.55, 0));
+    const CONG_X = [-7.65, -5.1, -2.55, 0, 2.55, 5.1, 7.65];
+    CONG_X.forEach((cx) => crearCongelador(cx, -LARGO / 2 + 0.55, 0));
+
+    /* Productos de nevera: misma familia geométrica y misma etiqueta que la
+       góndola, pero construidos UNA vez para las 7 neveras con matrices de
+       mundo. Así las 84 unidades del nivel cuestan un puñado de draw calls
+       en vez de repetir el mueble entero. */
+    (function crearProductosCongelados() {
+      const cz = -LARGO / 2 + 0.55;
+      const cuerpos = new Map();     // forma → matrices + productos
+      const etiquetas = new Map();   // nombre → matrices + producto
+
+      CONG_NIVELES.forEach((items, ni) => {
+        const sy = NIV_CONG[ni];
+        items.forEach((it, k) => {
+          const prod = {
+            id: "cong-" + ni + "-" + k, nombre: it.nombre,
+            categoria: "Congelados", precio: it.precio,
+            stock: 8 + ((ni * 7 + k * 5) % 26)
+          };
+          const forma = formaDe(prod);
+          const tam = TAMANO[forma] || TAMANO.caja;
+          [0.2, -0.12].forEach((z, fila) => {
+            const giro = new T.Quaternion().setFromAxisAngle(UP, (((k + fila) % 3) - 1) * 0.10);
+            CONG_X.forEach((cx) => {
+              const m = new T.Matrix4().compose(
+                new T.Vector3(cx - 0.92 + k * 0.368 + (fila ? 0.05 : 0),
+                  sy + 0.03 + tam.alto / 2, cz + z),
+                giro,
+                new T.Vector3(tam.ancho, tam.alto, tam.fondo / tam.fondoGeo)
+              );
+              const c = cuerpos.get(forma) || { mats: [], prods: [] };
+              c.mats.push(m); c.prods.push(prod);
+              cuerpos.set(forma, c);
+              const e = etiquetas.get(prod.nombre) || { mats: [], prod: prod };
+              e.mats.push(m);
+              etiquetas.set(prod.nombre, e);
+            });
+          });
+        });
+      });
+
+      const tmpC = new T.Color();
+      cuerpos.forEach((c, forma) => {
+        const mesh = new T.InstancedMesh(
+          geoForma(forma), matForma(forma, c.prods[0], true), c.mats.length
+        );
+        c.mats.forEach((m, i) => {
+          mesh.setMatrixAt(i, m);
+          tmpC.set(colorDe(c.prods[i]));
+          mesh.setColorAt(i, tmpC);
+        });
+        mesh.instanceMatrix.needsUpdate = true;
+        if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        mesh.frustumCulled = false;
+        mesh.userData.mapa = c.prods;
+        scene.add(mesh);
+        mallasCong.push(mesh);
+      });
+
+      etiquetas.forEach((e) => {
+        const forma = formaDe(e.prod);
+        const mesh = new T.InstancedMesh(
+          geoEtiqueta(forma),
+          new T.MeshLambertMaterial({ map: texturaEtiqueta(e.prod, 192) }),
+          e.mats.length
+        );
+        e.mats.forEach((m, i) => mesh.setMatrixAt(i, m));
+        mesh.instanceMatrix.needsUpdate = true;
+        mesh.frustumCulled = false;
+        mesh.userData.mapa = e.mats.map(() => e.prod);
+        scene.add(mesh);
+        mallasCong.push(mesh);
+      });
+    })();
 
     /* televisor en la esquina del fondo, con su herraje de pared */
     const tvGrupo = new T.Group();
@@ -2228,12 +2326,12 @@ window.Tienda3D = (function () {
        4,8 y se "volaba" el pasillo). La velocidad se acerca al objetivo
        con una exponencial: arranca suave, frena suave, sin tirones. */
     const corriendoAhora = corriendo || teclas.ShiftLeft || teclas.ShiftRight;
-    const velMax = corriendoAhora ? 4.2 : 2.0;   // paso firme, no arrastrado
+    const velMax = corriendoAhora ? 5.6 : 2.9;   // paso firme y carrera real
     const fx = -Math.sin(yaw), fz = -Math.cos(yaw);     // adelante
     const dx = Math.cos(yaw), dz = -Math.sin(yaw);      // derecha
     const objX = (fx * avance + dx * lateral) * velMax;
     const objZ = (fz * avance + dz * lateral) * velMax;
-    const kAcel = 1 - Math.exp(-dt * (avance || lateral ? 16 : 20));
+    const kAcel = 1 - Math.exp(-dt * (avance || lateral ? 20 : 24));
     vel.x += (objX - vel.x) * kAcel;
     vel.z += (objZ - vel.z) * kAcel;
 
@@ -2284,7 +2382,7 @@ window.Tienda3D = (function () {
          que se recalculan 2-3 veces por segundo en vez de en cada frame. */
       if (renderer.shadowMap.enabled) {
         const ts = performance.now();
-        if (ts - sombraT > 400) { sombraT = ts; renderer.shadowMap.needsUpdate = true; }
+        if (ts - sombraT > 900) { sombraT = ts; renderer.shadowMap.needsUpdate = true; }
       }
       renderer.render(scene, camera);
 
@@ -2471,10 +2569,16 @@ window.Tienda3D = (function () {
     if (img && img.getContext) {
       const g = img.getContext("2d");
       g.clearRect(0, 0, img.width, img.height);
-      dibuPortada(g, img.width, {
-        cat: cat, nombre: p.nombre, texto: p.nombre,
-        picto: pictoDe(p), conNombre: true
+      /* La ficha muestra la MISMA etiqueta que el envase del pasillo: marca,
+         nombre, presentación y código. Antes dibujaba una portada cuadrada
+         distinta y parecía otro producto. */
+      const W2 = Math.round(img.width * 0.66), H2 = img.height;
+      g.save();
+      g.translate(Math.round((img.width - W2) / 2), 0);
+      dibuEtiqueta(g, W2, H2, {
+        nombre: p.nombre, tinte: colorDe(p), marca: marcaDe(p), forma: formaDe(p)
       });
+      g.restore();
     }
 
     const barra = $("t3dFichaBarra");
@@ -2928,10 +3032,24 @@ window.Tienda3D = (function () {
       };
     });
 
-    // barra superior: la navegación va por la API real de la app
+    // barra superior: menú plegable y navegación por la API real de la app
+    const menuBtn = $("t3dMenu"), navCaja = $("t3dNav");
+    const cerrarNav = () => {
+      if (!navCaja) return;
+      navCaja.hidden = true;
+      if (menuBtn) menuBtn.setAttribute("aria-expanded", "false");
+    };
+    if (menuBtn && navCaja) {
+      menuBtn.onclick = () => {
+        const abrir = navCaja.hidden;
+        navCaja.hidden = !abrir;
+        menuBtn.setAttribute("aria-expanded", String(abrir));
+      };
+    }
     document.querySelectorAll(".t3d-nav [data-ir]").forEach((b) => {
       b.onclick = () => {
         const a = b.dataset.ir;
+        cerrarNav();
         if (a === "mapa") { abrirMapa(); return; }
         if (a === "escena") { alternarLuces(); return; }
         if (a === "tienda") { aTienda(); return; }
@@ -3489,6 +3607,11 @@ window.Tienda3D = (function () {
         renderer.shadowMap.autoUpdate = false;
         renderer.shadowMap.needsUpdate = true;
 
+        /* Un renderer nuevo (tras perder el contexto) invalida la textura
+           del entorno: se vuelve a generar. */
+        entornoMap = null;
+        crearEntorno();
+
         caja.addEventListener("webglcontextlost", (e) => {
           e.preventDefault();
           const c = $("t3dCargando");
@@ -3527,6 +3650,9 @@ window.Tienda3D = (function () {
         catUsada = catalogo;
         escenaOk = true;
         aplicarTexturasHD();
+        /* Compila los shaders antes del primer frame: sin esto, el teléfono
+           se traba justo al entrar (la compilación se reparte en frames). */
+        try { renderer.compile(scene, camera); } catch (e) { /* sin soporte */ }
       }
       if (!enganchado) { enganchar(); enganchado = true; }
       aplicarCalidad();
@@ -3560,6 +3686,8 @@ window.Tienda3D = (function () {
 
   function cerrar() {
     vivo = false;
+    const nv = $("t3dNav");
+    if (nv) nv.hidden = true;
     document.body.classList.remove("en-tienda");  // vuelve la navegación
     puerta = null;
     mirar = null;

@@ -451,3 +451,92 @@ aparecen al entrar desde `#mercado` y no hay errores de página en ningún caso.
 (SwiftShader) el contexto WebGL muere a los 10–25 s, así que la captura no es
 fiable; además Chrome vacía el canvas de una `CanvasTexture` después de subirla
 a la GPU. La comprobación es por sonda y por las texturas 2D, no por captura.
+
+---
+
+## Ronda 2 · velocidad, brillo de producción, envases con marca y caché
+
+Objetivo pedido: que el visor se sienta rápido, que la luz se vea "de video",
+que la barra superior y los controles dejen de estorbar, que los envases se
+distingan entre sí y que al abrir la app no cargue la versión anterior.
+
+### Velocidad
+- **Perfil de calidad más barato** (`NIVELES_CALIDAD`): `pr` 1.35 / 1.05 /
+  0.85, sombra 1536 / 1024 / 512. En `media` se apagan las 4 luces puntuales
+  y las sombras de contacto; en `baja` también el mapa de sombras. El relleno
+  por fragmento era el gasto dominante en móvil.
+- **Velocidad de marcha**: `velMax` 2.9 m/s caminando y 5.6 m/s corriendo
+  (antes 2.0 / 4.2) y aceleración 20 / 24 (antes 16 / 20). La sensación de
+  "lag" era en gran parte la inercia, no los FPS.
+- **Sombras cada 900 ms** en vez de 400 ms: el local es estático.
+- **`renderer.compile(scene, camera)`** tras construir: los shaders se
+  compilan antes del primer frame en vez de repartirse en tirones al entrar.
+
+### Iluminación y brillo
+- **Exposición ACES más alta** en los seis presets (`confort` 1.16, `neutro`
+  1.12, `frio` 1.10, `calido` 1.10, `lima` 1.10, `cine` 1.04) y ambiente,
+  hemisférica y direccional subidas en la misma proporción. El objetivo es
+  color vivo sin quemar blancos.
+- **Entorno PMREM procedural** (`crearEntorno`): sala mínima con techo
+  encendido, pared cálida, pared fría y piso oscuro; se genera una sola vez
+  por renderer y se aplica como `envMap` a lata, botella, frasco y vidrio.
+  Es lo que hace que un envase devuelva un reflejo creíble en vez de un plano
+  muerto. Se regenera si el renderer se reconstruye tras perder el contexto.
+- `MeshPhysicalMaterial` para vidrio quedó descartado: en el rasterizador por
+  software del headless y en algunos móviles viejos no compila.
+
+### Envases: marca y familia
+- **Marca por producto** (`MARCAS` + `marcaDe`, hash del nombre): diez marcas
+  de la casa repartidas de forma estable. Dos productos distintos ya no
+  comparten etiqueta.
+- **Familia visible** en la banda superior (`FAMILIA_TXT`): BOTELLA, LATA,
+  CAJA, BOLSA, FRASCO, POTE, TETRA, VIDRIO. Se distingue el formato antes de
+  leer el nombre.
+- **Neveras rehechas**: antes eran cilindros blancos y cajas con la misma
+  portada repetida en las 7 puertas. Ahora comparten **las mismas familias
+  geométricas y la misma etiqueta que la góndola**, construidas una sola vez
+  en espacio de mundo para las 7 neveras (cuerpos por familia + etiquetas por
+  producto). `cong` pasó de 28 a 29 mallas con 194 hijos totales.
+- Se descartó un pictograma tenue de fondo en la etiqueta: se veía como una
+  mancha, no como arte de envase.
+
+### Interfaz
+- **Barra superior de una línea**: la fila permanente de cinco pestañas pasó a
+  un **menú plegable** (`#t3dMenu` → `#t3dNav`), hoja bajo la barra. El pedido
+  se compactó a una línea (`$total` + `n ped · n u`).
+- **Herramientas laterales** de rejilla 2×2 a **columna de iconos de 44 px**.
+- `--t3d-barra` bajó de **106 px a 56 px** en móvil; minimapa 96 px y panel de
+  precios a 152 px. La media query `max-width: 760px` ya no fuerza la rejilla
+  2×2 ni la fila de pestañas.
+
+### Caché y actualización
+- El service worker ya hacía `skipWaiting` + `clients.claim` y borraba cachés
+  viejas. Se añadió:
+  - **recarga única en `controllerchange`** (sólo si ya había un controlador,
+    para no recargar en la primera instalación);
+  - `reg.update()` al volver `online`, al volver a la pestaña y cada 30 min;
+  - botón **«Limpiar caché y actualizar»** (`#btnCache`) en Config, que
+    desregistra el SW, borra todas las cachés y recarga.
+- `sw.js` → **`fcore-v48`**.
+
+### Verificado
+Sonda `window.__t3d()` en headless, con el service worker desregistrado:
+```
+err3d ""  ·  góndola 24  ·  neveras 29  ·  hijos 194  ·  0 errores de página
+--t3d-barra 56px  ·  .t3d-tools grid-template-columns 44px  ·  .t3d-nav absolute
+```
+Menú: `document.getElementById('t3dMenu').click()` abre la hoja (370×237 bajo
+la barra) y el segundo clic la cierra. Con `p.click()` la prueba falla **sólo**
+porque en SwiftShader el contexto WebGL se pierde y la capa
+«La gráfica se reinició» tapa el HUD en ese instante; comprobado con
+`document.elementFromPoint` (`DIV.t3d-cargando`).
+
+Etiquetas revisadas como PNG: `fin0`–`fin3` (Arroz/DEL VALLE/BOLSA,
+Aceite/DEL VALLE/BOTELLA, Cerveza/ANDINA/LATA, Leche/COSTA/TETRA).
+
+Suites: `diseno` (48 comprobaciones, 253 clases del HTML con estilo),
+`boleta` 15, `arranque` 9/9, `inventario` 6/6, `seguridad` 23/23.
+
+**No verificado aquí**: FPS y aspecto en GPU real. En headless el contexto
+WebGL muere a los 10–25 s y la captura no es fiable; la comprobación es por
+sonda, por medidas de layout y por las texturas 2D.

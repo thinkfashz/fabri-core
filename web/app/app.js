@@ -597,13 +597,53 @@
     verificarConexion(true);
     setInterval(() => verificarConexion(true), 120000);
 
-    // service worker
+    /* Service worker: se actualiza solo. Cuando el navegador activa una
+       versión nueva, la página recarga UNA vez para no quedarse con el
+       JavaScript viejo en memoria (era lo que hacía "volver al sistema
+       anterior" tras publicar). En la primera instalación no recarga: no
+       hay nada viejo que reemplazar. */
     if ('serviceWorker' in navigator) {
       try {
-        await navigator.serviceWorker.register('./sw.js', { scope: './' });
+        const yaControlada = !!navigator.serviceWorker.controller;
+        const reg = await navigator.serviceWorker.register('./sw.js', { scope: './' });
         $('#bSw').textContent = 'listo';
+        let recargando = false;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          if (!yaControlada || recargando) return;
+          recargando = true;
+          location.reload();
+        });
+        const buscarVersion = () => {
+          if (!navigator.onLine) return;
+          reg.update().catch(() => { /* sin red */ });
+        };
+        addEventListener('online', buscarVersion);
+        document.addEventListener('visibilitychange', () => {
+          if (!document.hidden) buscarVersion();
+        });
+        setInterval(buscarVersion, 30 * 60 * 1000);
       } catch (e) { $('#bSw').textContent = 'no'; $('#bSw').className = 'badge warn'; }
     }
+
+    /* Botón manual: borra caché y registro para traer la versión publicada
+       ahora mismo (útil cuando el teléfono se queda pegado a una vieja). */
+    const btnCache = $('#btnCache');
+    if (btnCache) btnCache.onclick = async () => {
+      btnCache.disabled = true;
+      try {
+        if ('serviceWorker' in navigator) {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(regs.map((r) => r.unregister()));
+        }
+        const keys = await caches.keys();
+        await Promise.all(keys.map((k) => caches.delete(k)));
+        toast('Caché borrada: recargando la versión nueva');
+        setTimeout(() => location.reload(), 500);
+      } catch (e) {
+        btnCache.disabled = false;
+        toast('No se pudo limpiar la caché');
+      }
+    };
 
     // instalación PWA
     addEventListener('beforeinstallprompt', e => { e.preventDefault(); S.installEvt = e; });
