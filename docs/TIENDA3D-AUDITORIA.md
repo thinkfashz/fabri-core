@@ -793,3 +793,86 @@ contexto WebGL a los pocos segundos, así que la comprobación es por sonda, por
 las texturas renderizadas a PNG y por geometría medida. El FOV más amplio
 muestra más objetos por frame: si en el teléfono baja el ritmo, el panel de
 calidad ya recorta fruta, tapas y luces.
+
+## Ronda 6 · productos vacíos, tiras de precio, densidad y mapa público (v52)
+
+Todo esto sale de las capturas del teléfono, no de la sonda: el visor abría
+pero los envases se veían como **cuadrados vacíos**, la tira tenía **un solo
+precio gigante**, había **demasiados productos por estante**, el local se veía
+**blanco y sin sombras**, y el envase que vuela al carrito era **una caja
+genérica**.
+
+### Por qué los productos salían vacíos
+La carátula es un plano que se monta sobre la cara del envase. Su posición en
+profundidad estaba horneada en la geometría (`z = 0.365`) y esa geometría se
+escala con el envase. En las familias planas el cuerpo está comprimido en
+profundidad (`fondo / fondoGeo` ≈ 0,1), así que el plano quedaba en
+`0,365 × 0,1 = 3,65 cm` del centro: **dentro** de la caja, cuyo medio fondo es
+3,5 cm. Resultado: caja de color liso, sin carátula.
+
+- La geometría de la etiqueta quedó en `z = 0` y el desplazamiento se calcula
+  en el mundo con `matEtiqueta(forma, matriz, fondo)`:
+  `fondo / 2 + 3,5 mm` a lo largo del eje del envase. Vale para cualquier
+  tamaño de caja.
+- Se aplicó en los tres sitios: góndola, nevera de isla y congeladores.
+- Medido: cuerpo en `x = −6,710` y su etiqueta en `x = −6,672` → **3,8 cm**
+  hacia el pasillo, es decir 3,5 mm por delante de la cara.
+
+### Tira de precios
+Con dos SKU por estante el dibujo repartía el lienzo de 3072 px en **dos
+celdas**, así que cada precio ocupaba media tira de 8,86 m y el resto quedaba
+en blanco. Ahora pinta etiquetas de igual tamaño a lo largo de todo el filo y
+**alterna los SKU** (`items[i % n]`): 18 etiquetas por estante en la góndola.
+Alto del lienzo 48 → 64 px para que el precio tenga más cuerpo.
+Revisado como PNG: `$74.990 / $29.990` alternados, nombre, formato y filete.
+
+### Densidad
+- Paso entre productos **0,31 → 0,44 m**: de ~48 caras por nivel a ~34, con
+  27 cm de aire entre carátulas. Cada producto se lee por separado.
+
+### Luz y sombras
+- Todos los ambientes bajaron exposición y ambiente: **cine 0,82** (antes 0,94)
+  con key 1,42 y ambiente 0,17; confort 0,94; neutro 0,90; frío y cálido 0,88.
+  Menos velo blanco y más modelado.
+- Muro `0xffffff → 0xf4f1ea` y techo `0xe4e7e9 → 0xd6dade`: el blanco puro
+  llegaba a 1,0 y se comía las juntas.
+- Reflejo del piso 0,34 → 0,22.
+- **Sombras de contacto también en calidad baja**: son unos pocos planos y
+  son lo único que apoya los muebles cuando no hay mapa de sombras.
+
+### El envase que vuela al carrito
+Era `BoxGeometry` con la etiqueta pegada en las seis caras. Ahora es el envase
+real: `geoForma(forma)` con su tinte + carátula montada con `matEtiqueta`, y se
+guarda como grupo. `disponerObjeto()` libera geometrías y materiales de un mesh
+o de un grupo (la cesta y los vuelos usaban `mesh.geometry.dispose()` directo).
+
+### Carátulas del catálogo de la tienda
+El visor abre con el catálogo FORGE (Equipos, Insumos, Accesorios, Audio,
+Protección) y esas cinco categorías caían en el dibujo genérico. Se agregaron
+ilustraciones propias (terminal de venta, rollo de papel, cargador, parlante,
+escudo con candado, cámara), su acento y su paleta, más un selector por nombre
+para que una cámara IP no se dibuje como una báscula.
+
+### Mapa y visor: una sola experiencia pública
+- `PUBLICAS` pasó de `{tienda, mercado}` a **`{panel, tienda, mercado}`**: el
+  mapa abre sin cuenta, igual que el visor.
+- Desde el mapa, la hoja de cada local ya ofrecía «Ver tienda en 3D»; ahora el
+  camino de vuelta también existe: en el plano del local, botón **«Mapa de
+  locales»** (`#t3dMapaLocales`) que cierra el plano y abre `#panel`.
+- Verificado: `#panel` abre sin login (`s-panel`, sin `#login.on`), y `#inv`
+  sigue levantando la puerta de cuenta.
+
+### Verificado
+```
+__t3d()  err3d "" · gond 24 · cong 29 · frescos 12 · refri 8
+         senales 10 · anuncios 8 · 269 hijos · fov 92 · decoErr ""
+etiqueta vs cuerpo  −6,672 vs −6,710  → 3,8 cm hacia el pasillo
+tira 3072×64 → 18 etiquetas alternando dos SKU (PNG revisado)
+portadas del catálogo FORGE renderizadas y revisadas (PNG)
+suites: diseno ✔ · boleta 15 ✔ · arranque 9/9 ✔ · inventario 6/6 ✔ · seguridad 23/23 ✔
+sw.js → fcore-v52
+```
+
+**No verificado aquí**: aspecto final y FPS en GPU real (el headless pierde
+WebGL). Las capturas que originaron esta ronda sí son de GPU real: por eso los
+arreglos se midieron contra lo que se veía en pantalla, no contra la sonda.

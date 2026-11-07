@@ -459,7 +459,9 @@
   /* Pantallas de acceso libre: el visor 3D (con su minimapa y plano) y el
      catálogo del mercado. Todo lo demás (inventario, SQL, boletas, cuenta,
      consola) sigue exigiendo sesión. */
-  const PUBLICAS = { tienda: 1, mercado: 1 };
+  /* El mapa (Placer), el catálogo y el visor 3D son la misma experiencia
+     pública: se entra sin cuenta y desde el mapa se abre la tienda en 3D. */
+  const PUBLICAS = { panel: 1, tienda: 1, mercado: 1 };
 
   function go(id) {
     /* En modo visitante, entrar a una pantalla privada abre la cuenta en vez
