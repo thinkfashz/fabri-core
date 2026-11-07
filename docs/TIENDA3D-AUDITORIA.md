@@ -410,9 +410,10 @@ con un número gigante, algo que no existe en ningún supermercado.
    rugosidad 0,12 y metalness 0,05, translúcido), lata y botella
    `MeshPhongMaterial` con brillo alto, frasco translúcido, caja
    `MeshLambertMaterial` mate. Se descartó `MeshPhysicalMaterial` para el
-   vidrio: en el rasterizador por software del headless no compila
-   (`Shader Error 1282`, `VALIDATE_STATUS false`) y en móvil cuesta más por
-   fragmento; `MeshStandardMaterial` da el mismo PBR sin ese riesgo.
+   vidrio: añade funciones (IOR, `specularIntensity`) que cuestan más por
+   fragmento en móvil y en el rasterizador por software del headless no
+   compilan. `MeshStandardMaterial` da PBR de verdad (rugosidad/metalness)
+   con el shader estándar.
 4. **Color propio por producto** (`colorDe`): el tinte de la categoría se
    mezcla con un color de `PALETA` derivado del hash del nombre, así dos
    productos de la misma góndola no salen idénticos.
@@ -431,7 +432,6 @@ con un número gigante, algo que no existe en ningún supermercado.
 err3d ""  ·  hijos 165  ·  góndola 24 niveles  ·  neveras 28 niveles
 geometrías: LatheGeometry, ExtrudeGeometry, CylinderGeometry, PlaneGeometry
 materiales: MeshPhongMaterial, MeshStandardMaterial, MeshLambertMaterial
-0 errores de shader en consola (con MeshPhysicalMaterial salían 5)
 24 etiquetas con mapa · 0 errores de página
 ```
 Texturas revisadas como PNG (generadas directamente del canvas 2D):
@@ -441,6 +441,11 @@ Bebida `#4ebecb`.
 
 Suites: `diseno` 48, `boleta` 15, `arranque` 9/9, `inventario` 6/6,
 `seguridad` 23/23. `sw.js` → `fcore-v47`.
+
+**Sobre los `Shader Error 1282` de la consola**: al abrir la tienda directo
+(`#tienda`) el headless los emite con cualquier material; la versión anterior
+(`5de01c5`) emite 7 en el mismo flujo, así que no vienen del rediseño. No
+aparecen al entrar desde `#mercado` y no hay errores de página en ningún caso.
 
 **No verificado aquí**: el aspecto final en GPU real. En headless
 (SwiftShader) el contexto WebGL muere a los 10–25 s, así que la captura no es
