@@ -32,9 +32,12 @@ window.Tienda3D = (function () {
   let yaw = 0, pitch = 0;
   const pos = { x: 0, y: 1.66, z: 8.2 };   // altura de los ojos: 1ª persona
   const vel = { x: 0, z: 0 };              // inercia: arranca y frena suave
-  /* Campo de visión: 62° es el encuadre "cine" (ni ojo de pez ni tele).
-     Se puede mover entre 50 y 85 desde el panel y queda guardado. */
-  const FOV_DEF = 62;
+  /* Campo de visión: 92° da amplitud de supermercado en vertical (en un
+     teléfono en retrato son ~54° horizontales, contra ~33° que daba el 62).
+     Se mueve entre 50 y 110 desde el panel y queda guardado. La clave de
+     guardado cambia a `fov2` para que un valor viejo de 62 no pise el nuevo
+     encuadre por defecto. */
+  const FOV_DEF = 92;
   let fovBase = FOV_DEF;
   let fovAct = FOV_DEF;
   const teclas = {};
@@ -64,6 +67,7 @@ window.Tienda3D = (function () {
      si una pieza nueva sale mal. */
   let frescosPilas = [], tapasGondola = [], luzFresca = null, decoErr = "";
   let senalesMallas = 0;                    // carteles colgantes de pasillo
+  let anunciosMallas = 0;                   // anuncios de pared y banderolas
   let vuelos = [];                 // cajas volando hacia el carrito
   let fichaP = null, fichaOrigen = null;   // producto en la ficha abierta
   /* Materiales que reciben textura HD (Poly Haven / ambientCG, CC0).
@@ -75,20 +79,25 @@ window.Tienda3D = (function () {
      negro, y puntos de techo cálidos. El preset define el ambiente. */
   const luces = { amb: null, hemi: null, sol: null, relleno: null, contra: null, puntos: [] };
   const LUCES = {
-    confort: { amb: 0.62, hemi: 0.68, dir: 0.95, rell: 0.34, color: 0xfff9f2, exp: 1.16,
-      desc: "Luz de supermercado: blanca, pareja y brillante, con sombras suaves." },
-    calido:  { amb: 0.42, hemi: 0.46, dir: 0.72, rell: 0.26, color: 0xffe0b0, exp: 1.10,
+    /* El ambiente bajo y el key alto son lo que da volumen: con ambiente
+       alto todo queda plano y los blancos se queman. La exposición bajó en
+       todos los presets para recuperar el detalle del papel y del metal. */
+    confort: { amb: 0.46, hemi: 0.52, dir: 1.10, rell: 0.28, color: 0xfff9f2, exp: 1.04,
+      desc: "Luz de supermercado: blanca, pareja y con sombras suaves." },
+    calido:  { amb: 0.32, hemi: 0.38, dir: 0.86, rell: 0.22, color: 0xffe0b0, exp: 0.98,
       desc: "Luz de tienda de barrio: tono ámbar y sombras marcadas." },
-    neutro:  { amb: 0.50, hemi: 0.58, dir: 0.82, rell: 0.32, color: 0xffffff, exp: 1.12,
+    neutro:  { amb: 0.40, hemi: 0.46, dir: 0.96, rell: 0.26, color: 0xffffff, exp: 1.00,
       desc: "Luz pareja de supermercado: blanco neutro y sombras suaves." },
-    frio:    { amb: 0.44, hemi: 0.52, dir: 0.72, rell: 0.34, color: 0xd6e9ff, exp: 1.10,
+    frio:    { amb: 0.34, hemi: 0.42, dir: 0.86, rell: 0.30, color: 0xd6e9ff, exp: 0.98,
       desc: "Tono de cámara frigorífica: azulado y limpio." },
-    cine:    { amb: 0.26, hemi: 0.28, dir: 1.02, rell: 0.16, color: 0xfff3e0, exp: 1.04,
-      desc: "Contraste cinematográfico: sombras profundas y foco cálido." },
-    lima:    { amb: 0.42, hemi: 0.48, dir: 0.74, rell: 0.28, color: 0xf2ffe0, exp: 1.10,
+    cine:    { amb: 0.24, hemi: 0.28, dir: 1.30, rell: 0.20, color: 0xfff1dc, exp: 0.94,
+      desc: "Modo cine: key fuerte y cálido, sombras profundas, blancos sin quemar y reflejo en cada envase." },
+    lima:    { amb: 0.34, hemi: 0.40, dir: 0.90, rell: 0.26, color: 0xf2ffe0, exp: 0.99,
       desc: "Resplandor lima FORGE: contra-luz verde sobre muros claros." }
   };
-  let luzActual = "confort", intensidadLuz = 1, orbitaLuz = 20;
+  /* Cine es el modo establecido por defecto: es el que mejor lee el volumen
+     de los muebles y el brillo de los envases. */
+  let luzActual = "cine", intensidadLuz = 1, orbitaLuz = 20;
   let kelvinLuz = 5000, sombraLuz = 0.65, sensCam = 1;
   let camaras = [], cctv = false;
 
@@ -118,7 +127,7 @@ window.Tienda3D = (function () {
      forzar un nivel. Afecta píxeles, tamaño de la sombra y puntos de techo. */
   const CLAVE_CAL = "fcore.tienda3d.calidad";
   const CLAVE_SENS = "fcore.tienda3d.sens";
-  const CLAVE_FOV = "fcore.tienda3d.fov";
+  const CLAVE_FOV = "fcore.tienda3d.fov2";
   /* `pr` = densidad de píxeles, `sombra` = lado del mapa, `puntos` = luces
      reales, `contacto` = sombras de contacto (overdraw), `sombras` = encender
      el mapa de sombras. En móvil lo caro es el relleno: por eso baja recorta
@@ -475,6 +484,60 @@ window.Tienda3D = (function () {
     const pb = [parseInt(b.slice(1, 3), 16), parseInt(b.slice(3, 5), 16), parseInt(b.slice(5, 7), 16)];
     return "rgb(" + pa.map((v, i) => Math.round(v + (pb[i] - v) * k)).join(",") + ")";
   }
+  /* Color de envase por categoría. Antes cada producto mezclaba su categoría
+     con un color de la PALETA al azar: la leche salía verde y la carne lila.
+     Un súper real agrupa por familia (lácteos en azul y crema, carnes en
+     rojo, limpieza en violeta y turquesa), así que el color se sortea dentro
+     de una lista corta y plausible. */
+  /* Excepciones por nombre: la cola no puede salir ámbar ni el agua violeta.
+     Van antes que la paleta de la categoría, que sigue mandando en el resto. */
+  const TINTES_NOMBRE = [
+    [/leche|crema\b/, 0xf2f4f6],
+    [/yogur|yogurt/, 0xdfe9f2],
+    [/queso|mantequilla|manjar/, 0xf0e2b8],
+    [/cola\b|cerveza/, 0x8e2a2a],
+    [/agua\b/, 0xbfe4f2],
+    [/jugo|naranja/, 0xe08a1e],
+    [/detergente|cloro|lavaloza/, 0x6f5bd6],
+    [/papel|toalla|servilleta/, 0xe8eef4],
+    [/marraqueta|hallulla|pan\b/, 0xc98b4a],
+    [/carne|pollo|cerdo|molida/, 0xb03a3a],
+    [/manzana|frutilla|tomate/, 0xc42a2a],
+    [/platano|pl[aá]tano|lim[oó]n/, 0xe8c53a],
+    [/lechuga|palta|br[oó]coli/, 0x4f9e3a],
+    [/reineta|merluza|salm[oó]n|camar[oó]n/, 0x4a7fa8],
+    [/pizza|helado|hielo|congelad/, 0x6aa8c8],
+    [/arroz|fideo|harina|az[uú]car/, 0xd8a13a]
+  ];
+
+  const TINTES_CAT = {
+    "Lácteos": [0xe8eef4, 0xb9d2e8, 0x8fb8dd, 0xf0e6cf, 0xd8e2ec, 0xa9c4d8],
+    "Panadería": [0xc98b4a, 0xa86a32, 0xe0b070, 0x8d5a2b, 0xd9a05e],
+    "Carnes": [0xb03a3a, 0x8e2a2a, 0xc25a4a, 0x7d2b33, 0xa63a44],
+    "Frutas y verduras": [0x4f9e3a, 0xd8342a, 0xe2761f, 0x8fbf3a],
+    "Bebidas": [0x2f8fa8, 0xc33a3a, 0x3a6ea8, 0xd8a13a, 0x4a8a52, 0x8a4aa8],
+    "Abarrotes": [0xd8a13a, 0xb97a2a, 0xc9a24a, 0x8a6a3a, 0xd9b45a],
+    "Limpieza": [0x6f5bd6, 0x3aa8a0, 0x4a8ad8, 0x9b5bd6, 0x2f9e8a],
+    "Pescados": [0x4a7fa8, 0x5a94b8, 0x2f6a8a, 0x6a9ab0],
+    "Refrigerio": [0xc23a3a, 0xd88a2a, 0x8a5bd6, 0xc94a6a],
+    "Congelados": [0x6aa8c8, 0x4a86a8, 0x7ab4d0]
+  };
+
+  /* Acento de la ilustración. El color del envase puede ser casi blanco
+     (lácteos) y entonces un dibujo del mismo tono desaparece; el acento es
+     la versión saturada de la categoría y siempre contrasta. */
+  const ACENTO_CAT = {
+    "Lácteos": 0x2f6ea8, "Panadería": 0x8d5a2b, "Carnes": 0x8e2a2a,
+    "Frutas y verduras": 0x3f7a2f, "Bebidas": 0x1f6f8a, "Abarrotes": 0x9a6a1e,
+    "Limpieza": 0x4a3fa8, "Pescados": 0x2f5f8a, "Congelados": 0x2f6a8a,
+    "Refrigerio": 0xa8422a
+  };
+  function acentoDe(cat, tinte) {
+    if (ACENTO_CAT[cat]) return ACENTO_CAT[cat];
+    // categoría desconocida: se oscurece el tinte del envase hasta que lea
+    return mezclaNum(parseInt(String(tinte).slice(1), 16), 0x05070a, 0.45);
+  }
+
   function tinteDe(cat) {
     if (TINTES[cat]) return TINTES[cat];
     const s = String(cat || "");
@@ -882,10 +945,20 @@ window.Tienda3D = (function () {
     const t = p && p.tinte;
     if (typeof t === "string" && /^#[0-9a-f]{6}$/i.test(t)) return t.toLowerCase();
     if (typeof t === "number") return hex(t);
-    const base = tinteDe(p && p.categoria);
     const s = String((p && p.nombre) || "");
     let h = 0;
     for (let i = 0; i < s.length; i++) h = (h * 37 + s.charCodeAt(i)) >>> 0;
+    const n = s.toLowerCase();
+    for (let i = 0; i < TINTES_NOMBRE.length; i++) {
+      if (TINTES_NOMBRE[i][0].test(n)) return hex(TINTES_NOMBRE[i][1]);
+    }
+    const lista = TINTES_CAT[p && p.categoria];
+    if (lista) {
+      /* ±7 % de valor: dos leches se distinguen sin salirse del pasillo */
+      const v = 0.93 + ((h >>> 7) % 15) / 100;
+      return hex(mezclaNum(lista[h % lista.length], v < 1 ? 0x000000 : 0xffffff, Math.abs(1 - v) * 0.9));
+    }
+    const base = tinteDe(p && p.categoria);
     return hex(mezclaNum(base, PALETA[h % PALETA.length], 0.42));
   }
 
@@ -922,9 +995,13 @@ window.Tienda3D = (function () {
 
   function matForma(forma, p, sinColor) {
     const t = sinColor ? "#ffffff" : colorDe(p);
+    /* En calidad baja se ahorra el muestreo del entorno (es lo caro por
+       fragmento); el resto de los equipos ven el reflejo, que es lo que
+       convierte una caja de cartón en un envase de súper. */
     const conEnv = (m, fuerza) => {
-      if (entornoMap) {
+      if (entornoMap && perfil !== "baja") {
         m.envMap = entornoMap;
+        m.envMapIntensity = 0.4 + fuerza;
         m.reflectivity = fuerza;
         m.combine = T.MixOperation;
       }
@@ -940,28 +1017,40 @@ window.Tienda3D = (function () {
     }
     if (forma === "lata") {
       return conEnv(new T.MeshPhongMaterial({
-        color: 0xc9ced3, specular: 0xffffff, shininess: 150
-      }), 0.85);
+        color: 0xc9ced3, specular: 0xffffff, shininess: 165
+      }), 0.92);
     }
     if (forma === "botella") {
       return conEnv(new T.MeshPhongMaterial({
-        color: 0xeaf4fb, specular: 0xffffff, shininess: 110,
+        color: 0xeaf4fb, specular: 0xffffff, shininess: 128,
         transparent: true, opacity: 0.94
-      }), 0.55);
+      }), 0.72);
     }
     if (forma === "frasco") {
       return conEnv(new T.MeshPhongMaterial({
-        color: t, specular: 0xffffff, shininess: 130,
+        color: t, specular: 0xffffff, shininess: 140,
         transparent: true, opacity: 0.9
-      }), 0.5);
+      }), 0.66);
     }
     if (forma === "yogur") {
-      return new T.MeshPhongMaterial({ color: 0xf7f7f3, specular: 0xffffff, shininess: 45 });
+      return conEnv(new T.MeshPhongMaterial({
+        color: 0xf7f7f3, specular: 0xffffff, shininess: 86
+      }), 0.42);
     }
+    /* Bolsa y caja: film de polietileno y cartulina plastificada. El
+       specular tenue y el entorno son el "lacado" que faltaba. */
     if (forma === "bolsa") {
-      return new T.MeshPhongMaterial({ color: t, specular: 0xffffff, shininess: 60 });
+      return conEnv(new T.MeshPhongMaterial({
+        color: t, specular: 0xdfe6ec, shininess: 74
+      }), 0.5);
     }
-    return new T.MeshLambertMaterial({ color: t });
+    /* Phong también en calidad baja: el costo sobre Lambert es pequeño y
+       sin especular el producto vuelve a verse "de cartón". Lo que se ahorra
+       en baja es el muestreo del entorno, no el brillo. */
+    return conEnv(new T.MeshPhongMaterial({
+      color: t, specular: perfil === "baja" ? 0x8f979e : 0xaab2ba,
+      shininess: perfil === "baja" ? 42 : 52
+    }), 0.38);
   }
 
   /* Sala mínima para el PMREM: techo luminoso, pared cálida, pared fría y
@@ -986,7 +1075,16 @@ window.Tienda3D = (function () {
       cara(18, 6, 0xbcd6ff, 11.8, 0.6, 0, 0, -Math.PI / 2);  // pared fría
       cara(26, 12, 0x555b62, 0, 0.6, -11.8, 0, 0);           // fondo
       cara(26, 12, 0x4a5058, 0, 0.6, 11.8, 0, Math.PI);      // frente
-      const rt = pm.fromScene(sala, 0.035);
+      /* Franjas emisivas en el techo: al reflejarse en un envase se ven como
+         una raya blanca. Sin ellas el reflejo es una mancha pareja y el
+         producto se ve mate, por más que el material tenga brillo. */
+      [-6.4, -2.2, 2.2, 6.4].forEach((x) => {
+        cara(0.9, 19, 0xffffff, x, 5.78, 0, Math.PI / 2, 0);
+      });
+      cara(22, 1.1, 0xffd9a8, 0, 4.4, -11.6, 0, 0);          // vitrina cálida
+      cara(22, 1.1, 0xbfd8ff, 0, 4.4, 11.6, 0, Math.PI);     // vitrina fría
+      // menos desenfoque: las franjas tienen que sobrevivir al PMREM
+      const rt = pm.fromScene(sala, 0.012);
       entornoMap = rt.texture;
       pm.dispose();
       sala.traverse((o) => {
@@ -999,43 +1097,218 @@ window.Tienda3D = (function () {
   /* Etiqueta de envase: banda de marca, panel de papel con el nombre,
      presentación y código de barras simulado. Nada de una portada cuadrada
      repetida en todas las caras. */
+  /* ── ilustración de portada ──────────────────────────────────────────────
+     Cada categoría tiene su dibujo vectorial, hecho aquí con paths: no se
+     descarga ni se copia ninguna imagen, así que no hay licencia de terceros
+     y se adapta a cualquier tamaño (256 px en el estante, 384 en la ficha).
+     El dibujo se hace en un espacio normalizado 0..1 y se escala al recuadro,
+     por eso nunca se deforma ni se sale del papel. */
+  function arteDe(g, tipo, ax, ay, aw, ah, col, osc, cla, tinta) {
+    g.save();
+    /* Recuadro centrado y de lado igual: si se escalara por ancho y alto por
+       separado, un círculo salía ovalado (el recuadro es 1,8:1). El dibujo se
+       hace en un cuadrado y se centra en el recuadro. */
+    const lado = Math.min(aw, ah);
+    g.beginPath();
+    g.rect(ax, ay, aw, ah);
+    g.clip();
+    g.translate(ax + (aw - lado) / 2, ay + (ah - lado) / 2);
+    g.scale(lado, lado);
+    const circ = (x, y, r, color) => { g.fillStyle = color; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); };
+    const poly = (pts, color) => {
+      g.fillStyle = color;
+      g.beginPath();
+      pts.forEach((q, k) => (k ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1])));
+      g.closePath();
+      g.fill();
+    };
+    const caja = (x, y, w, h, r, color) => {
+      g.fillStyle = color;
+      g.beginPath();
+      g.moveTo(x + r, y);
+      g.lineTo(x + w - r, y);
+      g.quadraticCurveTo(x + w, y, x + w, y + r);
+      g.lineTo(x + w, y + h - r);
+      g.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+      g.lineTo(x + r, y + h);
+      g.quadraticCurveTo(x, y + h, x, y + h - r);
+      g.lineTo(x, y + r);
+      g.quadraticCurveTo(x, y, x + r, y);
+      g.fill();
+    };
+    const barra = (cx, cy, len, gros, ang, color) => {
+      const dx = (Math.cos(ang) * len) / 2, dy = (Math.sin(ang) * len) / 2;
+      const nx = (-Math.sin(ang) * gros) / 2, ny = (Math.cos(ang) * gros) / 2;
+      poly([[cx - dx + nx, cy - dy + ny], [cx + dx + nx, cy + dy + ny],
+            [cx + dx - nx, cy + dy - ny], [cx - dx + nx, cy - dy - ny]], color);
+    };
+    const elipse = (x, y, rx, ry, rot, color) => {
+      g.fillStyle = color;
+      g.beginPath();
+      g.ellipse(x, y, rx, ry, rot || 0, 0, Math.PI * 2);
+      g.fill();
+    };
+
+    if (tipo === "lacteos") {
+      // caja de leche: cuerpo, techo a dos aguas, tapón, etiqueta y gota
+      poly([[0.28, 0.36], [0.72, 0.36], [0.72, 0.90], [0.28, 0.90]], col);
+      poly([[0.28, 0.36], [0.72, 0.36], [0.72, 0.52], [0.28, 0.52]], osc);
+      poly([[0.24, 0.36], [0.5, 0.12], [0.76, 0.36]], cla);
+      caja(0.43, 0.04, 0.14, 0.09, 0.02, tinta);
+      caja(0.32, 0.58, 0.36, 0.18, 0.02, "#ffffff");
+      barra(0.5, 0.64, 0.28, 0.022, 0, col);
+      barra(0.5, 0.69, 0.20, 0.016, 0, osc);
+      circ(0.82, 0.78, 0.055, cla);
+      poly([[0.82, 0.72], [0.86, 0.78], [0.78, 0.78]], cla);
+    } else if (tipo === "panaderia") {
+      // hogaza con cortes y una segunda pieza detrás
+      elipse(0.40, 0.62, 0.24, 0.17, 0, osc);
+      elipse(0.52, 0.56, 0.30, 0.22, 0, col);
+      elipse(0.40, 0.44, 0.14, 0.08, -0.4, cla);
+      [-0.13, 0, 0.13].forEach((dx) => barra(0.52 + dx, 0.56, 0.14, 0.035, 1.15, tinta));
+    } else if (tipo === "carnes") {
+      // bistec: grasa exterior, carne y veta
+      poly([[0.22, 0.52], [0.32, 0.30], [0.60, 0.24], [0.80, 0.40],
+            [0.74, 0.70], [0.50, 0.82], [0.28, 0.72]], cla);
+      poly([[0.27, 0.53], [0.35, 0.36], [0.59, 0.31], [0.74, 0.44],
+            [0.69, 0.67], [0.50, 0.76], [0.32, 0.68]], col);
+      g.strokeStyle = cla; g.lineWidth = 0.030; g.lineCap = "round";
+      g.beginPath(); g.moveTo(0.36, 0.58); g.quadraticCurveTo(0.52, 0.46, 0.68, 0.56); g.stroke();
+      g.beginPath(); g.moveTo(0.40, 0.66); g.quadraticCurveTo(0.52, 0.60, 0.62, 0.66); g.stroke();
+    } else if (tipo === "frutas") {
+      // manzana: cuerpo, brillo, hoja y rabito
+      elipse(0.46, 0.60, 0.25, 0.23, 0, col);
+      elipse(0.60, 0.60, 0.20, 0.20, 0, col);
+      elipse(0.42, 0.50, 0.09, 0.05, -0.5, cla);
+      barra(0.51, 0.30, 0.14, 0.025, 1.5, tinta);
+      elipse(0.63, 0.30, 0.12, 0.06, -0.45, osc);
+    } else if (tipo === "bebidas") {
+      // botella con etiqueta y burbujas
+      poly([[0.40, 0.14], [0.60, 0.14], [0.60, 0.32], [0.68, 0.42], [0.68, 0.88],
+            [0.32, 0.88], [0.32, 0.42], [0.40, 0.32]], col);
+      poly([[0.32, 0.52], [0.68, 0.52], [0.68, 0.66], [0.32, 0.66]], "#ffffff");
+      barra(0.5, 0.59, 0.24, 0.022, 0, osc);
+      caja(0.40, 0.06, 0.20, 0.09, 0.02, tinta);
+      circ(0.78, 0.30, 0.032, "#ffffff");
+      circ(0.85, 0.42, 0.022, "#ffffff");
+      circ(0.76, 0.55, 0.018, "#ffffff");
+    } else if (tipo === "abarrotes") {
+      // saco de granos con ventana
+      poly([[0.28, 0.34], [0.72, 0.34], [0.80, 0.88], [0.20, 0.88]], col);
+      poly([[0.28, 0.34], [0.72, 0.34], [0.70, 0.26], [0.30, 0.26]], osc);
+      caja(0.34, 0.50, 0.32, 0.22, 0.03, "#ffffff");
+      circ(0.44, 0.58, 0.045, osc);
+      circ(0.53, 0.63, 0.035, col);
+      circ(0.60, 0.57, 0.030, osc);
+    } else if (tipo === "limpieza") {
+      // pulverizador: cuerpo, cuello, gatillo y rocío
+      caja(0.30, 0.44, 0.28, 0.46, 0.04, col);
+      caja(0.38, 0.34, 0.22, 0.12, 0.02, osc);
+      poly([[0.60, 0.34], [0.84, 0.26], [0.84, 0.38], [0.60, 0.44]], col);
+      caja(0.34, 0.56, 0.20, 0.20, 0.02, "#ffffff");
+      barra(0.44, 0.66, 0.16, 0.020, 0, osc);
+      circ(0.90, 0.20, 0.020, cla);
+      circ(0.95, 0.30, 0.015, cla);
+      circ(0.86, 0.12, 0.013, cla);
+    } else if (tipo === "pescados") {
+      // pez con cola, aleta y vientre
+      elipse(0.48, 0.56, 0.26, 0.16, 0, col);
+      poly([[0.72, 0.56], [0.90, 0.38], [0.90, 0.74]], osc);
+      poly([[0.46, 0.40], [0.58, 0.44], [0.46, 0.50]], osc);
+      elipse(0.46, 0.62, 0.18, 0.06, 0.1, cla);
+      circ(0.31, 0.50, 0.022, tinta);
+    } else if (tipo === "congelados") {
+      // copo de nieve: tres ejes y seis ramas cortas
+      barra(0.5, 0.54, 0.56, 0.030, 0, col);
+      barra(0.5, 0.54, 0.56, 0.030, Math.PI / 3, col);
+      barra(0.5, 0.54, 0.56, 0.030, -Math.PI / 3, col);
+      for (let k = 0; k < 6; k++) {
+        const a = (k * Math.PI) / 3;
+        const bx = 0.5 + Math.cos(a) * 0.18, by = 0.54 + Math.sin(a) * 0.18;
+        barra(bx, by, 0.13, 0.024, a + 0.9, cla);
+        barra(bx, by, 0.13, 0.024, a - 0.9, cla);
+      }
+      circ(0.5, 0.54, 0.045, osc);
+    } else if (tipo === "refrigerio") {
+      // bolsa de snack con borde dentado y ventana
+      poly([[0.30, 0.30], [0.34, 0.24], [0.38, 0.30], [0.42, 0.24], [0.46, 0.30],
+            [0.50, 0.24], [0.54, 0.30], [0.58, 0.24], [0.62, 0.30], [0.66, 0.24],
+            [0.70, 0.30], [0.70, 0.90], [0.30, 0.90]], col);
+      elipse(0.50, 0.64, 0.19, 0.15, 0, "#ffffff");
+      poly([[0.36, 0.66], [0.46, 0.54], [0.52, 0.66]], osc);
+      poly([[0.52, 0.68], [0.62, 0.56], [0.68, 0.68]], osc);
+      barra(0.5, 0.38, 0.30, 0.020, 0, tinta);
+    } else {
+      // lata genérica
+      caja(0.34, 0.26, 0.32, 0.60, 0.03, col);
+      elipse(0.5, 0.26, 0.16, 0.05, 0, osc);
+      caja(0.34, 0.44, 0.32, 0.16, 0, "#ffffff");
+      barra(0.5, 0.50, 0.22, 0.022, 0, osc);
+      barra(0.44, 0.34, 0.36, 0.022, 1.5, cla);
+    }
+    g.restore();
+  }
+
+  const ARTE_CAT = {
+    "Lácteos": "lacteos", "Panadería": "panaderia", "Carnes": "carnes",
+    "Frutas y verduras": "frutas", "Bebidas": "bebidas", "Abarrotes": "abarrotes",
+    "Limpieza": "limpieza", "Pescados": "pescados",
+    "Congelados": "congelados", "Refrigerio": "refrigerio",
+    "Lácteos y huevos": "lacteos"
+  };
+
+  /* Portada del envase: color de categoría, ilustración, nombre, formato y
+     código. Reemplaza la etiqueta de sólo texto: es lo que hace que dos
+     productos del mismo estante se distingan de un vistazo. */
   function dibuEtiqueta(g, W, H, o) {
     const tinte = o.tinte || "#8a8f94";
-    const oscuro = mezcla(tinte, "#05070a", 0.70);
-    const claro = mezcla(tinte, "#ffffff", 0.50);
+    const oscuro = mezcla(tinte, "#05070a", 0.72);
+    const claro = mezcla(tinte, "#ffffff", 0.55);
     const oscura = luminancia(tinte) < 0.62;
+    const tinta = oscura ? "#f4f6f7" : "#111417";
 
+    /* fondo del envase: degradado del tinte + brillo radial arriba */
     const grad = g.createLinearGradient(0, 0, 0, H);
     grad.addColorStop(0, claro);
-    grad.addColorStop(0.5, tinte);
+    grad.addColorStop(0.52, tinte);
     grad.addColorStop(1, oscuro);
     g.fillStyle = grad;
     g.fillRect(0, 0, W, H);
 
+    const halo = g.createRadialGradient(W * 0.34, H * 0.16, 0, W * 0.34, H * 0.16, W * 0.85);
+    halo.addColorStop(0, "rgba(255,255,255,.30)");
+    halo.addColorStop(1, "rgba(255,255,255,0)");
+    g.fillStyle = halo;
+    g.fillRect(0, 0, W, H);
+
+    /* franja de lacado en diagonal: el film del envase */
     g.save();
-    g.globalAlpha = 0.13;
-    g.fillStyle = oscura ? "#ffffff" : "#05070a";
+    g.globalAlpha = oscura ? 0.16 : 0.20;
+    g.fillStyle = "#ffffff";
     g.beginPath();
-    g.ellipse(W * 0.5, H * 0.44, W * 0.46, H * 0.30, 0, 0, Math.PI * 2);
+    g.moveTo(0, H * 0.30);
+    g.lineTo(W, H * 0.14);
+    g.lineTo(W, H * 0.30);
+    g.lineTo(0, H * 0.46);
+    g.closePath();
     g.fill();
     g.restore();
 
-    const bh = Math.round(H * 0.135);
+    /* banda de marca */
+    const bh = Math.round(H * 0.115);
     g.fillStyle = "rgba(6,8,10,.92)";
     g.fillRect(0, 0, W, bh);
     g.fillStyle = tinte;
-    g.fillRect(0, bh - Math.max(2, Math.round(H * 0.010)), W, Math.max(2, Math.round(H * 0.010)));
+    g.fillRect(0, bh - Math.max(2, Math.round(H * 0.009)), W, Math.max(2, Math.round(H * 0.009)));
 
-    /* Marca a la izquierda y familia a la derecha: así se distingue una
-       lata de una botella antes de leer el nombre. */
     const marca = String(o.marca || "CORE STOCK");
     const familia = FAMILIA_TXT[o.forma] || "PRODUCTO";
     g.textBaseline = "middle";
     g.textAlign = "left";
     g.fillStyle = "#ffffff";
-    let fm = Math.round(bh * 0.40);
+    let fm = Math.round(bh * 0.44);
     g.font = "800 " + fm + "px -apple-system, Segoe UI, Roboto, sans-serif";
-    while (fm > 7 && g.measureText(marca).width > W * 0.60) {
+    while (fm > 7 && g.measureText(marca).width > W * 0.58) {
       fm -= 1;
       g.font = "800 " + fm + "px -apple-system, Segoe UI, Roboto, sans-serif";
     }
@@ -1045,24 +1318,50 @@ window.Tienda3D = (function () {
     g.font = "800 " + Math.round(bh * 0.28) + "px -apple-system, Segoe UI, Roboto, sans-serif";
     g.fillText(familia, W * 0.945, bh * 0.53);
 
-    const px = W * 0.055, pw = W * 0.89;
-    const py = H * 0.185, ph = H * 0.535;
-    const r = Math.round(H * 0.03);
-    g.fillStyle = "rgba(250,248,241,.96)";
+    /* papel de la carátula */
+    const px0 = W * 0.045, pw = W * 0.91;
+    const py = H * 0.135, ph = H * 0.645;
+    const rad = Math.round(H * 0.028);
+    g.fillStyle = "rgba(250,248,241,.97)";
     g.beginPath();
-    g.moveTo(px + r, py);
-    g.lineTo(px + pw - r, py);
-    g.quadraticCurveTo(px + pw, py, px + pw, py + r);
-    g.lineTo(px + pw, py + ph - r);
-    g.quadraticCurveTo(px + pw, py + ph, px + pw - r, py + ph);
-    g.lineTo(px + r, py + ph);
-    g.quadraticCurveTo(px, py + ph, px, py + ph - r);
-    g.lineTo(px, py + r);
-    g.quadraticCurveTo(px, py, px + r, py);
+    g.moveTo(px0 + rad, py);
+    g.lineTo(px0 + pw - rad, py);
+    g.quadraticCurveTo(px0 + pw, py, px0 + pw, py + rad);
+    g.lineTo(px0 + pw, py + ph - rad);
+    g.quadraticCurveTo(px0 + pw, py + ph, px0 + pw - rad, py + ph);
+    g.lineTo(px0 + rad, py + ph);
+    g.quadraticCurveTo(px0, py + ph, px0, py + ph - rad);
+    g.lineTo(px0, py + rad);
+    g.quadraticCurveTo(px0, py, px0 + rad, py);
     g.fill();
     g.fillStyle = tinte;
-    g.fillRect(px, py, pw, Math.max(2, Math.round(H * 0.012)));
+    g.fillRect(px0, py, pw, Math.max(2, Math.round(H * 0.010)));
 
+    /* recuadro de la ilustración */
+    const ax = px0 + pw * 0.055, ay = py + H * 0.022;
+    const aw = pw * 0.89, ah = H * 0.30;
+    const acHex = hex(acentoDe(o.categoria, tinte));
+    const acOsc = mezcla(acHex, "#05070a", 0.55);
+    const acCla = mezcla(acHex, "#ffffff", 0.38);
+    g.fillStyle = mezcla(acHex, "#ffffff", 0.86);
+    const rr2 = (x, y, w, h, r2) => {
+      g.beginPath();
+      g.moveTo(x + r2, y);
+      g.lineTo(x + w - r2, y);
+      g.quadraticCurveTo(x + w, y, x + w, y + r2);
+      g.lineTo(x + w, y + h - r2);
+      g.quadraticCurveTo(x + w, y + h, x + w - r2, y + h);
+      g.lineTo(x + r2, y + h);
+      g.quadraticCurveTo(x, y + h, x, y + h - r2);
+      g.lineTo(x, y + r2);
+      g.quadraticCurveTo(x, y, x + r2, y);
+      g.fill();
+    };
+    rr2(ax, ay, aw, ah, Math.round(H * 0.018));
+    arteDe(g, ARTE_CAT[o.categoria] || "otros", ax, ay, aw, ah,
+      acHex, acOsc, acCla, luminancia(acHex) < 0.45 ? "#f2f5f7" : "#14181c");
+
+    /* nombre y presentación */
     const nombre = String(o.nombre || "");
     const corte = nombre.indexOf("·");
     const titulo = corte > 0 ? nombre.slice(0, corte).trim() : nombre;
@@ -1070,69 +1369,85 @@ window.Tienda3D = (function () {
 
     g.textAlign = "center";
     g.textBaseline = "middle";
-    /* El tamaño se decide midiendo el ancho REAL de la línea más larga: una
-       palabra sola («Detergente») no se parte y antes se salía del papel. */
-    const maxW = pw * 0.86;
-    const maxH = ph * 0.64;
-    let fs = Math.round(H * 0.135);
+    /* El nombre vive en una caja reservada: si el formato (chip) existe, la
+       caja termina arriba suyo, así una palabra corta y grande («Reineta»)
+       no se le monta encima. */
+    const chipH = H * 0.072;
+    const chipY = py + ph - chipH - H * 0.020;
+    const nameTop = py + H * 0.315;
+    const nameBot = pres ? chipY - H * 0.014 : py + ph - H * 0.030;
+    const avail = Math.max(H * 0.06, nameBot - nameTop);
+    const maxW = pw * 0.88;
+    let fs = Math.round(Math.min(H * 0.082, avail / 3.1));
     let lineas;
     for (;;) {
       g.font = "900 " + fs + "px -apple-system, Segoe UI, Roboto, sans-serif";
-      lineas = envolver(g, titulo, maxW, 4);
+      lineas = envolver(g, titulo, maxW, 3);
       let ancho = 0;
       lineas.forEach((l) => { ancho = Math.max(ancho, g.measureText(l).width); });
-      if ((ancho <= maxW && lineas.length * fs * 1.12 <= maxH) ||
-          fs <= Math.round(H * 0.058)) break;
-      fs -= Math.max(1, Math.round(H * 0.005));
+      if ((ancho <= maxW && lineas.length * fs * 1.08 <= avail) ||
+          fs <= Math.round(H * 0.046)) break;
+      fs -= Math.max(1, Math.round(H * 0.004));
     }
     g.fillStyle = "#121416";
     const lh = fs * 1.08;
-    const y0 = py + ph * 0.44 - ((lineas.length - 1) * lh) / 2;
+    const y0 = nameTop + avail / 2 - ((lineas.length - 1) * lh) / 2;
     lineas.forEach((l, i) => g.fillText(l, W * 0.5, y0 + i * lh));
 
     if (pres) {
-      g.font = "700 " + Math.round(H * 0.062) + "px -apple-system, Segoe UI, Roboto, sans-serif";
+      g.font = "700 " + Math.round(H * 0.048) + "px -apple-system, Segoe UI, Roboto, sans-serif";
       const tw = g.measureText(pres).width;
-      const bw = tw + W * 0.10, bh2 = H * 0.085;
-      const bx = W * 0.5 - bw / 2, by = py + ph - bh2 - H * 0.030;
+      const bw = Math.min(pw * 0.92, tw + W * 0.10), bh2 = chipH;
+      const bx = W * 0.5 - bw / 2, by = chipY;
       g.fillStyle = "#0a0c0e";
       g.beginPath();
-      const rr = bh2 / 2;
-      g.moveTo(bx + rr, by);
-      g.lineTo(bx + bw - rr, by);
-      g.arc(bx + bw - rr, by + rr, rr, -Math.PI / 2, Math.PI / 2);
-      g.lineTo(bx + rr, by + bh2);
-      g.arc(bx + rr, by + rr, rr, Math.PI / 2, Math.PI * 1.5);
+      const rr3 = bh2 / 2;
+      g.moveTo(bx + rr3, by);
+      g.lineTo(bx + bw - rr3, by);
+      g.arc(bx + bw - rr3, by + rr3, rr3, -Math.PI / 2, Math.PI / 2);
+      g.lineTo(bx + rr3, by + bh2);
+      g.arc(bx + rr3, by + rr3, rr3, Math.PI / 2, Math.PI * 1.5);
       g.fill();
       g.fillStyle = "#ffffff";
       g.fillText(pres, W * 0.5, by + bh2 * 0.54);
     }
 
-    const bw2 = W * 0.42, bh3 = H * 0.062;
-    const bx2 = W * 0.5 - bw2 / 2, by2 = H * 0.855;
+    /* código de barras */
+    const bw2 = W * 0.42, bh3 = H * 0.058;
+    const bx2 = W * 0.5 - bw2 / 2, by2 = H * 0.868;
     g.fillStyle = "rgba(250,248,241,.95)";
-    g.fillRect(bx2 - W * 0.02, by2 - H * 0.012, bw2 + W * 0.04, bh3 + H * 0.024);
-    let x = bx2, seed = 17;
-    while (x < bx2 + bw2) {
+    g.fillRect(bx2 - W * 0.02, by2 - H * 0.010, bw2 + W * 0.04, bh3 + H * 0.020);
+    let xb = bx2, seed = 17;
+    while (xb < bx2 + bw2) {
       seed = (seed * 48271) % 2147483647;
       const w = 1 + (seed % 3);
-      if (seed % 2) { g.fillStyle = "#0a0c0e"; g.fillRect(x, by2, w, bh3); }
-      x += w + 1 + (seed % 2);
+      if (seed % 2) { g.fillStyle = "#0a0c0e"; g.fillRect(xb, by2, w, bh3); }
+      xb += w + 1 + (seed % 2);
     }
   }
 
+  /* Caché de carátulas: dos niveles de góndola pueden repetir el SKU y el
+     mismo dibujo no se hace dos veces (ni se sube dos veces a la GPU). Se
+     vacía en `destruirEscena`, que es donde se liberan los mapas. */
+  const CACHE_ETQ = new Map();
+
   function texturaEtiqueta(p, S) {
     const W = S || 256, H = Math.round(W * 1.5);
+    const clave = (p && (p.id || p.nombre)) + "|" + W;
+    const hay = CACHE_ETQ.get(clave);
+    if (hay) return hay;
     const c = document.createElement("canvas");
     c.width = W; c.height = H;
     const g = c.getContext("2d");
     dibuEtiqueta(g, W, H, {
       nombre: p && p.nombre, tinte: colorDe(p),
-      marca: marcaDe(p), forma: formaDe(p)
+      marca: marcaDe(p), forma: formaDe(p),
+      categoria: p && p.categoria
     });
     const t = new T.CanvasTexture(c);
     t.encoding = T.sRGBEncoding;
     t.anisotropy = anisoMax();
+    CACHE_ETQ.set(clave, t);
     return t;
   }
 
@@ -1919,50 +2234,79 @@ window.Tienda3D = (function () {
     scene.add(g);
   }
 
-  /* Anuncios del local: cuatro carteles de pared, dos tótems de oferta en
-     la entrada y una banda sobre el arco. Antes solo había carteles de
-     pasillo pequeños; ahora el local "vende" desde cualquier ángulo. */
-  function crearAnuncios() {
-    const ADS = [
-      { t: "LÁCTEOS", o: "-20%", p: "Leche, yogur y quesos", c: "#5aa9ff",
-        x: -8.96, z: -2.2, ry: Math.PI / 2 },
-      { t: "DESPENSA", o: "2x1", p: "Arroz, aceite y pastas", c: "#ffb020",
-        x: -8.96, z: 2.4, ry: Math.PI / 2 },
-      { t: "BEBIDAS", o: "-25%", p: "Todo el pasillo de líquidos", c: "#4ebecb",
-        x: 8.96, z: -2.2, ry: -Math.PI / 2 },
-      { t: "ASEO", o: "-30%", p: "Detergentes y limpieza", c: "#b48cff",
-        x: 8.96, z: 2.4, ry: -Math.PI / 2 }
-    ];
-    ADS.forEach((a) => {
-      const m = new T.Mesh(
-        new T.PlaneGeometry(2.7, 1.72),
-        new T.MeshBasicMaterial({ map: texturaAnuncio(a.t, a.o, a.p, a.c) })
+  /* Anuncios del local: carteles de pared con marco y barra de luz, dos
+     banderolas en la entrada y dos tótems de oferta. Todos comparten el
+     mismo lenguaje y quedan alineados a la misma altura, debajo de la
+     franja lima del muro (2,66 m) para no cortarla. */
+  const ANUNCIOS_PARED = [
+    { t: "LÁCTEOS", o: "-20%", p: "Leche, yogur y quesos", c: "#5aa9ff", muro: "izq", z: -2.2 },
+    { t: "DESPENSA", o: "2x1", p: "Arroz, aceite y pastas", c: "#ffb020", muro: "izq", z: 2.4 },
+    { t: "FRUTAS", o: "-30%", p: "Verduras del día", c: "#3ddc84", muro: "izq", z: 6.5 },
+    { t: "BEBIDAS", o: "-25%", p: "Todo el pasillo de líquidos", c: "#4ebecb", muro: "der", z: -2.2 },
+    { t: "ASEO", o: "-30%", p: "Detergentes y limpieza", c: "#b48cff", muro: "der", z: 2.4 },
+    { t: "CONGELADOS", o: "-15%", p: "Pizza, helados y hielo", c: "#7fd4ff", muro: "der", z: 6.5 }
+  ];
+
+  /* Un cartel de pared completo: marco oscuro, cara iluminada y barra LED
+     sobre el borde superior. Antes era un plano suelto que "flotaba" en el
+     muro; con marco y luz se lee como mobiliario del local. */
+  function cartelPared(x, y, z, ry, ancho, alto, tex, conLuz) {
+    const g = new T.Group();
+    g.position.set(x, y, z);
+    g.rotation.y = ry;
+    const marco = new T.Mesh(
+      new T.BoxGeometry(ancho + 0.10, alto + 0.10, 0.06),
+      new T.MeshLambertMaterial({ color: 0x14181c })
+    );
+    g.add(marco);
+    const cara = new T.Mesh(
+      new T.PlaneGeometry(ancho, alto),
+      new T.MeshBasicMaterial({ map: tex })
+    );
+    cara.position.z = 0.036;
+    g.add(cara);
+    if (conLuz !== false) {
+      /* La barra va dentro del grupo: hereda giro y posición y apunta al
+         pasillo, así el filo queda iluminado en los cuatro muros. */
+      const barra = new T.Mesh(
+        new T.BoxGeometry(ancho * 0.94, 0.035, 0.045),
+        new T.MeshBasicMaterial({ color: 0xfff6e4 })
       );
-      m.name = "anuncio-" + a.t;
-      m.position.set(a.x, 1.78, a.z);
-      m.rotation.y = a.ry;
-      scene.add(m);
+      barra.position.set(0, alto / 2 + 0.058, 0.05);
+      g.add(barra);
+    }
+    scene.add(g);
+    anunciosMallas++;
+    return g;
+  }
+
+  function crearAnuncios() {
+    /* El marco mide 1,82 m de alto: con el centro en 1,70 el borde superior
+       queda en 2,61, debajo de la franja lima del muro (2,66). */
+    const ANCHO_AD = 2.7, ALTO_AD = 1.72, Y_AD = 1.70;
+    ANUNCIOS_PARED.forEach((a) => {
+      const der = a.muro === "der";
+      const x = (der ? 1 : -1) * (ANCHO / 2 - 0.05);
+      const ry = der ? -Math.PI / 2 : Math.PI / 2;
+      const g = cartelPared(x, Y_AD, a.z, ry, ANCHO_AD, ALTO_AD,
+        texturaAnuncio(a.t, a.o, a.p, a.c));
+      g.name = "anuncio-" + a.t;
     });
 
-    /* Dos banderolas a los lados del wordmark: el panel de la marca (7,4 m
-       de ancho) queda intacto y la entrada igual anuncia el mercado. */
+    /* Banderolas de entrada: a los lados del wordmark, que queda intacto. */
     [
       { x: -5.75, t: "MERCADO FRESCO", o: "HOY", p: "Frutas y verduras del día", c: "#3ddc84" },
       { x: 5.75,  t: "REFRIGERADOS",  o: "4 °C", p: "Lácteos, bebidas y refrigerios", c: "#5aa9ff" }
     ].forEach((a) => {
-      const m = new T.Mesh(
-        new T.PlaneGeometry(2.7, 1.6875),      // 1024×640 = 1,6:1
-        new T.MeshBasicMaterial({ map: texturaAnuncio(a.t, a.o, a.p, a.c) })
-      );
-      m.name = "anuncio-entrada-" + a.t;
-      m.position.set(a.x, 1.80, LARGO / 2 - 0.03);
-      m.rotation.y = Math.PI;
-      scene.add(m);
+      const g = cartelPared(a.x, 1.70, LARGO / 2 - 0.05, Math.PI, 2.7, 1.6875,
+        texturaAnuncio(a.t, a.o, a.p, a.c));
+      g.name = "anuncio-entrada-" + a.t;
     });
 
     // tótems de oferta flanqueando la entrada
     TOTEMS.forEach((a) => {
       const g = new T.Group();
+      g.name = "totem-" + a.t;
       g.position.set(a.x, 0, a.z);
       const pie = new T.Mesh(new T.CylinderGeometry(0.34, 0.42, 0.10, 16),
         new T.MeshLambertMaterial({ color: 0x14171a }));
@@ -2052,6 +2396,7 @@ window.Tienda3D = (function () {
     luzFresca = null;
     decoErr = "";
     senalesMallas = 0;
+    anunciosMallas = 0;
 
     camera = new T.PerspectiveCamera(fovBase, 1, 0.05, 90);
 
@@ -3367,7 +3712,8 @@ window.Tienda3D = (function () {
       g.save();
       g.translate(Math.round((img.width - W2) / 2), 0);
       dibuEtiqueta(g, W2, H2, {
-        nombre: p.nombre, tinte: colorDe(p), marca: marcaDe(p), forma: formaDe(p)
+        nombre: p.nombre, tinte: colorDe(p), marca: marcaDe(p), forma: formaDe(p),
+        categoria: p.categoria
       });
       g.restore();
     }
@@ -4308,9 +4654,10 @@ window.Tienda3D = (function () {
     scene = null;
     escenaOk = false;
     catUsada = null;
+    CACHE_ETQ.clear();                 // las texturas ya se liberaron arriba
     refs = { piso: null, muro: [], techo: [], metal: [] };
     mallasGondola = []; mallasCong = []; mallasProd = [];
-    frescosMallas = 0; refriMallas = 0; senalesMallas = 0;
+    frescosMallas = 0; refriMallas = 0; senalesMallas = 0; anunciosMallas = 0;
     frescosPilas = []; tapasGondola = []; luzFresca = null;
     puertas = []; tv = null; tvTextura = null; tvCanvas = null;
     luzTV = null; camaras = []; carrito = null; carritoRuedas = [];
@@ -4450,7 +4797,7 @@ window.Tienda3D = (function () {
           const se = Number(localStorage.getItem(CLAVE_SENS));
           if (se >= 40 && se <= 180) sensCam = se / 100;
           const fv = Number(localStorage.getItem(CLAVE_FOV));
-          if (fv >= 50 && fv <= 85) { fovBase = fv; fovAct = fv; camera.fov = fv; camera.updateProjectionMatrix(); }
+          if (fv >= 50 && fv <= 110) { fovBase = fv; fovAct = fv; camera.fov = fv; camera.updateProjectionMatrix(); }
         } catch (e) { /* modo privado */ }
         listo = true;
       }
@@ -4541,7 +4888,7 @@ window.Tienda3D = (function () {
     gond: mallasGondola.length, cong: mallasCong.length,
     frescos: frescosMallas, refri: refriMallas,
     frescosN: frescosPilas.reduce((n, e) => n + (e.mesh ? e.mesh.count : 0), 0),
-    senales: senalesMallas,
+    senales: senalesMallas, anuncios: anunciosMallas,
     cal: calidad === "auto" ? perfil : calidad,
     decoErr: decoErr,
     ficha: !!fichaP, fichaNom: fichaP ? fichaP.nombre : "", vuelos: vuelos.length,

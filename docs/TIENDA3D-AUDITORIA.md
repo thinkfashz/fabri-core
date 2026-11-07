@@ -703,3 +703,93 @@ Suites: `diseno` ✔ · `boleta` 15 ✔ · `arranque` 9/9 ✔ · `inventario` 6/
 pierde el contexto WebGL a los pocos segundos —de ahí los
 «WebGL context could not be created» al cambiar de calidad— así que todo se
 comprueba por sonda, geometría medida y texturas 2D.
+
+## Ronda 5 · encuadre amplio, modo cine y carátulas (v51)
+
+Pedido: más calidad y color, modo cine como referencia de iluminación, menos
+brillo plano, brillo de envase ("lacado"), carátulas reales en los productos,
+más amplitud de cámara (95–100 en vez de 85) y mejor ubicación de los carteles.
+
+### Encuadre
+- **FOV por defecto 92°** (antes 62) y rango **50–110** (antes 50–85). En un
+  teléfono en retrato son ~54° horizontales contra ~33° de antes: el pasillo se
+  ve entero en vez de un tubo.
+- La clave de guardado pasó a `fcore.tienda3d.fov2`: un valor viejo de 62 no
+  pisa el encuadre nuevo. El panel muestra `92°` y el slider llega a 110.
+
+### Iluminación
+- **Modo cine establecido por defecto** (`luzActual = "cine"`, botón activo en
+  el panel) y reescrito: `amb 0.24 · hemi 0.28 · dir 1.30 · rell 0.20 · exp 0.94`
+  contra `0.26 / 0.28 / 1.02 / 0.16 / 1.04`. Más key y menos ambiente es lo que
+  da volumen; la exposición bajó para no quemar los blancos.
+- **Todos los ambientes recalibrados** con la misma lógica: menos ambiente,
+  más direccional y exposición 0,94–1,04 (antes 1,04–1,16). Se nota sobre todo
+  en el papel de las etiquetas y en el metal.
+- **Entorno PMREM con franjas**: cuatro tiras emisivas en el techo de la sala
+  procedural y dos vitrinas (cálida y fría) en las paredes. Con `sigma` 0.012
+  las franjas sobreviven al desenfoque y aparecen como una **raya de luz** en
+  cada envase. Antes el reflejo era una mancha pareja y el producto se veía mate.
+
+### Materiales (el "lacado")
+- Caja, bolsa y tetra pasan de `MeshLambertMaterial` a **`MeshPhongMaterial`
+  con specular y `envMap`**: film de polietileno y cartulina plastificada.
+- Lata 150→165 de brillo y reflectividad 0,85→0,92; botella 110→128 y 0,55→0,72;
+  frasco 130→140 y 0,5→0,66; pote 45→86 de brillo.
+- En **calidad baja** se mantiene Phong (se apaga sólo el muestreo del entorno):
+  bajar a Lambert devolvía el aspecto "de cartón" que se quería quitar.
+
+### Carátulas de producto
+Cada envase lleva una portada dibujada en canvas, **sin imágenes de terceros**
+(todo son paths propios: cero licencias, cero descargas, funciona offline).
+
+| Pieza | Qué hace |
+|---|---|
+| `TINTES_CAT` | paleta plausible por categoría: lácteos en blanco/azul, carnes en rojo, limpieza en violeta/turquesa, abarrotes en ocre… Antes la leche salía verde. |
+| `TINTES_NOMBRE` | 16 excepciones por nombre: cola → rojo profundo, agua → celeste, detergente → violeta, marraqueta → trigo. |
+| `ACENTO_CAT` | acento saturado para el dibujo: sobre un envase casi blanco el icono igual contrasta. |
+| `arteDe` | 11 ilustraciones vectoriales (cartón de leche, hogaza, bistec, manzana, botella, saco, pulverizador, pez, copo de nieve, bolsa de snack, lata). |
+| `dibuEtiqueta` | fondo degradado + brillo radial + franja de lacado diagonal, banda de marca, ventana con la ilustración, nombre, formato y código. |
+
+Tres errores encontrados y corregidos mirando las portadas renderizadas:
+- el nombre grande se montaba sobre el chip del formato («Reineta» sobre «1 kg»):
+  ahora vive en una **caja reservada** entre la ilustración y el formato;
+- los iconos salían **aplastados** (el recuadro es 1,8:1 y se escalaba por ancho y
+  alto por separado): se dibujan en un cuadrado centrado;
+- los iconos **desaparecían** sobre envases claros: se dibujan con el acento de
+  la categoría, no con el tinte del envase.
+
+`texturaEtiqueta` cachea por `id|tamaño`: dos estantes con el mismo SKU no
+generan (ni suben a la GPU) la carátula dos veces. La caché se vacía en
+`destruirEscena`.
+
+### Carteles
+- **6 carteles de pared** (antes 4): se sumaron FRUTAS y CONGELADOS en el muro
+  de la entrada, que estaba vacío justo donde ahora está la zona fresca.
+- Cada uno lleva **marco oscuro y barra LED** sobre el borde; antes era un plano
+  suelto que parecía flotar.
+- Todos alineados a **y = 1,70** con marco de 1,82 m: borde superior en 2,61,
+  **5 cm debajo de la franja lima** del muro (2,66), así no la cortan.
+- Las dos banderolas de la entrada usan el mismo marco y la marca queda intacta.
+
+### Verificado
+```
+__t3d()  err3d "" · gond 24 · cong 29 · frescos 12 · refri 8
+         senales 10 · anuncios 8 · hijos 269 · fov 92 · decoErr ""
+panel    cine activo por defecto · «92°» · slider max 110
+0 errores de página
+```
+- Las 10 portadas se renderizaron a PNG desde el propio canvas y se revisaron
+  como hoja de contacto (leche, cola, arroz, detergente, pan, carne, manzana,
+  pizza, reineta, papas): legibles, con color plausible y sin solapes.
+- Un bug real durante la revisión: `mezcla()` recibía números en vez de
+  `#rrggbb` y lanzaba `a.slice is not a function`; se corrigió a `hex()` y se
+  volvió a renderizar (0 errores de página).
+
+Suites: `diseno` ✔ · `boleta` 15 ✔ · `arranque` 9/9 ✔ · `inventario` 6/6 ✔ ·
+`seguridad` 23/23 ✔. `sw.js` → **`fcore-v51`**.
+
+**No verificado aquí**: aspecto y FPS en GPU real. Este headless pierde el
+contexto WebGL a los pocos segundos, así que la comprobación es por sonda, por
+las texturas renderizadas a PNG y por geometría medida. El FOV más amplio
+muestra más objetos por frame: si en el teléfono baja el ritmo, el panel de
+calidad ya recorta fruta, tapas y luces.
