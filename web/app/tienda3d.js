@@ -890,9 +890,9 @@ window.Tienda3D = (function () {
   function matForma(forma, p) {
     const t = colorDe(p);
     if (forma === "vidrio") {
-      return new T.MeshPhysicalMaterial({
-        color: new T.Color(t).multiplyScalar(0.55), roughness: 0.10, metalness: 0.05,
-        transparent: true, opacity: 0.88, ior: 1.5, specularIntensity: 1
+      return new T.MeshStandardMaterial({
+        color: new T.Color(t).multiplyScalar(0.55), roughness: 0.12,
+        metalness: 0.05, transparent: true, opacity: 0.88
       });
     }
     if (forma === "lata") {

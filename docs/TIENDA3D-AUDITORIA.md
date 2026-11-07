@@ -406,9 +406,13 @@ con un número gigante, algo que no existe en ningún supermercado.
    - banda curva (`CylinderGeometry` de 135°) en los envases redondos;
    - plano en cajas, bolsas y tetra.
    El texto ya no se repite en las seis caras ni sale espejado.
-3. **Materiales diferenciados**: vidrio `MeshPhysicalMaterial` (transparente,
-   IOR 1,5), lata y botella `MeshPhongMaterial` con brillo alto, frasco
-   translúcido, caja `MeshLambertMaterial` mate.
+3. **Materiales diferenciados**: vidrio `MeshStandardMaterial` (PBR:
+   rugosidad 0,12 y metalness 0,05, translúcido), lata y botella
+   `MeshPhongMaterial` con brillo alto, frasco translúcido, caja
+   `MeshLambertMaterial` mate. Se descartó `MeshPhysicalMaterial` para el
+   vidrio: en el rasterizador por software del headless no compila
+   (`Shader Error 1282`, `VALIDATE_STATUS false`) y en móvil cuesta más por
+   fragmento; `MeshStandardMaterial` da el mismo PBR sin ese riesgo.
 4. **Color propio por producto** (`colorDe`): el tinte de la categoría se
    mezcla con un color de `PALETA` derivado del hash del nombre, así dos
    productos de la misma góndola no salen idénticos.
@@ -426,7 +430,8 @@ con un número gigante, algo que no existe en ningún supermercado.
 ```
 err3d ""  ·  hijos 165  ·  góndola 24 niveles  ·  neveras 28 niveles
 geometrías: LatheGeometry, ExtrudeGeometry, CylinderGeometry, PlaneGeometry
-materiales: MeshPhongMaterial, MeshPhysicalMaterial, MeshLambertMaterial
+materiales: MeshPhongMaterial, MeshStandardMaterial, MeshLambertMaterial
+0 errores de shader en consola (con MeshPhysicalMaterial salían 5)
 24 etiquetas con mapa · 0 errores de página
 ```
 Texturas revisadas como PNG (generadas directamente del canvas 2D):
