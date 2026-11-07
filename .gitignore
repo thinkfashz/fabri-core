@@ -42,3 +42,4 @@ Thumbs.db
 # La APK que se sirve desde la web se versiona a propósito (descarga directa).
 !web/descargas/
 !web/descargas/*.apk
+.vercel
