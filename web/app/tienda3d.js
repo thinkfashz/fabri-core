@@ -57,6 +57,7 @@ window.Tienda3D = (function () {
   /* Mallas seleccionables (una por nivel de góndola + las de la nevera):
      cada una guarda su propio `userData.mapa` de productos. */
   let mallasGondola = [], mallasCong = [], mallasProd = [];
+  let frescosMallas = 0, refriMallas = 0;   // islas de verdura y refrigerados
   let vuelos = [];                 // cajas volando hacia el carrito
   let fichaP = null, fichaOrigen = null;   // producto en la ficha abierta
   /* Materiales que reciben textura HD (Poly Haven / ambientCG, CC0).
@@ -1343,6 +1344,612 @@ window.Tienda3D = (function () {
     }
   }
 
+  /* ── zona fresca: mercado de frutas, verduras y refrigerados ─────────────
+     Ocupa la mitad de entrada (z > 4,5), el único hueco grande del local:
+     tres islas de madera con cajas de producto y dos islas refrigeradas.
+     Las pilas se instancian por tipo, así 240 frutas cuestan 12 draw calls.
+     Todo es geometría procedural: ni una imagen externa. */
+  const FRESCOS = {
+    tomate:    { nombre: "Tomate pera",     precio: 1290, color: 0xd8342a, escala: 0.150 },
+    lechuga:   { nombre: "Lechuga costina", precio: 990,  color: 0x4f9e3a, escala: 0.235 },
+    zanahoria: { nombre: "Zanahoria",       precio: 890,  color: 0xe2761f, escala: 0.160 },
+    papa:      { nombre: "Papa lavada",     precio: 1490, color: 0xb98b5a, escala: 0.170 },
+    manzana:   { nombre: "Manzana royal",   precio: 1590, color: 0xc42a2a, escala: 0.160 },
+    naranja:   { nombre: "Naranja de mesa", precio: 1390, color: 0xf08a1e, escala: 0.150 },
+    platano:   { nombre: "Plátano",         precio: 1190, color: 0xf2c53d, escala: 0.215 },
+    uva:       { nombre: "Uva negra",       precio: 2290, color: 0x5b2a63, escala: 0.160 },
+    cebolla:   { nombre: "Cebolla",         precio: 1090, color: 0xc9a27a, escala: 0.160 },
+    pimiento:  { nombre: "Pimiento rojo",   precio: 1490, color: 0xc8302a, escala: 0.160 },
+    brocoli:   { nombre: "Brócoli",         precio: 1690, color: 0x3f7a2f, escala: 0.215 },
+    limon:     { nombre: "Limón sutil",     precio: 990,  color: 0xd8cf3a, escala: 0.130 }
+  };
+  const ISLAS_FRESCAS = [
+    { x: -4.8, z: 6.4, items: ["tomate", "lechuga", "zanahoria", "papa"] },
+    { x: 0,    z: 6.4, items: ["manzana", "naranja", "platano", "uva"] },
+    { x: 4.8,  z: 6.4, items: ["cebolla", "pimiento", "brocoli", "limon"] }
+  ];
+  const REFRIGERADOS = [
+    { x: -4.8, z: 8.9, titulo: "REFRIGERIO",
+      items: [
+        { nombre: "Chocolate · 100 g", precio: 1290, categoria: "Refrigerio" },
+        { nombre: "Galleta surtida · 200 g", precio: 1490, categoria: "Refrigerio" },
+        { nombre: "Papas fritas · 180 g", precio: 1890, categoria: "Refrigerio" },
+        { nombre: "Bebida cola · 1,5 L", precio: 1990, categoria: "Bebidas" },
+        { nombre: "Agua mineral · 600 ml", precio: 990, categoria: "Bebidas" },
+        { nombre: "Jugo de naranja · 1 L", precio: 2190, categoria: "Bebidas" },
+        { nombre: "Maní tostado · 150 g", precio: 1190, categoria: "Refrigerio" },
+        { nombre: "Barra cereal · 40 g", precio: 790, categoria: "Refrigerio" },
+        { nombre: "Café listo · 250 ml", precio: 1590, categoria: "Bebidas" }
+      ] },
+    { x: 4.8, z: 8.9, titulo: "REFRIGERADOS",
+      items: [
+        { nombre: "Leche entera · 1 L", precio: 1790, categoria: "Lácteos" },
+        { nombre: "Yogur natural · 1 kg", precio: 2490, categoria: "Lácteos" },
+        { nombre: "Queso gauda · 250 g", precio: 3290, categoria: "Lácteos" },
+        { nombre: "Mantequilla · 250 g", precio: 2890, categoria: "Lácteos" },
+        { nombre: "Postre de leche · 120 g", precio: 990, categoria: "Lácteos" },
+        { nombre: "Jugo de piña · 1 L", precio: 2190, categoria: "Bebidas" },
+        { nombre: "Yogur bebible · 1 L", precio: 1890, categoria: "Lácteos" },
+        { nombre: "Crema · 200 ml", precio: 1690, categoria: "Lácteos" },
+        { nombre: "Bebida vegetal · 1 L", precio: 2390, categoria: "Lácteos" }
+      ] }
+  ];
+
+  /* Tótems de oferta flanqueando la entrada. Van aquí y no dentro de
+     crearAnuncios porque `choca()` también los necesita. */
+  const TOTEMS = [
+    { x: -7.4, z: 8.8, t: "OFERTA", o: "-30%", p: "En verduras del día", c: "#3ddc84" },
+    { x: 7.4,  z: 8.8, t: "OFERTA", o: "-20%", p: "En lácteos y bebidas", c: "#5aa9ff" }
+  ];
+
+  const GEO_FRESCO = {};
+  const GEO_TAPA = {};
+
+  /* Ruido determinista: la misma fruta se ve igual en cada visita (nada de
+     Math.random en la geometría, que cambiaría al reconstruir la escena). */
+  function azar(i) {
+    const s = Math.sin(i * 127.1 + 311.7) * 43758.5453;
+    return s - Math.floor(s);
+  }
+
+  function ruidoForma(g, amp, freq) {
+    const pos = g.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+      const n = Math.sin(x * freq + 1.3) * Math.sin(y * freq * 0.9 + 2.1) *
+        Math.sin(z * freq + 1.7);
+      const k = 1 + n * amp;
+      pos.setXYZ(i, x * k, y * k, z * k);
+    }
+    g.computeVertexNormals();
+    return g;
+  }
+
+  function geoFresco(tipo) {
+    if (GEO_FRESCO[tipo]) return GEO_FRESCO[tipo];
+    const esfera = (seg) => new T.SphereGeometry(0.5, seg || 12, (seg || 12) - 2);
+    let g;
+    if (tipo === "tomate") {
+      g = esfera(14);
+      g.scale(1, 0.86, 1);
+      ruidoForma(g, 0.025, 7);
+    } else if (tipo === "lechuga") {
+      g = esfera(12);
+      g.scale(1, 0.82, 1);
+      ruidoForma(g, 0.20, 8);
+    } else if (tipo === "zanahoria") {
+      g = new T.CylinderGeometry(0.11, 0.02, 1.7, 10, 1);
+      ruidoForma(g, 0.04, 9);
+    } else if (tipo === "papa") {
+      g = esfera(12);
+      g.scale(1, 0.74, 0.86);
+      ruidoForma(g, 0.07, 5);
+    } else if (tipo === "manzana") {
+      g = torno([
+        [0.00, 0.00], [0.30, 0.02], [0.46, 0.16], [0.50, 0.42],
+        [0.44, 0.72], [0.26, 0.90], [0.10, 0.96], [0.00, 0.94]
+      ], 16);
+    } else if (tipo === "naranja") {
+      g = esfera(12);
+      g.scale(1, 0.95, 1);
+      ruidoForma(g, 0.012, 11);
+    } else if (tipo === "platano") {
+      const cv = new T.CatmullRomCurve3([
+        new T.Vector3(-0.45, 0.02, 0), new T.Vector3(-0.18, 0.13, 0.03),
+        new T.Vector3(0.18, 0.13, 0.03), new T.Vector3(0.45, 0.02, 0)
+      ]);
+      g = new T.TubeGeometry(cv, 12, 0.10, 8, false);
+    } else if (tipo === "uva") {
+      g = esfera(10);
+      ruidoForma(g, 0.22, 10);
+    } else if (tipo === "cebolla") {
+      g = torno([
+        [0.00, 0.00], [0.32, 0.02], [0.50, 0.20], [0.50, 0.50],
+        [0.40, 0.74], [0.18, 0.90], [0.00, 0.99]
+      ], 16);
+    } else if (tipo === "pimiento") {
+      g = esfera(12);
+      g.scale(1, 1.18, 0.92);
+      ruidoForma(g, 0.05, 6);
+    } else if (tipo === "brocoli") {
+      g = esfera(10);
+      g.scale(1, 0.90, 1);
+      ruidoForma(g, 0.22, 9);
+    } else {
+      g = esfera(12);
+      g.scale(1.14, 0.84, 0.84);
+    }
+    GEO_FRESCO[tipo] = g;
+    return g;
+  }
+
+  /* Tapa / rosca de cada familia: es el remate que hace que una botella se
+     lea como botella y un pote como pote. */
+  function geoTapa(forma) {
+    if (GEO_TAPA[forma] !== undefined) return GEO_TAPA[forma];
+    let g = null;
+    if (forma === "botella") g = new T.CylinderGeometry(0.22, 0.22, 0.10, 14);
+    else if (forma === "vidrio") g = new T.CylinderGeometry(0.17, 0.17, 0.09, 14);
+    else if (forma === "frasco") g = new T.CylinderGeometry(0.33, 0.33, 0.08, 16);
+    else if (forma === "yogur") g = new T.CylinderGeometry(0.53, 0.53, 0.06, 18);
+    GEO_TAPA[forma] = g;
+    return g;
+  }
+
+  /* Cartel de la zona fresca: verde profundo, tipografía blanca y filete
+     lima. Se usa colgado de las islas y sobre las neveras abiertas. */
+  function texturaFresco(titulo, sub, ancho) {
+    const W = ancho || 1024, H = 320;
+    const c = document.createElement("canvas");
+    c.width = W; c.height = H;
+    const g = c.getContext("2d");
+    const de = g.createLinearGradient(0, 0, W, H);
+    de.addColorStop(0, "#12351d"); de.addColorStop(1, "#07130b");
+    g.fillStyle = de; g.fillRect(0, 0, W, H);
+    g.fillStyle = "#c8ff00";
+    g.fillRect(0, 0, W, 12); g.fillRect(0, H - 10, W, 10);
+    g.textAlign = "left"; g.textBaseline = "middle";
+    let fs = 96;
+    g.fillStyle = "#ffffff";
+    do {
+      g.font = "900 " + fs + "px -apple-system, Segoe UI, Roboto, sans-serif";
+      if (g.measureText(titulo).width <= W - 90) break;
+      fs -= 4;
+    } while (fs > 34);
+    g.fillText(String(titulo || "").toUpperCase(), 46, H * 0.42);
+    g.fillStyle = "#c8ff00";
+    g.font = "700 30px -apple-system, Segoe UI, Roboto, sans-serif";
+    g.fillText(String(sub || "").toUpperCase(), 48, H * 0.74);
+    const t = new T.CanvasTexture(c);
+    t.encoding = T.sRGBEncoding;
+    t.anisotropy = anisoMax();
+    return t;
+  }
+
+  /* Anuncio de pared: fondo oscuro, oferta gigante y color de categoría.
+     Es el mismo lenguaje del cartel de pasillo, a otra escala. */
+  function texturaAnuncio(titulo, oferta, pie, color) {
+    const W = 1024, H = 640;
+    const c = document.createElement("canvas");
+    c.width = W; c.height = H;
+    const g = c.getContext("2d");
+    const col = color || "#c8ff00";
+    const de = g.createLinearGradient(0, 0, W, H);
+    de.addColorStop(0, "#11151a"); de.addColorStop(1, "#050708");
+    g.fillStyle = de; g.fillRect(0, 0, W, H);
+    g.save();
+    g.translate(W * 0.5, H * 0.52); g.rotate(-0.20);
+    g.globalAlpha = 0.14; g.fillStyle = col;
+    g.fillRect(-W, -H * 0.18, W * 2, H * 0.36);
+    g.restore();
+    g.globalAlpha = 1;
+    g.strokeStyle = col; g.lineWidth = 12;
+    g.strokeRect(18, 18, W - 36, H - 36);
+
+    g.textAlign = "left"; g.textBaseline = "top";
+    g.fillStyle = "#ffffff";
+    let fs = 76;
+    do {
+      g.font = "900 " + fs + "px -apple-system, Segoe UI, Roboto, sans-serif";
+      if (g.measureText(titulo).width <= W - 120) break;
+      fs -= 3;
+    } while (fs > 34);
+    g.fillText(String(titulo || "").toUpperCase(), 58, 62);
+
+    g.fillStyle = col;
+    g.font = "900 200px -apple-system, Segoe UI, Roboto, sans-serif";
+    g.fillText(String(oferta || ""), 54, H - 330);
+
+    g.fillStyle = "rgba(255,255,255,.82)";
+    g.font = "700 32px -apple-system, Segoe UI, Roboto, sans-serif";
+    g.fillText(String(pie || "").toUpperCase(), 60, H - 108);
+
+    g.fillStyle = col;
+    g.fillRect(W - 250, 62, 176, 10);
+    g.fillStyle = "#ffffff";
+    g.font = "900 26px -apple-system, Segoe UI, Roboto, sans-serif";
+    g.textAlign = "right";
+    g.fillText("FORGE CORE STOCK", W - 62, 88);
+
+    const t = new T.CanvasTexture(c);
+    t.encoding = T.sRGBEncoding;
+    t.anisotropy = anisoMax();
+    return t;
+  }
+
+  /* Etiqueta de precio de una caja de verdura (no es una tira de estante:
+     una sola pieza, con nombre y precio grandes). */
+  function texturaPrecioFresco(nombre, precio) {
+    const W = 512, H = 128;
+    const c = document.createElement("canvas");
+    c.width = W; c.height = H;
+    const g = c.getContext("2d");
+    g.fillStyle = "#f6f1df"; g.fillRect(0, 0, W, H);
+    g.fillStyle = "#12351d"; g.fillRect(0, 0, W, 8);
+    g.textBaseline = "middle"; g.textAlign = "left";
+    g.fillStyle = "#1a1d20";
+    let fs = 34;
+    do {
+      g.font = "800 " + fs + "px -apple-system, Segoe UI, Roboto, sans-serif";
+      if (g.measureText(nombre).width <= W * 0.58) break;
+      fs -= 2;
+    } while (fs > 14);
+    g.fillText(String(nombre || ""), 14, H * 0.50);
+    g.textAlign = "right";
+    g.fillStyle = "#0b0d0f";
+    g.font = "900 46px -apple-system, Segoe UI, Roboto, sans-serif";
+    g.fillText("$" + Math.round(precio || 0).toLocaleString("es-CL"), W - 14, H * 0.52);
+    const t = new T.CanvasTexture(c);
+    t.encoding = T.sRGBEncoding;
+    t.anisotropy = anisoMax();
+    return t;
+  }
+
+  function crearZonaFresca() {
+    const madera = new T.MeshLambertMaterial({ color: 0x7a5433 });
+    const maderaOsc = new T.MeshLambertMaterial({ color: 0x4c3421 });
+    const verde = new T.MeshLambertMaterial({ color: 0x1d5a2c });
+    const lima = new T.MeshLambertMaterial({ color: 0xc8ff00 });
+
+    const caja = (w, h, d, x, y, z, mat, g) => {
+      const m = new T.Mesh(new T.BoxGeometry(w, h, d), mat);
+      m.position.set(x, y, z);
+      m.castShadow = true; m.receiveShadow = true;
+      g.add(m);
+      return m;
+    };
+
+    const pilas = new Map();          // tipo → matrices + producto
+    const etiquetas = [];             // etiquetas de precio de las cajas
+
+    ISLAS_FRESCAS.forEach((isla, ii) => {
+      const g = new T.Group();
+      g.name = "isla-fresca-" + ii;
+      g.position.set(isla.x, 0, isla.z);
+      // zócalo verde + cuerpo de madera con listones
+      caja(2.34, 0.10, 1.20, 0, 0.05, 0, verde, g);
+      caja(2.20, 0.44, 1.06, 0, 0.32, 0, madera, g);
+      [-0.86, -0.29, 0.29, 0.86].forEach((x) => {
+        caja(0.05, 0.44, 1.08, x, 0.32, 0, maderaOsc, g);
+      });
+      // dos cajas por lado, cada una con su producto
+      [-1, 1].forEach((lado) => {
+        [-0.56, 0.56].forEach((x, k) => {
+          const z = lado * 0.30;
+          caja(0.52, 0.16, 0.50, x, 0.62, z, maderaOsc, g);
+          caja(0.56, 0.04, 0.54, x, 0.70, z, madera, g);
+          const tipo = isla.items[(k + (lado > 0 ? 2 : 0)) % isla.items.length];
+          const F = FRESCOS[tipo];
+          const prod = {
+            id: "fresco-" + tipo + "-" + ii,
+            nombre: F.nombre, categoria: "Frutas y verduras",
+            precio: F.precio, stock: 25
+          };
+          const e = pilas.get(tipo) || { mats: [], prod: prod };
+          /* Pila de 20 piezas en tres capas (12 + 6 + 2) con desorden
+             determinista: la fruta no queda alineada como soldaditos y la
+             caja se ve llena, como en un mercado de verdad. */
+          const COLS = [-0.173, -0.058, 0.058, 0.173];
+          const FILAS = [-0.13, 0, 0.13];
+          const CAPAS = [];
+          COLS.forEach((cx) => FILAS.forEach((cz) => CAPAS.push([cx, cz, 0])));
+          [-0.115, 0, 0.115].forEach((cx) => [-0.065, 0.065].forEach((cz) => CAPAS.push([cx, cz, 1])));
+          [-0.058, 0.058].forEach((cx) => CAPAS.push([cx, 0, 2]));
+          CAPAS.forEach((o, n) => {
+            const jx = (azar(ii * 97 + n * 13 + k * 7) - 0.5) * 0.036;
+            const jz = (azar(ii * 57 + n * 29 + k * 11) - 0.5) * 0.036;
+            const acostada = tipo === "zanahoria" || tipo === "platano";
+            const qq = new T.Quaternion().setFromEuler(new T.Euler(
+              (azar(n * 31 + k * 17 + ii) - 0.5) * (acostada ? 2.4 : 0.45),
+              azar(n * 11 + k * 23 + ii) * Math.PI * 2,
+              (azar(n * 7 + k * 3 + ii) - 0.5) * (acostada ? 2.4 : 0.35)
+            ));
+            /* o[0] es la columna dentro de la caja: sin él las 20 piezas
+               caían todas sobre el mismo eje X y la pila se veía como una
+               fila de soldaditos. */
+            const m = new T.Matrix4().compose(
+              new T.Vector3(isla.x + x + o[0] + jx,
+                0.70 + (acostada ? 0.035 : F.escala * 0.42) +
+                  o[2] * F.escala * (acostada ? 0.22 : 0.80),
+                isla.z + z + o[1] + jz),
+              qq, new T.Vector3(F.escala, F.escala, F.escala)
+            );
+            e.mats.push(m);
+          });
+          pilas.set(tipo, e);
+          /* El precio va pegado a la cara frontal de la caja (0,54–0,70 m):
+             antes quedaba 6 cm por delante, flotando en el pasillo. */
+          etiquetas.push({
+            prod: prod, x: isla.x + x + (x < 0 ? 0 : 0), y: 0.615,
+            z: isla.z + z + lado * 0.255, ry: lado > 0 ? 0 : Math.PI
+          });
+        });
+      });
+      // cartel colgado sobre la isla
+      const cartel = new T.Mesh(
+        new T.PlaneGeometry(1.62, 0.52),
+        new T.MeshBasicMaterial({
+          map: texturaFresco("MERCADO FRESCO",
+            isla.items.map((t) => FRESCOS[t].nombre).slice(0, 3).join(" · ")),
+          side: T.DoubleSide
+        })
+      );
+      cartel.position.set(0, 1.98, 0);
+      g.add(cartel);
+      [-0.62, 0.62].forEach((vx) => {
+        const v = new T.Mesh(new T.CylinderGeometry(0.012, 0.012, 0.95), lima);
+        v.position.set(vx, 2.45, 0);
+        g.add(v);
+      });
+      scene.add(g);
+    });
+
+    // pilas: una InstancedMesh por tipo con variación de color por pieza
+    const tmpC = new T.Color();
+    pilas.forEach((e, tipo) => {
+      const mesh = new T.InstancedMesh(
+        geoFresco(tipo), new T.MeshLambertMaterial({ color: 0xffffff }), e.mats.length
+      );
+      const base = new T.Color(FRESCOS[tipo].color);
+      e.mats.forEach((m, i) => {
+        mesh.setMatrixAt(i, m);
+        tmpC.copy(base).multiplyScalar(0.86 + azar(i * 19 + tipo.length) * 0.30);
+        mesh.setColorAt(i, tmpC);
+      });
+      mesh.instanceMatrix.needsUpdate = true;
+      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+      mesh.name = "fresco-" + tipo;
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      mesh.frustumCulled = false;
+      mesh.userData.mapa = e.mats.map(() => e.prod);
+      scene.add(mesh);
+      mallasProd.push(mesh);
+      frescosMallas++;
+    });
+
+    /* Luz de la zona fresca: panel LED sobre cada isla (emisivo, cuelga del
+       grupo del techo para que responda al interruptor) y una luz de relleno
+       cálida, porque el fondo del local solo tenía puntos en z ±3,35 y la
+       fruta quedaba en penumbra justo donde más color importa. */
+    const panelLED = new T.MeshBasicMaterial({ color: 0xfff6e2 });
+    ISLAS_FRESCAS.forEach((isla) => {
+      const pnl = new T.Mesh(new T.BoxGeometry(2.2, 0.05, 1.0), panelLED);
+      pnl.position.set(isla.x, 2.99, isla.z);
+      if (grupoLED.techo) grupoLED.techo.add(pnl); else scene.add(pnl);
+    });
+    const luzFresca = new T.PointLight(0xfff0d8, 0.6, 15, 0);
+    luzFresca.position.set(0, 2.8, 7.2);
+    scene.add(luzFresca);
+
+    // etiquetas de precio de cada caja
+    etiquetas.forEach((t) => {
+      const m = new T.Mesh(
+        new T.PlaneGeometry(0.38, 0.105),
+        new T.MeshBasicMaterial({
+          map: texturaPrecioFresco(t.prod.nombre, t.prod.precio),
+          side: T.DoubleSide
+        })
+      );
+      m.position.set(t.x, t.y, t.z);
+      m.rotation.y = t.ry;
+      scene.add(m);
+    });
+  }
+
+  /* Isla refrigerada de una cara: tres repisas iluminadas, productos de las
+     mismas familias que la góndola y cartel de categoría. */
+  function crearIslaRefri(cfg) {
+    const g = new T.Group();
+    g.name = "isla-refri-" + cfg.titulo;
+    g.position.set(cfg.x, 0, cfg.z);
+    const marco = new T.MeshLambertMaterial({ color: 0x1e2429 });
+    const panel = new T.MeshLambertMaterial({ color: 0x2b333a });
+    const led = new T.MeshBasicMaterial({ color: 0xe8f6ff });
+
+    const caja = (w, h, d, x, y, z, mat) => {
+      const m = new T.Mesh(new T.BoxGeometry(w, h, d), mat);
+      m.position.set(x, y, z);
+      m.castShadow = true; m.receiveShadow = true;
+      g.add(m);
+      return m;
+    };
+
+    caja(2.50, 0.12, 0.92, 0, 0.06, 0, marco);
+    caja(2.50, 0.10, 0.92, 0, 1.58, 0, marco);
+    caja(0.08, 1.52, 0.92, -1.21, 0.82, 0, panel);
+    caja(0.08, 1.52, 0.92, 1.21, 0.82, 0, panel);
+    caja(2.50, 1.52, 0.08, 0, 0.82, -0.42, panel);
+
+    const YS = [0.42, 0.86, 1.30];
+    YS.forEach((y) => {
+      caja(2.36, 0.05, 0.80, 0, y, 0.02, panel);
+      const l = new T.Mesh(new T.BoxGeometry(2.28, 0.02, 0.03), led);
+      l.position.set(0, y - 0.05, 0.40);
+      g.add(l);
+    });
+
+    /* El lienzo de texturaFresco es 3,2:1: el placo tiene que respetar esa
+       proporción o el texto sale aplastado a lo ancho. */
+    const cartel = new T.Mesh(
+      new T.PlaneGeometry(2.44, 0.50),     // 1562×320 = 4,88:1
+      new T.MeshBasicMaterial({
+        map: texturaFresco(cfg.titulo, "FRESCO TODOS LOS DÍAS", 1562),
+        side: T.DoubleSide
+      })
+    );
+    cartel.position.set(0, 2.02, 0);
+    g.add(cartel);
+    [-1.05, 1.05].forEach((px) => {          // soportes hasta el mueble
+      const sop = new T.Mesh(new T.BoxGeometry(0.05, 0.30, 0.05), marco);
+      sop.position.set(px, 1.70, 0);
+      g.add(sop);
+    });
+
+    // productos: 3 por repisa, con su familia y su etiqueta
+    const porFam = new Map();
+    YS.forEach((y, ni) => {
+      for (let c = 0; c < 3; c++) {
+        const it = cfg.items[(ni * 3 + c) % cfg.items.length];
+        const prod = {
+          id: "refri-" + cfg.titulo + "-" + ni + "-" + c,
+          nombre: it.nombre, categoria: it.categoria || "Refrigerados",
+          precio: it.precio, stock: 18
+        };
+        const forma = formaDe(prod);
+        const tam = TAMANO[forma] || TAMANO.caja;
+        const x = -0.82 + c * 0.82;
+        /* coordenadas LOCALES del grupo de la isla: sumar cfg.x/cfg.z otra
+           vez los sacaba del mueble y los dejaba flotando en el pasillo */
+        const m = new T.Matrix4().compose(
+          new T.Vector3(x, y + 0.03 + tam.alto / 2, 0.02),
+          new T.Quaternion(),
+          new T.Vector3(tam.ancho, tam.alto, tam.fondo / tam.fondoGeo)
+        );
+        const e = porFam.get(forma) || { mats: [], prods: [] };
+        e.mats.push(m); e.prods.push(prod);
+        porFam.set(forma, e);
+      }
+    });
+
+    const tmpC = new T.Color();
+    porFam.forEach((e, forma) => {
+      const mesh = new T.InstancedMesh(
+        geoForma(forma), matForma(forma, e.prods[0], true), e.mats.length
+      );
+      e.mats.forEach((m, i) => {
+        mesh.setMatrixAt(i, m);
+        tmpC.set(colorDe(e.prods[i]));
+        mesh.setColorAt(i, tmpC);
+      });
+      mesh.instanceMatrix.needsUpdate = true;
+      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+      mesh.castShadow = true; mesh.receiveShadow = true;
+      mesh.frustumCulled = false;
+      mesh.userData.mapa = e.prods;
+      g.add(mesh);
+      mallasProd.push(mesh);
+      refriMallas++;
+    });
+
+    // etiqueta por producto (cada repisa tiene tres SKU distintos)
+    porFam.forEach((e) => {
+      const forma = formaDe(e.prods[0]);
+      e.prods.forEach((prod, i) => {
+        const me = new T.InstancedMesh(
+          geoEtiqueta(forma),
+          new T.MeshLambertMaterial({ map: texturaEtiqueta(prod, 192) }), 1
+        );
+        me.setMatrixAt(0, e.mats[i]);
+        me.instanceMatrix.needsUpdate = true;
+        me.frustumCulled = false;
+        me.userData.mapa = [prod];
+        g.add(me);
+      });
+    });
+
+    // tira de precios del filo de cada repisa
+    YS.forEach((y, ni) => {
+      const items = [0, 1, 2].map((c) => {
+        const it = cfg.items[(ni * 3 + c) % cfg.items.length];
+        return { nombre: it.nombre, precio: it.precio };
+      });
+      const tira = new T.Mesh(
+        new T.PlaneGeometry(2.28, 0.13),
+        new T.MeshBasicMaterial({ map: texturaTira(items, 1536, 96), side: T.DoubleSide })
+      );
+      tira.position.set(0, y - 0.10, 0.44);
+      g.add(tira);
+    });
+
+    scene.add(g);
+  }
+
+  /* Anuncios del local: cuatro carteles de pared, dos tótems de oferta en
+     la entrada y una banda sobre el arco. Antes solo había carteles de
+     pasillo pequeños; ahora el local "vende" desde cualquier ángulo. */
+  function crearAnuncios() {
+    const ADS = [
+      { t: "LÁCTEOS", o: "-20%", p: "Leche, yogur y quesos", c: "#5aa9ff",
+        x: -8.96, z: -2.2, ry: Math.PI / 2 },
+      { t: "DESPENSA", o: "2x1", p: "Arroz, aceite y pastas", c: "#ffb020",
+        x: -8.96, z: 2.4, ry: Math.PI / 2 },
+      { t: "BEBIDAS", o: "-25%", p: "Todo el pasillo de líquidos", c: "#4ebecb",
+        x: 8.96, z: -2.2, ry: -Math.PI / 2 },
+      { t: "ASEO", o: "-30%", p: "Detergentes y limpieza", c: "#b48cff",
+        x: 8.96, z: 2.4, ry: -Math.PI / 2 }
+    ];
+    ADS.forEach((a) => {
+      const m = new T.Mesh(
+        new T.PlaneGeometry(2.7, 1.72),
+        new T.MeshBasicMaterial({ map: texturaAnuncio(a.t, a.o, a.p, a.c) })
+      );
+      m.name = "anuncio-" + a.t;
+      m.position.set(a.x, 1.78, a.z);
+      m.rotation.y = a.ry;
+      scene.add(m);
+    });
+
+    /* Dos banderolas a los lados del wordmark: el panel de la marca (7,4 m
+       de ancho) queda intacto y la entrada igual anuncia el mercado. */
+    [
+      { x: -5.75, t: "MERCADO FRESCO", o: "HOY", p: "Frutas y verduras del día", c: "#3ddc84" },
+      { x: 5.75,  t: "REFRIGERADOS",  o: "4 °C", p: "Lácteos, bebidas y refrigerios", c: "#5aa9ff" }
+    ].forEach((a) => {
+      const m = new T.Mesh(
+        new T.PlaneGeometry(2.7, 1.6875),      // 1024×640 = 1,6:1
+        new T.MeshBasicMaterial({ map: texturaAnuncio(a.t, a.o, a.p, a.c) })
+      );
+      m.name = "anuncio-entrada-" + a.t;
+      m.position.set(a.x, 1.80, LARGO / 2 - 0.03);
+      m.rotation.y = Math.PI;
+      scene.add(m);
+    });
+
+    // tótems de oferta flanqueando la entrada
+    TOTEMS.forEach((a) => {
+      const g = new T.Group();
+      g.position.set(a.x, 0, a.z);
+      const pie = new T.Mesh(new T.CylinderGeometry(0.34, 0.42, 0.10, 16),
+        new T.MeshLambertMaterial({ color: 0x14171a }));
+      pie.position.y = 0.05;
+      g.add(pie);
+      const poste = new T.Mesh(new T.CylinderGeometry(0.035, 0.035, 1.9, 10),
+        new T.MeshLambertMaterial({ color: 0x2a3036 }));
+      poste.position.y = 0.95;
+      g.add(poste);
+      const panel = new T.Mesh(
+        new T.PlaneGeometry(1.05, 1.35),
+        new T.MeshBasicMaterial({
+          map: texturaAnuncio(a.t, a.o, a.p, a.c), side: T.DoubleSide
+        })
+      );
+      panel.position.y = 1.52;
+      g.add(panel);
+      scene.add(g);
+    });
+  }
+
   /* ── construcción ──────────────────────────────────────────────────────── */
   function construir(catalogo) {
     scene = new T.Scene();
@@ -1362,6 +1969,8 @@ window.Tienda3D = (function () {
     mallasGondola = [];
     mallasCong = [];
     mallasProd = [];
+    frescosMallas = 0;
+    refriMallas = 0;
 
     camera = new T.PerspectiveCamera(fovBase, 1, 0.05, 90);
 
@@ -1666,7 +2275,7 @@ window.Tienda3D = (function () {
         const cg = new T.Group();
         cg.position.set(gx, 2.78, sentido * (G_LARGO / 2 + 1));
         const cartel = new T.Mesh(
-          new T.PlaneGeometry(1.7, 0.42),
+          new T.PlaneGeometry(2.34, 0.58),
           new T.MeshBasicMaterial({ map: texturaCartel(cat, gi + 1), side: T.DoubleSide })
         );
         cg.add(cartel);
@@ -1748,54 +2357,106 @@ window.Tienda3D = (function () {
           }
         });
 
-        /* Cuerpo: geometría propia de la familia (botella torneada, lata con
-           rebordes, caja de cartón redondeada, bolsa con pliegues…). */
-        const mesh = new T.InstancedMesh(
-          geoForma(forma), matForma(forma, p), Math.max(1, caras.length)
-        );
-        mesh.castShadow = true;
-        mesh.receiveShadow = true;
+        /* Dos SKU por estante, siempre de la misma familia: el cuerpo es una
+           sola InstancedMesh con color por instancia y cada SKU lleva su
+           propia etiqueta. Así la góndola se lee como un súper real y no
+           como una pared de cajas repetidas. */
+        const mismaFam = bolsa.filter((x) => formaDe(x) === forma);
+        const p2 = mismaFam.length > 1
+          ? mismaFam[(gi * NIVELES.length + ni + 1) % mismaFam.length] : p;
+        const mitad = porFila / 2;
+        const esA = (d) => d.c < mitad;
 
-        /* Etiqueta: malla aparte, mirando al pasillo. Banda curva en los
-           envases redondos y plano en cajas y bolsas. */
-        const meshEt = new T.InstancedMesh(
-          geoEtiqueta(forma),
-          new T.MeshLambertMaterial({ map: texturaEtiqueta(p, 256) }),
-          Math.max(1, caras.length)
-        );
-        meshEt.castShadow = false;
-        meshEt.receiveShadow = false;
-
-        caras.forEach((d, i) => {
-          const var_ = 1 + (((i + d.c) % 5) - 2) * 0.016;    // ±3 % de variedad
+        const filas = caras.map((d, i) => {
+          /* Irregularidad de reposición: ±5,6 % de tamaño, alguno metido
+             5 cm más adentro (como si lo hubieran devuelto a la repisa) y un
+             giro mínimo. Sin esto la repisa es una fila de soldaditos y por
+             eso todos los productos "se ven iguales". */
+          const var_ = 1 + (((i * 7 + d.c) % 9) - 4) * 0.014;
           const alto = tam.alto * var_;
           const ancho = tam.ancho * (1 + ((i + ni) % 3) * 0.018);
           const fondo = tam.fondo * var_;
-          const x = gx + d.lado * (G_ANCHO / 2 - 0.09);
-          const z = -G_LARGO / 2 + 0.6 + d.c * paso;
-          // el +Z del envase mira al pasillo
-          q.setFromAxisAngle(EJE_Y, d.lado > 0 ? Math.PI / 2 : -Math.PI / 2);
-          m4.compose(
-            new T.Vector3(x, y + alto / 2 + 0.03, z),
-            q,
-            esc.set(ancho, alto, fondo / tam.fondoGeo)
+          const atras = ((i * 5 + d.c) % 11 === 0) ? 0.05 : 0;
+          const x = gx + d.lado * (G_ANCHO / 2 - 0.09 - atras);
+          const z = -G_LARGO / 2 + 0.6 + d.c * paso + (((i * 3 + d.c) % 7) - 3) * 0.004;
+          const cy = y + alto / 2 + 0.03;
+          // el +Z del envase mira al pasillo, con un giro mínimo de reposición
+          q.setFromAxisAngle(EJE_Y, (d.lado > 0 ? Math.PI / 2 : -Math.PI / 2) +
+            (((i + ni) % 5) - 2) * 0.022);
+          const m = new T.Matrix4().compose(
+            new T.Vector3(x, cy, z), q, esc.set(ancho, alto, fondo / tam.fondoGeo)
           );
-          mesh.setMatrixAt(i, m4);
-          meshEt.setMatrixAt(i, m4);
+          return { m: m, d: d, cy: cy, alto: alto };
         });
+
+        /* Cuerpo: geometría propia de la familia (botella torneada, lata con
+           rebordes, caja de cartón redondeada, bolsa con pliegues…). */
+        const mesh = new T.InstancedMesh(
+          geoForma(forma), matForma(forma, p, true), Math.max(1, caras.length)
+        );
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        const tmpCol = new T.Color();
+        filas.forEach((it, i) => {
+          mesh.setMatrixAt(i, it.m);
+          tmpCol.set(colorDe(esA(it.d) ? p : p2));
+          mesh.setColorAt(i, tmpCol);
+        });
+        if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
         mesh.count = caras.length;
         mesh.instanceMatrix.needsUpdate = true;
-        meshEt.count = caras.length;
-        meshEt.instanceMatrix.needsUpdate = true;
-        mesh.userData.mapa = caras.map(() => p);
-        meshEt.userData.mapa = mesh.userData.mapa;
+        mesh.userData.mapa = caras.map((d) => (esA(d) ? p : p2));
         scene.add(mesh);
-        scene.add(meshEt);
         mallasGondola.push(mesh);
+
+        /* Tapa: el remate de rosca de botellas, frascos y potes. Va en una
+           malla aparte porque cambia de color según el envase. */
+        const gt = geoTapa(forma);
+        if (gt) {
+          const tapas = new T.InstancedMesh(gt, new T.MeshPhongMaterial({
+            color: 0xffffff, shininess: 80, specular: 0x2a2a2a
+          }), Math.max(1, caras.length));
+          filas.forEach((it, i) => {
+            const mc = it.m.clone();
+            mc.elements[13] = it.cy + it.alto * 0.55;
+            tapas.setMatrixAt(i, mc);
+            tmpCol.set(luminancia(colorDe(esA(it.d) ? p : p2)) > 0.62 ? 0x1d2124 : 0xf2f4f5);
+            tapas.setColorAt(i, tmpCol);
+          });
+          if (tapas.instanceColor) tapas.instanceColor.needsUpdate = true;
+          tapas.count = caras.length;
+          tapas.instanceMatrix.needsUpdate = true;
+          tapas.castShadow = true;
+          tapas.userData.mapa = mesh.userData.mapa;
+          scene.add(tapas);
+        }
+
+        /* Etiqueta: malla aparte, mirando al pasillo. Banda curva en los
+           envases redondos y plano en cajas y bolsas. */
+        [
+          { prod: p, lista: caras.filter(esA) },
+          { prod: p2, lista: caras.filter((d) => !esA(d)) }
+        ].forEach((sku) => {
+          if (!sku.lista.length) return;
+          const me = new T.InstancedMesh(
+            geoEtiqueta(forma),
+            new T.MeshLambertMaterial({ map: texturaEtiqueta(sku.prod, 256) }),
+            sku.lista.length
+          );
+          sku.lista.forEach((d, j) => {
+            me.setMatrixAt(j, filas[caras.indexOf(d)].m);
+          });
+          me.count = sku.lista.length;
+          me.instanceMatrix.needsUpdate = true;
+          me.castShadow = false;
+          me.receiveShadow = false;
+          me.userData.mapa = sku.lista.map(() => sku.prod);
+          scene.add(me);
+        });
 
         // tira del estante: etiquetas chicas repetidas, como en un súper
         const matTira = new T.MeshBasicMaterial({
-          map: texturaTira([p], 3072, 48), side: T.DoubleSide
+          map: texturaTira([p, p2], 3072, 48), side: T.DoubleSide
         });
         [1, -1].forEach((lado) => {
           const tira = new T.Mesh(new T.PlaneGeometry(G_LARGO - 0.14, 0.14), matTira);
@@ -2100,6 +2761,12 @@ window.Tienda3D = (function () {
     clearInterval(tvReloj);
     tvReloj = setInterval(() => { if (vivo) pintarTV(); }, 1000);
 
+    /* Zona fresca de entrada: islas de verdura, islas refrigeradas y los
+       anuncios de pared. Es lo primero que se ve al entrar. */
+    crearZonaFresca();
+    REFRIGERADOS.forEach((cfg) => crearIslaRefri(cfg));
+    crearAnuncios();
+
     carrito = crearCarrito();
     carrito.scale.setScalar(1.05);
     carrito.position.set(pos.x, 0, pos.z - 1.5);
@@ -2109,7 +2776,7 @@ window.Tienda3D = (function () {
     crearCamaras();
     aplicarLEDs();
 
-    mallasProd = mallasGondola.concat(mallasCong);
+    mallasProd = mallasGondola.concat(mallasCong, mallasProd);
     raycaster = new T.Raycaster();
     puntero = new T.Vector2();
     reloj = new T.Clock();
@@ -2469,6 +3136,19 @@ window.Tienda3D = (function () {
     }
     // fila de congeladores contra la pared del fondo
     if (z < -8.5) return true;
+    // islas de verdura y refrigerados de la zona de entrada
+    for (let i = 0; i < ISLAS_FRESCAS.length; i++) {
+      const isla = ISLAS_FRESCAS[i];
+      if (Math.abs(x - isla.x) < 1.17 + m && Math.abs(z - isla.z) < 0.62 + m) return true;
+    }
+    for (let i = 0; i < REFRIGERADOS.length; i++) {
+      const r = REFRIGERADOS[i];
+      if (Math.abs(x - r.x) < 1.25 + m && Math.abs(z - r.z) < 0.48 + m) return true;
+    }
+    // tótems de oferta junto a la entrada
+    for (let i = 0; i < TOTEMS.length; i++) {
+      if (Math.abs(x - TOTEMS[i].x) < 0.45 + m && Math.abs(z - TOTEMS[i].z) < 0.45 + m) return true;
+    }
     return false;
   }
 
@@ -2833,6 +3513,28 @@ window.Tienda3D = (function () {
         g.textBaseline = "middle";
         g.fillText(String(i + 1), PX(gx), PZ(0));
       }
+    });
+
+    // islas de verdura y refrigerados de la zona de entrada
+    ISLAS_FRESCAS.forEach((isla) => {
+      g.fillStyle = "#1d5a2c";
+      rr(PX(isla.x - 1.17), PZ(isla.z - 0.60),
+         PX(isla.x + 1.17) - PX(isla.x - 1.17),
+         PZ(isla.z + 0.60) - PZ(isla.z - 0.60), 4);
+      g.fill();
+      g.strokeStyle = "rgba(200,255,0,.55)";
+      g.lineWidth = fin;
+      g.stroke();
+    });
+    REFRIGERADOS.forEach((r) => {
+      g.fillStyle = "#1b3a4a";
+      rr(PX(r.x - 1.25), PZ(r.z - 0.46),
+         PX(r.x + 1.25) - PX(r.x - 1.25),
+         PZ(r.z + 0.46) - PZ(r.z - 0.46), 4);
+      g.fill();
+      g.strokeStyle = "rgba(146,216,255,.55)";
+      g.lineWidth = fin;
+      g.stroke();
     });
 
     // entrada: franja lima en el muro por donde se entra (z = +LARGO/2)
@@ -3724,6 +4426,7 @@ window.Tienda3D = (function () {
       .filter((m) => m && m.map).length,
     // mallas seleccionables: niveles de góndola + niveles de nevera
     gond: mallasGondola.length, cong: mallasCong.length,
+    frescos: frescosMallas, refri: refriMallas,
     ficha: !!fichaP, fichaNom: fichaP ? fichaP.nombre : "", vuelos: vuelos.length,
     local: tiendaActiva, cat: !!catPendiente, escena: escenaOk,
     err3d: ultimoError,

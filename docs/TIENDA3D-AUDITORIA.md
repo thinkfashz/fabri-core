@@ -540,3 +540,93 @@ Suites: `diseno` (48 comprobaciones, 253 clases del HTML con estilo),
 **No verificado aquí**: FPS y aspecto en GPU real. En headless el contexto
 WebGL muere a los 10–25 s y la captura no es fiable; la comprobación es por
 sonda, por medidas de layout y por las texturas 2D.
+
+## Ronda 3 · zona fresca, anuncios grandes y productos distintos (v49)
+
+Objetivo pedido: que el interior se lea como un supermercado real — verduras
+en islas centrales, zona de refrigerio y refrigerados, anuncios más grandes y
+repartidos, y que los productos de góndola dejen de verse todos iguales.
+La geometría se construyó con el enfoque de la skill **`img2threejs`**
+(procedural por código, cero assets externos), aplicado al bloque nuevo de
+`tienda3d.js` y no a una pieza suelta.
+
+### Zona fresca (mitad de entrada, `z > 4,5`)
+- **3 islas de verdura** en `z = 6,4` (`x = −4,8 / 0 / 4,8`): zócalo verde,
+  cuerpo de madera con listones, 4 cajas por isla (una por producto) y cartel
+  colgado «MERCADO FRESCO» con los nombres de la isla.
+- **12 tipos** en `FRESCOS` con geometría propia: esfera deformada (tomate,
+  papa, naranja, pimiento, brócoli, uva), `LatheGeometry` (manzana, cebolla),
+  `CylinderGeometry` (zanahoria) y `TubeGeometry` sobre `CatmullRomCurve3`
+  (plátano). El ruido de forma es determinista (`azar(i)`), no `Math.random`:
+  la misma fruta se ve igual en cada visita.
+- **Pila de 20 piezas por caja** en tres capas (12 + 6 + 2), instanciada por
+  tipo: 12 `InstancedMesh` para 240 frutas. Color por instancia (±15 % de
+  valor) y giro/posición con desorden fijo.
+- **2 islas refrigeradas** en `z = 8,9` (`x = −4,8` «REFRIGERIO»,
+  `x = 4,8` «REFRIGERADOS»): tres repisas con LED en el filo, 9 productos
+  por isla con las **mismas familias geométricas y la misma etiqueta que la
+  góndola**, tira de precios por repisa y cartel de categoría.
+- **Luz propia**: panel LED sobre cada isla de verdura (dentro de
+  `grupoLED.techo`, responde al interruptor) y una luz puntual cálida en
+  `(0 · 2,8 · 7,2)`. Antes los puntos de techo llegaban sólo a `z = ±3,35` y
+  la fruta quedaba en penumbra.
+- **Colisión y minimapa**: `choca()` bloquea las 3 islas, las 2 neveras y los
+  2 tótems; `dibujarMapa()` los dibuja con su color de zona.
+
+### Productos: dos SKU por estante y remate de envase
+- Cada nivel de góndola muestra **dos SKU de la misma familia**: un solo
+  `InstancedMesh` de cuerpo con `setColorAt` por instancia y **una etiqueta
+  por SKU** (antes una sola etiqueta repetida en las 48 caras).
+- **Tapas y roscas** (`geoTapa`): botella, vidrio, frasco y pote llevan su
+  remate en una malla aparte, tintado por luminancia del envase.
+- **Irregularidad de reposición**: ±5,6 % de tamaño, alguno metido 5 cm más
+  adentro y giro de ±0,044 rad. Era la causa de que la repisa se viera como
+  una fila de soldaditos idénticos.
+
+### Anuncios
+- **4 carteles de pared** de 2,7 × 1,72 m (LÁCTEOS −20 %, DESPENSA 2×1,
+  BEBIDAS −25 %, ASEO −30 %), con proporción 1,6:1 igual al lienzo.
+- **2 banderolas en la entrada** (2,7 × 1,69 m) a los lados del wordmark, para
+  no tapar el panel de la marca.
+- **2 tótems de oferta** junto a la entrada, con colisión.
+- Carteles de pasillo de 1,7 × 0,42 m → **2,34 × 0,58 m**.
+
+### Errores corregidos en esta ronda
+| Síntoma | Causa | Arreglo |
+|---|---|---|
+| Productos de la nevera flotando en el pasillo | `crearIslaRefri` sumaba `cfg.x/cfg.z` dentro de un grupo ya posicionado | coordenadas locales |
+| La pila de fruta era una fila sobre el eje X | `o[0]` (columna) nunca se usaba al componer la matriz | `x + o[0] + jx` |
+| Texto de los carteles aplastado | placo con proporción distinta al lienzo de la textura | placo derivado del lienzo |
+| Etiqueta de precio 6 cm por delante de la caja | offset `0,29` sobre un filo en `0,255` | pegado a la cara de la caja |
+
+### Verificado
+```
+node --check web/app/tienda3d.js            → OK
+sonda __t3d()  err3d ""  gond 24  cong 29  frescos 12  refri 8  hijos 256
+0 errores de página · 0 errores de consola
+```
+Bounding boxes (matrices de instancia leídas de `instanceMatrix.array` y
+pasadas por `matrixWorld`, porque `Box3.setFromObject` ignora las instancias):
+
+| Isla | x | y | z |
+|---|---|---|---|
+| verdura 0/1/2 | ±1,17 y ±0,62 alrededor de cada centro | 0 – 2,92 | 5,80 – 7,00 |
+| refrigerada | ±1,25 | 0,06 – 2,27 | 8,40 – 9,41 |
+| pila de fruta (20 uds) | 0,36 de ancho | 0,74 – 1,17 | 0,28 de fondo |
+
+Colisión medida caminando: desde `(0 · 8,2)` avanzando 3 s se detiene en
+`z = 7,423` (isla de verdura); desplazándose a `x = 3,123` atraviesa el pasillo
+entre islas hasta `z = −0,283`.
+
+Texturas nuevas revisadas como PNG: `ad-lacteos`, `ad-bebidas`, `ad-banda`,
+`ad-fresco`, `ad-precio`.
+
+Suites: `diseno` ✔ · `boleta` 15 ✔ · `arranque` 9/9 ✔ · `inventario` 6/6 ✔ ·
+`seguridad` 23/23 ✔.
+
+`sw.js` → **`fcore-v49`**.
+
+**No verificado aquí**: aspecto en GPU real. En este headless (SwiftShader) el
+contexto WebGL se pierde a los pocos segundos y la captura sale negra o con
+«La gráfica se reinició»; por eso la comprobación es por sonda, por geometría
+medida y por las texturas 2D, no por captura de la escena.
