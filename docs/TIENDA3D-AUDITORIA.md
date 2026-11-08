@@ -957,3 +957,46 @@ sw.js → fcore-v53
 2K. Este headless pierde el contexto antes de producir frames; la prueba de
 que el pipeline funciona se hizo con un canvas 2D. El video incluye la escena
 3D y los productos en movimiento, **no** el HUD (que es DOM).
+
+## Ronda 8 · grabación en 800p por defecto (v54)
+
+Pedido: grabar a **800 px** en vez de 2K/1080, para que el teléfono no sufra y
+el archivo sea liviano.
+
+### Tres niveles, 800p por defecto
+Selector en el panel de escena (Config), con la elección guardada:
+
+| Nivel | Tamaño en un teléfono (0,487) | Bitrate | Peso aprox. |
+|---|---|---|---|
+| **800p** (por defecto) | 800 × 1640 | 3,5 Mbps | ~26 MB/min |
+| 1080p | 1080 × 2214 | 6 Mbps | ~45 MB/min |
+| 1440p (≈2K en 16:9) | 1440 × 2954 | 9 Mbps | ~67 MB/min |
+
+- El nivel manda por el **lado corto**, así la proporción de la pantalla no
+  cambia y el encuadre es el mismo que se ve.
+- El indicador REC muestra el tamaño real: «800p · 800×1640».
+- A 800p el render de la escena mientras graba cuesta la mitad que a 1440p:
+  menos píxeles y menos bitrate.
+
+### Dos errores corregidos en el camino
+1. **La pantalla se encogía después de grabar.** Al cambiar el atributo
+   `width/height` del canvas, el navegador móvil reajustaba la página (~0,85×)
+   y el visor quedaba más chico en cada grabación. Ahora, durante la captura,
+   el recuadro visible se fija con estilo explícito en píxeles, y al terminar
+   se suelta y se vuelve a medir **en el frame siguiente** (medir en el acto
+   devolvía el tamaño viejo).
+2. **`ajustar()` no corría al restaurar**: se llamaba mientras `grabador`
+   todavía existía, y `ajustar()` sale temprano en ese caso. El orden ahora es
+   `grabador = null` → `restaurarTamano()`.
+
+### Verificado
+```
+nivel por defecto                     800
+800p → badge «800p · 800×1640»        buffer 800×1640, recuadro 390×800 intacto
+1080p → «1080p · 1080×2214»
+1440p → «1440p · 1440×2954»
+al detener: attr 390×800 · estilo vacío · rec false   (sin encogimiento)
+persistencia: elegir 1080 → recargar → sigue en 1080
+suites: diseno ✔ · boleta ✔ · arranque ✔ · inventario ✔ · seguridad 23/23 ✔
+sw.js → fcore-v54
+```

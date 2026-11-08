@@ -71,6 +71,17 @@ window.Tienda3D = (function () {
   /* Grabación del recorrido: se dibuja a 2K y se graba con MediaRecorder. */
   let grabador = null, grabChunks = [], grabIni = 0, grabReloj = 0;
   let grabPrevio = null;
+  /* Niveles de grabación. Se mide por el LADO CORTO: 800p en un teléfono en
+     retrato son 800 × 1642, que se ve bien, pesa poco y no frena el render
+     mientras se graba. 2K queda disponible para quien quiera el archivo
+     grande. */
+  const CLAVE_GRAB = "fcore.tienda3d.grab";
+  const GRAB_NIVELES = {
+    "800": { corto: 800, mbps: 3.5, txt: "800p", nota: "800p: liviano y rápido de compartir" },
+    "1080": { corto: 1080, mbps: 6, txt: "1080p", nota: "1080p: buen detalle, archivo mediano" },
+    "2k": { corto: 1440, mbps: 9, txt: "1440p", nota: "1440p: máxima calidad (≈2K en 16:9), pesa y exige más al teléfono" }
+  };
+  let grabCalidad = "800";
   let anunciosMallas = 0;                   // anuncios de pared y banderolas
   let vuelos = [];                 // cajas volando hacia el carrito
   let fichaP = null, fichaOrigen = null;   // producto en la ficha abierta
@@ -4169,11 +4180,21 @@ window.Tienda3D = (function () {
     const aw = (c && c.clientWidth) || 390;
     const ah = (c && c.clientHeight) || 800;
     const asp = Math.max(0.3, Math.min(3, aw / Math.max(1, ah)));
-    const largo = 2560;                       // lado largo = 2K
-    let w = asp >= 1 ? largo : Math.round(largo * asp);
-    let h = asp >= 1 ? Math.round(largo / asp) : largo;
+    const q = GRAB_NIVELES[grabCalidad] || GRAB_NIVELES["800"];
+    /* el lado corto manda: la proporción de la pantalla no cambia */
+    let w, h;
+    if (asp >= 1) { h = q.corto; w = Math.round(q.corto * asp); }
+    else { w = q.corto; h = Math.round(q.corto / asp); }
     w -= w % 2; h -= h % 2;
-    return { w: Math.max(720, w), h: Math.max(720, h) };
+    return { w: Math.max(320, w), h: Math.max(320, h), mbps: q.mbps, txt: q.txt };
+  }
+
+  function pintarNivelGrab() {
+    document.querySelectorAll("#t3dGrabPresets [data-grab]").forEach((b) => {
+      b.classList.toggle("on", b.dataset.grab === grabCalidad);
+    });
+    const n = $("t3dGrabNota");
+    if (n) n.textContent = (GRAB_NIVELES[grabCalidad] || GRAB_NIVELES["800"]).nota;
   }
 
   function fmtTiempo(seg) {
@@ -4182,11 +4203,18 @@ window.Tienda3D = (function () {
   }
 
   function restaurarTamano() {
-    if (!renderer || !grabPrevio) return;
-    renderer.setPixelRatio(grabPrevio.pr);
-    renderer.setSize(grabPrevio.sw, grabPrevio.sh, false);
+    const c = renderer ? renderer.domElement : null;
+    if (renderer && grabPrevio) {
+      renderer.setPixelRatio(grabPrevio.pr || 1);
+      renderer.setSize(grabPrevio.sw, grabPrevio.sh, false);
+    }
     grabPrevio = null;
-    ajustar();
+    /* se suelta el tamaño fijo que se puso para grabar: vuelve a mandar el CSS.
+       Se ajusta en el frame siguiente, cuando el navegador ya recompuso: si se
+       mide en el acto, Android todavía devuelve el tamaño viejo. */
+    if (c) { c.style.width = ""; c.style.height = ""; }
+    requestAnimationFrame(ajustar);
+    setTimeout(ajustar, 90);
   }
 
   function detenerGrabacion() {
@@ -4202,8 +4230,9 @@ window.Tienda3D = (function () {
 
   function entregarGrabacion(stream) {
     if (stream) stream.getTracks().forEach((t) => t.stop());
-    restaurarTamano();
+    /* el orden importa: `ajustar()` no hace nada mientras `grabador` exista */
     grabador = null;
+    restaurarTamano();
     if (!grabChunks.length) { avisoTexto("Grabación vacía", "No se capturó ningún frame"); return; }
     const tipo = grabChunks[0].type || "video/webm";
     const blob = new Blob(grabChunks, { type: tipo });
@@ -4235,8 +4264,11 @@ window.Tienda3D = (function () {
       pr: renderer.getPixelRatio(),
       sw: canvas.width, sh: canvas.height
     };
-    /* 2K de buffer, mismo encuadre: el CSS sigue mostrando el canvas al
-       tamaño de la pantalla y la cámara no cambia de proporción. */
+    /* Se fija el tamaño en pantalla con estilo explícito: cambiar el atributo
+       width/height del canvas puede disparar el "ajuste" del navegador móvil
+       y encoger la página. Así el recuadro visible no se mueve. */
+    canvas.style.width = (canvas.clientWidth || 390) + "px";
+    canvas.style.height = (canvas.clientHeight || 800) + "px";
     renderer.setPixelRatio(1);
     renderer.setSize(t.w, t.h, false);
     camera.aspect = t.w / t.h;
@@ -4255,7 +4287,7 @@ window.Tienda3D = (function () {
     const mime = tipos.filter((m) => window.MediaRecorder.isTypeSupported(m))[0] || "";
     try {
       grabador = new MediaRecorder(stream, mime
-        ? { mimeType: mime, videoBitsPerSecond: 8000000 } : undefined);
+        ? { mimeType: mime, videoBitsPerSecond: Math.round(t.mbps * 1000000) } : undefined);
     } catch (e) {
       restaurarTamano();
       avisoTexto("No se pudo grabar", String((e && e.message) || e).slice(0, 60));
@@ -4272,7 +4304,7 @@ window.Tienda3D = (function () {
     if (badge) {
       badge.hidden = false;
       const tam = $("t3dRecTam");
-      if (tam) tam.textContent = (t.h >= 2000 ? "2K" : t.h + "p") + " · " + t.w + "×" + t.h;
+      if (tam) tam.textContent = t.txt + " · " + t.w + "×" + t.h;
       const tm = $("t3dRecTiempo");
       if (tm) tm.textContent = "0:00";
     }
@@ -4286,7 +4318,7 @@ window.Tienda3D = (function () {
         avisoTexto("Grabación terminada", "Tope de 3 minutos para no llenar el disco");
       }
     }, 500);
-    avisoTexto("Grabando recorrido", "2K · " + t.w + "×" + t.h + " · tocá de nuevo para guardar");
+    avisoTexto("Grabando recorrido", t.txt + " · " + t.w + "×" + t.h + " · tocá de nuevo para guardar");
   }
 
   function alternarGrabacion() {
@@ -4687,6 +4719,16 @@ window.Tienda3D = (function () {
     if (bGrab) bGrab.onclick = alternarGrabacion;
     const bSon = $("t3dSonido");
     if (bSon) bSon.onclick = sonidoAlternar;
+
+    // nivel de grabación (800p por defecto)
+    document.querySelectorAll("#t3dGrabPresets [data-grab]").forEach((b) => {
+      b.onclick = () => {
+        grabCalidad = GRAB_NIVELES[b.dataset.grab] ? b.dataset.grab : "800";
+        pintarNivelGrab();
+        try { localStorage.setItem(CLAVE_GRAB, grabCalidad); } catch (e) { /* privado */ }
+      };
+    });
+    pintarNivelGrab();
 
     // cámaras: una en grande o las cuatro a la vez
     const grid = $("t3dCamsGrid");
@@ -5232,6 +5274,9 @@ window.Tienda3D = (function () {
           if (cal && (cal === "auto" || NIVELES_CALIDAD[cal])) calidad = cal;
           const se = Number(localStorage.getItem(CLAVE_SENS));
           if (se >= 40 && se <= 180) sensCam = se / 100;
+          const gq = localStorage.getItem(CLAVE_GRAB);
+          if (gq && GRAB_NIVELES[gq]) grabCalidad = gq;
+          pintarNivelGrab();
           const fv = Number(localStorage.getItem(CLAVE_FOV));
           if (fv >= 50 && fv <= 110) { fovBase = fv; fovAct = fv; camera.fov = fv; camera.updateProjectionMatrix(); }
         } catch (e) { /* modo privado */ }

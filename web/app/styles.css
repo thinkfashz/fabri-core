@@ -2519,3 +2519,9 @@ body.visitante .visitas-card { display: none; }
   .t3d-tools { gap: 5px; }
   .t3d-tool { width: 40px; height: 40px; border-radius: 12px; }
 }
+
+/* Nota del nivel de grabación, debajo de los tres botones. */
+.t3d-grab-nota {
+  display: block; margin-top: 6px;
+  font-size: 10px; line-height: 1.35; color: var(--tx4);
+}
