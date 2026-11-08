@@ -876,3 +876,84 @@ sw.js → fcore-v52
 **No verificado aquí**: aspecto final y FPS en GPU real (el headless pierde
 WebGL). Las capturas que originaron esta ronda sí son de GPU real: por eso los
 arreglos se midieron contra lo que se veía en pantalla, no contra la sonda.
+
+## Ronda 7 · carrito real, pantalla completa, grabación 2K y sonido (v53)
+
+Pedido: que el producto llegue pequeño y se guarde de verdad en la cesta, que
+el visor se ajuste a cualquier pantalla, poder **grabar el recorrido en 2K** y
+descargarlo, y sonido o emisora libre para el local.
+
+### El "cuadro grande" del carrito
+Eran dos cosas sumadas:
+1. El objeto que vuela es un grupo con `geoForma(forma)`, y **el cuerpo nunca
+   se escalaba**: la geometría es unitaria, así que se veía un **cubo de 1 m**
+   (y así aterrizaba).
+2. El vuelo iba a `scale 1,35` y al aterrizar se reducía a `0,66`: tamaños
+   inventados en los dos extremos.
+
+Ahora: cuerpo escalado con `TAMANO` (ancho, alto, fondo/fondoGeo), vuelo a
+escala **1** y aterrizaje a escala **1**. En la cesta hay 6 posiciones
+(3 columnas × 2 filas, la cesta mide 0,62 × 0,44) y cada envase se apoya con
+**su propia altura** medida con `Box3`, así una botella no queda enterrada ni
+una lata flotando; al llenarse sale el más viejo.
+
+Medido tras agregar 4 productos: `y 0,45 / 0,45 / 0,44 / 0,45 · escala 1 ·
+x −0,18 / 0 / 0,18 · z −0,10 y +0,08`.
+
+### Cualquier pantalla
+El visor se quedaba en una franja de **252 px** en tablet y apaisado: al
+ocultar el menú (`body.en-tienda .nav`), `main` pasaba a ocupar la **primera
+columna** de la grilla de escritorio (la del menú). Se colapsa la grilla a una
+columna y el visor ocupa todo.
+
+- `ajustar()` usa `visualViewport` (la barra del navegador en Android hacía
+  mentir `innerHeight`) y un `ResizeObserver` sobre el canvas; además escucha
+  `orientationchange`.
+- **FOV por forma de pantalla**: en apaisado un vertical de 92° abre ~140°
+  horizontales (ojo de pez), así que se recorta a 72°; en retrato se respeta
+  hasta 100°.
+- Áreas seguras: `env(safe-area-inset-*)` en la barra del HUD y en la columna
+  de herramientas.
+
+Medido: 1024×600 → canvas 1024×600 y FOV 72; 600×1024 → 600×1024 y FOV 92;
+360×640 → 360×640; 390×844 → 390×844 (aspecto y tamaño siguen al viewport).
+
+### Grabar el recorrido en 2K
+- Botón **Grabar** en la columna de herramientas. Al empezar, el renderer sube
+  su buffer a **2560 px del lado largo** (1 248 × 2 560 en un teléfono en
+  retrato) **sin cambiar la proporción**: el encuadre es el mismo que se ve y
+  el CSS sigue mostrando el canvas al tamaño de la pantalla.
+- `canvas.captureStream(30)` + `MediaRecorder` (VP9/VP8 + Opus), 8 Mbps.
+- Si el sonido del local está encendido, **su pista va dentro del video**.
+- Indicador REC con tiempo y resolución; tope de **3 minutos** (unos 180 MB)
+  para no llenar el disco del teléfono; al detener se descarga
+  `forge-recorrido-AAAAMMDD-HHMM.webm` y el canvas vuelve a su tamaño.
+- `cerrar()` corta la grabación y el audio si se sale del visor.
+
+Verificado: buffer 1 248 × 2 560 con aspecto 0,487 intacto, badge
+«2K · 1248×2560», y al detener `rec false`, tamaño restaurado 390×800 y badge
+oculto. En este headless el WebGL muere y no se generan frames (se avisa
+«Grabación vacía»); que `MediaRecorder` sí funciona en este entorno se probó
+aparte con un canvas 2D del mismo pipeline: **52 KB de WebM VP9**.
+
+### Sonido del local (sin licencias)
+Módulo WebAudio que **genera** el ambiente: ruido rosa filtrado (neveras y
+murmullo), progresión de acordes suaves con ataque y caída largos, y un aviso
+a dos tonos cada 34 s. Cero archivos, cero datos, cero derechos de terceros y
+funciona sin internet. Botón **Sonido** con `aria-pressed`; se apaga solo al
+salir del visor.
+
+### Verificado
+```
+cesta 4 · y≈0,45 · escala 1            (tamaño real en la cesta)
+1024×600 → FOV 72 · 600×1024 → FOV 92  (sin ojo de pez en apaisado)
+buffer de grabación 1248×2560 · aspecto 0,487 sin cambios
+MediaRecorder VP9 → 52 KB en 1,2 s (prueba con canvas 2D)
+suites: diseno ✔ · boleta ✔ · arranque 9/9 ✔ · inventario 6/6 ✔ · seguridad 23/23 ✔
+sw.js → fcore-v53
+```
+
+**No verificado aquí**: el video grabado con la escena WebGL real y los FPS a
+2K. Este headless pierde el contexto antes de producir frames; la prueba de
+que el pipeline funciona se hizo con un canvas 2D. El video incluye la escena
+3D y los productos en movimiento, **no** el HUD (que es DOM).

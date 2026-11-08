@@ -67,6 +67,10 @@ window.Tienda3D = (function () {
      si una pieza nueva sale mal. */
   let frescosPilas = [], tapasGondola = [], luzFresca = null, decoErr = "";
   let senalesMallas = 0;                    // carteles colgantes de pasillo
+  let resizeObs = null, resizeListo = false; // ajuste a cualquier pantalla
+  /* Grabación del recorrido: se dibuja a 2K y se graba con MediaRecorder. */
+  let grabador = null, grabChunks = [], grabIni = 0, grabReloj = 0;
+  let grabPrevio = null;
   let anunciosMallas = 0;                   // anuncios de pared y banderolas
   let vuelos = [];                 // cajas volando hacia el carrito
   let fichaP = null, fichaOrigen = null;   // producto en la ficha abierta
@@ -3457,14 +3461,45 @@ window.Tienda3D = (function () {
     });
   }
 
+  /* El FOV vertical que eligió el usuario no sirve igual en todas las
+     formas de pantalla: en apaisado 92 abre ~140° horizontales y se ve ojo de
+     pez. En vertical se respeta (hasta 100). */
+  function fovPantalla() {
+    const asp = (camera && camera.aspect) || 1;
+    return asp > 1.45 ? Math.min(fovAct, 72) : Math.min(fovAct, 100);
+  }
+
   function ajustar() {
     if (!renderer) return;
+    if (grabador) return;              // grabando manda el tamaño 2K
     const caja = $("t3dCanvas");
-    const ancho = caja.clientWidth || window.innerWidth || 390;
-    const alto = caja.clientHeight || (window.innerHeight - 64) || 600;
+    const vv = window.visualViewport;
+    /* `visualViewport` manda en Android: con la barra del navegador a la
+       vista, innerHeight miente y el canvas quedaba estirado. */
+    const ancho = Math.round(caja.clientWidth || (vv && vv.width) || window.innerWidth || 390);
+    const alto = Math.round(caja.clientHeight || (vv && vv.height) || (window.innerHeight - 64) || 600);
+    if (ancho < 2 || alto < 2) return;
     renderer.setSize(ancho, alto, false);
     camera.aspect = ancho / Math.max(1, alto);
+    camera.fov = fovPantalla();
     camera.updateProjectionMatrix();
+    pintarMapa();
+  }
+
+  /* Un solo observador para todos los tamaños: rotación, barra del navegador,
+     teclado en pantalla y ventana de escritorio. */
+  function engancharResize() {
+    const caja = $("t3dCanvas");
+    if (!caja) return;
+    if (window.ResizeObserver && !resizeObs) {
+      resizeObs = new ResizeObserver(() => ajustar());
+      resizeObs.observe(caja);
+    }
+    if (!resizeListo) {
+      resizeListo = true;
+      if (window.visualViewport) window.visualViewport.addEventListener("resize", ajustar);
+      window.addEventListener("orientationchange", () => setTimeout(ajustar, 240));
+    }
   }
 
   /* ── bucle ─────────────────────────────────────────────────────────────── */
@@ -3567,7 +3602,7 @@ window.Tienda3D = (function () {
     const fovObj = fovBase + (corriendoAhora && rapido > 0.4 ? 2 : 0);
     if (Math.abs(fovObj - fovAct) > 0.02) {
       fovAct += (fovObj - fovAct) * (1 - Math.exp(-dt * 9));
-      camera.fov = fovAct;
+      camera.fov = fovPantalla();
       camera.updateProjectionMatrix();
     }
     camera.rotation.set(0, 0, 0);
@@ -3847,7 +3882,11 @@ window.Tienda3D = (function () {
     const forma = formaDe(p);
     const tam = TAMANO[forma] || TAMANO.caja;
     const mesh = new T.Group();
+    /* El cuerpo va escalado al tamaño real de la familia: la geometría es
+       unitaria (un cubo de 1 m si no se escala) y por eso el producto volaba
+       y aterrizaba como un cajón gigante. */
     const cuerpo = new T.Mesh(geoForma(forma), matForma(forma, p));
+    cuerpo.scale.set(tam.ancho, tam.alto, tam.fondo / tam.fondoGeo);
     cuerpo.castShadow = true;
     mesh.add(cuerpo);
     const et = new T.Mesh(
@@ -3858,7 +3897,9 @@ window.Tienda3D = (function () {
     const base = new T.Matrix4().compose(new T.Vector3(0, 0, 0), new T.Quaternion(), esc);
     et.applyMatrix4(matEtiqueta(forma, base, tam.fondo));
     mesh.add(et);
-    mesh.scale.setScalar(1.35);          // se ve bien sin tapar la vista
+    /* Tamaño real: un envase de 17 cm tiene que verse de 17 cm también
+       mientras vuela. Antes iba a 1,35 y se veía como un cajón. */
+    mesh.scale.setScalar(1);
     mesh.position.copy(origen);
     scene.add(mesh);
     vuelos.push({ mesh: mesh, t: 0, origen: origen, destino: destino, aCesta: true });
@@ -3878,20 +3919,35 @@ window.Tienda3D = (function () {
     (o.children || []).forEach(disponerObjeto);
   }
 
+  /* Aterrizaje en la cesta con tamaño real y apoyo sobre el piso del
+     carrito: 3 columnas × 2 filas (la cesta mide 0,62 × 0,44) y el envase se
+     apoya con su propia altura, así una botella no queda enterrada ni una
+     lata flotando. Los productos se van llenando del fondo hacia adelante y
+     al llenarse sale el más viejo, como en la mano. */
+  const CESTA_SLOTS = [];
+  for (let f = 0; f < 2; f++) {
+    for (let c = 0; c < 3; c++) {
+      CESTA_SLOTS.push([-0.185 + c * 0.185, -0.105 + f * 0.185]);
+    }
+  }
+
   function soltarEnCesta(mesh) {
-    if (!carritoCesta) { scene.remove(mesh); return; }
+    if (!carritoCesta) { scene.remove(mesh); disponerObjeto(mesh); return; }
     scene.remove(mesh);
-    const i = cestaN++;
-    const col = i % 3, fila = Math.floor(i / 3) % 3, capa = Math.floor(i / 9) % 2;
-    const x = -0.20 + col * 0.20;
-    const z = -0.13 + fila * 0.13;
-    const y = 0.36 + capa * 0.11;
-    mesh.scale.setScalar(0.66);
-    mesh.rotation.set(0, (Math.random() - 0.5) * 0.6, (Math.random() - 0.5) * 0.25);
-    mesh.position.set(x, y + 0.18, z);
+    const slot = CESTA_SLOTS[cestaN % CESTA_SLOTS.length];
+    const vuelta = Math.floor(cestaN / CESTA_SLOTS.length);
+    cestaN++;
+    mesh.scale.setScalar(1);
+    mesh.rotation.set(0, (Math.random() - 0.5) * 0.5, (Math.random() - 0.5) * 0.10);
+    mesh.updateMatrixWorld(true);
+    const caja = new T.Box3().setFromObject(mesh);
+    const alto = Math.max(0.06, caja.max.y - caja.min.y);
+    /* el piso de la cesta está en 0,315; si ya hay una vuelta encima, sube */
+    const y = 0.315 + alto / 2 + vuelta * 0.02;
+    mesh.position.set(slot[0], y + 0.16, slot[1]);
     carritoCesta.add(mesh);
     cestaItems.push({ mesh: mesh, y: y, t: 0 });
-    while (cestaItems.length > 12) {
+    while (cestaItems.length > 6) {
       const viejo = cestaItems.shift();
       carritoCesta.remove(viejo.mesh);
       disponerObjeto(viejo.mesh);
@@ -3971,6 +4027,272 @@ window.Tienda3D = (function () {
 
   const escHTML = (s) => String(s).replace(/[&<>"]/g, (c) =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  /* ── sonido del local ─────────────────────────────────────────────────────
+     Ambiente y música generados con WebAudio: ruido rosa filtrado (neveras y
+     murmullo), acordes suaves y un aviso lejano cada tanto. No se descarga
+     ningún archivo, así que no hay licencia de terceros ni consumo de datos,
+     y funciona sin internet. */
+  const SONIDO = { ctx: null, maestro: null, destino: null, activo: false, timers: [] };
+
+  function sonidoCrear() {
+    if (SONIDO.ctx) return SONIDO.ctx;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    const ctx = new AC();
+    const maestro = ctx.createGain();
+    maestro.gain.value = 0.0001;
+    maestro.connect(ctx.destination);
+    const destino = ctx.createMediaStreamDestination();
+    maestro.connect(destino);
+
+    // cama: ruido rosa por un pasabajos (neveras + murmullo de gente)
+    const largo = Math.floor(ctx.sampleRate * 2);
+    const buf = ctx.createBuffer(1, largo, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    let b0 = 0, b1 = 0, b2 = 0;
+    for (let i = 0; i < largo; i++) {
+      const w = Math.random() * 2 - 1;
+      b0 = 0.99765 * b0 + w * 0.099046;
+      b1 = 0.963 * b1 + w * 0.2965164;
+      b2 = 0.57 * b2 + w * 1.0526913;
+      d[i] = (b0 + b1 + b2 + w * 0.1848) * 0.055;
+    }
+    const ruido = ctx.createBufferSource();
+    ruido.buffer = buf;
+    ruido.loop = true;
+    const lp = ctx.createBiquadFilter();
+    lp.type = "lowpass"; lp.frequency.value = 430; lp.Q.value = 0.7;
+    const gR = ctx.createGain(); gR.gain.value = 0.5;
+    ruido.connect(lp); lp.connect(gR); gR.connect(maestro);
+    ruido.start();
+
+    // música: progresión de séptimas con ataque y caída largos
+    const prog = [
+      [261.63, 329.63, 392.00, 493.88],
+      [220.00, 261.63, 329.63, 392.00],
+      [174.61, 220.00, 261.63, 329.63],
+      [196.00, 246.94, 293.66, 392.00]
+    ];
+    const lpMus = ctx.createBiquadFilter();
+    lpMus.type = "lowpass"; lpMus.frequency.value = 1900;
+    lpMus.connect(maestro);
+    let idx = 0;
+    const acorde = () => {
+      if (!SONIDO.activo) return;
+      const t = ctx.currentTime + 0.05;
+      const notas = prog[idx % prog.length];
+      idx++;
+      notas.forEach((f, k) => {
+        const o = ctx.createOscillator();
+        o.type = k === 0 ? "triangle" : "sine";
+        o.frequency.value = f;
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.linearRampToValueAtTime(0.035 / (k + 1.4), t + 1.5);
+        g.gain.exponentialRampToValueAtTime(0.0006, t + 5.2);
+        o.connect(g); g.connect(lpMus);
+        o.start(t); o.stop(t + 5.4);
+      });
+    };
+    // aviso lejano: dos tonos suaves cada ~34 s
+    const aviso = () => {
+      if (!SONIDO.activo) return;
+      [880, 1174].forEach((f, k) => {
+        const t = ctx.currentTime + 0.1 + k * 0.45;
+        const o = ctx.createOscillator();
+        o.type = "sine"; o.frequency.value = f;
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.linearRampToValueAtTime(0.012, t + 0.08);
+        g.gain.exponentialRampToValueAtTime(0.0004, t + 1.1);
+        o.connect(g); g.connect(maestro);
+        o.start(t); o.stop(t + 1.2);
+      });
+    };
+
+    SONIDO.ctx = ctx;
+    SONIDO.maestro = maestro;
+    SONIDO.destino = destino;
+    SONIDO.timers.push(setInterval(acorde, 4600));
+    SONIDO.timers.push(setInterval(aviso, 34000));
+    SONIDO.acorde = acorde;
+    return ctx;
+  }
+
+  function sonidoActivar(on) {
+    const ctx = sonidoCrear();
+    if (!ctx) return false;
+    if (on) {
+      ctx.resume();
+      SONIDO.activo = true;
+      SONIDO.maestro.gain.cancelScheduledValues(ctx.currentTime);
+      SONIDO.maestro.gain.setTargetAtTime(0.55, ctx.currentTime, 0.6);
+      if (SONIDO.acorde) SONIDO.acorde();
+    } else {
+      SONIDO.activo = false;
+      SONIDO.maestro.gain.cancelScheduledValues(ctx.currentTime);
+      SONIDO.maestro.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.25);
+    }
+    const b = $("t3dSonido");
+    if (b) {
+      b.classList.toggle("on", !!on);
+      b.setAttribute("aria-pressed", String(!!on));
+    }
+    return true;
+  }
+
+  function sonidoAlternar() {
+    const ok = sonidoActivar(!SONIDO.activo);
+    if (!ok) avisoTexto("Sin audio", "Este navegador no expone WebAudio");
+    else avisoTexto(SONIDO.activo ? "Sonido del local" : "Sonido apagado",
+      SONIDO.activo ? "Ambiente y música generados en el navegador" : "Podés reactivarlo cuando quieras");
+  }
+
+  /* Pista de audio para la grabación (si el sonido está creado). */
+  function sonidoPista() {
+    if (!SONIDO.destino) return null;
+    const pistas = SONIDO.destino.stream.getAudioTracks();
+    return pistas.length ? pistas[0] : null;
+  }
+
+  /* ── grabación del recorrido ──────────────────────────────────────────────
+     Se dibuja a 2K (2560 px del lado largo, con la MISMA proporción de la
+     pantalla para que el encuadre no cambie) y se graba con MediaRecorder:
+     video VP9/VP8 + el audio del local. Al detener, se descarga el .webm. */
+  function grabandoAhora() {
+    return !!(grabador && grabador.state === "recording");
+  }
+
+  function medirGrabacion() {
+    const c = renderer ? renderer.domElement : null;
+    const aw = (c && c.clientWidth) || 390;
+    const ah = (c && c.clientHeight) || 800;
+    const asp = Math.max(0.3, Math.min(3, aw / Math.max(1, ah)));
+    const largo = 2560;                       // lado largo = 2K
+    let w = asp >= 1 ? largo : Math.round(largo * asp);
+    let h = asp >= 1 ? Math.round(largo / asp) : largo;
+    w -= w % 2; h -= h % 2;
+    return { w: Math.max(720, w), h: Math.max(720, h) };
+  }
+
+  function fmtTiempo(seg) {
+    const m = Math.floor(seg / 60), s = seg % 60;
+    return m + ":" + (s < 10 ? "0" : "") + s;
+  }
+
+  function restaurarTamano() {
+    if (!renderer || !grabPrevio) return;
+    renderer.setPixelRatio(grabPrevio.pr);
+    renderer.setSize(grabPrevio.sw, grabPrevio.sh, false);
+    grabPrevio = null;
+    ajustar();
+  }
+
+  function detenerGrabacion() {
+    if (!grabandoAhora()) return;
+    try { grabador.stop(); } catch (e) { /* ya parado */ }
+    clearInterval(grabReloj);
+    grabReloj = 0;
+    const b = $("t3dGrabar");
+    if (b) { b.classList.remove("on"); b.setAttribute("aria-pressed", "false"); }
+    const badge = $("t3dRec");
+    if (badge) badge.hidden = true;
+  }
+
+  function entregarGrabacion(stream) {
+    if (stream) stream.getTracks().forEach((t) => t.stop());
+    restaurarTamano();
+    grabador = null;
+    if (!grabChunks.length) { avisoTexto("Grabación vacía", "No se capturó ningún frame"); return; }
+    const tipo = grabChunks[0].type || "video/webm";
+    const blob = new Blob(grabChunks, { type: tipo });
+    grabChunks = [];
+    const d = new Date();
+    const dos = (n) => (n < 10 ? "0" : "") + n;
+    const nombre = "forge-recorrido-" + d.getFullYear() + dos(d.getMonth() + 1) + dos(d.getDate()) +
+      "-" + dos(d.getHours()) + dos(d.getMinutes()) + ".webm";
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = nombre;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 4000);
+    const mb = (blob.size / (1024 * 1024)).toFixed(1);
+    avisoTexto("Recorrido guardado", nombre + " · " + mb + " MB");
+  }
+
+  function empezarGrabacion() {
+    if (!renderer) return;
+    const canvas = renderer.domElement;
+    if (!window.MediaRecorder || !canvas.captureStream) {
+      avisoTexto("No disponible", "Este navegador no permite grabar la escena");
+      return;
+    }
+    const t = medirGrabacion();
+    grabPrevio = {
+      pr: renderer.getPixelRatio(),
+      sw: canvas.width, sh: canvas.height
+    };
+    /* 2K de buffer, mismo encuadre: el CSS sigue mostrando el canvas al
+       tamaño de la pantalla y la cámara no cambia de proporción. */
+    renderer.setPixelRatio(1);
+    renderer.setSize(t.w, t.h, false);
+    camera.aspect = t.w / t.h;
+    camera.fov = fovPantalla();
+    camera.updateProjectionMatrix();
+    let stream;
+    try { stream = canvas.captureStream(30); }
+    catch (e) {
+      restaurarTamano();
+      avisoTexto("No se pudo capturar", "El navegador rechazó el canvas");
+      return;
+    }
+    const pistaAudio = sonidoPista();
+    if (pistaAudio) stream.addTrack(pistaAudio);
+    const tipos = ["video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm"];
+    const mime = tipos.filter((m) => window.MediaRecorder.isTypeSupported(m))[0] || "";
+    try {
+      grabador = new MediaRecorder(stream, mime
+        ? { mimeType: mime, videoBitsPerSecond: 8000000 } : undefined);
+    } catch (e) {
+      restaurarTamano();
+      avisoTexto("No se pudo grabar", String((e && e.message) || e).slice(0, 60));
+      return;
+    }
+    grabChunks = [];
+    grabador.ondataavailable = (e) => { if (e.data && e.data.size) grabChunks.push(e.data); };
+    grabador.onstop = () => entregarGrabacion(stream);
+    grabador.start(1000);
+    grabIni = Date.now();
+    const b = $("t3dGrabar");
+    if (b) { b.classList.add("on"); b.setAttribute("aria-pressed", "true"); }
+    const badge = $("t3dRec");
+    if (badge) {
+      badge.hidden = false;
+      const tam = $("t3dRecTam");
+      if (tam) tam.textContent = (t.h >= 2000 ? "2K" : t.h + "p") + " · " + t.w + "×" + t.h;
+      const tm = $("t3dRecTiempo");
+      if (tm) tm.textContent = "0:00";
+    }
+    clearInterval(grabReloj);
+    grabReloj = setInterval(() => {
+      const seg = Math.floor((Date.now() - grabIni) / 1000);
+      const tm = $("t3dRecTiempo");
+      if (tm) tm.textContent = fmtTiempo(seg);
+      if (seg >= 180) {                          // tope de 3 min: ~180 MB
+        detenerGrabacion();
+        avisoTexto("Grabación terminada", "Tope de 3 minutos para no llenar el disco");
+      }
+    }, 500);
+    avisoTexto("Grabando recorrido", "2K · " + t.w + "×" + t.h + " · tocá de nuevo para guardar");
+  }
+
+  function alternarGrabacion() {
+    if (grabandoAhora()) detenerGrabacion();
+    else empezarGrabacion();
+  }
 
   function avisoTexto(a, b) {
     const el = $("t3dAviso");
@@ -4359,6 +4681,12 @@ window.Tienda3D = (function () {
     // botón flotante «Interactuar»
     const inter = $("t3dInter");
     if (inter) inter.onclick = interactuarCentro;
+
+    // grabar el recorrido y sonido del local
+    const bGrab = $("t3dGrabar");
+    if (bGrab) bGrab.onclick = alternarGrabacion;
+    const bSon = $("t3dSonido");
+    if (bSon) bSon.onclick = sonidoAlternar;
 
     // cámaras: una en grande o las cuatro a la vez
     const grid = $("t3dCamsGrid");
@@ -4927,6 +5255,7 @@ window.Tienda3D = (function () {
       if (!enganchado) { enganchar(); enganchado = true; }
       aplicarCalidad();
       aplicarLuz();
+      engancharResize();
       ajustar();
       requestAnimationFrame(ajustar);
       setTimeout(ajustar, 260);
@@ -4976,6 +5305,8 @@ window.Tienda3D = (function () {
     if (btn) btn.classList.remove("on");
     const caja = $("t3dPrecio");
     if (caja) caja.hidden = true;
+    if (grabandoAhora()) detenerGrabacion();
+    if (SONIDO.activo) sonidoActivar(false);
     cerrarFicha();
     if (promoReloj) { clearInterval(promoReloj); promoReloj = null; }
     if (tvReloj) { clearInterval(tvReloj); tvReloj = 0; }
@@ -5075,6 +5406,17 @@ window.Tienda3D = (function () {
       rotZ: +camera.rotation.z.toFixed(4)
     } : null,
     cesta: cestaItems.length,
+    cestaPos: cestaItems.map((it) => [
+      +it.mesh.position.x.toFixed(2), +it.mesh.position.y.toFixed(2),
+      +it.mesh.position.z.toFixed(2), +it.mesh.scale.x.toFixed(2)
+    ]),
+    rec: grabandoAhora(),
+    grabTam: grabPrevio ? [grabPrevio.sw, grabPrevio.sh] : null,
+    sonido: SONIDO.activo,
+    pantalla: (camera && renderer && renderer.domElement) ? [
+      renderer.domElement.width, renderer.domElement.height,
+      +camera.aspect.toFixed(3), +camera.fov.toFixed(1)
+    ] : null,
     perdido: !!(renderer && renderer.getContext && renderer.getContext().isContextLost()),
     glerr: renderer && renderer.getContext ? renderer.getContext().getError() : -1
   });
