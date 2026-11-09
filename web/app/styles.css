@@ -2525,3 +2525,16 @@ body.visitante .visitas-card { display: none; }
   display: block; margin-top: 6px;
   font-size: 10px; line-height: 1.35; color: var(--tx4);
 }
+
+/* ── Viñeta cinematográfica sobre la escena ────────────────────────────────
+   Va encima del canvas y debajo del HUD: cierra los bordes de la imagen y da
+   la sensación de lente. No captura toques. */
+.t3d::after {
+  content: ""; position: absolute; inset: 0; z-index: 3; pointer-events: none;
+  background:
+    radial-gradient(132% 96% at 50% 42%,
+      rgba(0,0,0,0) 50%, rgba(0,0,0,.22) 82%, rgba(0,0,0,.46) 100%);
+}
+/* El modo cine ya no sólo satura: sube un poco el contraste y hunde los
+   negros, como un grade de película. */
+.t3d.cine-on #t3dCanvas { filter: saturate(1.12) contrast(1.07) brightness(.99); }

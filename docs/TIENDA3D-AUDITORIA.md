@@ -1000,3 +1000,58 @@ persistencia: elegir 1080 → recargar → sigue en 1080
 suites: diseno ✔ · boleta ✔ · arranque ✔ · inventario ✔ · seguridad 23/23 ✔
 sw.js → fcore-v54
 ```
+
+## Ronda 9 · sin puntas, letreros en relieve y viñeta (v55)
+
+Primer bloque del salto visual hacia la referencia: quitar la pinta de
+"maqueta" (todo caja con arista de navaja, techo bajo y ninguna señal grande).
+
+### Techo a 3,6 m
+`ALTO` pasó de **3,2 a 3,6 m**. Además de dar aire, libera una banda real de
+**1,05 m** entre el tope de la góndola (2,53) y el techo: con 3,2 no entraba
+ningún letrero sin chocar los productos.
+
+### Bordes redondeados (`cajaMueble`)
+`BoxGeometry` da aristas vivas. Se agregó `cajaMueble(w,h,d,radio)`: extruye un
+contorno redondeado con **bisel** (2 segmentos), centra la pieza y la cachea
+por medida — el local repite cuatro o cinco tamaños. En piezas finas
+(< 5 cm, alambre y tiras) cae a `BoxGeometry`, donde redondear no aporta y
+cuesta triángulos.
+
+Aplicado a: testeros y remates de góndola, zócalo, tablas de repisa y filo,
+islas frescas, neveras de isla y congeladores.
+
+### Letreros en relieve (COMBO / OFERTA)
+- Losa extruida de **3,0 × 0,9 × 0,13 m** con bisel, canto oscuro y cara con
+  lona dibujada (negro de marca, letras blancas y filete lima).
+- Colgados a **3,07 m** con dos varillas hasta el techo y un halo aditivo
+  detrás para que la lona parezca encendida.
+- **Bug corregido**: `ExtrudeGeometry` arma las UV con las coordenadas de la
+  forma, así que una lona de 3 m repetía el texto **tres veces**. Se reasignan
+  las UV a 0..1 sobre la cara y se revisó la lona como PNG.
+
+### Techo con ranuras
+Cada tira de luz pasa a ser una **ranura hundida**: canal oscuro, tira emisiva
+adentro y derrame aditivo debajo. Antes era una tira pegada al plano del techo.
+
+### Viñeta y grade
+- `.t3d::after` dibuja una viñeta radial (50 % → 46 % en los bordes) por encima
+  del canvas y debajo del HUD, sin capturar toques.
+- El modo cine suma `saturate(1.12) contrast(1.07) brightness(.99)`.
+
+### Verificado
+```
+__t3d()  err3d "" · gond 24 · cong 29 · frescos 12 · refri 8
+         senales 10 · anuncios 8 · carteles 2 · hijos 282 · decoErr ""
+29 frames renderizados · 0 errores de página/consola
+viñeta activa: z-index 3, radial-gradient aplicado
+canvas asentado en 390×800 (aspecto 0,487 · FOV 92)
+lona del letrero revisada como PNG (texto centrado, filete lima)
+suites: diseno ✔ · boleta ✔ · arranque ✔ · inventario ✔ · seguridad 23/23 ✔
+sw.js → fcore-v55
+```
+
+**Pendiente del plan** (bloques 4 y 5): sombra de contacto por producto, piso
+con reflejo real, productos v3 (más familias de envase y arte más rico) y
+bloom de verdad por postproceso. **No verificado aquí**: el aspecto en GPU
+real; el headless pierde el contexto y no produce captura fiable.

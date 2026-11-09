@@ -15,7 +15,10 @@ window.Tienda3D = (function () {
   const $ = (id) => document.getElementById(id);
   const CLAVE_CARRITO = "fcore.mercado.carrito";
 
-  const ANCHO = 18, LARGO = 20, ALTO = 3.2;
+  /* 3,6 m de alto: el local respira como un súper de verdad y queda una banda
+     libre de 1,05 m entre el tope de la góndola (2,53) y el techo para los
+     letreros en relieve. Con 3,2 no entraba nada sin chocar los productos. */
+  const ANCHO = 18, LARGO = 20, ALTO = 3.6;
   const GONDOLAS = [-7.1, -4.26, -1.42, 1.42, 4.26, 7.1]; // 1,78 m de pasillo y 1,37 m al muro
   const G_ANCHO = 1.06, G_LARGO = 9.0;
   const NIVELES = [0.42, 1.02, 1.62, 2.22];
@@ -83,6 +86,7 @@ window.Tienda3D = (function () {
   };
   let grabCalidad = "800";
   let anunciosMallas = 0;                   // anuncios de pared y banderolas
+  let cartelesGrandes = [];                 // letreros en relieve del techo
   let vuelos = [];                 // cajas volando hacia el carrito
   let fichaP = null, fichaOrigen = null;   // producto en la ficha abierta
   /* Materiales que reciben textura HD (Poly Haven / ambientCG, CC0).
@@ -1915,6 +1919,42 @@ window.Tienda3D = (function () {
     return new T.Matrix4().compose(p, q, esc);
   }
 
+  /* Caja con esquinas y cantos redondeados. `BoxGeometry` da aristas de
+     navaja; el mobiliario de la referencia tiene todo biselado. Se extruye un
+     contorno redondeado con bisel y se centra, y se cachea por medida: el
+     local repite cuatro o cinco tamaños. En piezas muy finas (alambre, tiras)
+     se cae a `BoxGeometry`, donde redondear no aporta y cuesta triángulos. */
+  const GEO_CAJA_R = new Map();
+
+  function cajaMueble(w, h, d, radio) {
+    const fino = Math.min(w, h, d);
+    if (fino < 0.05) return new T.BoxGeometry(w, h, d);
+    const r = Math.max(0.006, Math.min(radio == null ? 0.02 : radio, fino * 0.30));
+    const clave = w.toFixed(3) + "|" + h.toFixed(3) + "|" + d.toFixed(3) + "|" + r.toFixed(3);
+    const hit = GEO_CAJA_R.get(clave);
+    if (hit) return hit;
+    const hw = w / 2, hh = h / 2;
+    const sh = new T.Shape();
+    sh.moveTo(-hw + r, -hh);
+    sh.lineTo(hw - r, -hh);
+    sh.quadraticCurveTo(hw, -hh, hw, -hh + r);
+    sh.lineTo(hw, hh - r);
+    sh.quadraticCurveTo(hw, hh, hw - r, hh);
+    sh.lineTo(-hw + r, hh);
+    sh.quadraticCurveTo(-hw, hh, -hw, hh - r);
+    sh.lineTo(-hw, -hh + r);
+    sh.quadraticCurveTo(-hw, -hh, -hw + r, -hh);
+    const prof = Math.max(0.004, d - 2 * r);
+    const g = new T.ExtrudeGeometry(sh, {
+      depth: prof, bevelEnabled: true,
+      bevelThickness: r, bevelSize: r * 0.9, bevelSegments: 2,
+      curveSegments: 3, steps: 1
+    });
+    g.center();
+    GEO_CAJA_R.set(clave, g);
+    return g;
+  }
+
   /* Tapa / rosca de cada familia: es el remate que hace que una botella se
      lea como botella y un pote como pote. */
   function geoTapa(forma) {
@@ -2045,7 +2085,7 @@ window.Tienda3D = (function () {
     const lima = new T.MeshLambertMaterial({ color: 0xc8ff00 });
 
     const caja = (w, h, d, x, y, z, mat, g) => {
-      const m = new T.Mesh(new T.BoxGeometry(w, h, d), mat);
+      const m = new T.Mesh(cajaMueble(w, h, d, 0.03), mat);
       m.position.set(x, y, z);
       m.castShadow = true; m.receiveShadow = true;
       g.add(m);
@@ -2204,7 +2244,7 @@ window.Tienda3D = (function () {
     const led = new T.MeshBasicMaterial({ color: 0xe8f6ff });
 
     const caja = (w, h, d, x, y, z, mat) => {
-      const m = new T.Mesh(new T.BoxGeometry(w, h, d), mat);
+      const m = new T.Mesh(cajaMueble(w, h, d, 0.025), mat);
       m.position.set(x, y, z);
       m.castShadow = true; m.receiveShadow = true;
       g.add(m);
@@ -2416,6 +2456,131 @@ window.Tienda3D = (function () {
     });
   }
 
+  /* Lona de un cartel grande: negro de marca, letras lima y filete, con el
+     degradado que hace que la cara se lea iluminada. */
+  function texturaCartelGrande(texto, color) {
+    const W = 1024, H = 320;
+    const c = document.createElement("canvas");
+    c.width = W; c.height = H;
+    const g = c.getContext("2d");
+    const de = g.createLinearGradient(0, 0, 0, H);
+    de.addColorStop(0, "#16191b");
+    de.addColorStop(0.55, "#0b0d0e");
+    de.addColorStop(1, "#050606");
+    g.fillStyle = de; g.fillRect(0, 0, W, H);
+    g.strokeStyle = color;
+    g.lineWidth = 10;
+    g.strokeRect(14, 14, W - 28, H - 28);
+    g.fillStyle = color;
+    g.fillRect(14, 14, W - 28, 6);
+
+    /* letras con espaciado manual: `letterSpacing` no existe en todos los
+       navegadores y acá el ancho es parte del diseño */
+    const txt = String(texto || "").toUpperCase();
+    let fs = 190;
+    const esp = 0.055;
+    const medir = (t, f) => {
+      g.font = "900 " + f + "px -apple-system, Segoe UI, Roboto, sans-serif";
+      let w = 0;
+      for (let i = 0; i < t.length; i++) w += g.measureText(t[i]).width + f * esp;
+      return w - f * esp;
+    };
+    while (fs > 60 && medir(txt, fs) > W - 120) fs -= 6;
+    g.font = "900 " + fs + "px -apple-system, Segoe UI, Roboto, sans-serif";
+    const total = medir(txt, fs);
+    let x = (W - total) / 2;
+    g.textAlign = "left"; g.textBaseline = "middle";
+    /* sombra interna: la cara parece retroiluminada */
+    g.fillStyle = "rgba(200,255,0,.18)";
+    for (let i = 0; i < txt.length; i++) {
+      const ch = txt[i];
+      g.fillText(ch, x + 2, H * 0.54 + 3);
+      x += g.measureText(ch).width + fs * esp;
+    }
+    x = (W - total) / 2;
+    g.fillStyle = "#ffffff";
+    for (let i = 0; i < txt.length; i++) {
+      const ch = txt[i];
+      g.fillText(ch, x, H * 0.54);
+      x += g.measureText(ch).width + fs * esp;
+    }
+    const t = new T.CanvasTexture(c);
+    t.encoding = T.sRGBEncoding;
+    t.anisotropy = anisoMax();
+    return t;
+  }
+
+  /* Carteles en relieve: losa extruida con bisel (canto oscuro, cara
+     iluminada) colgada con varillas y con un halo detrás. Es lo que da la
+     escala de "súper grande" al entrar. */
+  function crearCartelesGrandes() {
+    const lista = [
+      { t: "COMBO", c: "#c8ff00", x: -5.68, z: 2.4 },
+      { t: "OFERTA", c: "#e8f21a", x: 5.68, z: 2.4 }
+    ];
+    const AN = 3.0, AL = 0.9, PR = 0.13, R = 0.07;
+    lista.forEach((l) => {
+      const hw = AN / 2, hh = AL / 2;
+      const sh = new T.Shape();
+      sh.moveTo(-hw + R, -hh);
+      sh.lineTo(hw - R, -hh);
+      sh.quadraticCurveTo(hw, -hh, hw, -hh + R);
+      sh.lineTo(hw, hh - R);
+      sh.quadraticCurveTo(hw, hh, hw - R, hh);
+      sh.lineTo(-hw + R, hh);
+      sh.quadraticCurveTo(-hw, hh, -hw, hh - R);
+      sh.lineTo(-hw, -hh + R);
+      sh.quadraticCurveTo(-hw, -hh, -hw + R, -hh);
+      const geo = new T.ExtrudeGeometry(sh, {
+        depth: PR, bevelEnabled: true, bevelThickness: 0.03,
+        bevelSize: 0.03, bevelSegments: 2, curveSegments: 4
+      });
+      geo.center();
+      /* ExtrudeGeometry arma las UV con las coordenadas de la forma, así que
+         una lona de 3 m repetía el texto tres veces. Se reasigna 0..1 sobre
+         la cara completa. */
+      geo.computeBoundingBox();
+      const bb = geo.boundingBox;
+      const pos = geo.attributes.position, uv = geo.attributes.uv;
+      const anchoBB = Math.max(0.001, bb.max.x - bb.min.x);
+      const altoBB = Math.max(0.001, bb.max.y - bb.min.y);
+      for (let i = 0; i < pos.count; i++) {
+        uv.setXY(i, (pos.getX(i) - bb.min.x) / anchoBB,
+          (pos.getY(i) - bb.min.y) / altoBB);
+      }
+      uv.needsUpdate = true;
+      const frente = new T.MeshLambertMaterial({
+        map: texturaCartelGrande(l.t, l.c), color: 0xffffff,
+        emissive: 0x1a1d16, emissiveIntensity: 1
+      });
+      const canto = new T.MeshLambertMaterial({ color: 0x0e1011 });
+      const m = new T.Mesh(geo, [frente, canto]);
+      m.position.set(l.x, 3.07, l.z);
+      m.rotation.y = Math.PI;                 // mira a la entrada
+      m.castShadow = false;
+      scene.add(m);
+
+      /* varillas hasta el techo */
+      [-0.9, 0.9].forEach((dx) => {
+        const v = new T.Mesh(new T.CylinderGeometry(0.014, 0.014, ALTO - 3.52, 8),
+          new T.MeshLambertMaterial({ color: 0x2a3036 }));
+        v.position.set(l.x + dx, (ALTO + 3.52) / 2, l.z);
+        scene.add(v);
+      });
+      /* halo detrás: la lona parece encendida */
+      const halo = new T.Mesh(
+        new T.PlaneGeometry(AN * 1.35, AL * 2.1),
+        new T.MeshBasicMaterial({
+          map: texturaGlow(), color: 0xc8ff00, transparent: true, opacity: 0.30,
+          blending: T.AdditiveBlending, depthWrite: false
+        })
+      );
+      halo.position.set(l.x, 3.07, l.z - 0.14);
+      scene.add(halo);
+      cartelesGrandes.push(m);
+    });
+  }
+
   /* Señalización colgante de pasillo: un cartel por pasillo, a la altura de
      la vista y por encima de los productos, con la categoría real del mueble
      y su número. Es lo que hace que un local se lea como súper desde la
@@ -2485,6 +2650,7 @@ window.Tienda3D = (function () {
     decoErr = "";
     senalesMallas = 0;
     anunciosMallas = 0;
+    cartelesGrandes = [];
 
     camera = new T.PerspectiveCamera(fovBase, 1, 0.05, 90);
 
@@ -2586,13 +2752,30 @@ window.Tienda3D = (function () {
 
     const perfilM = new T.MeshLambertMaterial({ color: 0xb9bec2 });
     const tiraTechoM = new T.MeshBasicMaterial({ color: 0xfff3c4 });
+    /* Ranura de luz: canal oscuro hundido en el techo con la tira emisiva
+       adentro y un derrame aditivo debajo. Antes era una tira pegada al
+       plano del techo, y así no se lee como luminaria empotrada. */
+    const canalM = new T.MeshLambertMaterial({ color: 0x1c2022 });
     [-8, -4, 0, 4, 8].forEach((x) => {
-      const perfil = new T.Mesh(new T.BoxGeometry(0.12, 0.09, LARGO - 0.8), perfilM);
+      const perfil = new T.Mesh(cajaMueble(0.12, 0.09, LARGO - 0.8, 0.02), perfilM);
       perfil.position.set(x, ALTO - 0.1, 0);
       scene.add(perfil);
-      const tira = new T.Mesh(new T.BoxGeometry(0.05, 0.02, LARGO - 1.6), tiraTechoM);
-      tira.position.set(x, ALTO - 0.155, 0);
+      const canal = new T.Mesh(cajaMueble(0.30, 0.03, LARGO - 1.35, 0.012), canalM);
+      canal.position.set(x, ALTO - 0.145, 0);
+      scene.add(canal);
+      const tira = new T.Mesh(cajaMueble(0.05, 0.02, LARGO - 1.6, 0.008), tiraTechoM);
+      tira.position.set(x, ALTO - 0.165, 0);
       grupoLED.techo.add(tira);
+      const derrame = new T.Mesh(
+        new T.PlaneGeometry(1.15, LARGO - 1.4),
+        new T.MeshBasicMaterial({
+          map: texturaGlow(), color: 0xfff3c4, transparent: true, opacity: 0.20,
+          blending: T.AdditiveBlending, depthWrite: false, side: T.DoubleSide
+        })
+      );
+      derrame.rotation.x = Math.PI / 2;
+      derrame.position.set(x, ALTO - 0.19, 0);
+      grupoLED.techo.add(derrame);
     });
 
     const panel = new T.MeshBasicMaterial({ color: 0xfff4de });
@@ -2749,12 +2932,12 @@ window.Tienda3D = (function () {
 
       // testeros: los laterales del mueble, en lima
       [-G_LARGO / 2, G_LARGO / 2].forEach((z) => {
-        const p = new T.Mesh(new T.BoxGeometry(G_ANCHO, 2.55, 0.06), testero);
+        const p = new T.Mesh(cajaMueble(G_ANCHO, 2.55, 0.06, 0.02), testero);
         p.position.set(gx, 1.27, z);
         p.castShadow = true;
         grupo.add(p);
         // filete blanco rematando el testero: separa el verde del fondo
-        const rem = new T.Mesh(new T.BoxGeometry(G_ANCHO + 0.03, 0.05, 0.08), riel);
+        const rem = new T.Mesh(cajaMueble(G_ANCHO + 0.03, 0.05, 0.08, 0.02), riel);
         rem.position.set(gx, 2.545, z);
         grupo.add(rem);
       });
@@ -2768,18 +2951,18 @@ window.Tienda3D = (function () {
       mallasContacto.push(sombraG);
 
       // zócalo verde: el mueble se apoya en el piso con su base de marca
-      const base = new T.Mesh(new T.BoxGeometry(G_ANCHO + 0.04, 0.16, G_LARGO + 0.04), zocaloG);
+      const base = new T.Mesh(cajaMueble(G_ANCHO + 0.04, 0.16, G_LARGO + 0.04, 0.025), zocaloG);
       base.position.set(gx, 0.08, 0);
       base.castShadow = true;
       grupo.add(base);
 
       NIVELES.forEach((y) => {
-        const tabla = new T.Mesh(new T.BoxGeometry(G_ANCHO, 0.05, G_LARGO), metal);
+        const tabla = new T.Mesh(cajaMueble(G_ANCHO, 0.05, G_LARGO, 0.014), metal);
         tabla.position.set(gx, y, 0);
         tabla.castShadow = true;
         tabla.receiveShadow = true;
         grupo.add(tabla);
-        const filo = new T.Mesh(new T.BoxGeometry(G_ANCHO, 0.016, G_LARGO), riel);
+        const filo = new T.Mesh(cajaMueble(G_ANCHO, 0.016, G_LARGO, 0.006), riel);
         filo.position.set(gx, y - 0.03, 0);
         grupo.add(filo);
       });
@@ -3054,7 +3237,7 @@ window.Tienda3D = (function () {
       if (rotY) g.rotation.y = rotY;
 
       const caja = (w, h, d, x, y, z, mat, sinSombra) => {
-        const m = new T.Mesh(new T.BoxGeometry(w, h, d), mat);
+        const m = new T.Mesh(cajaMueble(w, h, d, 0.02), mat);
         m.position.set(x, y, z);
         m.castShadow = !sinSombra;
         m.receiveShadow = true;
@@ -3286,7 +3469,7 @@ window.Tienda3D = (function () {
        anuncios. Va en su propio try/catch por pieza: si una sale mal, la
        tienda sigue abriendo con góndolas y neveras y el fallo queda en
        `__t3d().decoErr` en vez de dejar la escena a medias. */
-    const deco = [crearZonaFresca, crearAnuncios, crearSenalesPasillo]
+    const deco = [crearZonaFresca, crearAnuncios, crearSenalesPasillo, crearCartelesGrandes]
       .concat(REFRIGERADOS.map((cfg) => () => crearIslaRefri(cfg)));
     deco.forEach((fn) => {
       try {
@@ -5136,6 +5319,7 @@ window.Tienda3D = (function () {
     refs = { piso: null, muro: [], techo: [], metal: [] };
     mallasGondola = []; mallasCong = []; mallasProd = [];
     frescosMallas = 0; refriMallas = 0; senalesMallas = 0; anunciosMallas = 0;
+    cartelesGrandes = [];
     frescosPilas = []; tapasGondola = []; luzFresca = null;
     puertas = []; tv = null; tvTextura = null; tvCanvas = null;
     luzTV = null; camaras = []; carrito = null; carritoRuedas = [];
@@ -5373,6 +5557,7 @@ window.Tienda3D = (function () {
     frescos: frescosMallas, refri: refriMallas,
     frescosN: frescosPilas.reduce((n, e) => n + (e.mesh ? e.mesh.count : 0), 0),
     senales: senalesMallas, anuncios: anunciosMallas,
+    carteles: cartelesGrandes.length,
     cal: calidad === "auto" ? perfil : calidad,
     decoErr: decoErr,
     ficha: !!fichaP, fichaNom: fichaP ? fichaP.nombre : "", vuelos: vuelos.length,
