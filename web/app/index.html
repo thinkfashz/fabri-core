@@ -191,9 +191,99 @@
     <main>
       <div class="offline-bar" id="offBar">Sin conexión — la app sigue funcionando con los datos locales.</div>
 
+      <!-- ══════════════ PORTADA PÚBLICA · MercadoPlacer ══════════════
+           Es la entrada para quien no tiene cuenta. Desde acá se llega al
+           catálogo, al mapa y al visor 3D; la barra inferior del público
+           (`#pubBar`) repite esos tres accesos en todas las pantallas. -->
+      <section class="screen on" id="s-publico">
+        <div class="pub">
+          <header class="pub-hero">
+            <div class="pub-hero-top">
+              <span class="pub-logo"><img src="./icons/logo-f.svg" alt=""></span>
+              <span class="pub-kicker">MercadoPlacer</span>
+              <span class="pub-libre">sin cuenta</span>
+            </div>
+            <h1>Tu barrio,<br><em>en un pedido.</em></h1>
+            <p class="pub-sub">Catálogo real de tu tienda y de comercios de barrio. Mirá el
+              mapa, recorré el local en 3D, armá tu pedido y confirmalo por WhatsApp.</p>
+            <div class="pub-acciones">
+              <button class="pub-btn" type="button" data-pub="mercado">Ver catálogo <span>→</span></button>
+              <button class="pub-btn ghost" type="button" data-pub="panel">Abrir mapa</button>
+              <button class="pub-btn ghost" type="button" data-pub="tienda">Visor 3D</button>
+            </div>
+            <div class="pub-sellos">
+              <span><b id="pubNumProd">—</b> productos</span>
+              <span><b>3</b> formas de comprar</span>
+              <span><b>0</b> registro</span>
+            </div>
+            <button class="pub-pedido" id="pubPedido" type="button" hidden>
+              <span id="pubPedidoN">0</span> en el pedido
+              <b id="pubPedidoTotal">$0</b>
+              <span aria-hidden="true">→</span>
+            </button>
+          </header>
+
+          <section class="pub-promos" aria-label="Promociones">
+            <article class="pub-promo lima">
+              <span class="pub-promo-k">Despacho</span>
+              <h3>Coordinalo por WhatsApp</h3>
+              <p>Retiro en tienda o despacho a domicilio. El comercio confirma stock, horario y envío.</p>
+            </article>
+            <article class="pub-promo">
+              <span class="pub-promo-k">Escaneá</span>
+              <h3>El código hace el trabajo</h3>
+              <p>Apuntá la cámara al código de barras o QR y el producto se abre en su ficha.</p>
+            </article>
+            <article class="pub-promo">
+              <span class="pub-promo-k">Recorré</span>
+              <h3>Entrá al local en 3D</h3>
+              <p>Caminá los pasillos, mirá las góndolas y sumá productos al mismo pedido.</p>
+            </article>
+          </section>
+
+          <section class="pub-destacados">
+            <header class="pub-sec-cab">
+              <div>
+                <p class="eyebrow">Selección</p>
+                <h2>Destacados de la semana</h2>
+              </div>
+              <button class="pub-link" type="button" data-pub="mercado">Ver todo →</button>
+            </header>
+            <div class="pub-prods" id="pubProds"></div>
+          </section>
+
+          <section class="pub-accesos" aria-label="Accesos del público">
+            <button class="pub-acceso" type="button" data-pub="mercado">
+              <span class="pub-acceso-ico">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16l-1.4 12.2a2 2 0 0 1-2 1.8H7.4a2 2 0 0 1-2-1.8L4 7Z"/><path d="M9 10V6a3 3 0 0 1 6 0v4"/></svg>
+              </span>
+              <b>Catálogo</b>
+              <small>Precios, stock, fichas y productos relacionados</small>
+              <span class="pub-acceso-go">Abrir →</span>
+            </button>
+            <button class="pub-acceso" type="button" data-pub="panel">
+              <span class="pub-acceso-ico">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z"/><circle cx="12" cy="10" r="2.4"/></svg>
+              </span>
+              <b>Mapa</b>
+              <small>Locales cerca de ti, horarios y catálogo de cada uno</small>
+              <span class="pub-acceso-go">Abrir →</span>
+            </button>
+            <button class="pub-acceso" type="button" data-pub="tienda">
+              <span class="pub-acceso-ico">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z"/><path d="m4 7.5 8 4.5 8-4.5M12 12v9"/></svg>
+              </span>
+              <b>Visor 3D</b>
+              <small>Recorré el local, mirá las góndolas y grabá el paseo</small>
+              <span class="pub-acceso-go">Entrar →</span>
+            </button>
+          </section>
+        </div>
+      </section>
+
       <!-- ══════════════ PANEL ══════════════ -->
       <!-- ══════════════ MERCADOPLACER · mercados cerca de ti ══════════════ -->
-      <section class="screen on" id="s-panel">
+      <section class="screen" id="s-panel">
         <div class="mp mp-full" id="mp">
 
           <!-- capa 0 · mapa a pantalla completa -->
@@ -262,6 +352,7 @@
               </button>
               <div class="mp-menu" id="mpMenu" hidden>
                 <button type="button" id="mpScan"><span class="mp-menu-ico"><svg viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M3 12h18"/></svg></span>Escanear QR</button>
+                <button type="button" id="mpCatalogo"><span class="mp-menu-ico"><svg viewBox="0 0 24 24"><path d="M4 7h16l-1.4 12.2a2 2 0 0 1-2 1.8H7.4a2 2 0 0 1-2-1.8L4 7Z"/><path d="M9 10V6a3 3 0 0 1 6 0v4"/></svg></span>Catálogo completo</button>
                 <button type="button" id="mpMapaBtn"><span class="mp-menu-ico"><svg viewBox="0 0 24 24"><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3z"/><path d="M9 3v15M15 6v15"/></svg></span>Calles / satélite</button>
                 <button type="button" id="mp3d" aria-pressed="true"><span class="mp-menu-ico"><svg viewBox="0 0 24 24"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z"/><path d="m4 7.5 8 4.5 8-4.5M12 12v9"/></svg></span>Vista 3D</button>
                 <button type="button" id="mpFoco"><span class="mp-menu-ico"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></span>Modo mapa</button>
@@ -600,6 +691,10 @@
           <div class="merc-cab-der">
             <div class="merc-acciones">
               <span class="badge acc" id="mercCount">…</span>
+              <button class="merc-3d merc-scan-top" id="mercScanTop" type="button">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M3 12h18"/></svg>
+                Escanear QR
+              </button>
               <button class="merc-3d" id="merc3d" type="button">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z"/><path d="m4 7.5 8 4.5 8-4.5M12 12v9"/></svg>
                 Recorrer 3D
@@ -1096,6 +1191,24 @@
 <script src="./cloud.js"></script>
 <script src="./mercado.js"></script>
 <script src="./visitas.js"></script>
+<!-- ══════════ BARRA DEL PÚBLICO ══════════
+     Sólo aparece con la sesión de visitante. Tres accesos, nada más: el resto
+     de la consola sigue detrás de la cuenta. -->
+<nav class="pub-bar" id="pubBar" hidden aria-label="Accesos del público">
+  <button type="button" class="pub-tab" data-pub="mercado">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16l-1.4 12.2a2 2 0 0 1-2 1.8H7.4a2 2 0 0 1-2-1.8L4 7Z"/><path d="M9 10V6a3 3 0 0 1 6 0v4"/></svg>
+    <span>Catálogo</span>
+  </button>
+  <button type="button" class="pub-tab" data-pub="panel">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z"/><circle cx="12" cy="10" r="2.4"/></svg>
+    <span>Mapa</span>
+  </button>
+  <button type="button" class="pub-tab" data-pub="tienda">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z"/><path d="m4 7.5 8 4.5 8-4.5M12 12v9"/></svg>
+    <span>Visor 3D</span>
+  </button>
+</nav>
+
         <div class="mp-hoja" id="mpHoja" hidden>
           <div class="mp-hoja-fondo" id="mpHojaFondo"></div>
           <div class="mp-hoja-panel" role="dialog" aria-modal="true" aria-labelledby="mpHojaNombre">
@@ -1189,6 +1302,28 @@
     </header>
     <div id="mercCarritoCuerpo"></div>
     <footer class="mp-hoja-pie" id="mercCarritoPie"></footer>
+  </div>
+</div>
+
+<!-- ══════════ DATOS DEL PEDIDO · compra y envío ══════════
+     El pedido no se manda a ciegas: nombre, teléfono, retiro o despacho,
+     dirección y nota. Con eso se arma el mensaje de WhatsApp. -->
+<div class="mp-hoja" id="mercPago" hidden>
+  <div class="mp-hoja-fondo" id="mercPagoFondo"></div>
+  <div class="mp-hoja-panel" role="dialog" aria-modal="true" aria-labelledby="mercPagoTit">
+    <div class="mp-hoja-asa"></div>
+    <header class="mp-hoja-cab">
+      <div class="mp-hoja-ico carrito">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="3"/><path d="M2.5 10h19"/><path d="M6 15h4"/></svg>
+      </div>
+      <div class="mp-hoja-tit">
+        <h2 id="mercPagoTit">Datos del pedido</h2>
+        <p id="mercPagoSub">—</p>
+      </div>
+      <button class="mp-ubi" id="mercPagoX" type="button" aria-label="Cerrar">✕</button>
+    </header>
+    <div id="mercPagoCuerpo"></div>
+    <footer class="mp-hoja-pie" id="mercPagoPie"></footer>
   </div>
 </div>
 

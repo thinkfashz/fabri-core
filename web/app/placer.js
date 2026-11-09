@@ -2267,6 +2267,14 @@ window.Placer = (function () {
     if (irCarrito) irCarrito.onclick = () => abrirCarrito();
     const scanBtn = $("mpScan");
     if (scanBtn) scanBtn.onclick = () => escanear();
+    /* Acceso directo al catálogo del marketplace desde el mapa. Cierra las
+       hojas antes de cambiar de pantalla: si quedan abiertas, tapaban el
+       catálogo y el visor. */
+    const catalogoBtn = $("mpCatalogo");
+    if (catalogoBtn) catalogoBtn.onclick = () => {
+      cerrarHoja(); cerrarCarrito(); cerrarPago();
+      if (window.Fabri) window.Fabri.go("mercado");
+    };
     const pagoX = $("mpPagoX");
     if (pagoX) pagoX.onclick = cerrarPago;
     const pagoFondo = $("mpPagoFondo");
@@ -2429,5 +2437,8 @@ window.Placer = (function () {
   else setTimeout(autoMontar, 40);
   window.addEventListener("load", () => setTimeout(autoMontar, 250));
 
-  return { render };
+  return {
+    render,
+    cerrarTodo: () => { cerrarHoja(); cerrarCarrito(); cerrarPago(); }
+  };
 })();

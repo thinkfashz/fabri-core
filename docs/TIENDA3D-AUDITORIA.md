@@ -1055,3 +1055,90 @@ sw.js → fcore-v55
 con reflejo real, productos v3 (más familias de envase y arte más rico) y
 bloom de verdad por postproceso. **No verificado aquí**: el aspecto en GPU
 real; el headless pierde el contexto y no produce captura fiable.
+
+## Ronda 10 · portada pública, catálogo v2 y pedido por WhatsApp (v56)
+
+El catálogo dejó de ser una pantalla escondida detrás del login. Ahora quien
+entra sin cuenta ve **una sola página organizada** (portada, promos,
+destacados y tres accesos) y una barra inferior mínima con Catálogo, Mapa y
+Visor 3D. El resto de la consola (inventario, SQL, boletas, cuenta) sigue
+pidiendo sesión.
+
+### Portada pública (`#s-publico`)
+- Hero con marca, sello «sin cuenta», titular, tres botones y contadores
+  reales (productos, formas de comprar, registros).
+- Tres promos (despacho, escaneo, recorrido 3D) y seis destacados elegidos
+  **una por categoría** para mostrar variedad, no seis variantes del mismo
+  estante.
+- Si hay pedido en curso, aparece una barra «N en el pedido · total» que abre
+  el carrito sin salir de la portada.
+
+### Barra del público (`#pubBar`)
+Tres pestañas fijas, sólo con `body.visitante` y sólo en las pantallas
+públicas. `go()` la muestra/oculta y marca la pestaña activa. La marca del
+topbar vuelve al inicio (`publico`) y las migas dejan de decir «Panel».
+
+### Catálogo v2
+- **Arte procedural por familia** (`arteProducto`): equipo, insumo, accesorio,
+  audio, protección y envase genérico. Sin fotos ni imágenes de terceros: SVG
+  con el tinte de la categoría. Se usa en la grilla, en los estantes, en la
+  ficha, en el carrito y en la portada.
+- Tarjeta nueva: cinta de categoría y stock, arte, título, descripción, EAN y
+  clasificación, precio en oro y botón «Agregar». Con cantidad, el mismo lugar
+  muestra el contador −/+.
+- **Ficha con relacionados**: cuatro productos (primero los de la misma
+  categoría), cada uno abre su propia ficha. La categoría va arriba a la
+  izquierda y el precio abajo: antes se pisaban en la misma esquina.
+- Botón «Escanear QR» en la cabecera, además del que ya vivía dentro del
+  buscador. En pantallas angostas los botones bajan de línea en vez de
+  desbordar la página.
+
+### Pedido y envío
+- El carrito ya no manda un texto suelto: pasa por **Datos del pedido**
+  (`#mercPago`) con nombre, teléfono, email opcional, retiro o despacho,
+  dirección, comuna, referencia y nota. Los datos quedan en
+  `fcore.mercado.cliente`.
+- Envío referencial de **CLP 3.500** (`ENVIO_REF`) cuando es despacho; el
+  resumen muestra subtotal, envío y total, y aclara que el comercio confirma.
+- Validación en línea: nombre, teléfono de al menos 8 dígitos y, con despacho,
+  dirección y comuna. El campo que falta se marca y recibe el foco.
+- Al enviar se abre **WhatsApp** (`wa.me`) con el pedido escrito: cliente,
+  entrega, líneas, subtotal, envío y total. El número sale de
+  `window.FORGE_WA`, luego `fcore.wa`, y si no hay nada queda el de ejemplo
+  `56912345678` — el mismo criterio del resto del proyecto. Si el navegador
+  bloquea la ventana, el pedido se copia al portapapeles.
+
+### Arreglos de esta ronda
+- **Desborde horizontal** de 58 px que estiraba las hojas: la cabecera del
+  catálogo y el buscador forzaban el ancho del documento a 448 px y las hojas
+  `position:fixed` se estiraban con él. Se corrigió con `flex-wrap` en las
+  acciones y `grid-template-columns: minmax(0,1fr)` en los filtros; las hojas
+  además llevan `max-width:100%; min-width:0`. Medido: `scrollWidth` 390 en
+  portada, catálogo, lista, ficha, carrito y pago.
+- Las hojas ya no se apilan: abrir ficha cierra carrito y pago; abrir carrito
+  cierra ficha y pago; salir del mapa (`Placer.cerrarTodo()`) cierra local,
+  carrito y pago.
+- El menú del mapa suma «Catálogo completo».
+
+### Verificado
+```
+visitante true · portada s-publico · barra con 3 pestañas
+portada: 6 destacados · 12 productos · pedido oculto
+catálogo: 18 cajas de estante con arte · lista 12 tarjetas con arte
+ficha: 4 relacionados · arte · categoría arriba y precio abajo
+carrito: 1 línea con arte · «Continuar con los datos»
+pago: 8 campos · resumen 3 filas · total correcto
+WhatsApp: wa.me/56912345678 con cliente, despacho, nota y total
+mapa: pubBar visible · menú con «Catálogo completo»
+visor: err3d "" · frescos 12 · pubBar visible
+scrollWidth 390 en las seis pantallas (sin desborde)
+0 errores de página/consola
+suites: diseno ✔ · boleta ✔ · arranque ✔ · inventario ✔ · seguridad 23/23 ✔
+sw.js → fcore-v56
+```
+
+**No verificado aquí**: el aspecto del visor 3D en GPU real; el headless pierde
+el contexto WebGL a los pocos segundos (aparece «La gráfica se reinició», que
+es el aviso del producto, no un fallo de la ronda). La grabación de la escena
+real sigue sin poder comprobarse en este entorno; `MediaRecorder` se validó con
+un canvas 2D.

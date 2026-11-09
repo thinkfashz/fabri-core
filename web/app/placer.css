@@ -532,7 +532,7 @@
   animation: mp-fade .2s ease both;
 }
 .mp-hoja-panel {
-  position: relative; width: 100%; max-height: 88vh;
+  position: relative; width: 100%; max-width: 100%; min-width: 0; max-height: 88vh;
   overflow-y: auto; overscroll-behavior: contain;
   padding: 8px 16px calc(18px + env(safe-area-inset-bottom));
   border-radius: var(--mp-r-xl) var(--mp-r-xl) 0 0;

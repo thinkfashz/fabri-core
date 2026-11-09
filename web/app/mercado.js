@@ -14,6 +14,19 @@ window.Mercado = (function () {
 
   const API = "https://fabri-api.vercel.app/api/catalogo";
   const CLAVE = "fcore.mercado.carrito";
+  const CLAVE_CLI = "fcore.mercado.cliente";
+  /* Envío referencial. El comercio lo confirma según la comuna; se muestra
+     para que el total no quede a medias, no como una tarifa cerrada. */
+  const ENVIO_REF = 3500;
+  /* Mismo criterio que el resto del proyecto: `window.FORGE_WA` manda, luego
+     lo que se guarde en `fcore.wa`, y si no hay nada queda el número de
+     ejemplo. Se documenta en la auditoría para no confundirlo con producción. */
+  function numeroWa() {
+    let n = "";
+    try { n = localStorage.getItem("fcore.wa") || ""; } catch (e) { /* privado */ }
+    n = String(window.FORGE_WA || n || "").replace(/\D/g, "");
+    return n.length >= 8 ? n : "56912345678";
+  }
 
   // Espejo del catálogo del backend (para offline / antes del deploy).
   const SEED = [
@@ -199,14 +212,24 @@ window.Mercado = (function () {
   }
 
   function pintarBarra() {
+    const n = unidades(), tot = total();
     const barra = $("mercBarra");
-    if (!barra) return;
-    const n = unidades();
-    barra.hidden = n === 0;
-    const t = $("mercBarraTotal");
-    const c = $("mercBarraCount");
-    if (t) animarNumero(t, total());
-    if (c) c.textContent = n + (n === 1 ? " producto" : " productos");
+    if (barra) {
+      barra.hidden = n === 0;
+      const t = $("mercBarraTotal");
+      const c = $("mercBarraCount");
+      if (t) animarNumero(t, tot);
+      if (c) c.textContent = n + (n === 1 ? " producto" : " productos");
+    }
+    /* La portada muestra el pedido en curso sin abrir otra pantalla. */
+    const pub = $("pubPedido");
+    if (pub) {
+      pub.hidden = n === 0;
+      const pn = $("pubPedidoN");
+      const pt = $("pubPedidoTotal");
+      if (pn) pn.textContent = n;
+      if (pt) pt.textContent = clp(tot);
+    }
   }
 
   /* ── tarjetas ──────────────────────────────────────────────────────────── */
@@ -215,6 +238,43 @@ window.Mercado = (function () {
       Equipos: "#C8FF00", Insumos: "#FFB020", Accesorios: "#B48CFF",
       Audio: "#3DDC84", Protección: "#5AA9FF"
     }[p.categoria] || "#C8FF00";
+  }
+
+  /* Ilustración vectorial del producto. No hay fotos ni imágenes de terceros:
+     cada familia de envase se dibuja con trazos y el tinte de la categoría.
+     Se usa en la grilla, en los estantes, en la ficha y en la portada. */
+  function arteProducto(p, chico) {
+    const t = tinteDe(p);
+    const cat = String(p.categoria || "").toLowerCase();
+    let d;
+    if (cat.indexOf("equipo") >= 0) {
+      d = '<rect x="8" y="10" width="32" height="22" rx="4"/><path d="M14 16h20M14 21h12"/>' +
+        '<path d="M20 32v5h8v-5"/><path d="M16 40h16"/>';
+    } else if (cat.indexOf("insumo") >= 0 || cat.indexOf("papel") >= 0) {
+      d = '<ellipse cx="24" cy="14" rx="10" ry="4"/><path d="M14 14v20c0 2.2 4.5 4 10 4s10-1.8 10-4V14"/>' +
+        '<path d="M18 23h12M18 29h8"/>';
+    } else if (cat.indexOf("accesorio") >= 0) {
+      d = '<path d="M11 34h11a6 6 0 0 0 6-6V17"/><path d="M28 10v7M23 10v7M33 10v7"/>' +
+        '<rect x="7" y="33" width="8" height="7" rx="2"/>';
+    } else if (cat.indexOf("audio") >= 0) {
+      d = '<rect x="14" y="8" width="20" height="32" rx="4"/><circle cx="24" cy="18" r="5"/>' +
+        '<circle cx="24" cy="32" r="3"/><path d="M38 16c2.5 2.5 2.5 13.5 0 16M42 12c4 4 4 20 0 24"/>';
+    } else if (cat.indexOf("protecc") >= 0) {
+      d = '<path d="M24 7 38 13v10c0 9-6 15-14 18-8-3-14-9-14-18V13z"/><path d="m18 24 4 4 8-9"/>';
+    } else {
+      d = '<path d="M14 17h20v21a4 4 0 0 1-4 4H18a4 4 0 0 1-4-4z"/>' +
+        '<path d="M18 17v-4a6 6 0 0 1 12 0v4"/><path d="M19 25h10M19 31h7"/>';
+    }
+    return '<span class="prod-art' + (chico ? " chico" : "") + '" style="--tinte:' + t + '" aria-hidden="true">' +
+      '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2" ' +
+      'stroke-linecap="round" stroke-linejoin="round">' + d + "</svg></span>";
+  }
+
+  function relacionados(p) {
+    const lista = catalogo().filter((x) => x.id !== p.id);
+    const misma = lista.filter((x) => x.categoria === p.categoria);
+    const otras = lista.filter((x) => x.categoria !== p.categoria);
+    return misma.concat(otras).slice(0, 4);
   }
 
   function pintarChips(cont, lista, sel, fn) {
@@ -243,7 +303,7 @@ window.Mercado = (function () {
       '" style="--tinte:' + tinte + '" aria-label="' + esc(p.nombre) + '">' +
       '<span class="mm-caja">' +
         '<span class="mm-caja-tapa"></span>' +
-        '<span class="mm-caja-letra">' + esc((p.nombre || "?").charAt(0)) + "</span>" +
+        arteProducto(p, true) +
         (copia ? "" : '<span class="mm-caja-nom">' + esc(p.nombre) + "</span>") +
         (n && !copia ? '<span class="mm-caja-cant">' + n + "</span>" : "") +
       "</span>" +
@@ -377,11 +437,7 @@ window.Mercado = (function () {
         '<div class="merc-media" style="--tinte:' + tinte + '">' +
           '<span class="merc-media-cat">' + esc(p.categoria) + "</span>" +
           '<span class="merc-media-stock' + (p.stock <= 10 ? " bajo" : "") + '">' + p.stock + " disp.</span>" +
-          '<span class="merc-caja">' +
-            '<span class="merc-caja-tapa"></span>' +
-            '<span class="merc-caja-letra">' + esc((p.nombre || "?").charAt(0)) + "</span>" +
-          "</span>" +
-          '<span class="merc-media-precio">' + clp(p.precio) + "</span>" +
+          arteProducto(p) +
         "</div>" +
         '<div class="merc-cuerpo">' +
           '<h3 class="merc-titulo">' + esc(p.nombre) + "</h3>" +
@@ -391,10 +447,11 @@ window.Mercado = (function () {
             '<span class="merc-clas">' + esc(p.clasificacion) + "</span>" +
           "</div>" +
           '<div class="merc-pie">' +
+            '<div class="merc-precio2"><b>' + clp(p.precio) + "</b></div>" +
             (n
-              ? '<div class="merc-cant ancho"><button type="button" data-menos="' + esc(p.id) + '" aria-label="Quitar">−</button>' +
-                "<b>" + n + ' en el pedido</b><button type="button" data-mas="' + esc(p.id) + '" aria-label="Agregar">+</button></div>'
-              : '<button type="button" class="merc-add block" data-mas="' + esc(p.id) + '">Agregar al pedido</button>') +
+              ? '<div class="merc-cant"><button type="button" data-menos="' + esc(p.id) + '" aria-label="Quitar">−</button>' +
+                "<b>" + n + '</b><button type="button" data-mas="' + esc(p.id) + '" aria-label="Agregar">+</button></div>'
+              : '<button type="button" class="merc-add" data-mas="' + esc(p.id) + '">Agregar</button>') +
           "</div>" +
         "</div>" +
       "</article>";
@@ -418,6 +475,8 @@ window.Mercado = (function () {
   let detalleActual = null;
 
   function abrirDetalle(p) {
+    cerrarCarrito();
+    cerrarPago();
     detalleActual = p;
     const hoja = $("mercHoja");
     if (!hoja) return;
@@ -441,17 +500,18 @@ window.Mercado = (function () {
     const codigo = codigoDe(p);
     $("mercHojaNombre").textContent = p.nombre;
     $("mercHojaSub").textContent = [p.categoria, p.clasificacion].filter(Boolean).join(" · ");
+    const rel = relacionados(p);
     $("mercHojaCuerpo").innerHTML =
       '<div class="merc-ficha-media" style="--tinte:' + tinteDe(p) + '">' +
-        '<span class="merc-ficha-letra">' + esc((p.nombre || "?").charAt(0)) + "</span>" +
+        arteProducto(p) +
         '<span class="merc-ficha-cat">' + esc(p.categoria) + " · " + esc(p.clasificacion) + "</span>" +
         '<span class="merc-ficha-precio">' + clp(p.precio) + "</span>" +
       "</div>" +
-      '<p class="merc-ficha-desc">' + esc(p.descripcion) + "</p>" +
+      '<p class="merc-ficha-desc">' + esc(p.descripcion || "Producto disponible en el catálogo. Consultá stock y entrega al confirmar el pedido.") + "</p>" +
       '<div class="merc-ficha-datos">' +
         '<div><span>Precio</span><b>' + clp(p.precio) + "</b></div>" +
         '<div><span>Stock</span><b>' + p.stock + " un.</b></div>" +
-        '<div><span>Moneda</span><b>' + esc(p.moneda || "CLP") + "</b></div>" +
+        '<div><span>Categoría</span><b>' + esc(p.categoria || "—") + "</b></div>" +
       "</div>" +
       '<div class="merc-ficha-codigo"><div class="merc-barras">' + ean13Svg(codigo) + "</div>" +
         '<small>EAN-13 · ' + codigo + "</small></div>" +
@@ -464,15 +524,28 @@ window.Mercado = (function () {
       (n ? '<div class="merc-ficha-sum"><span>' + n + " × " + clp(p.precio) + "</span><b>" +
         clp(p.precio * n) + "</b></div>" : "") +
       '<button type="button" class="btn primary block" id="mercDetAdd">' +
-        (n ? "Agregar otro · " + clp(p.precio) : "Agregar al pedido · " + clp(p.precio)) + "</button>";
+        (n ? "Agregar otro · " + clp(p.precio) : "Agregar al pedido · " + clp(p.precio)) + "</button>" +
+      (rel.length ? '<section class="merc-rel"><h3>Productos relacionados</h3><div class="merc-rel-grid">' +
+        rel.map((x) => '<button type="button" class="merc-rel-item" data-rel="' + esc(x.id) + '">' +
+          arteProducto(x, true) +
+          '<span class="merc-rel-txt"><b>' + esc(x.nombre) + "</b><small>" + clp(x.precio) + "</small></span>" +
+        "</button>").join("") + "</div></section>" : "");
 
     $("mercDetMas").onclick = () => cambiar(p.id, 1);
     $("mercDetMenos").onclick = () => cambiar(p.id, -1);
     $("mercDetAdd").onclick = () => cambiar(p.id, 1);
+    $("mercHojaCuerpo").querySelectorAll("[data-rel]").forEach((b) => {
+      b.onclick = () => {
+        const x = buscar(b.dataset.rel);
+        if (x) abrirDetalle(x);
+      };
+    });
   }
 
   /* ── hoja del carrito ──────────────────────────────────────────────────── */
   function abrirCarrito() {
+    cerrarDetalle();
+    cerrarPago();
     const h = $("mercCarrito");
     if (!h) return;
     h.hidden = false;
@@ -507,7 +580,7 @@ window.Mercado = (function () {
       : "vacío";
 
     if (!items.length) {
-      cuerpo.innerHTML = '<div class="mp-vacio"><b>Tu pedido está vacío</b><p>Agrega productos desde los estantes.</p></div>';
+      cuerpo.innerHTML = '<div class="mp-vacio"><b>Tu pedido está vacío</b><p>Explorá el catálogo, escaneá un código o sumá productos desde el visor 3D.</p></div>';
       pie.innerHTML = "";
       return;
     }
@@ -516,7 +589,7 @@ window.Mercado = (function () {
       '<div class="mc-lista">' + items.map((x) => {
         const desc = String(x.p.descripcion || "").trim();
         return '<div class="mc-linea">' +
-          '<span class="mc-ico" style="--tinte:' + tinteDe(x.p) + '">' + esc(x.p.nombre.charAt(0)) + "</span>" +
+          arteProducto(x.p, true) +
           '<div class="mc-txt">' +
             '<div class="mc-head">' +
               "<b>" + esc(x.p.nombre) + "</b>" +
@@ -544,9 +617,10 @@ window.Mercado = (function () {
           " · " + nProd + (nProd === 1 ? " producto" : " productos") + '</span><small>envío se coordina</small></div>' +
         '<div class="mp-res-total"><span>Total</span><b id="mcTotal">$0</b></div>' +
       "</div>" +
-      '<button type="button" class="btn primary block" id="mcPedir">Pedir por WhatsApp</button>' +
+      '<button type="button" class="btn primary block" id="mcPedir">Continuar con los datos</button>' +
+      '<button type="button" class="mp-link" id="mcSeguir">Seguir comprando</button>' +
       '<button type="button" class="mp-link" id="mcVaciar">Vaciar pedido</button>' +
-      '<p class="mp-res-nota">Pedido de referencia · el comercio confirma stock y entrega</p>';
+      '<p class="mp-res-nota">Retiro o despacho · el comercio confirma stock y envío por WhatsApp</p>';
 
     animarNumero($("mcTotal"), totalPedido);
 
@@ -563,23 +637,202 @@ window.Mercado = (function () {
         pintarCarrito();
       };
     });
-    $("mcPedir").onclick = () => pedirWhatsApp(items, totalPedido);
+    $("mcPedir").onclick = abrirPago;
+    $("mcSeguir").onclick = () => {
+      cerrarCarrito();
+      if (window.Fabri) window.Fabri.go("mercado");
+    };
     $("mcVaciar").onclick = () => { carrito = {}; guardarCarrito(); pintarCarrito(); pintarBarra(); render(); };
   }
 
-  function pedirWhatsApp(items, totalPedido) {
-    const texto = "Pedido a Mercado FORGE\n\n" +
-      items.map((x) => "• " + x.n + " × " + x.p.nombre + " — " + clp(x.p.precio * x.n)).join("\n") +
-      "\n\nTotal: " + clp(totalPedido) +
-      "\n\nEnviado desde MercadoPlacer · FORGE CORE STOCK";
-    if (navigator.share) {
-      navigator.share({ title: "Pedido Mercado FORGE", text: texto }).catch(() => {});
+  /* ── datos del pedido y envío ─────────────────────────────────────────── */
+  function leerCliente() {
+    const base = { nombre: "", telefono: "", email: "", entrega: "retiro",
+      direccion: "", comuna: "", referencia: "", nota: "" };
+    try {
+      const g = JSON.parse(localStorage.getItem(CLAVE_CLI) || "{}") || {};
+      return Object.assign(base, g);
+    } catch (e) { return base; }
+  }
+  function guardarCliente(c) {
+    try { localStorage.setItem(CLAVE_CLI, JSON.stringify(c)); } catch (e) { /* privado */ }
+  }
+
+  function abrirPago() {
+    if (!lineas().length) {
+      if (window.Fabri) window.Fabri.toast("Tu pedido está vacío");
       return;
     }
-    navigator.clipboard.writeText(texto).then(
-      () => { if (window.Fabri) window.Fabri.toast("Pedido copiado"); },
-      () => { if (window.Fabri) window.Fabri.toast("No pude copiar el pedido"); }
-    );
+    cerrarCarrito();
+    cerrarDetalle();
+    const h = $("mercPago");
+    if (!h) return;
+    h.hidden = false;
+    document.body.classList.add("mp-abierto");
+    pintarPago();
+    const panel = h.querySelector(".mp-hoja-panel");
+    if (panel) panel.scrollTop = 0;
+  }
+  function cerrarPago() {
+    const h = $("mercPago");
+    if (h) h.hidden = true;
+    document.body.classList.remove("mp-abierto");
+  }
+
+  function resumenPago(items, subtotal, entrega, envio) {
+    return items.map((x) => '<div class="mc-res-fila"><span>' + x.n + " × " + esc(x.p.nombre) +
+        "</span><b>" + clp(x.p.precio * x.n) + "</b></div>").join("") +
+      '<div class="mc-res-fila"><span>Subtotal</span><b>' + clp(subtotal) + "</b></div>" +
+      '<div class="mc-res-fila"><span>Envío' + (entrega === "despacho" ? " (referencial)" : "") +
+        "</span><b>" + (envio ? clp(envio) : "—") + "</b></div>" +
+      '<div class="mc-res-total"><span>Total</span><b id="mcTotalVal">' + clp(subtotal + envio) + "</b></div>";
+  }
+
+  function pintarPago() {
+    const cuerpo = $("mercPagoCuerpo"), pie = $("mercPagoPie");
+    if (!cuerpo || !pie) return;
+    const items = lineas();
+    const subtotal = items.reduce((a, x) => a + x.p.precio * x.n, 0);
+    const unidadesTot = items.reduce((a, x) => a + x.n, 0);
+    const c = leerCliente();
+    const envio = c.entrega === "despacho" ? ENVIO_REF : 0;
+
+    $("mercPagoSub").textContent = unidadesTot + (unidadesTot === 1 ? " producto" : " productos") +
+      " · " + clp(subtotal);
+
+    cuerpo.innerHTML =
+      '<div class="mc-pago">' +
+        '<div class="mc-pago-cab"><b>¿Dónde te lo llevamos?</b>' +
+          "<small>El comercio confirma stock y envío por WhatsApp.</small></div>" +
+        '<label class="mc-campo"><span>Nombre y apellido</span>' +
+          '<input id="mcNombre" type="text" autocomplete="name" placeholder="Ej: Camila Rojas" value="' + esc(c.nombre) + '"></label>' +
+        '<div class="mc-campo-doble">' +
+          '<label class="mc-campo"><span>Teléfono</span>' +
+            '<input id="mcTel" type="tel" inputmode="tel" autocomplete="tel" placeholder="+56 9 …" value="' + esc(c.telefono) + '"></label>' +
+          '<label class="mc-campo"><span>Email (opcional)</span>' +
+            '<input id="mcEmail" type="email" inputmode="email" autocomplete="email" placeholder="tu@correo.cl" value="' + esc(c.email) + '"></label>' +
+        "</div>" +
+        '<div class="mc-campo"><span>Entrega</span>' +
+          '<div class="mp-cli-modos" id="mcEntrega">' +
+            '<button type="button" data-entrega="retiro" class="' + (c.entrega !== "despacho" ? "on" : "") + '">Retiro en tienda</button>' +
+            '<button type="button" data-entrega="despacho" class="' + (c.entrega === "despacho" ? "on" : "") + '">Despacho</button>' +
+          "</div></div>" +
+        '<div id="mcDirCaja"' + (c.entrega === "despacho" ? "" : " hidden") + '>' +
+          '<label class="mc-campo"><span>Dirección</span>' +
+            '<input id="mcDir" type="text" autocomplete="street-address" placeholder="Calle, número, depto" value="' + esc(c.direccion) + '"></label>' +
+          '<div class="mc-campo-doble" style="margin-top:7px">' +
+            '<label class="mc-campo"><span>Comuna</span>' +
+              '<input id="mcComuna" type="text" autocomplete="address-level2" placeholder="Ej: Ñuñoa" value="' + esc(c.comuna) + '"></label>' +
+            '<label class="mc-campo"><span>Referencia</span>' +
+              '<input id="mcRef" type="text" placeholder="Portón, timbre…" value="' + esc(c.referencia) + '"></label>' +
+          "</div>" +
+        "</div>" +
+        '<label class="mc-campo"><span>Nota para el comercio (opcional)</span>' +
+          '<textarea id="mcNota" placeholder="Horario de entrega, cambio, etc.">' + esc(c.nota) + "</textarea></label>" +
+        '<div class="mc-pago-resumen" id="mcResumen">' + resumenPago(items, subtotal, c.entrega, envio) + "</div>" +
+        '<p class="mc-pago-err" id="mcPagoErr"></p>' +
+      "</div>";
+
+    pie.innerHTML =
+      '<button type="button" class="btn primary block" id="mcEnviar">Enviar pedido por WhatsApp</button>' +
+      '<button type="button" class="mp-link" id="mcVolver">Volver al pedido</button>' +
+      '<p class="mp-res-nota">Se abre WhatsApp con el pedido escrito. Acá no se cobra nada.</p>';
+
+    const campos = [["mcNombre", "nombre"], ["mcTel", "telefono"], ["mcEmail", "email"],
+      ["mcDir", "direccion"], ["mcComuna", "comuna"], ["mcRef", "referencia"], ["mcNota", "nota"]];
+    campos.forEach((par) => {
+      const el = $(par[0]);
+      if (!el) return;
+      el.oninput = () => {
+        c[par[1]] = el.value;
+        el.classList.remove("mal");
+        const err = $("mcPagoErr");
+        if (err) err.textContent = "";
+        guardarCliente(c);
+      };
+    });
+
+    cuerpo.querySelectorAll("#mcEntrega button").forEach((b) => {
+      b.onclick = () => {
+        c.entrega = b.dataset.entrega;
+        cuerpo.querySelectorAll("#mcEntrega button").forEach((x) => x.classList.toggle("on", x === b));
+        const dir = $("mcDirCaja");
+        if (dir) dir.hidden = c.entrega !== "despacho";
+        const res = $("mcResumen");
+        const env = c.entrega === "despacho" ? ENVIO_REF : 0;
+        if (res) res.innerHTML = resumenPago(items, subtotal, c.entrega, env);
+        guardarCliente(c);
+      };
+    });
+
+    $("mcEnviar").onclick = () => {
+      const falta = validarPago(c);
+      const err = $("mcPagoErr");
+      if (falta) {
+        if (err) err.textContent = falta.texto;
+        const el = $(falta.campo);
+        if (el) { el.classList.add("mal"); el.focus(); }
+        return;
+      }
+      if (err) err.textContent = "";
+      enviarWhatsApp(items, c, c.entrega === "despacho" ? ENVIO_REF : 0);
+    };
+    $("mcVolver").onclick = () => { cerrarPago(); abrirCarrito(); };
+  }
+
+  function validarPago(c) {
+    if (!String(c.nombre || "").trim() || String(c.nombre).trim().length < 2) {
+      return { campo: "mcNombre", texto: "Escribí tu nombre para el pedido." };
+    }
+    const tel = String(c.telefono || "").replace(/\D/g, "");
+    if (tel.length < 8) return { campo: "mcTel", texto: "El teléfono necesita al menos 8 dígitos." };
+    if (c.entrega === "despacho") {
+      if (!String(c.direccion || "").trim() || String(c.direccion).trim().length < 5) {
+        return { campo: "mcDir", texto: "Falta la dirección de despacho." };
+      }
+      if (!String(c.comuna || "").trim() || String(c.comuna).trim().length < 2) {
+        return { campo: "mcComuna", texto: "Falta la comuna." };
+      }
+    }
+    return null;
+  }
+
+  function enviarWhatsApp(items, c, envio) {
+    const subtotal = items.reduce((a, x) => a + x.p.precio * x.n, 0);
+    const lineasTxt = items.map((x) => "• " + x.n + " × " + x.p.nombre + " — " +
+      clp(x.p.precio * x.n)).join("\n");
+    const entrega = c.entrega === "despacho"
+      ? "Despacho a domicilio" + (c.direccion ? ": " + c.direccion : "") + (c.comuna ? ", " + c.comuna : "")
+      : "Retiro en tienda";
+    const texto = [
+      "Pedido MercadoPlacer · FORGE CORE STOCK",
+      "",
+      "Cliente: " + String(c.nombre || "").trim(),
+      "Teléfono: " + String(c.telefono || "").trim(),
+      c.email ? "Email: " + String(c.email).trim() : "",
+      "Entrega: " + entrega,
+      c.referencia ? "Referencia: " + String(c.referencia).trim() : "",
+      c.nota ? "Nota: " + String(c.nota).trim() : "",
+      "",
+      lineasTxt,
+      "",
+      "Subtotal: " + clp(subtotal),
+      envio ? "Envío referencial: " + clp(envio) : "Envío: por confirmar",
+      "Total: " + clp(subtotal + envio),
+      "",
+      "Pedido generado desde el catálogo público."
+    ].filter(Boolean).join("\n");
+
+    const url = "https://wa.me/" + numeroWa() + "?text=" + encodeURIComponent(texto);
+    const v = window.open(url, "_blank", "noopener");
+    if (!v) {
+      navigator.clipboard.writeText(texto).then(
+        () => { if (window.Fabri) window.Fabri.toast("Pedido copiado: pegalo en WhatsApp"); },
+        () => { if (window.Fabri) window.Fabri.toast("No pude abrir WhatsApp ni copiar el pedido"); }
+      );
+      return;
+    }
+    if (window.Fabri) window.Fabri.toast("Pedido listo para enviar por WhatsApp");
   }
 
   /* ── escáner ───────────────────────────────────────────────────────────── */
@@ -600,6 +853,51 @@ window.Mercado = (function () {
     if (q) q.value = limpio;
     render();
     if (window.Fabri) window.Fabri.toast("Sin coincidencia para " + limpio);
+  }
+
+  /* ── portada pública ───────────────────────────────────────────────────── */
+  function renderPublico() {
+    const cont = $("pubProds");
+    if (!cont) return;
+    const lista = catalogo();
+    const num = $("pubNumProd");
+    if (num) num.textContent = lista.length;
+
+    /* Un producto por categoría: la portada muestra la variedad, no seis
+       variantes del mismo estante. Si faltan, se completa con el resto. */
+    const vistos = {}, sel = [];
+    lista.forEach((p) => {
+      if (sel.length >= 6) return;
+      if (!vistos[p.categoria] && p.stock > 0) { vistos[p.categoria] = 1; sel.push(p); }
+    });
+    lista.forEach((p) => { if (sel.length < 6 && sel.indexOf(p) < 0) sel.push(p); });
+
+    cont.innerHTML = sel.map((p) =>
+      '<article class="pub-prod">' +
+        '<button type="button" class="pub-prod-open" data-pubprod="' + esc(p.id) + '">' +
+          arteProducto(p) +
+          "<small>" + esc(p.categoria) + "</small>" +
+          "<b>" + esc(p.nombre) + "</b>" +
+        "</button>" +
+        '<div class="pub-prod-pie">' +
+          '<span class="pub-prod-precio">' + clp(p.precio) + "</span>" +
+          '<button type="button" class="pub-prod-add" data-pubadd="' + esc(p.id) + '" aria-label="Agregar ' + esc(p.nombre) + ' al pedido">+</button>' +
+        "</div>" +
+      "</article>").join("");
+
+    cont.querySelectorAll("[data-pubprod]").forEach((b) => {
+      b.onclick = () => {
+        const p = buscar(b.dataset.pubprod);
+        if (p) abrirDetalle(p);
+      };
+    });
+    cont.querySelectorAll("[data-pubadd]").forEach((b) => {
+      b.onclick = () => {
+        cambiar(b.dataset.pubadd, 1);
+        if (window.Fabri) window.Fabri.toast("Agregado al pedido");
+      };
+    });
+    pintarBarra();
   }
 
   /* ── ciclo ─────────────────────────────────────────────────────────────── */
@@ -630,6 +928,7 @@ window.Mercado = (function () {
 
     pintarVista();
     pintarBarra();
+    renderPublico();
   }
 
   function init() {
@@ -646,12 +945,19 @@ window.Mercado = (function () {
     };
     const scan = $("mercScan");
     if (scan) scan.onclick = escanear;
+    const scanTop = $("mercScanTop");
+    if (scanTop) scanTop.onclick = escanear;
 
     const ver = $("mercVerCarrito");
     if (ver) ver.onclick = abrirCarrito;
     const cx = $("mercCarritoX"), cf = $("mercCarritoFondo");
     if (cx) cx.onclick = cerrarCarrito;
     if (cf) cf.onclick = cerrarCarrito;
+    const px = $("mercPagoX"), pf = $("mercPagoFondo");
+    if (px) px.onclick = cerrarPago;
+    if (pf) pf.onclick = cerrarPago;
+    const pubPedido = $("pubPedido");
+    if (pubPedido) pubPedido.onclick = abrirCarrito;
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape") {
         const h = $("mercCarrito");
@@ -728,7 +1034,7 @@ window.Mercado = (function () {
   else document.addEventListener("DOMContentLoaded", init);
 
   return {
-    render, abrirDetalle, abrirCarrito,
+    render, renderPublico, abrirDetalle, abrirCarrito, abrirPago,
     agregar: (p) => { if (p && p.id) { registrar(p); cambiar(p.id, 1); } },
     productos: () => catalogo(),
     // para el visor 3D: código de barras y total de unidades

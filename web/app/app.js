@@ -461,7 +461,10 @@
      consola) sigue exigiendo sesión. */
   /* El mapa (Placer), el catálogo y el visor 3D son la misma experiencia
      pública: se entra sin cuenta y desde el mapa se abre la tienda en 3D. */
-  const PUBLICAS = { panel: 1, tienda: 1, mercado: 1 };
+  const PUBLICAS = { publico: 1, panel: 1, tienda: 1, mercado: 1 };
+  /* Migas para las pantallas que no tienen botón en el nav (el público no lo
+     ve). Sin esto la portada seguía diciendo «Panel». */
+  const CRUMB = { publico: "MercadoPlacer", mercado: "Catálogo", panel: "Mapa", tienda: "Visor 3D" };
 
   function go(id) {
     /* En modo visitante, entrar a una pantalla privada abre la cuenta en vez
@@ -477,9 +480,25 @@
       return;
     }
     if (window.Tienda3D) Tienda3D.cerrar();
+    /* Al salir del mapa, sus hojas (local, carrito, pago) no deben quedar
+       encima de la pantalla siguiente. */
+    if (id !== 'panel' && window.Placer && Placer.cerrarTodo) Placer.cerrarTodo();
+    /* La barra del público sólo existe con sesión de visitante y en las tres
+       pantallas abiertas: catálogo, mapa y visor. El resto sigue pidiendo
+       cuenta. */
+    const barraPub = document.getElementById('pubBar');
+    if (barraPub) {
+      const mostrar = !!S.visitante && !!PUBLICAS[id];
+      barraPub.hidden = !mostrar;
+      barraPub.querySelectorAll('[data-pub]').forEach(b =>
+        b.classList.toggle('on', b.dataset.pub === id));
+    }
     $$('.screen').forEach(s => s.classList.toggle('on', s.id === 's-' + id));
     $$('.nav button').forEach(b => b.classList.toggle('on', b.dataset.go === id));
     moverPill(id);
+    const crumb = document.getElementById('crumbNow');
+    if (crumb && CRUMB[id]) crumb.textContent = CRUMB[id];
+    if (id === 'publico' && window.Mercado) Mercado.renderPublico();
     if (id === 'panel' && window.Placer) Placer.render();
     if (id === 'nucleo') renderPanel();
     if (id === 'negocio' && window.Negocio) Negocio.render();
@@ -687,12 +706,25 @@
         window.Fabri.user = null;
         ev("acceso", "visor público");
       }
+      /* Accesos del público: los mismos tres de la barra inferior, más la
+         marca como «inicio». Se enlazan una vez y sirven en toda la app. */
+      $$('[data-pub]').forEach(b => { b.onclick = () => go(b.dataset.pub); });
+      const marca = document.querySelector('.topbar .top-brand');
+      if (marca) {
+        marca.setAttribute('role', 'button');
+        marca.setAttribute('tabindex', '0');
+        const irInicio = () => go(S.visitante ? 'publico' : 'panel');
+        marca.onclick = irInicio;
+        marca.onkeydown = (e) => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); irInicio(); }
+        };
+      }
       $('#ver').textContent = 'nube · v2.0 · ' + (S.ftsModo === 'like' ? 'LIKE' : S.ftsModo.toUpperCase());
       // un fallo de una vista no debe tumbar el arranque
       const safe = fn => { try { fn(); } catch (e) { console.error(e); ev('error', String(e.message).slice(0, 40)); } };
       safe(renderPanel); safe(renderMem);
       const destino = hash && document.getElementById('s-' + hash)
-        ? hash : (S.visitante ? 'tienda' : 'panel');
+        ? hash : (S.visitante ? 'publico' : 'panel');
       go(destino);
       if (!S.visitante) {
         pushMsg('assistant', 'Listo. Esta consola corre entera en tu navegador: la base es SQLite real y sobrevive a las recargas. Pregúntame algo, abre la consola SQL o revisa los gráficos del panel.');
