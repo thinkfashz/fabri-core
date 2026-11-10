@@ -6,7 +6,24 @@
 > `cl.fabrick.core`, crate `fabrick-core`, dominio `forge-core-stock.vercel.app`,
 > repo `thinkfashz/fabri-core`.
 
-Última actualización: 2026-11-05
+Última actualización: 2026-11-10
+
+## Sesión 2026-11-10 · El proyecto de producción pasa a llamarse forge-core-stock
+
+El proyecto de Vercel `fabri-core-web` se renombró a **`forge-core-stock`** y se
+agregó `forge-core-stock.vercel.app` como dominio del proyecto. La app queda en
+`https://forge-core-stock.vercel.app/app/` y la URL vieja
+(`fabri-core-web.vercel.app`) sigue respondiendo 200 para no romper enlaces
+compartidos.
+
+- Se actualizaron los 82 enlaces internos (og, canonical, sitemap, robots, docs,
+  pruebas) a la marca nueva.
+- **La API no se migra**: sigue en `fabri-api.vercel.app`; el catálogo la usa
+  igual que antes.
+- El repo de GitHub sigue siendo `thinkfashz/fabri-core` y el paquete Android
+  `cl.fabrick.core`: son identificadores técnicos, no marca visible.
+- El proyecto Vercel `fabri-core` (creado por error, responde 404) sigue
+  pendiente de borrar.
 
 ## Sesión 2026-11-05 · Multi-inquilino: cada dueño con su espacio, su ID y su clave
 
