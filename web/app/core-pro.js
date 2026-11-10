@@ -397,7 +397,7 @@
         const blob = new Blob([bytes], { type: 'application/x-sqlite3' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = 'fabri-core-' + new Date().toISOString().slice(0, 10) + '.sqlite';
+        a.download = 'forge-core-stock-' + new Date().toISOString().slice(0, 10) + '.sqlite';
         document.body.appendChild(a); a.click(); a.remove();
         setTimeout(() => URL.revokeObjectURL(a.href), 4000);
         f.audit(u ? u.email : null, 'copia_descargada', bytes.length + ' bytes');

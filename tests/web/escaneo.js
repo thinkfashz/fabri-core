@@ -30,7 +30,7 @@ global.document = {
 Object.defineProperty(global, 'navigator', {
   value: { mediaDevices: null }, configurable: true, writable: true,
 });
-global.location = { protocol: 'https:', hostname: 'fabri-core-web.vercel.app' };
+global.location = { protocol: 'https:', hostname: 'forge-core-stock.vercel.app' };
 
 require(path.join(__dirname, '..', '..', 'web', 'app', 'core-scan.js'));
 require(path.join(__dirname, '..', '..', 'web', 'app', 'core-wiki.js'));

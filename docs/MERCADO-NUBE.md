@@ -18,7 +18,7 @@ pedidos viven en **InsForge (Postgres)** y se sirven por **`fabri-api`**.
                                                     mercado_pedidos
 ```
 
-- **El sitio** (`fabri-core-web`) no toca Postgres: llama a `fabri-api` por HTTPS.
+- **El sitio** (`forge-core-stock`) no toca Postgres: llama a `fabri-api` por HTTPS.
   `placer.js` lee los locales de la nube y, si la API no responde, cae al JSON
   del CDN (respaldo offline). Al pagar, sube el pedido (`pedido_crear`).
 - **La APK** usa la **misma base**: ya sube su inventario por `/api/inventario`

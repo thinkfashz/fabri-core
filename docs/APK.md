@@ -186,7 +186,7 @@ Se dispara con cambios en `android/`, `src-tauri/`, `runtime/`, `scripts/`,
 
 ## 5 · La nube: mismo contrato, otro contexto
 
-`https://fabri-core-web.vercel.app/app/` es la PWA. Comparte el contrato de datos
+`https://forge-core-stock.vercel.app/app/` es la PWA. Comparte el contrato de datos
 con la APK —las trece tablas, el inventario, la boleta— pero **no el lenguaje
 visual**: la APK es un instrumento de bolsillo; la nube es una sala de control.
 

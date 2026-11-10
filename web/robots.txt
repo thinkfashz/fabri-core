@@ -7,5 +7,5 @@ Disallow: /api/
 User-agent: Googlebot-Image
 Allow: /
 
-Sitemap: https://fabri-core-web.vercel.app/sitemap.xml
-Host: fabri-core-web.vercel.app
+Sitemap: https://forge-core-stock.vercel.app/sitemap.xml
+Host: forge-core-stock.vercel.app

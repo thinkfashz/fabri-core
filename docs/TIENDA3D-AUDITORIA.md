@@ -267,7 +267,7 @@ en la consola de producción («blocked by CORS policy»). Ahora va como
 preflight; el servidor parsea el cuerpo igual.
 
 Verificación en producción (puppeteer con UA de Instagram contra
-`https://fabri-core-web.vercel.app/app/#tienda`):
+`https://forge-core-stock.vercel.app/app/#tienda`):
 
 ```
 antes:   total 7 · instagram 3

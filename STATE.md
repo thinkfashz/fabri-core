@@ -3,7 +3,7 @@
 > **Marca:** visible desde 2026-10-29 (commit `8f23efc`) el producto se llama
 > **FORGE CORE STOCK** (antes FABRI-CORE). Las sesiones anteriores conservan el
 > nombre de la época. Los identificadores técnicos **no** cambian: package
-> `cl.fabrick.core`, crate `fabrick-core`, dominio `fabri-core-web.vercel.app`,
+> `cl.fabrick.core`, crate `fabrick-core`, dominio `forge-core-stock.vercel.app`,
 > repo `thinkfashz/fabri-core`.
 
 Última actualización: 2026-11-05
@@ -167,9 +167,9 @@ ficha del producto. **La APK no cambia en esta sesión.**
 ## Sesión 2026-10-27 (19) · Nube v2.0 — «Aurora», Lottie y d3
 
 La PWA deja de ser «la APK sin base local»: tiene su propio contexto visual.
-Publicada en `https://fabri-core-web.vercel.app/` (landing) y `/app/` (consola).
+Publicada en `https://forge-core-stock.vercel.app/` (landing) y `/app/` (consola).
 Deployment `dpl_7p9B4n1bZKboQc52qu9tNWVhM3vx`, estado `READY`, alias de producción
-`fabri-core-web.vercel.app`. **La APK no cambia en esta sesión.**
+`forge-core-stock.vercel.app`. **La APK no cambia en esta sesión.**
 
 ### Qué se hizo
 | Qué | Dónde |
@@ -621,7 +621,7 @@ No era el arranque (ya corregido en 0.9.11): era **la vuelta del segundo plano**
 | `POST /api/inventario` (`asegurar`/`subir`/`bajar`/`resumen`) | desplegado en `https://fabri-api.vercel.app` |
 | Tabla `inv_productos` en InsForge | **creada y verificada** (`?diag=1` → `tabla_existe: true`) |
 | `asegurar` sin token | permitido a propósito: DDL fijo e idempotente, sin datos |
-| Web con loader/login/inventario | `https://fabri-core-web.vercel.app/app/` |
+| Web con loader/login/inventario | `https://forge-core-stock.vercel.app/app/` |
 | Guía de 5 pasos + carrito + impresión en la web | misma ficha que la APK (80 mm / 58 mm / A4) |
 | Respaldo de la APK en la nube | release `v0.9.12` (asset 4.095.110 B) |
 | Workflow de compilación Rust | `.github/workflows/apk-rust.yml` (bloqueado por facturación de GitHub) |
@@ -1739,10 +1739,10 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
 ## Sesión 2026-10-29 · Rebrand: FABRI-CORE -> FORGE CORE STOCK
 
 - Marca visible renombrada (92 archivos): `FABRI-CORE` → `FORGE CORE STOCK` y `FABRI-CORE PRO` → `FORGE CORE STOCK PRO` en la APK (HTML/JS/CSS/SVG/Java/strings.xml), la PWA/landing/web (`web/`, `presentacion/`), el proyecto Gradle `app/` y `fast/` (títulos, prompts del asistente, directorio de descargas `FORGE CORE STOCK`, manifests y `Cargo.toml` description).
-- Identificadores técnicos NO tocados: package `cl.fabri.core` / `cl.fabrick.core`, crate `fabrick-core`, proyecto Vercel `fabri-core-web.vercel.app`, indexedDB `'fabri-core'`, nombre de descarga `.sqlite` y `thinkfashz/fabri-core` (remoto).
+- Identificadores técnicos NO tocados: package `cl.fabri.core` / `cl.fabrick.core`, crate `fabrick-core`, proyecto Vercel `forge-core-stock.vercel.app`, indexedDB `'fabri-core'`, nombre de descarga `.sqlite` y `thinkfashz/fabri-core` (remoto).
 - Se conserva el copy diferenciador: «Sin nube / Local / Local-first / 100% Offline».
 - Commit `8f23efc` pusheado a `origin/master` (`thinkfashz/fabri-core`).
-- El deploy de Vercel no se tocó; el dominio `fabri-core-web.vercel.app` sigue activo.
+- El deploy de Vercel no se tocó; el dominio `forge-core-stock.vercel.app` sigue activo.
 
 ## Sesión 2026-10-30 · APK 0.9.38 (53) — rebrand FORGE CORE STOCK
 
@@ -1763,7 +1763,7 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
 
 ## Sesión 2026-10-31 · Deploy en vivo del marketplace (fabri-api)
 
-- El endpoint público del catálogo vive en **`api-telefono/`** (proyecto Vercel `fabri-api`, Node/TS), NO en `web/` (que es `fabri-core-web`). Se creó `api-telefono/api/catalogo.ts` (catálogo + filtros `q`/`categoria`/`clasificacion`/`max_precio` + CORS) y se registró la ruta `/api/catalogo` en `api-telefono/vercel.json`.
+- El endpoint público del catálogo vive en **`api-telefono/`** (proyecto Vercel `fabri-api`, Node/TS), NO en `web/` (que es `forge-core-stock`). Se creó `api-telefono/api/catalogo.ts` (catálogo + filtros `q`/`categoria`/`clasificacion`/`max_precio` + CORS) y se registró la ruta `/api/catalogo` en `api-telefono/vercel.json`.
 - Se retiró el handler Go equivalente de `web/api/catalogo/` y su entrada en `web/vercel.json` para evitar dos fuentes de verdad.
 - Desplegado con `vercel --prod` (CLI autenticado): deployment `dpl_EjzLsy2fza2zAsctB8aZBHUmXBag` → aliased `https://fabri-api.vercel.app`.
 - Verificado en vivo: `GET /api/catalogo` → `{ok:true,total:12}`, filtros OK, `/api/health` sigue 200. La PWA (mercado.js) ahora carga desde la nube (origen "nube").
@@ -1781,7 +1781,7 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
 - Mejora de presentación del catálogo: hero con **reloj analógico en canvas** (#tiReloj, marca lima, fecha local), banner de **promoción d3 por tiempo limitado** (gauge de anillo con `d3s.arc` + `scaleLinear`, via `app/vendor/d3-mini.js`), **temporizador de oferta** (días/h/min/s hasta medianoche) y badge «OFERTA −20%» en las tarjetas de la categoría en promo (Equipos).
 - El descuento se aplica de verdad en toda la cadena: tarjetas (precio tachado + efectivo), detalle, carrito, resumen de checkout, total y mensaje de WhatsApp.
 - Verificado headless: 12 tarjetas, 4 badges de oferta, reloj pintando fecha, gauge d3 con 2 paths, temporizador corriendo, pct 20%. `node --check` OK.
-- Desplegado: `dpl_6Bi3tUVfjQrrWdwaFfhfjroFxy18` → aliased `https://fabri-core-web.vercel.app/tienda.html` (HTTP 200; `app/vendor/d3-mini.js` sirve 200).
+- Desplegado: `dpl_6Bi3tUVfjQrrWdwaFfhfjroFxy18` → aliased `https://forge-core-stock.vercel.app/tienda.html` (HTTP 200; `app/vendor/d3-mini.js` sirve 200).
 
 ## Sesión 2026-10-31 · Tienda multipágina 3.0 (Fabrick Design System + QR + recorrido)
 
@@ -1815,7 +1815,7 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
   móvil, título de marca sin espacio, `[hidden]` anulado por el `display` de las
   componentes, input de archivo nativo en inglés.
 - **Deploy + git**: `vercel --prod` → `dpl_GbWGVmM6MD86dZf2Cbun9zBYdYqm` (10 URLs en
-  200 en `https://fabri-core-web.vercel.app/`), commit `e28b4c4` push a
+  200 en `https://forge-core-stock.vercel.app/`), commit `e28b4c4` push a
   `thinkfashz/fabri-core`.
 - **Pendiente**: número real de WhatsApp (`window.FORGE_WA`, hoy placeholder
   `56912345678`) y prueba de cámara real en el teléfono (sin adb).
@@ -1851,7 +1851,7 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
   430×932 (confeti fotografiado a 0,9 s), cero `style=` inline, 8/8 con «PASO n/8»,
   precios solo en CLP.
 - **Deploy + git**: `vercel --prod` → `fabri-core-7ogr8ywg8` (9 URLs en 200:
-  sitio + 8 pantallas + CSS) en `https://fabri-core-web.vercel.app/forge-app/`.
+  sitio + 8 pantallas + CSS) en `https://forge-core-stock.vercel.app/forge-app/`.
 - **Pendiente**: probar en dispositivo real (sin adb), `window.FORGE_WA` sigue con
   placeholder `56912345678`.
 
@@ -1865,7 +1865,7 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
 - Deploy `dpl_9Uap5FNHiJJYWxzgheyyWZ9qhwG3` (fabri-api). Verificado end-to-end:
   POST `/api/inventario` → 401 sin token, 401 con token inválido, 200 con el nuevo.
 - Aclaración de contratos: la APK consume **fabri-api** con `Bearer FABRI_API_TOKEN`;
-  **fabri-core-web** no usa token fijo (`/api/health` y `/api/estado` son públicos,
+  **forge-core-stock** no usa token fijo (`/api/health` y `/api/estado` son públicos,
   `/api/auth` emite sesiones — hoy 501 por falta de `BLOB_READ_WRITE_TOKEN`).
 
 ### Bug crítico de la APK: invAnimarEnvioModal — 2026-10-31 (commit c5a2428)
@@ -2330,7 +2330,7 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
   `android/assets/`), etiqueta `componente` de `/api/diagnostico`, títulos de
   `diagrams/`, cabeceras de scripts y tests.
 - **No tocado, a propósito**: package `cl.fabrick.core`, crate `fabrick-core`,
-  dominios `fabri-core-web.vercel.app` / `fabri-api.vercel.app`, rutas
+  dominios `forge-core-stock.vercel.app` / `fabri-api.vercel.app`, rutas
   `fabri_core_*`, repo `thinkfashz/fabri-core`, `rootProject.name`,
   certificado `CN=FABRI-CORE Debug` (rompería instalar encima), nombres de
   respaldo/DB, y los registros históricos (sesiones de STATE.md, entradas del
@@ -2414,7 +2414,7 @@ Alcance: `app.js`, `inventario.js`, `app.css`, `inventario.css`, `index.html`, `
   barrido por scroll con temporizador de 2,5 s (nunca queda contenido oculto).
 - Arreglos: `section{padding:… 0}` anulaba el padding de `.wrap`; punto final
   del titular suelto en otra línea; `<nav>` interno heredaba el sticky del nav.
-- Desplegado en producción: `https://fabri-core-web.vercel.app` (READY,
+- Desplegado en producción: `https://forge-core-stock.vercel.app` (READY,
   verificado en vivo) y push a `master`.
 
 ## Sesión 2026-11-02 · landing 2.1 (paleta lima/oro, APK directa, SEO) — `654e333`
@@ -2937,7 +2937,7 @@ base. Detalle completo en `docs/MERCADO-NUBE.md`.
   `pedido_crear` válido, `pedidos_listar` (clave buena/mala), `pedido_estado`,
   `resumen` admin. `web/app/negocio.js` ejecutado en Node contra la API real:
   conecta, lista el pedido y refleja abierto/cerrado. Todo el sitio en vivo
-  (`fabri-core-web.vercel.app`, `sw` v36). Un bug real encontrado y corregido:
+  (`forge-core-stock.vercel.app`, `sw` v36). Un bug real encontrado y corregido:
   faltaba `tarjeta()` en `negocio.js`.
 - **Seguridad**: MVP razonable (token admin, clave SHA-256, parámetros de `pg`,
   CORS `*` sin cookies). **Falta** rate limit, sesiones firmadas y rotar los

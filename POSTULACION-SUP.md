@@ -47,8 +47,8 @@ de integraciones de pago).
 
 | Pieza | Estado | Evidencia |
 |---|---|---|
-| **PWA en vivo** (mapa, catálogo, carrito, checkout) | Funcionando | `https://fabri-core-web.vercel.app/app/` |
-| **Registro de locales** (catálogo real servido por CDN) | Funcionando | `https://fabri-core-web.vercel.app/datos/tiendas.json` |
+| **PWA en vivo** (mapa, catálogo, carrito, checkout) | Funcionando | `https://forge-core-stock.vercel.app/app/` |
+| **Registro de locales** (catálogo real servido por CDN) | Funcionando | `https://forge-core-stock.vercel.app/datos/tiendas.json` |
 | **ABIERTO/CERRADO** (pin gris si cerró) | Funcionando | ficha del local en la PWA |
 | **Pedido mínimo por local** (bloquea el pago bajo el mínimo) | Funcionando | carrito y checkout |
 | **Retiro o despacho por local** | Funcionando | checkout |
@@ -171,7 +171,7 @@ almacén de barrio no discute y elimina la fricción de «probar». La densidad
 >
 > **Ya funciona:** mapa en vivo, catálogo real, abierto/cerrado, pedido mínimo,
 > retiro/despacho y tienda 3D caminable.
-> `fabri-core-web.vercel.app/app/`
+> `forge-core-stock.vercel.app/app/`
 >
 > **Buscamos:** programa Build de Start-Up Chile para cargar 40–60 locales reales
 > y construir el backend persistente.

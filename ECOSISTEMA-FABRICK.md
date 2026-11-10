@@ -68,8 +68,8 @@ para cuando el teléfono tiene red.
                 │
                 ▼
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│ 4. WEB Y PWA — fabri-core-web                                                │
-│    https://fabri-core-web.vercel.app     Vercel · Go 1.22                    │
+│ 4. WEB Y PWA — forge-core-stock                                                │
+│    https://forge-core-stock.vercel.app     Vercel · Go 1.22                    │
 │    · landing del producto + malla en vivo                                    │
 │    · /app/ PWA con SQLite WASM                                               │
 │    · /api/health  /api/estado  /api/agent  /api/auth  /api/sync              │
@@ -99,14 +99,14 @@ para cuando el teléfono tiene red.
 | 1 | API del teléfono | `https://fabri-api.vercel.app` | Node (`api/*.ts`) | **arriba** · v1.1.0 |
 | 2 | Cerebro | `https://fabrick-tg-bot.vercel.app` | Node (`api/*.js`) | **arriba** · v1.1.0 |
 | 3 | Nube y voz | `https://fabrick-cloud.faubricioedms.workers.dev` | Cloudflare Worker | **arriba** (código v1.2.0 pendiente de deploy) |
-| 4 | Web y PWA | `https://fabri-core-web.vercel.app` | Go 1.22 | **arriba** · v1.1.0 |
+| 4 | Web y PWA | `https://forge-core-stock.vercel.app` | Go 1.22 | **arriba** · v1.1.0 |
 
 Comprobación rápida:
 
 ```sh
 curl -4 -s https://fabri-api.vercel.app/api/estado | jq .resumen
 curl -4 -s https://fabrick-tg-bot.vercel.app/api/estado | jq .resumen
-curl -4 -s https://fabri-core-web.vercel.app/api/estado | jq .resumen
+curl -4 -s https://forge-core-stock.vercel.app/api/estado | jq .resumen
 curl -4 -s https://fabrick-cloud.faubricioedms.workers.dev/api/health | jq .
 ```
 
@@ -149,7 +149,7 @@ Cada capa añade extras propios sin romper el contrato:
 | `fabri-api` | `telefono` (URL, token configurado, endpoints) |
 | `fabrick-tg-bot` | `modelos` (capas/utilizables), `persona` |
 | `fabrick-cloud` | `tieneCache`, `tieneSuperbrainKey`, `cola` |
-| `fabri-core-web` | `agent`, `cloud`, `runtime` |
+| `forge-core-stock` | `agent`, `cloud`, `runtime` |
 
 ### 4.2 `/api/estado` (o `/api/malla`) — malla de las cuatro capas
 
@@ -216,7 +216,7 @@ ofrece el modo local (GGUF cargado en el dispositivo).
 ### 5.1b Inventario desde la web (misma tabla que la APK)
 
 ```
-Web (fabri-core-web/app) → login con clave de nube (sessionStorage)
+Web (forge-core-stock/app) → login con clave de nube (sessionStorage)
     → POST https://fabri-api.vercel.app/api/inventario
        { accion: "subir", productos: [ … ] }
     → Postgres (InsForge): tabla inv_productos, upsert por `codigo`
@@ -347,8 +347,8 @@ El agente local publica su memoria con `POST /api/local`; el Worker solo la lee.
 
 | Interfaz | URL |
 |---|---|
-| Landing + malla | `https://fabri-core-web.vercel.app/#malla` |
-| PWA | `https://fabri-core-web.vercel.app/app/` |
+| Landing + malla | `https://forge-core-stock.vercel.app/#malla` |
+| PWA | `https://forge-core-stock.vercel.app/app/` |
 | Cerebro + estado | `https://fabrick-tg-bot.vercel.app` (botón **Estado**) |
 | Panel de nube | `https://fabrick-cloud.faubricioedms.workers.dev` |
 | APK | `https://github.com/thinkfashz/fabri-core/releases/latest` |
@@ -381,7 +381,7 @@ telemetría, no guarda tokens en el navegador y no simula funciones que no exist
 
 - Autor de commit: **`faubricioedms@gmail.com`** (Vercel bloquea deploys de otros
   autores en proyectos con Git integrado).
-- Los proyectos `fabri-api`, `fabrick-tg-bot` y `fabri-core-web` se despliegan con
+- Los proyectos `fabri-api`, `fabrick-tg-bot` y `forge-core-stock` se despliegan con
   la CLI autenticada como `thinkfashz`.
 - El Worker de Cloudflare requiere `wrangler` y una sesión/API token de la cuenta.
 - Nunca reiniciar OpenCode desde una sesión; nunca usar `pm2`.
@@ -406,7 +406,7 @@ vercel --prod --yes
 
 ```sh
 cd fabri-core/web
-vercel link --yes --project fabri-core-web
+vercel link --yes --project forge-core-stock
 vercel --prod --yes
 ```
 
@@ -474,7 +474,7 @@ for u in \
   https://fabri-api.vercel.app/api/health \
   https://fabrick-tg-bot.vercel.app/api/health \
   https://fabrick-cloud.faubricioedms.workers.dev/api/health \
-  https://fabri-core-web.vercel.app/api/health; do
+  https://forge-core-stock.vercel.app/api/health; do
   printf '%-70s ' "$u"; curl -4 -s -o /dev/null -w '%{http_code}\n' "$u"
 done
 
@@ -486,7 +486,7 @@ curl -4 -s -o /dev/null -w '%{http_code}\n' https://fabri-api.vercel.app/api/dia
 curl -4 -s -o /dev/null -w '%{http_code}\n' https://fabri-api.vercel.app/api/modelos       # 401
 
 # 4. La landing sirve la malla
-curl -4 -s https://fabri-core-web.vercel.app/ | grep -c 'Malla en vivo'                     # 1
+curl -4 -s https://forge-core-stock.vercel.app/ | grep -c 'Malla en vivo'                     # 1
 ```
 
 Pruebas locales del APK:
@@ -710,7 +710,7 @@ index.html                     figura 3D + botón Estado
 | 01:41 | Landing con malla en vivo | tokens exactos + sección `#malla` |
 | 01:42 | Deploy `fabri-api` | READY · 10 endpoints |
 | 01:44 | Deploy `fabrick-tg-bot` | READY · 12/15 capas |
-| 01:45 | Deploy `fabri-core-web` | READY · malla en Go |
+| 01:45 | Deploy `forge-core-stock` | READY · malla en Go |
 | 01:46 | Verificación | 4/4 capas arriba · 31–430 ms |
 | 01:50 | Documento maestro | este archivo |
 
@@ -721,7 +721,7 @@ index.html                     figura 3D + botón Estado
 - **Producto:** FORGE CORE STOCK · Soluciones Fabrick
 - **GitHub:** [thinkfashz](https://github.com/thinkfashz)
 - **Panel público:** `https://fabrick-cloud.faubricioedms.workers.dev`
-- **Web:** `https://fabri-core-web.vercel.app`
+- **Web:** `https://forge-core-stock.vercel.app`
 - **Cerebro:** `https://fabrick-tg-bot.vercel.app`
 
 > Este documento se puede copiar, citar y auditar. Si una afirmación no tiene una
