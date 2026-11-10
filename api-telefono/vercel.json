@@ -17,7 +17,7 @@
     },
     {
       "src": "/api/stats",
-      "dest": "/api/stats.ts"
+      "dest": "/api/agente.ts"
     },
     {
       "src": "/api/webhook",
@@ -66,6 +66,10 @@
     {
       "src": "/api/visitas",
       "dest": "/api/visitas.ts"
+    },
+    {
+      "src": "/api/auth",
+      "dest": "/api/auth.ts"
     }
   ]
 }

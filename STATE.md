@@ -8,6 +8,53 @@
 
 Última actualización: 2026-11-10
 
+## Sesión 2026-11-10 · El login pasa a InsForge (cuentas en la nube)
+
+La cuenta de la web deja de vivir sólo en el navegador. Ahora se crea y se
+valida en **InsForge** a través de `fabri-api /api/auth`, y el navegador guarda
+un **espejo local** para poder entrar sin red. Entrar desde otro dispositivo
+con el mismo correo y contraseña ya funciona.
+
+| Pieza | Dónde |
+|---|---|
+| Núcleo de reglas (sin HTTP ni SQL) | `api-telefono/api/_auth.mjs` |
+| Endpoint `/api/auth` + repositorio Postgres | `api-telefono/api/auth.ts` |
+| Cliente de red y token | `web/app/core-nube.js` |
+| Espejo local + PBKDF2 | `web/app/core-sec.js` (`_espejo`, `_sesionLocal`) |
+| Puerta de acceso (nube/local) | `web/app/core-pro.js` (`gate`) |
+| Tablas | `core_usuarios`, `core_sesiones` (se crean con `asegurar`) |
+| Prueba | `tests/web/auth-nube.js` (38 comprobaciones, con SQLite real) |
+
+Decisiones:
+
+- **No hay migración forzada**: las cuentas locales que ya existían siguen
+  entrando. El espejo sólo se crea al registrar o al entrar por la nube.
+- **Nunca deja al usuario afuera**: si la nube no responde, el alta sigue en
+  local y se avisa al entrar. La casilla «sólo en este dispositivo» fuerza ese
+  camino.
+- **La cuenta no da datos**: inventario y mercado siguen con `local_id` +
+  `clave`. Son credenciales distintas.
+- **Registro abierto por defecto** en `/api/auth`; se cierra con `CORE_INVITE`
+  y se acota con `CORE_MAX_CUENTAS` (200 por defecto). 8 fallos bloquean 10
+  minutos.
+- El `/api/auth` del proyecto web (`web/api/auth/index.go`, Vercel Blob) queda
+  **sin uso**; el real es el de `fabri-api`.
+
+Pendiente detectado al cerrar: **InsForge respondía `Connection terminated
+unexpectedly`** desde Vercel en `/api/mercado` y `/api/inventario` (también en
+`?diag=1`). El código de cuentas quedó desplegado y degrada a local, pero las
+cuentas no se guardarán en la nube hasta reactivar el proyecto en InsForge o
+recopiar `INSFORGE_DATABASE_URL`.
+
+Notas de despliegue:
+
+- El plan Hobby de Vercel limita a **12 funciones**. Para sumar `/api/auth` se
+  mudó `/api/stats` a `agente.ts` (misma ruta y mismo contrato; Vercel conserva
+  `req.url`). Se borró `stats.ts`.
+- El núcleo `_auth` va en **CommonJS** (`api/_auth.js`): `@vercel/node` compila
+  `auth.ts` a CJS y `require()` de un `.mjs` falla con `ERR_REQUIRE_ESM` (el
+  primer deploy de `/api/auth` murió con `FUNCTION_INVOCATION_FAILED` por eso).
+
 ## Sesión 2026-11-10 · El proyecto de producción pasa a llamarse forge-core-stock
 
 El proyecto de Vercel `fabri-core-web` se renombró a **`forge-core-stock`** y se

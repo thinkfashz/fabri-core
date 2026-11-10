@@ -766,5 +766,6 @@
   // API para los módulos (auth, bóveda, datos, IA)
   window.Fabri = { S, q, one, run, save, toast, ev, log, audit, metric, go, refreshAll, IDB };
 
+
   document.addEventListener('DOMContentLoaded', boot);
 })();

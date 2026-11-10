@@ -53,7 +53,7 @@ export default async function handler(req: any, res: any) {
     telefono: {
       url: 'https://fabri-api.vercel.app',
       token_configurado: Boolean(process.env.FABRI_API_TOKEN),
-      endpoints: ['/api/think', '/api/sync', '/api/stats', '/api/diagnostico', '/api/modelos', '/api/estado'],
+      endpoints: ['/api/think', '/api/sync', '/api/stats', '/api/diagnostico', '/api/modelos', '/api/estado', '/api/auth'],
     },
     dependencias,
     resumen: {

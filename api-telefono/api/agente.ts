@@ -1,6 +1,6 @@
 // FORGE CORE STOCK · /api/agente
 // ---------------------------------------------------------------------------
-// Tres endpoints chicos del agente reunidos en UNA sola función serverless.
+// Cuatro endpoints chicos del agente reunidos en UNA sola función serverless.
 //
 // Por qué: el plan Hobby de Vercel permite 12 funciones por despliegue y
 // fabri-api ya usaba las 12 (think, sync, stats, webhook, diagnostico, modelos,
@@ -9,11 +9,15 @@
 // tres son los que el sitio y la APK NO llaman en el flujo de venta, así que se
 // juntan acá sin perder ninguna ruta.
 //
+// Después, al sumar /api/auth (cuentas en InsForge), se mudó acá `/api/stats`:
+// es diagnóstico de base, no flujo de venta, y su contrato no cambia.
+//
 // Vercel conserva la ruta original en `req.url`, así que la misma función
-// atiende las tres rutas y elige por el camino pedido:
+// atiende las cuatro rutas y elige por el camino pedido:
 //   GET  /api/memoria   → estado de la memoria
 //   GET  /api/modelos   → catálogo de modelos locales/remotos
 //   POST /api/skills    → lista/acciona skills
+//   GET  /api/stats     → tablas de InsForge (antes en stats.ts)
 //
 // Contrato idéntico al de los archivos originales (mismo token, mismo JSON),
 // para no romper a ningún consumidor. Todo exige
@@ -87,10 +91,70 @@ async function skills(req: any, res: any) {
   return json(res, { ok: true, accion, skills: lista, count: lista.length, origen: 'nube', timestamp: new Date().toISOString() });
 }
 
+/* ── GET /api/stats ─────────────────────────────────────────────────────── */
+/**
+ * Antes vivía en `stats.ts`. Se mudó acá por el tope de 12 funciones del plan
+ * Hobby: el contrato es idéntico (mismo token, mismo JSON) y Vercel conserva
+ * la ruta original en `req.url`.
+ */
+async function stats(req: any, res: any) {
+  if (req.method !== 'GET') return json(res, { error: 'Method not allowed' }, 405);
+  if (!autorizado(req)) return json(res, { error: 'No autorizado' }, 401);
+
+  let db_conectada = false;
+  let tablas: string[] = [];
+  let error_db: string | null = null;
+
+  if (!process.env.INSFORGE_DATABASE_URL) {
+    return json(res, {
+      ok: true,
+      origen: 'insforge',
+      db_conectada: false,
+      tablas_count: 0,
+      tablas: [],
+      error_db: 'INSFORGE_DATABASE_URL no configurada',
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  try {
+    const { Pool } = await import('pg');
+    const pool = new Pool({
+      connectionString: process.env.INSFORGE_DATABASE_URL,
+      ssl: { rejectUnauthorized: false },
+      connectionTimeoutMillis: 10000,
+    });
+    try {
+      const resQuery = await pool.query(
+        "SELECT tablename FROM pg_tables WHERE schemaname = 'public'"
+      );
+      tablas = resQuery.rows.map((r: { tablename: string }) => r.tablename);
+      db_conectada = true;
+    } catch (e: any) {
+      error_db = e?.message || String(e);
+    } finally {
+      try { await pool.end(); } catch (e) { /* ignore */ }
+    }
+  } catch (e: any) {
+    error_db = e?.message || String(e);
+  }
+
+  return json(res, {
+    ok: true,
+    origen: 'insforge',
+    db_conectada,
+    tablas_count: tablas.length,
+    tablas,
+    error_db,
+    timestamp: new Date().toISOString(),
+  });
+}
+
 export default async function handler(req: any, res: any) {
   const camino = new URL(String(req.url || '/'), 'http://fabri-api.local').pathname;
   if (camino.endsWith('/memoria')) return memoria(req, res);
   if (camino.endsWith('/modelos')) return modelos(req, res);
   if (camino.endsWith('/skills')) return skills(req, res);
+  if (camino.endsWith('/stats')) return stats(req, res);
   return json(res, { error: 'ruta desconocida en /api/agente', camino }, 404);
 }

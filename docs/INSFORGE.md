@@ -221,6 +221,119 @@ Detalles del contrato que importan:
 
 ---
 
+## 5 bis · Cuentas de la app (login)
+
+Hasta la versión 56 el login vivía **sólo** en el SQLite del navegador: la
+cuenta no viajaba entre dispositivos y se perdía al borrar los datos del sitio.
+Ahora la cuenta vive en InsForge y el navegador guarda una copia para trabajar
+sin red.
+
+```
+navegador (SQLite espejo)            Vercel                 InsForge
+┌────────────────────┐  POST JSON  ┌────────────┐  SQL   ┌────────────────┐
+│ users / sessions   │ ──────────► │  fabri-api │ ─────► │ core_usuarios  │
+│ (token local)      │ ◄────────── │  /api/auth │ ◄───── │ core_sesiones  │
+└────────────────────┘  token+exp  └────────────┘        └────────────────┘
+```
+
+### Tablas
+
+```sql
+CREATE TABLE IF NOT EXISTS core_usuarios (
+  id              BIGSERIAL PRIMARY KEY,
+  email           TEXT UNIQUE NOT NULL,
+  nombre          TEXT NOT NULL DEFAULT '',
+  pass_hash       TEXT NOT NULL,          -- PBKDF2-SHA256, 120.000 iteraciones
+  pass_salt       TEXT NOT NULL,          -- sal única por cuenta
+  iter            INTEGER NOT NULL DEFAULT 120000,
+  rol             TEXT NOT NULL DEFAULT 'member',
+  creado          TIMESTAMPTZ NOT NULL DEFAULT now(),
+  ultimo_login    TIMESTAMPTZ,
+  intentos        INTEGER NOT NULL DEFAULT 0,
+  bloqueado_hasta TIMESTAMPTZ
+);
+
+CREATE TABLE IF NOT EXISTS core_sesiones (
+  id          BIGSERIAL PRIMARY KEY,
+  usuario_id  BIGINT NOT NULL REFERENCES core_usuarios(id) ON DELETE CASCADE,
+  token_hash  TEXT UNIQUE NOT NULL,       -- SHA-256; el token en claro NO se guarda
+  dispositivo TEXT NOT NULL DEFAULT '',
+  creado      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  expira      TIMESTAMPTZ NOT NULL,
+  revocada    BOOLEAN NOT NULL DEFAULT false
+);
+```
+
+Se crean con `POST {"accion":"asegurar"}` (público: sólo DDL con columnas fijas).
+
+### Acciones
+
+| Acción | Cuerpo | Devuelve |
+|---|---|---|
+| `asegurar` | `{}` | Crea las dos tablas y sus índices |
+| `registrar` | `{ email, nombre?, pass, codigo?, dispositivo? }` | `usuario`, `token`, `expira` |
+| `entrar` | `{ email, pass, dispositivo? }` | `usuario`, `token`, `expira` |
+| `sesion` | Bearer del usuario | `usuario`, `expira` |
+| `salir` | Bearer del usuario | Revoca esa sesión |
+| `usuarios` | Bearer **admin** | Lista sin hashes |
+| `borrar` | `{ email, pass }` | Borra la propia cuenta y sus sesiones |
+
+### Cómo conviven nube y dispositivo
+
+| Situación | Qué pasa |
+|---|---|
+| Alta con red | La cuenta se crea en InsForge y se **espeja** en el SQLite local con la misma contraseña (hash propio) |
+| Entrada con red | Primero prueba la copia local; si no existe o la clave no coincide, prueba la nube y espeja |
+| Entrada sin red | Usa la copia local: se puede trabajar sin conexión |
+| Alta sin red | Crea la cuenta **sólo en el dispositivo** y avisa al entrar |
+| Casilla «sólo en este dispositivo» | No llama a la nube, aunque haya red |
+| Cerrar sesión | Revoca la sesión local y la de InsForge |
+
+El inventario, las boletas, las claves de IA y la planilla **siguen locales**.
+La cuenta no da acceso a datos de nadie: el inventario y el mercado usan
+`local_id` + `clave` de 8 caracteres, que es otra credencial.
+
+### Seguridad y límites honestos
+
+| Regla | Detalle |
+|---|---|
+| Contraseñas | PBKDF2-HMAC-SHA256, 120.000 iteraciones, sal única. Nunca se guarda la contraseña |
+| Sesiones | Token de 256 bits; en la base sólo su SHA-256; vencen a los 30 días |
+| Fuerza bruta | 8 fallos bloquean la cuenta 10 minutos (contador en la fila) |
+| Enumeración | Correo inexistente y clave mala devuelven el mismo código y tardan lo mismo |
+| Registro abierto | Por defecto cualquiera con la URL puede crear una cuenta. Para cerrarlo: `CORE_INVITE` (código obligatorio) y `CORE_MAX_CUENTAS` (tope) |
+| Límite por IP | 8 registros por hora y por instancia; es *best effort* en serverless, no un WAF |
+| Rol `owner` | Es la primera cuenta creada en la base. No es permiso sobre datos |
+
+### Variables nuevas en Vercel (`fabri-api`)
+
+| Nombre | Para qué |
+|---|---|
+| `CORE_INVITE` | opcional: si está, `registrar` exige ese código |
+| `CORE_MAX_CUENTAS` | opcional: tope de cuentas (200 por defecto) |
+
+### Probar
+
+```sh
+# Estado (público)
+curl -4 -s "https://fabri-api.vercel.app/api/auth?diag=1" | jq '{base_configurada, tablas}'
+
+# Crear tablas
+curl -4 -s -X POST "https://fabri-api.vercel.app/api/auth" \
+  -H "Content-Type: application/json" -d '{"accion":"asegurar"}'
+
+# Crear una cuenta de prueba
+curl -4 -s -X POST "https://fabri-api.vercel.app/api/auth" \
+  -H "Content-Type: application/json" \
+  -d '{"accion":"registrar","email":"prueba@local.cl","pass":"clave-de-prueba"}'
+```
+
+> El `/api/auth` del proyecto web (`web/api/auth/index.go`, cuentas en Vercel
+> Blob) quedó **sin uso**: el login real es el de `fabri-api`. Se conserva como
+> referencia y responde 501 mientras no exista `BLOB_READ_WRITE_TOKEN`.
+
+---
+
 ## 6 · REST directo de InsForge (sin `fabri-api`)
 
 InsForge expone PostgREST. Sirve para probar la base o para integrar otro
@@ -283,6 +396,8 @@ Filtros útiles: `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `like`, `ilike`, `in`,
 | `asegurar` no acepta datos del cliente | No puede usarse para inyectar SQL |
 | Nombres de columna fijos en el servidor | El cliente no elige qué se escribe |
 | Valores siempre parametrizados (`$1…$15`) | Sin concatenación de SQL |
+| Contraseñas de la app | PBKDF2 120k con sal única; la base nunca ve la contraseña |
+| Tokens de sesión | Sólo su SHA-256 en `core_sesiones`; vencen a los 30 días |
 | `GET ?diag=1` no devuelve filas ni entorno | Diagnóstico público sin fuga |
 
 El token viaja en el `Authorization` de cada request. Usá HTTPS (Vercel e
@@ -297,6 +412,8 @@ InsForge ya lo fuerzan) y no lo pegues en capturas ni en el log.
 | `401 SIN_TOKEN` | Token de la app ≠ `FABRI_API_TOKEN` | Copiarlo de nuevo en Integración → Nube |
 | `503 SIN_BASE` | Falta `INSFORGE_DATABASE_URL` | Cargarla en Vercel y redeployar |
 | `500 ERROR_BASE` + `ECONNREFUSED` | InsForge pausó el proyecto o la cadena está mal | Reactivar el proyecto / recopiar la cadena |
+| `409 YA_EXISTE` | El correo ya tiene cuenta | Entrar con esa contraseña |
+| `429 BLOQUEADO` | 8 intentos fallidos seguidos | Esperar 10 minutos |
 | `relation "inv_productos" does not exist` | Nunca se corrió `asegurar` | `POST {"accion":"asegurar"}` |
 | Se suben menos productos de los esperados | Filas sin `codigo` o sin `nombre` | Revisar `omitidos` en la respuesta |
 | `bajar` tarda | Proyecto dormido | Reintentar; el segundo viaje es rápido |

@@ -21,6 +21,12 @@
   };
   const enc = new TextEncoder();
 
+  /* Nube: `core-nube.js` es la única pieza que habla con fabri-api. Si el
+     archivo no está (versión vieja cacheada), todo sigue funcionando local. */
+  const nube = () => window.CoreNube || null;
+  const nubeActiva = () => Boolean(nube() && nube().activa());
+  const navegador = () => String((typeof navigator !== 'undefined' && navigator.userAgent) || 'navegador').slice(0, 120);
+
   async function pbkdf2(pass, salt, iter) {
     const k = await crypto.subtle.importKey('raw', enc.encode(pass), 'PBKDF2', false, ['deriveBits']);
     const bits = await crypto.subtle.deriveBits(
@@ -81,10 +87,52 @@
       try { f.S.db.run('CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token_hash)'); } catch (_) {}
     },
     count() { return Number(F().one('SELECT COUNT(*) c FROM users').c) || 0; },
-    async register(email, name, pass) {
+
+    /* ── puente con la nube ──────────────────────────────────────────────── */
+
+    /** Crea la sesión local (token + fila) para un usuario ya validado. */
+    async _sesionLocal(u) {
       const f = F();
-      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new Error('El correo no parece válido');
-      if (pass.length < 8) throw new Error('La contraseña necesita al menos 8 caracteres');
+      const t = token(32);
+      const exp = Date.now() + 30 * 24 * 3600 * 1000;
+      f.run('INSERT INTO sessions(user_id, token_hash, device, created_at, expires_at) VALUES(?,?,?,?,?)',
+        [u.id, await sha256(t), navegador(), Date.now(), exp]);
+      f.run('UPDATE users SET last_login = ? WHERE id = ?', [Date.now(), u.id]);
+      f.save();
+      localStorage.setItem('fcore.token', t);
+      f.log('info', 'auth', 'sesión iniciada: ' + u.email);
+      f.audit(u.email, 'login', 'token emitido');
+      return { id: u.id, email: u.email, name: u.name, role: u.role };
+    },
+
+    /**
+     * Copia local de una cuenta que YA existe en la nube. Se guarda con la
+     * misma contraseña (PBKDF2 local) para poder entrar sin red. No es una
+     * segunda cuenta: es el espejo que permite trabajar offline.
+     */
+    async _espejo(email, name, pass, role, enNube) {
+      const f = F();
+      const e = email.trim().toLowerCase();
+      const salt = token(16);
+      const hash = await pbkdf2(pass, salt, 120000);
+      const previo = f.one('SELECT * FROM users WHERE email = ?', [e]);
+      if (previo) {
+        f.run('UPDATE users SET name = ?, pass_hash = ?, pass_salt = ?, iterations = ? WHERE id = ?',
+          [(name || '').trim() || previo.name || e.split('@')[0], hash, salt, 120000, previo.id]);
+      } else {
+        const rol = role || (this.count() === 0 ? 'owner' : 'member');
+        f.run('INSERT INTO users(email, name, pass_hash, pass_salt, iterations, role, created_at) VALUES(?,?,?,?,?,?,?)',
+          [e, (name || '').trim() || e.split('@')[0], hash, salt, 120000, rol, Date.now()]);
+      }
+      f.save();
+      const u = f.one('SELECT * FROM users WHERE email = ?', [e]);
+      const ses = await this._sesionLocal(u);
+      return Object.assign(ses, { nube: Boolean(enNube) });
+    },
+
+    /** Alta sólo en este dispositivo: el camino de siempre, sin red. */
+    async _registroLocal(email, name, pass) {
+      const f = F();
       const e = email.trim().toLowerCase();
       if (Number(f.one('SELECT COUNT(*) c FROM users WHERE email = ?', [e]).c) > 0)
         throw new Error('Ese correo ya está registrado en este navegador');
@@ -95,29 +143,102 @@
         [e, (name || '').trim() || e.split('@')[0], hash, salt, 120000, role, Date.now()]);
       f.save();
       f.log('info', 'auth', 'usuario creado: ' + e);
-      return this.login(e, pass);
+      const u = f.one('SELECT * FROM users WHERE email = ?', [e]);
+      return Object.assign(await this._sesionLocal(u), { nube: false });
     },
-    async login(email, pass) {
+
+    /**
+     * Alta de cuenta. Con nube disponible la cuenta vive en InsForge y se
+     * espeja acá; si la nube no responde, crea la cuenta local (nunca deja al
+     * usuario sin app). `opts.soloLocal` fuerza el camino local.
+     */
+    async register(email, name, pass, opts) {
+      const o = opts || {};
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new Error('El correo no parece válido');
+      if (pass.length < 8) throw new Error('La contraseña necesita al menos 8 caracteres');
+      const e = email.trim().toLowerCase();
+      const n = nube();
+      if (n && !o.soloLocal) {
+        const r = await n.api('registrar', {
+          email: e, nombre: name || '', pass, dispositivo: navegador(),
+        });
+        if (r.ok) {
+          n.guardar(r);
+          F().log('info', 'auth', 'cuenta creada en la nube: ' + e);
+          return this._espejo(e, (r.usuario && r.usuario.nombre) || name, pass,
+            r.usuario && r.usuario.rol, true);
+        }
+        // Rechazos de regla: no se reintenta en local (sería una cuenta
+        // distinta con el mismo correo y confundiría al usuario).
+        if (['YA_EXISTE', 'CORREO', 'CLAVE_CORTA', 'INVITACION', 'TOPE', 'BLOQUEADO'].indexOf(r.codigo) >= 0)
+          throw new Error(r.error || 'La nube rechazó el registro');
+        // SIN_RED / SIN_BASE / ERROR_BASE → se sigue en local.
+      }
+      return this._registroLocal(e, name, pass);
+    },
+
+    /**
+     * Entrada. Primero la copia local (rápida y offline); si no existe o la
+     * contraseña no coincide, prueba la nube y espeja el resultado. Así una
+     * cuenta creada en otro dispositivo entra sin reinstalar nada.
+     */
+    async login(email, pass, opts) {
       const f = F();
       const e = email.trim().toLowerCase();
       const u = f.one('SELECT * FROM users WHERE email = ?', [e]);
-      if (!u) throw new Error('No existe una cuenta con ese correo en este navegador');
-      const calc = await pbkdf2(pass, u.pass_salt, u.iterations || 120000);
-      if (!constEq(calc, u.pass_hash)) {
+      if (u) {
+        const calc = await pbkdf2(pass, u.pass_salt, u.iterations || 120000);
+        if (constEq(calc, u.pass_hash)) {
+          const ses = await this._sesionLocal(u);
+          return Object.assign(ses, { nube: nubeActiva() });
+        }
         f.log('warn', 'auth', 'intento fallido: ' + e);
-        throw new Error('Contraseña incorrecta');
       }
-      const t = token(32);
-      const exp = Date.now() + 30 * 24 * 3600 * 1000;
-      f.run('INSERT INTO sessions(user_id, token_hash, device, created_at, expires_at) VALUES(?,?,?,?,?)',
-        [u.id, await sha256(t), navigator.userAgent.slice(0, 120), Date.now(), exp]);
-      f.run('UPDATE users SET last_login = ? WHERE id = ?', [Date.now(), u.id]);
-      f.save();
-      localStorage.setItem('fcore.token', t);
-      f.log('info', 'auth', 'sesión iniciada: ' + e);
-      f.audit(e, 'login', 'token emitido');
-      return { id: u.id, email: u.email, name: u.name, role: u.role };
+      const n = nube();
+      if (n) {
+        const r = await n.api('entrar', { email: e, pass, dispositivo: navegador() });
+        if (r.ok) {
+          n.guardar(r);
+          return this._espejo(e, (r.usuario && r.usuario.nombre) || (u && u.name), pass,
+            r.usuario && r.usuario.rol, true);
+        }
+        if (r.codigo === 'CREDENCIALES' || r.codigo === 'BLOQUEADO')
+          throw new Error(r.error || 'Correo o contraseña incorrectos');
+        if (!u) throw new Error('No existe una cuenta con ese correo en este dispositivo y la nube no respondió');
+      }
+      if (!u) throw new Error('No existe una cuenta con ese correo en este navegador');
+      throw new Error('Contraseña incorrecta');
     },
+
+    /** Datos guardados de la sesión de nube (para la pantalla de cuenta). */
+    nubeInfo() {
+      const n = nube();
+      const d = n && n.leer ? n.leer() : null;
+      return {
+        activa: Boolean(d && d.token),
+        email: d && d.usuario ? d.usuario.email : '',
+        nombre: d && d.usuario ? d.usuario.nombre : '',
+        rol: d && d.usuario ? d.usuario.rol : '',
+        vence: d ? Number(d.exp) || 0 : 0,
+        estado: n && n.estado ? n.estado() : null,
+      };
+    },
+
+    /** Comprueba el token contra InsForge. Devuelve `{ ok }` sin lanzar. */
+    async verificarNube() {
+      const n = nube();
+      if (!n) return { ok: false, codigo: 'SIN_NUBE', error: 'esta versión no trae el módulo de nube' };
+      const d = n.leer();
+      if (!d || !d.token) return { ok: false, codigo: 'SIN_SESION', error: 'no hay sesión de nube guardada' };
+      const r = await n.api('sesion', {}, { token: d.token });
+      if (r.ok) {
+        n.guardar({ token: d.token, expira: r.expira, usuario: r.usuario });
+      } else if (r.codigo === 'SESION') {
+        n.limpiar();
+      }
+      return r;
+    },
+
     async current() {
       const t = localStorage.getItem('fcore.token');
       if (!t) return null;
@@ -128,16 +249,26 @@
                          JOIN users u ON u.id = s.user_id
                          WHERE s.token_hash = ? AND s.revoked = 0 AND s.expires_at > ? LIMIT 1`,
           [h, Date.now()]);
-        return r || null;
+        if (!r) return null;
+        r.nube = nubeActiva();
+        return r;
       } catch (_) { return null; }
     },
+
     async logout() {
+      const n = nube();
+      const guardado = n && n.leer ? n.leer() : null;
       const t = localStorage.getItem('fcore.token');
       if (t) {
         try { F().run('UPDATE sessions SET revoked = 1 WHERE token_hash = ?', [await sha256(t)]); } catch (_) {}
       }
       localStorage.removeItem('fcore.token');
+      if (n && guardado && guardado.token) {
+        try { await n.api('salir', {}, { token: guardado.token, ms: 5000 }); } catch (_) {}
+        n.limpiar();
+      }
     },
+
     sessions() {
       try {
         return F().q(`SELECT s.id, u.email, s.device, s.created_at, s.expires_at, s.revoked

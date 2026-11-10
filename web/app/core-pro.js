@@ -298,6 +298,7 @@
     const size = f.S.db.export().length;
     const aiCalls = (() => { try { return Number(f.one("SELECT COALESCE(SUM(value),0) v FROM metrics WHERE name='consultas_ia'").v) || 0; } catch (_) { return 0; } })();
     const ses = window.CoreAuth.sessions();
+    const nube = window.CoreAuth.nubeInfo ? window.CoreAuth.nubeInfo() : { activa: false };
 
     let est = { usage: 0, quota: 0 };
     try { est = await navigator.storage.estimate(); } catch (_) {}
@@ -309,10 +310,14 @@
 
     host.innerHTML = `
       <div class="card" style="margin-bottom:10px">
-        <div class="eyebrow" style="margin-bottom:6px">Cuenta del dispositivo</div>
+        <div class="eyebrow" style="margin-bottom:6px">Cuenta</div>
         <div style="font-size:16px;font-weight:800">${esc(u ? u.email : 'sin sesión')}</div>
-        <div class="hint">${u ? esc(u.role) + ' · uid #' + u.id : ''} · sesión con token hasheado (SHA-256)</div>
-        <div class="row" style="display:flex;gap:7px;margin-top:10px">
+        <div class="hint">${u ? esc(u.role) + ' · uid #' + u.id : ''} · sesión local con token hasheado (SHA-256)</div>
+        <div class="hint" id="cuNubeEstado">${nube.activa
+          ? 'nube: InsForge · ' + esc(nube.email) + (nube.vence ? ' · vence ' + new Date(nube.vence).toLocaleDateString('es-CL') : '')
+          : 'nube: sin sesión guardada (la cuenta vive sólo en este dispositivo)'}</div>
+        <div class="row" style="display:flex;gap:7px;margin-top:10px;flex-wrap:wrap">
+          <button class="btn ghost" id="cuNube">Verificar en la nube</button>
           <button class="btn ghost" id="cuLogout">Cerrar sesión</button>
         </div>
       </div>
@@ -358,9 +363,10 @@
       </div>
 
       <div class="card">
-        <div class="eyebrow" style="margin-bottom:8px">Modo local</div>
-        <p class="hint">Esta cuenta, sus sesiones, sus claves cifradas y su planilla viven en la base SQLite de este navegador.
-        Nada se envía a un servidor: no hay nube, no hay sincronización entre dispositivos y no hace falta conexión.</p>
+        <div class="eyebrow" style="margin-bottom:8px">Dónde vive cada cosa</div>
+        <p class="hint">La cuenta se crea en InsForge (nube) y se guarda una copia local para entrar sin red.
+        El inventario, las boletas, las claves de IA y la planilla siguen en la base SQLite de este navegador:
+        la nube no los recibe salvo que uses «Subir a InsForge» con la clave de tu local.</p>
         <div class="row" style="display:flex;gap:7px;flex-wrap:wrap;margin-top:9px">
           <button class="btn" id="cuBackup">Descargar copia (.sqlite)</button>
           <button class="btn ghost" id="cuReset" style="border-color:rgba(255,107,107,.4);color:#FF6B6B">Borrar datos locales</button>
@@ -372,6 +378,21 @@
     $('#cuLogout').onclick = async () => {
       await window.CoreAuth.logout();
       location.reload();
+    };
+    const cuNube = $('#cuNube');
+    if (cuNube) cuNube.onclick = async () => {
+      const estado = $('#cuNubeEstado');
+      if (!window.CoreNube) { f.toast('Esta versión no trae el módulo de nube'); return; }
+      cuNube.disabled = true;
+      const r = await window.CoreAuth.verificarNube();
+      cuNube.disabled = false;
+      if (r.ok) {
+        if (estado) estado.textContent = 'nube: InsForge · sesión válida · ' + (r.usuario ? r.usuario.email : '');
+        f.toast('Sesión de nube verificada');
+      } else {
+        if (estado) estado.textContent = 'nube: ' + (r.error || r.codigo || 'sin respuesta');
+        f.toast(r.error || 'La nube no confirmó la sesión');
+      }
     };
     $('#cuPersist').onclick = async () => {
       try {
@@ -415,45 +436,73 @@
 
   /* ── LOGIN ─────────────────────────────────────────────────────────────── */
   /**
-   * Puerta de acceso con la misma ficha de marca que la APK: marca, título,
-   * aviso de cifrado y pie con el estado de las dos capas (local y nube).
+   * Puerta de acceso. Dos caminos que conviven:
    *
-   * El campo de clave de la nube es OPCIONAL y vive en `sessionStorage`: sirve
-   * para subir inventario a InsForge desde el navegador sin guardar el token
-   * en disco. Al cerrar la pestaña se olvida.
+   *   · NUBE (InsForge vía fabri-api): la cuenta se crea/valida en el
+   *     servidor y se espeja en el SQLite del navegador. Permite entrar desde
+   *     otro dispositivo con el mismo correo y contraseña.
+   *   · LOCAL: si la nube no responde (o se marca la casilla), la cuenta vive
+   *     sólo en este dispositivo. Es el comportamiento de siempre y nunca
+   *     deja al usuario sin app.
+   *
+   * El campo de clave de la nube del inventario es OTRA credencial (ID de
+   * local + clave de 8 caracteres) y sigue siendo opcional: vive en
+   * `sessionStorage` y se olvida al cerrar la pestaña.
    */
   async function gate() {
     const u = await window.CoreAuth.current();
     if (u) { document.getElementById('login').classList.remove('on'); return u; }
-    const first = window.CoreAuth.count() === 0;
     const host = document.getElementById('login');
     host.classList.add('on');
     const clavePrevia = sessionStorage.getItem('fabri.invKey') || '';
-    host.innerHTML = `
+    let modo = window.CoreAuth.count() === 0 ? 'crear' : 'entrar';
+    let emailPrev = '';
+    let nombrePrev = '';
+
+    /** Estado real de la nube, sin adornos. */
+    const estadoNube = () => {
+      if (!window.CoreNube) return { txt: 'sólo local', cls: '' };
+      const e = window.CoreNube.estado();
+      if (e.ultimo === 'nube') return { txt: 'nube · InsForge', cls: 'ok' };
+      if (e.ultimo === 'sin-red') return { txt: 'nube sin red', cls: '' };
+      if (e.ultimo === 'sin-base') return { txt: 'base sin configurar', cls: '' };
+      if (e.ultimo === 'error') return { txt: 'nube con error', cls: '' };
+      return { txt: 'nube sin probar', cls: 'acc' };
+    };
+
+    const pintar = () => {
+      const crear = modo === 'crear';
+      const est = estadoNube();
+      host.innerHTML = `
       <div class="login-box">
         <div class="login-head">
           <div class="mark" aria-hidden="true"><img src="./icons/logo-f.svg" alt=""></div>
           <b>FORGE CORE STOCK</b>
         </div>
-        <h2>${first ? 'Crea la cuenta del dispositivo' : 'Entra a FORGE CORE STOCK'}</h2>
-        <p class="hint">${first
-          ? 'La cuenta y sus sesiones viven en esta base SQLite, no en un servidor.'
-          : 'La sesión se guarda como token en tu navegador.'}</p>
-        <input id="lgEmail" class="field" placeholder="correo@dominio.cl" autocomplete="username">
-        ${first ? '<input id="lgName" class="field" placeholder="tu nombre">' : ''}
-        <input id="lgPass" class="field" type="password" placeholder="contraseña (mínimo 8)" autocomplete="current-password">
-        ${first ? '<input id="lgPass2" class="field" type="password" placeholder="repite la contraseña">' : ''}
-        <input id="lgKey" class="field" type="password" placeholder="clave de la nube (opcional)"
+        <h2>${crear ? 'Crea tu cuenta' : 'Entra a FORGE CORE STOCK'}</h2>
+        <p class="hint">${crear
+          ? 'La cuenta queda en InsForge (nube) y se copia a este dispositivo para poder trabajar sin red.'
+          : 'Entra con tu cuenta de la nube o con la de este dispositivo.'}</p>
+        <input id="lgEmail" class="field" placeholder="correo@dominio.cl" autocomplete="username" value="${esc(emailPrev)}">
+        ${crear ? `<input id="lgName" class="field" placeholder="tu nombre" value="${esc(nombrePrev)}">` : ''}
+        <input id="lgPass" class="field" type="password" placeholder="contraseña (mínimo 8)" autocomplete="${crear ? 'new-password' : 'current-password'}">
+        ${crear ? '<input id="lgPass2" class="field" type="password" placeholder="repite la contraseña" autocomplete="new-password">' : ''}
+        <input id="lgKey" class="field" type="password" placeholder="clave del inventario (opcional)"
           autocomplete="off" value="${esc(clavePrevia)}">
+        ${crear ? `<label class="hint" style="display:flex;gap:8px;align-items:center;margin:0 0 8px;text-align:left">
+          <input type="checkbox" id="lgLocal" style="width:auto;margin:0">
+          Crear sólo en este dispositivo (sin nube)</label>` : ''}
         <div id="lgErr" class="hint" style="color:var(--err);margin:0 0 8px;text-align:left"></div>
-        <button class="btn primary" id="lgGo">${first ? 'Crear cuenta' : 'Entrar'}</button>
+        <button class="btn primary" id="lgGo">${crear ? 'Crear cuenta' : 'Entrar'}</button>
+        <button class="btn ghost block" id="lgCambio" type="button" style="margin-top:8px">${crear
+          ? 'Ya tengo cuenta · entrar' : 'No tengo cuenta · crear una'}</button>
         <div class="login-pie">
           <span>PBKDF2 · 120k</span>
-          <span class="badge ok">local</span>
-          <span class="badge ${clavePrevia ? 'acc' : ''}" id="lgKeyBadge">${clavePrevia ? 'nube lista' : 'nube opcional'}</span>
+          <span class="badge ${est.cls}" id="lgNubeBadge"${est.cls ? '' : ' style="color:#FF6B6B"'}>${esc(est.txt)}</span>
+          <span class="badge ${clavePrevia ? 'acc' : ''}" id="lgKeyBadge">${clavePrevia ? 'inventario listo' : 'inventario opcional'}</span>
         </div>
-        <p class="hint" style="margin-top:10px">Si olvidas la contraseña, la única salida es borrar los datos
-          locales. La clave de la nube nunca se guarda en el repositorio.</p>
+        <p class="hint" style="margin-top:10px">La nube guarda el hash de la contraseña, nunca la contraseña.
+          Si la olvidas no hay recuperación automática: puedes crear otra cuenta o borrar los datos locales.</p>
         <div class="login-libre">
           <span>¿Solo quieres ver la tienda?</span>
           <button class="btn ghost block" id="lgVisitar" type="button">Entrar al visor 3D sin cuenta</button>
@@ -461,48 +510,105 @@
             boletas y consola hace falta la cuenta.</small>
         </div>
       </div>`;
+      enlazar();
+    };
 
-    return new Promise(resolve => {
+    const refrescarBadge = () => {
+      const b = $('#lgNubeBadge');
+      if (!b) return;
+      const est = estadoNube();
+      b.textContent = est.txt;
+      b.className = 'badge ' + est.cls;
+      b.style.color = est.cls ? '' : '#FF6B6B';
+    };
+
+    let resolver = null;
+
+    /**
+     * Mensaje honesto cuando la cuenta NO quedó en la nube. Devuelve el texto
+     * (o cadena vacía) para mostrarlo justo después de cerrar la puerta: si se
+     * avisara antes, el aviso quedaría debajo del formulario.
+     */
+    const aviso = (user, soloLocal) => {
+      if (!user) return '';
+      if (soloLocal) return 'Cuenta creada sólo en este dispositivo: no quedó en InsForge.';
+      if (user.nube === false && window.CoreNube) {
+        const e = window.CoreNube.estado();
+        return 'La nube no respondió (' + (e.detalle || e.ultimo) + '): la cuenta quedó sólo en este dispositivo.';
+      }
+      return '';
+    };
+
+    const enlazar = () => {
+      const crear = modo === 'crear';
       const guardarClave = () => {
         const k = ($('#lgKey').value || '').trim();
         if (k) sessionStorage.setItem('fabri.invKey', k);
         else sessionStorage.removeItem('fabri.invKey');
         const badge = $('#lgKeyBadge');
         if (badge) {
-          badge.textContent = k ? 'nube lista' : 'nube opcional';
+          badge.textContent = k ? 'inventario listo' : 'inventario opcional';
           badge.className = 'badge ' + (k ? 'acc' : '');
         }
       };
       const go = async () => {
         const email = $('#lgEmail').value.trim();
         const pass = $('#lgPass').value;
+        const err = $('#lgErr');
+        const btn = $('#lgGo');
+        err.textContent = '';
+        const textoBoton = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = crear ? 'Creando…' : 'Entrando…';
         try {
-          if (first) {
+          let user;
+          let mensaje = '';
+          if (crear) {
             if (pass !== $('#lgPass2').value) throw new Error('Las contraseñas no coinciden');
-            await window.CoreAuth.register(email, $('#lgName').value, pass);
+            const soloLocal = Boolean($('#lgLocal') && $('#lgLocal').checked);
+            user = await window.CoreAuth.register(email, $('#lgName').value, pass, { soloLocal });
+            mensaje = aviso(user, soloLocal);
           } else {
-            await window.CoreAuth.login(email, pass);
+            user = await window.CoreAuth.login(email, pass);
           }
           guardarClave();
           host.classList.remove('on');
-          resolve(await window.CoreAuth.current());
+          if (mensaje) {
+            try { if (window.Fabri && window.Fabri.toast) window.Fabri.toast(mensaje); } catch (_) {}
+          }
+          resolver(user);
         } catch (e) {
-          $('#lgErr').textContent = e.message;
+          err.textContent = e.message;
+          refrescarBadge();
+          btn.disabled = false;
+          btn.textContent = textoBoton;
         }
       };
       $('#lgGo').onclick = go;
+      $('#lgCambio').onclick = () => {
+        emailPrev = ($('#lgEmail').value || '').trim();
+        const nom = $('#lgName');
+        nombrePrev = nom ? nom.value : nombrePrev;
+        modo = modo === 'crear' ? 'entrar' : 'crear';
+        pintar();
+      };
       /* Acceso libre: resuelve sin usuario y deja la app en modo visitante
          (ver app.js). No crea cuenta ni toca la base. */
       const visitar = $('#lgVisitar');
       if (visitar) visitar.onclick = () => {
         guardarClave();
         host.classList.remove('on');
-        resolve(null);
+        resolver(null);
       };
-      ['lgPass', 'lgPass2', 'lgKey'].forEach(id => {
+      ['lgEmail', 'lgName', 'lgPass', 'lgPass2', 'lgKey'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
       });
+    };
+
+    return new Promise(resolve => {
+      resolver = resolve;
+      pintar();
     });
   }
 
