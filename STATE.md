@@ -17,7 +17,7 @@ con el mismo correo y contraseña ya funciona.
 
 | Pieza | Dónde |
 |---|---|
-| Núcleo de reglas (sin HTTP ni SQL) | `api-telefono/api/_auth.mjs` |
+| Núcleo de reglas (sin HTTP ni SQL) | `api-telefono/api/_auth.js` |
 | Endpoint `/api/auth` + repositorio Postgres | `api-telefono/api/auth.ts` |
 | Cliente de red y token | `web/app/core-nube.js` |
 | Espejo local + PBKDF2 | `web/app/core-sec.js` (`_espejo`, `_sesionLocal`) |
@@ -30,8 +30,8 @@ Decisiones:
 - **No hay migración forzada**: las cuentas locales que ya existían siguen
   entrando. El espejo sólo se crea al registrar o al entrar por la nube.
 - **Nunca deja al usuario afuera**: si la nube no responde, el alta sigue en
-  local y se avisa al entrar. La casilla «sólo en este dispositivo» fuerza ese
-  camino.
+  local y el aviso aparece al cerrar la puerta. La casilla «sólo en este
+  dispositivo» fuerza ese camino.
 - **La cuenta no da datos**: inventario y mercado siguen con `local_id` +
   `clave`. Son credenciales distintas.
 - **Registro abierto por defecto** en `/api/auth`; se cierra con `CORE_INVITE`

@@ -532,10 +532,12 @@ tbody tr:hover td{background:rgba(255,255,255,.025);color:var(--tx)}
 .login-box > .hint{text-align:center;margin:0 0 16px}
 .login-box .field{margin-bottom:9px}
 .login-box .btn{width:100%;margin-top:4px}
-.login-pie{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:15px;
+.login-pie{display:flex;align-items:center;justify-content:space-between;gap:8px 10px;flex-wrap:wrap;
+  margin-top:15px;
   padding-top:13px;border-top:1px solid var(--line);
-  font-size:9.6px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--tx4)}
-.login-pie .badge{font-size:9px}
+  font-size:9.2px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--tx4)}
+.login-pie > *{white-space:nowrap}
+.login-pie .badge{font-size:8.8px}
 /* Acceso libre al visor: separado del formulario, para que se vea como una
    puerta aparte y no como un paso más del registro. */
 .login-libre{

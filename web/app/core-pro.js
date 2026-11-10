@@ -497,9 +497,8 @@
         <button class="btn ghost block" id="lgCambio" type="button" style="margin-top:8px">${crear
           ? 'Ya tengo cuenta · entrar' : 'No tengo cuenta · crear una'}</button>
         <div class="login-pie">
-          <span>PBKDF2 · 120k</span>
+          <span>PBKDF2 120k</span>
           <span class="badge ${est.cls}" id="lgNubeBadge"${est.cls ? '' : ' style="color:#FF6B6B"'}>${esc(est.txt)}</span>
-          <span class="badge ${clavePrevia ? 'acc' : ''}" id="lgKeyBadge">${clavePrevia ? 'inventario listo' : 'inventario opcional'}</span>
         </div>
         <p class="hint" style="margin-top:10px">La nube guarda el hash de la contraseña, nunca la contraseña.
           Si la olvidas no hay recuperación automática: puedes crear otra cuenta o borrar los datos locales.</p>
@@ -545,11 +544,6 @@
         const k = ($('#lgKey').value || '').trim();
         if (k) sessionStorage.setItem('fabri.invKey', k);
         else sessionStorage.removeItem('fabri.invKey');
-        const badge = $('#lgKeyBadge');
-        if (badge) {
-          badge.textContent = k ? 'inventario listo' : 'inventario opcional';
-          badge.className = 'badge ' + (k ? 'acc' : '');
-        }
       };
       const go = async () => {
         const email = $('#lgEmail').value.trim();
