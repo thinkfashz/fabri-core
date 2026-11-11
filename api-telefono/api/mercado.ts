@@ -57,7 +57,7 @@
 import type { IncomingMessage, ServerResponse } from 'http';
 import { createHash, randomBytes } from 'crypto';
 // @ts-ignore: `_auth.js` es JavaScript puro, sin declaraciones de tipos.
-import { sha256hex } from './_auth.js';
+import { sha256hex, huellaDispositivo, iguales, dispositivo as normDispositivo } from './_auth.js';
 
 export const config = { api: { bodyParser: false } };
 
@@ -360,24 +360,49 @@ function normalizarLocal(crudo: Fila) {
   };
 }
 
-/** Cuenta de la nube detrás del Bearer, o null. Nunca lanza: si las tablas de
- *  cuentas no existen todavía (instalación nueva), la tienda sigue con clave. */
+/** Huella del dispositivo que declara el cliente en `X-Dispositivo`.
+ *  Debe ser la misma que usó al entrar: si no, la sesión no sirve acá. */
+function dispositivoDe(req: IncomingMessage): string {
+  const h = req.headers['x-dispositivo'];
+  const v = Array.isArray(h) ? h[0] : h;
+  return normDispositivo(v);
+}
+
+/** Cuenta de la nube detrás del Bearer. Nunca lanza: si las tablas de
+ *  cuentas no existen todavía (instalación nueva), la tienda sigue con clave.
+ *  Devuelve `{ usuario, motivo }`; el motivo explica el 401 al cliente. */
 async function cuentaDe(pool: any, req: IncomingMessage) {
   const token = bearer(req);
-  if (!token) return null;
+  if (!token) return { usuario: null, motivo: 'SIN_CUENTA' as const };
+  const hash = sha256hex(token);
   try {
     const r = await pool.query(
-      `SELECT u.id, u.email, u.nombre, u.rol
+      `SELECT u.id, u.email, u.nombre, u.rol, s.dispositivo_hash
          FROM ${T_SESIONES} s
          JOIN ${T_CUENTAS} u ON u.id = s.usuario_id
         WHERE s.token_hash = $1 AND s.revocada = false AND s.expira > now()
         LIMIT 1`,
-      [sha256hex(token)]
+      [hash]
     );
-    return r.rows[0] || null;
+    const f = r.rows[0];
+    if (!f) return { usuario: null, motivo: 'SESION' as const };
+    // La huella se recalcula con el dispositivo que declara este request.
+    // Sin coincidencia, el token está siendo usado desde otro equipo.
+    const huella = huellaDispositivo(dispositivoDe(req), f.id, hash);
+    if (!f.dispositivo_hash || !iguales(huella, f.dispositivo_hash)) {
+      return { usuario: null, motivo: 'DISPOSITIVO' as const };
+    }
+    return { usuario: { id: f.id, email: f.email, nombre: f.nombre, rol: f.rol }, motivo: null };
   } catch (e) {
-    return null;
+    return { usuario: null, motivo: 'SIN_BASE' as const };
   }
+}
+
+/** Texto del 401 según el motivo, para que la app pueda reaccionar distinto. */
+function mensajeCuenta(motivo: string | null, siFalta: string): string {
+  if (motivo === 'DISPOSITIVO') return 'esta sesión se abrió en otro dispositivo: vuelve a entrar desde este';
+  if (motivo === 'SIN_BASE') return 'no pude comprobar tu cuenta en la nube: reintenta en unos segundos';
+  return siFalta;
 }
 
 /** Dueño (cuenta o clave) o admin. Devuelve la fila del local si pasa, o null. */
@@ -394,10 +419,14 @@ async function autorizarLocal(pool: any, req: IncomingMessage, localId: string, 
   if (clave && local.clave_hash && hashClave(clave) === local.clave_hash) {
     return { local, motivo: null };
   }
-  const cuenta = await cuentaDe(pool, req);
+  const acceso = await cuentaDe(pool, req);
+  const cuenta = acceso.usuario;
   if (cuenta && local.dueno_id && String(local.dueno_id) === String(cuenta.id)) {
     return { local, motivo: null };
   }
+  // Si el token existe pero es de otro dispositivo, decirlo (la app limpia
+  // la sesión de nube en vez de reintentar para siempre).
+  if (acceso.motivo === 'DISPOSITIVO') return { local: null, motivo: 'DISPOSITIVO' as const };
   return { local: null, motivo: 'clave_mala' as const };
 }
 
@@ -558,11 +587,12 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     /* ── alta de local (CUENTA dueña o ADMIN) ── */
     if (accion === 'local_crear') {
       const admin = esAdmin(req);
-      const cuenta = admin ? null : await cuentaDe(pool, req);
+      const acceso = admin ? { usuario: null, motivo: null } : await cuentaDe(pool, req);
+      const cuenta = acceso.usuario;
       if (!admin && !cuenta) {
         return json(res, {
-          ok: false, error: 'entra a tu cuenta para crear tu tienda',
-          codigo: 'SIN_CUENTA',
+          ok: false, error: mensajeCuenta(acceso.motivo, 'entra a tu cuenta para crear tu tienda'),
+          codigo: acceso.motivo || 'SIN_CUENTA',
         }, 401);
       }
       const crudo = (cuerpo.local && typeof cuerpo.local === 'object' ? cuerpo.local : cuerpo) as Fila;
@@ -607,8 +637,12 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
 
     /* ── mis tiendas (CUENTA) ── */
     if (accion === 'local_mio') {
-      const cuenta = await cuentaDe(pool, req);
-      if (!cuenta) return json(res, { ok: false, error: 'falta la sesión', codigo: 'SESION' }, 401);
+      const acceso = await cuentaDe(pool, req);
+      const cuenta = acceso.usuario;
+      if (!cuenta) return json(res, {
+        ok: false, error: mensajeCuenta(acceso.motivo, 'falta la sesión'),
+        codigo: acceso.motivo || 'SESION',
+      }, 401);
       const r = await pool.query(
         `SELECT ${CAMPOS_LOCAL} FROM ${T_LOCALES} WHERE dueno_id = $1 ORDER BY nombre COLLATE "C"`,
         [String(cuenta.id)]

@@ -8,6 +8,44 @@
 
 Última actualización: 2026-11-11
 
+## Sesión 2026-11-11 · Sesión atada al dispositivo + términos + root fijo
+
+Pedido textual: «F.eduardomicolta@gmail.com para mi usuario root y haz más
+robusto y seguro el que se guarde un token único criptográfico por login de
+usuario en mi base de datos con los usuarios su token único entrelazado entre
+su login y su dispositivo; acepta términos y condiciones».
+
+| Pieza | Dónde |
+|---|---|
+| Token único + huella + tope de 12 sesiones + términos | `api-telefono/api/_auth.js` |
+| DDL/migración (`terminos_version`, `terminos_ts`, `dispositivo_hash`), repositorio y `aceptar_terminos` | `api-telefono/api/auth.ts` |
+| `cuentaDe()` valida `X-Dispositivo` y devuelve `{ usuario, motivo }` | `api-telefono/api/mercado.ts` |
+| ID aleatorio del dispositivo (`fcore.dispositivo`) | `web/app/core-nube.js` |
+| Envío de dispositivo/términos, `aceptarTerminos()`, `DISPOSITIVO` → limpiar token | `web/app/core-sec.js` |
+| Checkbox de términos, paso de aceptación y estado en «Cuenta» | `web/app/core-pro.js` |
+| Cabecera `X-Dispositivo` y aviso `DISPOSITIVO` | `web/app/negocio.js` |
+| Página de términos | `web/app/terminos.html` |
+| Pruebas nuevas | `tests/web/auth-nube.js` |
+| Documentación | `docs/TIENDAS-MULTI.md`, `docs/INSFORGE.md` |
+
+Decisiones:
+
+- **Token**: 256 bits único por login. En la base sólo `token_hash` (SHA-256) y
+  `dispositivo_hash = sha256(dispositivo | usuario_id | token_hash)`; se
+  recalcula en cada validación y se compara con `timingSafeEqual`.
+- **Dispositivo**: ID aleatorio persistido en `localStorage`; se envía en el
+  login y en `X-Dispositivo` para `/api/mercado`. Si falta, se usa
+  `'navegador'` (compatibilidad). Copiar el token a otro equipo → `401
+  DISPOSITIVO`; la app borra el token de nube y el espejo local sigue.
+- **Tope**: 12 sesiones activas por cuenta; las más viejas se revocan solas.
+  Las sesiones anteriores (sin huella) se revocan una vez en la migración.
+- **Términos**: `TERMINOS_VERSION = '2026-11-11'`. El alta exige
+  `acepta_terminos`; se guarda versión + fecha. Si la versión cambia, la app
+  pide aceptar con `aceptar_terminos` **sin bloquear la entrada**.
+- **Root**: `CORE_ROOT_EMAIL=F.eduardomicolta@gmail.com` en `fabri-api`. Esa
+  cuenta entra/promociona a `owner`; el rol no da acceso a datos ajenos.
+- `sw.js` sube a **fcore-v74** (precache de `terminos.html`).
+
 ## Sesión 2026-11-11 · Tiendas multi-negocio: cuenta → tienda → catálogo → mapa
 
 El login ya estaba conectado a InsForge (`/api/auth`). Esta sesión cierra el

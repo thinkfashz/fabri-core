@@ -46,6 +46,7 @@ function repoMemoria() {
     async crearUsuario(u) {
       const fila = Object.assign({
         id: ++nid, intentos: 0, bloqueado_hasta: null, ultimo_login: null,
+        terminos_version: '', terminos_ts: null,
       }, u);
       usuarios.push(fila);
       return { id: fila.id, email: fila.email, nombre: fila.nombre, rol: fila.rol };
@@ -61,8 +62,18 @@ function repoMemoria() {
       const u = usuarios.find((x) => String(x.id) === String(id));
       if (u) u.rol = rol;
     },
+    async guardarTerminos(id, version, ts) {
+      const u = usuarios.find((x) => String(x.id) === String(id));
+      if (u) { u.terminos_version = version; u.terminos_ts = ts; }
+    },
     async crearSesion(s) {
-      sesiones.push(Object.assign({ revocada: false }, s));
+      sesiones.push(Object.assign({ revocada: false, dispositivo_hash: '' }, s));
+    },
+    async limitarSesiones(usuarioId, max) {
+      // El arreglo conserva el orden de creación: las primeras son las viejas.
+      const vivas = sesiones.filter((s) => String(s.usuario_id) === String(usuarioId) && !s.revocada);
+      const sobran = vivas.length - Math.max(1, Number(max) || 12);
+      for (let i = 0; i < sobran; i++) vivas[i].revocada = true;
     },
     async sesionPorHash(hash) {
       const s = sesiones.find((x) => x.token_hash === hash);
@@ -72,6 +83,7 @@ function repoMemoria() {
       return {
         id: u.id, email: u.email, nombre: u.nombre, rol: u.rol,
         expira_ms: s.expira_ms, revocada: s.revocada,
+        dispositivo_hash: s.dispositivo_hash || '',
       };
     },
     async revocarSesion(hash) {
@@ -101,7 +113,7 @@ async function probarNucleo() {
   const repo = repoMemoria();
   const svc = crearServicio(repo, { ahora: () => reloj, maxCuentas: 3 });
 
-  const r1 = await svc.registrar({ email: ' Duena@Local.CL ', nombre: '', pass: 'clave-segura-1' });
+  const r1 = await svc.registrar({ email: ' Duena@Local.CL ', nombre: '', pass: 'clave-segura-1' , acepta_terminos: true });
   igual('registrar devuelve 201', r1.status, 201);
   igual('la primera cuenta es owner', r1.body.usuario.rol, 'owner');
   igual('el correo se normaliza', r1.body.usuario.email, 'duena@local.cl');
@@ -115,23 +127,31 @@ async function probarNucleo() {
   igual('la sesión se guarda como SHA-256 del token', repo.sesiones[0].token_hash, sha256hex(r1.body.token));
   ok('el token en claro no queda en la tabla de sesiones', repo.sesiones[0].token_hash !== r1.body.token);
 
-  const r2 = await svc.registrar({ email: 'empleado@local.cl', nombre: 'Empleado', pass: 'otra-clave-22' });
+  const r2 = await svc.registrar({ email: 'empleado@local.cl', nombre: 'Empleado', pass: 'otra-clave-22' , acepta_terminos: true });
   igual('la segunda cuenta es member', r2.body.usuario.rol, 'member');
   ok('dos cuentas con distinta sal no comparten hash',
     repo.usuarios[0].pass_salt !== repo.usuarios[1].pass_salt &&
     repo.usuarios[0].pass_hash !== repo.usuarios[1].pass_hash);
 
-  igual('correo repetido → 409', (await svc.registrar({ email: 'duena@local.cl', pass: 'clave-segura-1' })).status, 409);
-  igual('correo inválido → 400', (await svc.registrar({ email: 'sin-arroba', pass: 'clave-segura-1' })).body.codigo, 'CORREO');
-  igual('contraseña corta → 400', (await svc.registrar({ email: 'x@y.cl', pass: '123' })).body.codigo, 'CLAVE_CORTA');
+  /* Términos: sin aceptación no hay cuenta; con aceptación queda registrada. */
+  const sinTerm = await svc.registrar({ email: 'sin-term@local.cl', pass: 'clave-segura-4' });
+  igual('registrar sin aceptar términos → 400', sinTerm.body.codigo, 'TERMINOS');
+  igual('la cuenta sin términos no se creó',
+    Boolean(repo.usuarios.find((u) => u.email === 'sin-term@local.cl')), false);
+  igual('el alta guarda la versión aceptada', repo.usuarios[0].terminos_version, '2026-11-11');
+  igual('la respuesta trae los términos vigentes', r1.body.usuario.terminos.vigente, true);
+
+  igual('correo repetido → 409', (await svc.registrar({ email: 'duena@local.cl', pass: 'clave-segura-1' , acepta_terminos: true })).status, 409);
+  igual('correo inválido → 400', (await svc.registrar({ email: 'sin-arroba', pass: 'clave-segura-1' , acepta_terminos: true })).body.codigo, 'CORREO');
+  igual('contraseña corta → 400', (await svc.registrar({ email: 'x@y.cl', pass: '123' , acepta_terminos: true })).body.codigo, 'CLAVE_CORTA');
 
   /* Tope de cuentas: servicio aparte para no ensuciar el conteo de arriba. */
   const repoTope = repoMemoria();
   const svcTope = crearServicio(repoTope, { ahora: () => reloj, maxCuentas: 2 });
-  await svcTope.registrar({ email: 'uno@local.cl', pass: 'clave-segura-1' });
-  await svcTope.registrar({ email: 'dos@local.cl', pass: 'clave-segura-2' });
+  await svcTope.registrar({ email: 'uno@local.cl', pass: 'clave-segura-1' , acepta_terminos: true });
+  await svcTope.registrar({ email: 'dos@local.cl', pass: 'clave-segura-2' , acepta_terminos: true });
   igual('tope de cuentas → 429',
-    (await svcTope.registrar({ email: 'tres@local.cl', pass: 'clave-segura-3' })).status, 429);
+    (await svcTope.registrar({ email: 'tres@local.cl', pass: 'clave-segura-3' , acepta_terminos: true })).status, 429);
 
   /* Contraseña mala: mismo código y contador que sube. */
   const mala = await svc.entrar({ email: 'duena@local.cl', pass: 'no-es-la-clave' });
@@ -158,6 +178,46 @@ async function probarNucleo() {
   await svc.salir({}, buena.body.token);
   igual('salir revoca la sesión', (await svc.sesion({}, buena.body.token)).status, 401);
 
+  /* La sesión queda atada al dispositivo que la abrió. */
+  const sA = await svc.entrar({ email: 'duena@local.cl', pass: 'clave-segura-1', dispositivo: 'equipo-A' });
+  igual('la sesión entra con su dispositivo',
+    (await svc.sesion({ dispositivo: 'equipo-A' }, sA.body.token)).status, 200);
+  igual('el mismo token desde otro dispositivo → 401 DISPOSITIVO',
+    (await svc.sesion({ dispositivo: 'equipo-B' }, sA.body.token)).body.codigo, 'DISPOSITIVO');
+  ok('la base guarda hash del token y huella, nunca el token ni el dispositivo crudo',
+    repo.sesiones.every((s) => s.token_hash.length === 64 && s.dispositivo_hash.length === 64) &&
+    repo.sesiones.every((s) => s.token_hash !== sA.body.token && s.dispositivo_hash !== 'equipo-A'));
+
+  /* Tope de sesiones: 12 activas; la 13.ª revoca la más vieja. */
+  const repoLim = repoMemoria();
+  const svcLim = crearServicio(repoLim, { ahora: () => reloj });
+  const altaLim = await svcLim.registrar({
+    email: 'limite@local.cl', pass: 'clave-segura-5', dispositivo: 'd0', acepta_terminos: true,
+  });
+  const tokensLim = [altaLim.body.token];
+  for (let i = 1; i < 13; i++) {
+    const r = await svcLim.entrar({ email: 'limite@local.cl', pass: 'clave-segura-5', dispositivo: 'd' + i });
+    tokensLim.push(r.body.token);
+  }
+  igual('se conservan 12 sesiones activas', repoLim.sesiones.filter((s) => !s.revocada).length, 12);
+  igual('la más vieja quedó revocada',
+    (await svcLim.sesion({ dispositivo: 'd0' }, tokensLim[0])).status, 401);
+  igual('la última sigue viva',
+    (await svcLim.sesion({ dispositivo: 'd12' }, tokensLim[12])).status, 200);
+
+  /* Cambio de versión: se pide aceptar sin bloquear la entrada. */
+  const sT = await svc.entrar({ email: 'duena@local.cl', pass: 'clave-segura-1', dispositivo: 'equipo-A' });
+  repo.usuarios[0].terminos_version = '';
+  igual('una versión vieja se marca como no vigente',
+    (await svc.sesion({ dispositivo: 'equipo-A' }, sT.body.token)).body.usuario.terminos.vigente, false);
+  const t2 = await svc.aceptarTerminos({ dispositivo: 'equipo-A' }, sT.body.token);
+  igual('aceptar_terminos deja la versión vigente', t2.body.usuario.terminos.vigente, true);
+  igual('aceptar_terminos se guarda en la base', repo.usuarios[0].terminos_version, '2026-11-11');
+  igual('aceptar_terminos exige el dispositivo correcto',
+    (await svc.aceptarTerminos({ dispositivo: 'equipo-B' }, sT.body.token)).body.codigo, 'DISPOSITIVO');
+  igual('aceptar_terminos sin token → 401',
+    (await svc.aceptarTerminos({ dispositivo: 'equipo-A' }, '')).status, 401);
+
   const otra = await svc.entrar({ email: 'duena@local.cl', pass: 'clave-segura-1' });
   reloj += 31 * 24 * 3600 * 1000;
   igual('a los 31 días la sesión vence', (await svc.sesion({}, otra.body.token)).status, 401);
@@ -177,25 +237,25 @@ async function probarNucleo() {
   /* Invitación: con `CORE_INVITE` puesto, sin código no se crea nada. */
   const repoInv = repoMemoria();
   const svcInv = crearServicio(repoInv, { invitar: 'FORGE-2026' });
-  igual('registro sin código → 403', (await svcInv.registrar({ email: 'a@b.cl', pass: 'clave-larga' })).body.codigo, 'INVITACION');
+  igual('registro sin código → 403', (await svcInv.registrar({ email: 'a@b.cl', pass: 'clave-larga' , acepta_terminos: true })).body.codigo, 'INVITACION');
   igual('registro con código → 201',
-    (await svcInv.registrar({ email: 'a@b.cl', pass: 'clave-larga', codigo: 'FORGE-2026' })).status, 201);
+    (await svcInv.registrar({ email: 'a@b.cl', pass: 'clave-larga', codigo: 'FORGE-2026' , acepta_terminos: true })).status, 201);
 
   /* Root explícito: CORE_ROOT_EMAIL manda sobre "la primera cuenta". */
   const repoRoot = repoMemoria();
   const svcRoot = crearServicio(repoRoot, { ahora: () => reloj, rootEmail: 'jefa@local.cl' });
-  const primera = await svcRoot.registrar({ email: 'otro@local.cl', pass: 'clave-segura-1' });
+  const primera = await svcRoot.registrar({ email: 'otro@local.cl', pass: 'clave-segura-1' , acepta_terminos: true });
   igual('la primera cuenta sigue siendo owner', primera.body.usuario.rol, 'owner');
-  const jefa = await svcRoot.registrar({ email: 'jefa@local.cl', pass: 'clave-segura-2' });
+  const jefa = await svcRoot.registrar({ email: 'jefa@local.cl', pass: 'clave-segura-2' , acepta_terminos: true });
   igual('el correo de CORE_ROOT_EMAIL entra como owner', jefa.body.usuario.rol, 'owner');
   igual('los demás siguen member',
-    (await svcRoot.registrar({ email: 'tercero@local.cl', pass: 'clave-segura-3' })).body.usuario.rol, 'member');
+    (await svcRoot.registrar({ email: 'tercero@local.cl', pass: 'clave-segura-3' , acepta_terminos: true })).body.usuario.rol, 'member');
 
   /* Una cuenta que ya existía como member se promueve al entrar. */
   const repoProm = repoMemoria();
   const svcProm = crearServicio(repoProm, { ahora: () => reloj });
-  await svcProm.registrar({ email: 'primero@local.cl', pass: 'clave-segura-1' });
-  await svcProm.registrar({ email: 'jefa@local.cl', pass: 'clave-segura-2' });
+  await svcProm.registrar({ email: 'primero@local.cl', pass: 'clave-segura-1' , acepta_terminos: true });
+  await svcProm.registrar({ email: 'jefa@local.cl', pass: 'clave-segura-2' , acepta_terminos: true });
   igual('antes de configurar root es member', repoProm.usuarios[1].rol, 'member');
   const svcProm2 = crearServicio(repoProm, { ahora: () => reloj, rootEmail: 'jefa@local.cl' });
   const entra = await svcProm2.entrar({ email: 'jefa@local.cl', pass: 'clave-segura-2' });
@@ -264,6 +324,7 @@ async function probarCliente() {
       if (a === 'registrar') return entorno.svc.registrar(cuerpo);
       if (a === 'entrar') return entorno.svc.entrar(cuerpo);
       if (a === 'sesion') return entorno.svc.sesion(cuerpo, token);
+      if (a === 'aceptar_terminos') return entorno.svc.aceptarTerminos(cuerpo, token);
       if (a === 'salir') return entorno.svc.salir(cuerpo, token);
       if (a === 'usuarios') return entorno.svc.usuarios(true);
       return { status: 400, body: { ok: false, codigo: 'ACCION', error: 'acción desconocida' } };
@@ -309,6 +370,14 @@ async function probarCliente() {
 
   console.log('\n▸ cliente · cuenta en la nube espejada en SQLite');
 
+  /* 0 · Sin aceptar términos no se crea nada, ni local ni en la nube. */
+  const m0 = await mundo();
+  let sinTerm = '';
+  try { await m0.Auth.register('sin@local.cl', 'Sin', 'clave-segura-0'); } catch (e) { sinTerm = e.message; }
+  ok('registrar sin aceptar términos se rechaza', /términos/i.test(sinTerm), sinTerm);
+  igual('sin términos no se llamó a la nube', m0.entorno.llamadas.length, 0);
+  igual('sin términos no se creó cuenta local', m0.Fabri.one('SELECT COUNT(*) c FROM users').c, 0);
+
   /* Una sola "nube" compartida por todos los dispositivos de la prueba. */
   const nube = {
     enLinea: true, llamadas: [], repo: repoMemoria(),
@@ -317,7 +386,7 @@ async function probarCliente() {
 
   /* 1 · Alta con nube: la cuenta nace en InsForge y se copia al navegador. */
   const m1 = await mundo(nube);
-  const alta = await m1.Auth.register('Duena@Local.CL', 'Dueña', 'clave-segura-1');
+  const alta = await m1.Auth.register('Duena@Local.CL', 'Dueña', 'clave-segura-1', { aceptaTerminos: true });
   igual('register devuelve la cuenta de la nube', alta.nube, true);
   igual('register usa la acción "registrar"', nube.llamadas[0].accion, 'registrar');
   igual('la nube guardó una cuenta', nube.repo.usuarios.length, 1);
@@ -327,6 +396,12 @@ async function probarCliente() {
   ok('hay token de sesión local', Boolean(global.localStorage.getItem('fcore.token')));
   igual('current() devuelve la cuenta', (await m1.Auth.current()).email, 'duena@local.cl');
   igual('nubeInfo() muestra el correo', m1.Auth.nubeInfo().email, 'duena@local.cl');
+  igual('el alta manda acepta_terminos', nube.llamadas[0].cuerpo.acepta_terminos, true);
+  igual('el alta manda el ID del dispositivo',
+    nube.llamadas[0].cuerpo.dispositivo, m1.Nube.dispositivo());
+  ok('el ID del dispositivo es aleatorio y estable',
+    /^[a-f0-9]{32}$/.test(m1.Nube.dispositivo()) && m1.Nube.dispositivo() === m1.Nube.dispositivo());
+  igual('la cuenta nace con los términos vigentes', m1.Auth.terminos().vigente, true);
 
   /* 2 · La sesión sobrevive a una recarga (misma base y almacenamiento). */
   igual('current() sigue válido tras "recargar"', (await m1.Auth.current()).email, 'duena@local.cl');
@@ -349,6 +424,12 @@ async function probarCliente() {
     m2.Fabri.one('SELECT COUNT(*) c FROM users').c, 1);
   igual('el otro dispositivo guardó el token de nube', m2.Nube.estado().activa, true);
 
+  /* 4b · El token no sirve desde un equipo distinto: la huella no coincide. */
+  global.localStorage.removeItem('fcore.dispositivo');
+  const ajeno = await m2.Auth.verificarNube();
+  igual('el mismo token desde otro equipo → DISPOSITIVO', ajeno.codigo, 'DISPOSITIVO');
+  igual('la app borra el token que no le pertenece', m2.Nube.leer(), null);
+
   /* 5 · Contraseña mala en la nube: error claro y sin espejo. */
   const m3 = await mundo(nube);
   let error = '';
@@ -359,23 +440,32 @@ async function probarCliente() {
   /* 6 · Nube caída y cuenta nueva: se crea local y se avisa (nunca bloquea). */
   const m4 = await mundo();
   m4.entorno.enLinea = false;
-  const local = await m4.Auth.register('nueva@local.cl', 'Nueva', 'clave-segura-9');
+  const local = await m4.Auth.register('nueva@local.cl', 'Nueva', 'clave-segura-9', { aceptaTerminos: true });
   igual('sin nube, el alta sigue funcionando en local', local.email, 'nueva@local.cl');
   igual('el alta local se marca como tal', local.nube, false);
   igual('la nube no recibió el alta', m4.entorno.repo.usuarios.length, 0);
 
   /* 7 · Casilla "sólo en este dispositivo": no llama a la nube. */
   const m5 = await mundo();
-  const solo = await m5.Auth.register('solo@local.cl', 'Solo', 'clave-segura-8', { soloLocal: true });
+  const solo = await m5.Auth.register('solo@local.cl', 'Solo', 'clave-segura-8', { soloLocal: true, aceptaTerminos: true });
   igual('soloLocal no llama a la nube', m5.entorno.llamadas.length, 0);
   igual('soloLocal crea la cuenta local', solo.nube, false);
 
   /* 8 · Verificar la sesión de nube y detectar que fue revocada. */
   const m6 = await mundo();
-  await m6.Auth.register('verifica@local.cl', 'Verifica', 'clave-segura-7');
+  await m6.Auth.register('verifica@local.cl', 'Verifica', 'clave-segura-7', { aceptaTerminos: true });
+  igual('el alta deja los términos vigentes', m6.Auth.terminos().vigente, true);
   const tokenNube = m6.Nube.leer().token;
   const v1 = await m6.Auth.verificarNube();
   igual('verificarNube() confirma la sesión', v1.ok, true);
+  /* Cambio de versión: la nube responde no vigente y se acepta desde la sesión. */
+  m6.entorno.repo.usuarios[0].terminos_version = '';
+  const vVieja = await m6.Auth.verificarNube();
+  igual('una versión vieja queda como no vigente', vVieja.usuario.terminos.vigente, false);
+  const acepta = await m6.Auth.aceptarTerminos();
+  igual('aceptarTerminos() actualiza la cuenta', Boolean(acepta.ok && acepta.usuario.terminos.vigente), true);
+  igual('aceptarTerminos() deja la versión en la base',
+    m6.entorno.repo.usuarios[0].terminos_version, '2026-11-11');
   await m6.entorno.svc.salir({}, tokenNube);
   const v2 = await m6.Auth.verificarNube();
   igual('si el servidor la revocó, la nube se limpia', v2.ok, false);

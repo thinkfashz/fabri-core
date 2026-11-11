@@ -250,14 +250,17 @@ CREATE TABLE IF NOT EXISTS core_usuarios (
   creado          TIMESTAMPTZ NOT NULL DEFAULT now(),
   ultimo_login    TIMESTAMPTZ,
   intentos        INTEGER NOT NULL DEFAULT 0,
-  bloqueado_hasta TIMESTAMPTZ
+  bloqueado_hasta TIMESTAMPTZ,
+  terminos_version TEXT NOT NULL DEFAULT '',  -- versión aceptada ('' = ninguna)
+  terminos_ts     TIMESTAMPTZ                 -- fecha de aceptación
 );
 
 CREATE TABLE IF NOT EXISTS core_sesiones (
   id          BIGSERIAL PRIMARY KEY,
   usuario_id  BIGINT NOT NULL REFERENCES core_usuarios(id) ON DELETE CASCADE,
   token_hash  TEXT UNIQUE NOT NULL,       -- SHA-256; el token en claro NO se guarda
-  dispositivo TEXT NOT NULL DEFAULT '',
+  dispositivo TEXT NOT NULL DEFAULT '',   -- etiqueta legible (user agent acotado)
+  dispositivo_hash TEXT NOT NULL DEFAULT '', -- sha256(dispositivo|usuario|token_hash)
   creado      TIMESTAMPTZ NOT NULL DEFAULT now(),
   expira      TIMESTAMPTZ NOT NULL,
   revocada    BOOLEAN NOT NULL DEFAULT false
@@ -265,15 +268,19 @@ CREATE TABLE IF NOT EXISTS core_sesiones (
 ```
 
 Se crean con `POST {"accion":"asegurar"}` (público: sólo DDL con columnas fijas).
+`asegurar` también migra bases viejas con `ADD COLUMN IF NOT EXISTS` y **revoca
+una vez** las sesiones heredadas (sin `dispositivo_hash`): esas personas deben
+volver a entrar.
 
 ### Acciones
 
 | Acción | Cuerpo | Devuelve |
 |---|---|---|
-| `asegurar` | `{}` | Crea las dos tablas y sus índices |
-| `registrar` | `{ email, nombre?, pass, codigo?, dispositivo? }` | `usuario`, `token`, `expira` |
-| `entrar` | `{ email, pass, dispositivo? }` | `usuario`, `token`, `expira` |
-| `sesion` | Bearer del usuario | `usuario`, `expira` |
+| `asegurar` | `{}` | Crea las dos tablas, migra columnas y sus índices |
+| `registrar` | `{ email, nombre?, pass, codigo?, dispositivo?, acepta_terminos }` | `usuario` (con `terminos`), `token`, `expira` |
+| `entrar` | `{ email, pass, dispositivo? }` | `usuario` (con `terminos`), `token`, `expira` |
+| `sesion` | Bearer del usuario + `{ dispositivo }` | `usuario`, `expira` |
+| `aceptar_terminos` | Bearer + `{ dispositivo }` | `usuario` con la versión vigente |
 | `salir` | Bearer del usuario | Revoca esa sesión |
 | `usuarios` | Bearer **admin** | Lista sin hashes |
 | `borrar` | `{ email, pass }` | Borra la propia cuenta y sus sesiones |
@@ -411,7 +418,10 @@ Filtros útiles: `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `like`, `ilike`, `in`,
 | Nombres de columna fijos en el servidor | El cliente no elige qué se escribe |
 | Valores siempre parametrizados (`$1…$15`) | Sin concatenación de SQL |
 | Contraseñas de la app | PBKDF2 120k con sal única; la base nunca ve la contraseña |
-| Tokens de sesión | Sólo su SHA-256 en `core_sesiones`; vencen a los 30 días |
+| Tokens de sesión | Único por login; sólo su SHA-256 en `core_sesiones`; vencen a los 30 días |
+| Sesión ↔ dispositivo | `dispositivo_hash = sha256(dispositivo\|usuario\|token_hash)`, comparado en tiempo constante; un token copiado a otro equipo da `401 DISPOSITIVO` |
+| Tope de sesiones | 12 activas por cuenta; las más viejas se revocan |
+| Términos | El alta exige aceptación; se guarda versión + fecha en `core_usuarios` |
 | `GET ?diag=1` no devuelve filas ni entorno | Diagnóstico público sin fuga |
 
 El token viaja en el `Authorization` de cada request. Usá HTTPS (Vercel e

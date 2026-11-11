@@ -10,15 +10,24 @@
 //   · Contraseñas: PBKDF2-HMAC-SHA256, 120.000 iteraciones, sal única por
 //     cuenta. La misma receta que usa el navegador (`core-sec.js`), así el
 //     espejo local y la nube no divergen.
-//   · Sesiones: token de 256 bits; en la base queda SOLO su SHA-256. Si
-//     alguien lee la tabla, no puede reusar los tokens.
+//   · Sesiones: token de 256 bits ÚNICO por login; en la base queda SOLO su
+//     SHA-256 y una HUELLA que lo entrelaza con el usuario y con el
+//     dispositivo (`sha256(dispositivo | usuario_id | token_hash)`). Si
+//     alguien lee la tabla, no puede reusar los tokens ni moverlos a otro
+//     equipo: la huella se recalcula en cada validación y se compara en tiempo
+//     constante. Tope de 12 sesiones activas por cuenta (las más viejas se
+//     revocan solas).
+//   · Términos: la cuenta sólo nace si se aceptan (`acepta_terminos`). Se
+//     guarda la versión y la fecha; si la versión cambia, la app pide aceptar
+//     de nuevo sin dejar a nadie afuera.
 //   · Fuerza bruta: 8 intentos fallidos bloquean la cuenta 10 minutos. El
 //     contador vive en la fila (`intentos`, `bloqueado_hasta`), así sobrevive
 //     a los reinicios de la función serverless.
 //   · Enumeración: un correo inexistente y una contraseña mala devuelven el
 //     MISMO código (`CREDENCIALES`) y tardan lo mismo (se hashea igual).
-//   · El rol `owner` es la primera cuenta creada en la base. No es un permiso
-//     de datos: el inventario y el mercado siguen con `local_id` + `clave`.
+//   · El rol `owner` es la primera cuenta creada en la base o el correo de
+//     CORE_ROOT_EMAIL. No es un permiso de datos: cada tienda se autoriza por
+//     `dueno_id`.
 // ---------------------------------------------------------------------------
 
 'use strict';
@@ -36,6 +45,11 @@ const DIAS_SESION = 30;
 const MAX_INTENTOS = 8;
 const BLOQUEO_MIN = 10;
 const MAX_CUENTAS = 200;
+const MAX_SESIONES = 12;
+
+// Versión vigente de los términos. Se guarda junto a la fecha de aceptación.
+// Al cambiarla, la app pide aceptar de nuevo (sin bloquear la entrada).
+const TERMINOS_VERSION = '2026-11-11';
 
 const MAX_EMAIL = 160;
 const MAX_NOMBRE = 80;
@@ -106,6 +120,47 @@ function dispositivo(v) {
   return String(v ?? '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, MAX_DISPOSITIVO) || 'navegador';
 }
 
+/** Etiqueta legible del equipo (para la lista de sesiones), sin datos raros. */
+function etiquetaDispositivo(v, porDefecto) {
+  const s = String(v ?? '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, MAX_DISPOSITIVO);
+  return s || porDefecto;
+}
+
+/** ¿El cliente declaró aceptar los términos? Acepta true/1/'si'/'true'/'on'. */
+function aceptaTerminos(v) {
+  if (v === true || v === 1) return true;
+  const s = String(v ?? '').trim().toLowerCase();
+  return s === '1' || s === 'true' || s === 'si' || s === 'sí' || s === 'on' || s === 'acepto';
+}
+
+/**
+ * Huella que ata una sesión a su usuario y a su dispositivo.
+ *
+ *   sha256( dispositivo | usuario_id | token_hash )
+ *
+ * No se guarda nunca el token en claro; con el hash del token y la etiqueta
+ * del dispositivo no alcanza para reconstruirla sin el token original (que
+ * sólo tiene el cliente). Si alguien copia el token a otro equipo, el
+ * dispositivo declarado cambia y la huella deja de coincidir.
+ */
+function huellaDispositivo(disp, usuarioId, tokenHash) {
+  return sha256hex(dispositivo(disp) + '|' + String(usuarioId) + '|' + String(tokenHash));
+}
+
+/** Usuario público: sin hash, sin sal, con el estado real de los términos. */
+function publico(u) {
+  const aceptada = String(u.terminos_version || '');
+  return {
+    id: String(u.id), email: u.email, nombre: u.nombre, rol: u.rol,
+    terminos: {
+      version: TERMINOS_VERSION,
+      aceptada: aceptada || null,
+      vigente: aceptada === TERMINOS_VERSION,
+      ts: Number(u.terminos_ts) || null,
+    },
+  };
+}
+
 /* ── servicio ───────────────────────────────────────────────────────────── */
 
 /**
@@ -116,11 +171,14 @@ function dispositivo(v) {
  *   contarUsuarios() -> number
  *   buscarPorEmail(email) -> fila | null
  *       fila: { id, email, nombre, rol, pass_hash, pass_salt, iter,
- *               intentos, bloqueado_hasta (ms|null), ultimo_login (ms|null) }
+ *               intentos, bloqueado_hasta (ms|null), ultimo_login (ms|null),
+ *               terminos_version (texto), terminos_ts (ms|null) }
  *   crearUsuario({ email, nombre, pass_hash, pass_salt, iter, rol }) -> { id, email, nombre, rol }
  *   guardarIntento(id, { intentos, bloqueado_hasta, ultimo_login })
- *   crearSesion({ usuario_id, token_hash, dispositivo, expira_ms })
- *   sesionPorHash(token_hash) -> { id, email, nombre, rol, expira_ms, revocada } | null
+ *   guardarTerminos(id, version, ts_ms)
+ *   crearSesion({ usuario_id, token_hash, dispositivo, dispositivo_hash, expira_ms })
+ *   sesionPorHash(token_hash) -> { id, email, nombre, rol, expira_ms, revocada, dispositivo_hash } | null
+ *   limitarSesiones(usuario_id, max)   (revoca las más viejas; opcional)
  *   revocarSesion(token_hash)
  *   listarUsuarios() -> filas sin hash
  *   borrarUsuario(id)
@@ -139,16 +197,55 @@ function crearServicio(repo, opciones = {}) {
 
   const mal = (status, codigo, error) => ({ status, body: { ok: false, codigo, error } });
 
-  async function sesionNueva(usuario, disp) {
+  /**
+   * Sesión nueva: token de 256 bits ÚNICO, guardado sólo como hash + huella
+   * del dispositivo. Después de crearla se aplica el tope de sesiones activas.
+   */
+  async function sesionNueva(usuario, disp, etiqueta) {
+    const d = dispositivo(disp);
     const token = nuevoToken();
+    const tokenHash = sha256hex(token);
     const expira = ahora() + DIAS_SESION * 24 * 3600 * 1000;
     await repo.crearSesion({
       usuario_id: usuario.id,
-      token_hash: sha256hex(token),
-      dispositivo: disp,
+      token_hash: tokenHash,
+      // En la tabla va la etiqueta legible; la huella usa el ID crudo.
+      dispositivo: etiquetaDispositivo(etiqueta, d),
+      dispositivo_hash: huellaDispositivo(d, usuario.id, tokenHash),
       expira_ms: expira,
     });
+    if (typeof repo.limitarSesiones === 'function') {
+      try { await repo.limitarSesiones(usuario.id, MAX_SESIONES); } catch (_) { /* no crítico */ }
+    }
     return { token, expira };
+  }
+
+  /** Guarda la aceptación de términos; nunca tumba el registro si falla. */
+  async function marcarTerminos(usuario) {
+    const ts = ahora();
+    usuario.terminos_version = TERMINOS_VERSION;
+    usuario.terminos_ts = ts;
+    if (typeof repo.guardarTerminos === 'function') {
+      await repo.guardarTerminos(usuario.id, TERMINOS_VERSION, ts);
+    }
+  }
+
+  /**
+   * Comprueba token + vencimiento + huella del dispositivo. Devuelve la
+   * respuesta de error (o null si la sesión sirve). La comparación de la
+   * huella es de tiempo constante.
+   */
+  function revisarSesion(s, tokenHash, cuerpo) {
+    if (!s || s.revocada) return mal(401, 'SESION', 'La sesión no existe o fue cerrada');
+    if ((Number(s.expira_ms) || 0) <= ahora()) return mal(401, 'SESION', 'La sesión venció: vuelve a entrar');
+    const huella = huellaDispositivo(dispositivo(cuerpo.dispositivo), s.id, tokenHash);
+    // Una sesión heredada (sin huella) no puede validarse: se revoca arriba,
+    // en la migración, y acá se rechaza por las dudas.
+    if (!s.dispositivo_hash || !iguales(huella, s.dispositivo_hash)) {
+      return mal(401, 'DISPOSITIVO',
+        'Esta sesión está atada a otro dispositivo: vuelve a entrar desde este');
+    }
+    return null;
   }
 
   return {
@@ -157,6 +254,11 @@ function crearServicio(repo, opciones = {}) {
       if (!email) return mal(400, 'CORREO', 'El correo no parece válido');
       const falla = validarPass(cuerpo.pass);
       if (falla) return mal(400, 'CLAVE_CORTA', falla);
+      // Sin aceptación explícita no hay cuenta: el alta es el punto donde
+      // nace la obligación y donde se guarda versión + fecha.
+      if (!aceptaTerminos(cuerpo.acepta_terminos)) {
+        return mal(400, 'TERMINOS', 'Para crear la cuenta tienes que aceptar los términos y condiciones');
+      }
       if (invitar && String(cuerpo.codigo ?? '').trim() !== invitar) {
         return mal(403, 'INVITACION', 'Este servidor pide un código de invitación para crear cuentas');
       }
@@ -189,12 +291,13 @@ function crearServicio(repo, opciones = {}) {
         }
         throw e;
       }
-      const s = await sesionNueva(usuario, dispositivo(cuerpo.dispositivo));
+      const s = await sesionNueva(usuario, cuerpo.dispositivo, cuerpo.dispositivo_etiqueta);
+      await marcarTerminos(usuario);
       return {
         status: 201,
         body: {
           ok: true, accion: 'registrar', nube: 'insforge',
-          usuario: { id: String(usuario.id), email: usuario.email, nombre: usuario.nombre, rol: usuario.rol },
+          usuario: publico(usuario),
           token: s.token, expira: s.expira,
         },
       };
@@ -243,12 +346,12 @@ function crearServicio(repo, opciones = {}) {
         if (typeof repo.guardarRol === 'function') await repo.guardarRol(u.id, 'owner');
         u.rol = rol;
       }
-      const s = await sesionNueva(u, dispositivo(cuerpo.dispositivo));
+      const s = await sesionNueva(u, cuerpo.dispositivo, cuerpo.dispositivo_etiqueta);
       return {
         status: 200,
         body: {
           ok: true, accion: 'entrar', nube: 'insforge',
-          usuario: { id: String(u.id), email: u.email, nombre: u.nombre, rol },
+          usuario: publico(u),
           token: s.token, expira: s.expira,
         },
       };
@@ -257,9 +360,10 @@ function crearServicio(repo, opciones = {}) {
     async sesion(cuerpo = {}, token = '') {
       const t = String(token || cuerpo.token || '').trim();
       if (!t) return mal(401, 'SESION', 'Falta el token de sesión');
-      const s = await repo.sesionPorHash(sha256hex(t));
-      if (!s || s.revocada) return mal(401, 'SESION', 'La sesión no existe o fue cerrada');
-      if ((Number(s.expira_ms) || 0) <= ahora()) return mal(401, 'SESION', 'La sesión venció: vuelve a entrar');
+      const hash = sha256hex(t);
+      const s = await repo.sesionPorHash(hash);
+      const falla = revisarSesion(s, hash, cuerpo);
+      if (falla) return falla;
       let rol = s.rol;
       if (rootEmail && s.email === rootEmail && rol !== 'owner') {
         rol = 'owner';
@@ -269,8 +373,33 @@ function crearServicio(repo, opciones = {}) {
         status: 200,
         body: {
           ok: true, accion: 'sesion', nube: 'insforge',
-          usuario: { id: String(s.id), email: s.email, nombre: s.nombre, rol },
+          usuario: publico({ ...s, rol }),
           expira: Number(s.expira_ms),
+        },
+      };
+    },
+
+    /**
+     * Acepta los términos desde una sesión ya abierta. Se usa cuando la
+     * versión cambió: no bloquea la entrada, pero queda registrada.
+     */
+    async aceptarTerminos(cuerpo = {}, token = '') {
+      const t = String(token || cuerpo.token || '').trim();
+      if (!t) return mal(401, 'SESION', 'Falta el token de sesión');
+      if (cuerpo.acepta_terminos === false) {
+        return mal(400, 'TERMINOS', 'Tienes que aceptar los términos y condiciones');
+      }
+      const hash = sha256hex(t);
+      const s = await repo.sesionPorHash(hash);
+      const falla = revisarSesion(s, hash, cuerpo);
+      if (falla) return falla;
+      const ts = ahora();
+      if (typeof repo.guardarTerminos === 'function') await repo.guardarTerminos(s.id, TERMINOS_VERSION, ts);
+      return {
+        status: 200,
+        body: {
+          ok: true, accion: 'aceptar_terminos', nube: 'insforge',
+          usuario: publico({ ...s, terminos_version: TERMINOS_VERSION, terminos_ts: ts }),
         },
       };
     },
@@ -305,8 +434,10 @@ function crearServicio(repo, opciones = {}) {
 }
 
 module.exports = {
-  ITER, DIAS_SESION, MAX_INTENTOS, BLOQUEO_MIN, MAX_CUENTAS,
+  ITER, DIAS_SESION, MAX_INTENTOS, BLOQUEO_MIN, MAX_CUENTAS, MAX_SESIONES,
+  TERMINOS_VERSION,
   normalizarEmail, validarPass, normalizarNombre,
   sha256hex, nuevoToken, nuevoSalt, hashPass, iguales, gastarTiempo,
+  dispositivo, aceptaTerminos, huellaDispositivo, publico,
   crearServicio,
 };

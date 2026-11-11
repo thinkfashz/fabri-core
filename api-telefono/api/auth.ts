@@ -9,9 +9,10 @@
 //   GET  /api/auth                        → estado del puente (público)
 //   GET  /api/auth?diag=1                 → además dice si las tablas existen
 //   POST { accion: "asegurar" }           → crea tablas e índices (público)
-//   POST { accion: "registrar", email, nombre, pass, codigo?, dispositivo? }
+//   POST { accion: "registrar", email, nombre, pass, codigo?, dispositivo?, acepta_terminos }
 //   POST { accion: "entrar",    email, pass, dispositivo? }
 //   POST { accion: "sesion" }             → valida `Authorization: Bearer <token>`
+//   POST { accion: "aceptar_terminos" }   → acepta la versión vigente (Bearer)
 //   POST { accion: "salir" }              → revoca el token del Bearer
 //   POST { accion: "usuarios" }           → lista (sólo ADMIN)
 //   POST { accion: "borrar", email, pass } → borra la propia cuenta
@@ -34,7 +35,7 @@
 
 import type { IncomingMessage, ServerResponse } from 'http';
 // @ts-ignore: `_auth.js` es JavaScript puro, sin declaraciones de tipos.
-import { crearServicio, MAX_CUENTAS } from './_auth.js';
+import { crearServicio, MAX_CUENTAS, TERMINOS_VERSION } from './_auth.js';
 
 export const config = { api: { bodyParser: false } };
 
@@ -137,7 +138,9 @@ async function asegurar(pool: any) {
       creado          TIMESTAMPTZ NOT NULL DEFAULT now(),
       ultimo_login    TIMESTAMPTZ,
       intentos        INTEGER NOT NULL DEFAULT 0,
-      bloqueado_hasta TIMESTAMPTZ
+      bloqueado_hasta TIMESTAMPTZ,
+      terminos_version TEXT NOT NULL DEFAULT '',
+      terminos_ts     TIMESTAMPTZ
     )`);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS ${T_SESIONES} (
@@ -145,10 +148,20 @@ async function asegurar(pool: any) {
       usuario_id  BIGINT NOT NULL REFERENCES ${T_USUARIOS}(id) ON DELETE CASCADE,
       token_hash  TEXT UNIQUE NOT NULL,
       dispositivo TEXT NOT NULL DEFAULT '',
+      dispositivo_hash TEXT NOT NULL DEFAULT '',
       creado      TIMESTAMPTZ NOT NULL DEFAULT now(),
       expira      TIMESTAMPTZ NOT NULL,
       revocada    BOOLEAN NOT NULL DEFAULT false
     )`);
+  // Migración para bases que ya existían (instalación anterior a los términos
+  // y a la huella del dispositivo). ADD COLUMN IF NOT EXISTS es idempotente.
+  await pool.query(`ALTER TABLE ${T_USUARIOS} ADD COLUMN IF NOT EXISTS terminos_version TEXT NOT NULL DEFAULT ''`);
+  await pool.query(`ALTER TABLE ${T_USUARIOS} ADD COLUMN IF NOT EXISTS terminos_ts TIMESTAMPTZ`);
+  await pool.query(`ALTER TABLE ${T_SESIONES} ADD COLUMN IF NOT EXISTS dispositivo_hash TEXT NOT NULL DEFAULT ''`);
+  // Las sesiones heredadas no tienen huella y no se pueden atar a un equipo:
+  // se revocan una vez. Quien las tuviera vuelve a entrar (30 días de sesión
+  // no justifican dejar un token sin atar).
+  await pool.query(`UPDATE ${T_SESIONES} SET revocada = true WHERE dispositivo_hash = '' AND revocada = false`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_core_sesiones_usuario ON ${T_SESIONES} (usuario_id)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_core_sesiones_expira ON ${T_SESIONES} (expira)`);
   // Limpieza barata: las sesiones vencidas hace más de una semana no sirven
@@ -181,7 +194,9 @@ function crearRepo(pool: any) {
         `SELECT id, email, nombre, rol, pass_hash, pass_salt, iter,
                 intentos,
                 (EXTRACT(EPOCH FROM bloqueado_hasta) * 1000)::bigint AS bloqueado_hasta,
-                (EXTRACT(EPOCH FROM ultimo_login) * 1000)::bigint AS ultimo_login
+                (EXTRACT(EPOCH FROM ultimo_login) * 1000)::bigint AS ultimo_login,
+                terminos_version,
+                (EXTRACT(EPOCH FROM terminos_ts) * 1000)::bigint AS terminos_ts
            FROM ${T_USUARIOS} WHERE email = $1 LIMIT 1`, [email]);
       const f = r.rows[0];
       if (!f) return null;
@@ -191,6 +206,8 @@ function crearRepo(pool: any) {
         intentos: Number(f.intentos) || 0,
         bloqueado_hasta: ms(f.bloqueado_hasta),
         ultimo_login: ms(f.ultimo_login),
+        terminos_version: f.terminos_version || '',
+        terminos_ts: ms(f.terminos_ts),
       };
     },
 
@@ -198,9 +215,19 @@ function crearRepo(pool: any) {
       const r = await pool.query(
         `INSERT INTO ${T_USUARIOS} (email, nombre, pass_hash, pass_salt, iter, rol)
          VALUES ($1,$2,$3,$4,$5,$6)
-         RETURNING id, email, nombre, rol`,
+         RETURNING id, email, nombre, rol, terminos_version,
+                   (EXTRACT(EPOCH FROM terminos_ts) * 1000)::bigint AS terminos_ts`,
         [u.email, u.nombre, u.pass_hash, u.pass_salt, u.iter, u.rol]);
-      return r.rows[0];
+      const f = r.rows[0];
+      return { ...f, terminos_ts: ms(f.terminos_ts) };
+    },
+
+    async guardarTerminos(id: unknown, version: string, tsMs: number) {
+      await pool.query(
+        `UPDATE ${T_USUARIOS}
+            SET terminos_version = $2, terminos_ts = to_timestamp($3::bigint / 1000.0)
+          WHERE id = $1`,
+        [id, version, tsMs]);
     },
 
     async guardarIntento(id: unknown, c: any) {
@@ -221,16 +248,29 @@ function crearRepo(pool: any) {
 
     async crearSesion(s: any) {
       await pool.query(
-        `INSERT INTO ${T_SESIONES} (usuario_id, token_hash, dispositivo, expira)
-         VALUES ($1,$2,$3, to_timestamp($4::bigint / 1000.0))`,
-        [s.usuario_id, s.token_hash, s.dispositivo, s.expira_ms]);
+        `INSERT INTO ${T_SESIONES} (usuario_id, token_hash, dispositivo, dispositivo_hash, expira)
+         VALUES ($1,$2,$3,$4, to_timestamp($5::bigint / 1000.0))`,
+        [s.usuario_id, s.token_hash, s.dispositivo, s.dispositivo_hash || '', s.expira_ms]);
+    },
+
+    /** Tope de sesiones activas: revoca las más viejas y deja las `max` nuevas. */
+    async limitarSesiones(usuarioId: unknown, max: number) {
+      await pool.query(
+        `UPDATE ${T_SESIONES} SET revocada = true
+          WHERE usuario_id = $1 AND revocada = false AND expira > now()
+            AND id NOT IN (
+              SELECT id FROM ${T_SESIONES}
+               WHERE usuario_id = $1 AND revocada = false AND expira > now()
+               ORDER BY creado DESC, id DESC
+               LIMIT $2)`,
+        [usuarioId, Math.max(1, Number(max) || 12)]);
     },
 
     async sesionPorHash(hash: string) {
       const r = await pool.query(
         `SELECT u.id, u.email, u.nombre, u.rol,
                 (EXTRACT(EPOCH FROM s.expira) * 1000)::bigint AS expira_ms,
-                s.revocada
+                s.revocada, s.dispositivo_hash
            FROM ${T_SESIONES} s
            JOIN ${T_USUARIOS} u ON u.id = s.usuario_id
           WHERE s.token_hash = $1 LIMIT 1`, [hash]);
@@ -240,6 +280,7 @@ function crearRepo(pool: any) {
         id: f.id, email: f.email, nombre: f.nombre, rol: f.rol,
         expira_ms: Number(f.expira_ms) || 0,
         revocada: Boolean(f.revocada),
+        dispositivo_hash: f.dispositivo_hash || '',
       };
     },
 
@@ -249,13 +290,16 @@ function crearRepo(pool: any) {
 
     async listarUsuarios() {
       const r = await pool.query(
-        `SELECT id, email, nombre, rol,
+        `SELECT id, email, nombre, rol, terminos_version,
                 (EXTRACT(EPOCH FROM creado) * 1000)::bigint AS creado,
-                (EXTRACT(EPOCH FROM ultimo_login) * 1000)::bigint AS ultimo_login
+                (EXTRACT(EPOCH FROM ultimo_login) * 1000)::bigint AS ultimo_login,
+                (EXTRACT(EPOCH FROM terminos_ts) * 1000)::bigint AS terminos_ts
            FROM ${T_USUARIOS} ORDER BY id ASC LIMIT 500`);
       return r.rows.map((f: any) => ({
         id: String(f.id), email: f.email, nombre: f.nombre, rol: f.rol,
         creado: ms(f.creado), ultimo_login: ms(f.ultimo_login),
+        terminos_version: f.terminos_version || '',
+        terminos_ts: ms(f.terminos_ts),
       }));
     },
 
@@ -311,9 +355,10 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       invitacion: Boolean(String(process.env.CORE_INVITE || '').trim()),
       max_cuentas: Number(process.env.CORE_MAX_CUENTAS) > 0 ? Number(process.env.CORE_MAX_CUENTAS) : MAX_CUENTAS,
       root_configurado: Boolean(String(process.env.CORE_ROOT_EMAIL || '').trim()),
+      terminos_version: TERMINOS_VERSION,
       tablas,
       base_detalle: detalle,
-      acciones: ['asegurar', 'registrar', 'entrar', 'sesion', 'salir', 'usuarios', 'borrar'],
+      acciones: ['asegurar', 'registrar', 'entrar', 'sesion', 'salir', 'aceptar_terminos', 'usuarios', 'borrar'],
     });
   }
 
@@ -372,13 +417,14 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       case 'registrar': salida = await servicio.registrar(cuerpo); break;
       case 'entrar': salida = await servicio.entrar(cuerpo); break;
       case 'sesion': salida = await servicio.sesion(cuerpo, token); break;
+      case 'aceptar_terminos': salida = await servicio.aceptarTerminos(cuerpo, token); break;
       case 'salir': salida = await servicio.salir(cuerpo, token); break;
       case 'usuarios': salida = await servicio.usuarios(esAdmin(req)); break;
       case 'borrar': salida = await servicio.borrar(cuerpo); break;
       default:
         return json(res, {
           ok: false, error: 'acción desconocida', codigo: 'ACCION',
-          acciones: ['asegurar', 'registrar', 'entrar', 'sesion', 'salir', 'usuarios', 'borrar'],
+          acciones: ['asegurar', 'registrar', 'entrar', 'sesion', 'salir', 'aceptar_terminos', 'usuarios', 'borrar'],
         }, 400);
     }
     return json(res, salida.body, salida.status);

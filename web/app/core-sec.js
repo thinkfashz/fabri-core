@@ -26,6 +26,11 @@
   const nube = () => window.CoreNube || null;
   const nubeActiva = () => Boolean(nube() && nube().activa());
   const navegador = () => String((typeof navigator !== 'undefined' && navigator.userAgent) || 'navegador').slice(0, 120);
+  /** ID del dispositivo: la nube lo entrelaza con el token de sesión. */
+  const disp = () => {
+    const n = nube();
+    return n && typeof n.dispositivo === 'function' ? n.dispositivo() : navegador();
+  };
 
   async function pbkdf2(pass, salt, iter) {
     const k = await crypto.subtle.importKey('raw', enc.encode(pass), 'PBKDF2', false, ['deriveBits']);
@@ -156,11 +161,16 @@
       const o = opts || {};
       if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new Error('El correo no parece válido');
       if (pass.length < 8) throw new Error('La contraseña necesita al menos 8 caracteres');
+      // Aceptar los términos es condición para crear la cuenta, en la nube y
+      // en el espejo local. La UI manda el checkbox; sin él no se sigue.
+      if (o.aceptaTerminos !== true) throw new Error('Tienes que aceptar los términos y condiciones');
       const e = email.trim().toLowerCase();
       const n = nube();
       if (n && !o.soloLocal) {
         const r = await n.api('registrar', {
-          email: e, nombre: name || '', pass, dispositivo: navegador(),
+          email: e, nombre: name || '', pass,
+          dispositivo: disp(), dispositivo_etiqueta: navegador(),
+          acepta_terminos: true,
         });
         if (r.ok) {
           n.guardar(r);
@@ -170,7 +180,7 @@
         }
         // Rechazos de regla: no se reintenta en local (sería una cuenta
         // distinta con el mismo correo y confundiría al usuario).
-        if (['YA_EXISTE', 'CORREO', 'CLAVE_CORTA', 'INVITACION', 'TOPE', 'BLOQUEADO'].indexOf(r.codigo) >= 0)
+        if (['YA_EXISTE', 'CORREO', 'CLAVE_CORTA', 'INVITACION', 'TOPE', 'BLOQUEADO', 'TERMINOS'].indexOf(r.codigo) >= 0)
           throw new Error(r.error || 'La nube rechazó el registro');
         // SIN_RED / SIN_BASE / ERROR_BASE → se sigue en local.
       }
@@ -196,7 +206,9 @@
       }
       const n = nube();
       if (n) {
-        const r = await n.api('entrar', { email: e, pass, dispositivo: navegador() });
+        const r = await n.api('entrar', {
+          email: e, pass, dispositivo: disp(), dispositivo_etiqueta: navegador(),
+        });
         if (r.ok) {
           n.guardar(r);
           return this._espejo(e, (r.usuario && r.usuario.nombre) || (u && u.name), pass,
@@ -219,9 +231,29 @@
         email: d && d.usuario ? d.usuario.email : '',
         nombre: d && d.usuario ? d.usuario.nombre : '',
         rol: d && d.usuario ? d.usuario.rol : '',
+        terminos: d && d.usuario && d.usuario.terminos ? d.usuario.terminos : null,
         vence: d ? Number(d.exp) || 0 : 0,
         estado: n && n.estado ? n.estado() : null,
       };
+    },
+
+    /** Estado de los términos según la última respuesta de la nube. */
+    terminos() {
+      const info = this.nubeInfo();
+      return info.activa ? info.terminos : null;
+    },
+
+    /** Acepta la versión vigente de los términos con la sesión ya abierta. */
+    async aceptarTerminos() {
+      const n = nube();
+      if (!n) return { ok: false, codigo: 'SIN_NUBE', error: 'esta versión no trae el módulo de nube' };
+      const d = n.leer();
+      if (!d || !d.token) return { ok: false, codigo: 'SIN_SESION', error: 'no hay sesión de nube guardada' };
+      const r = await n.api('aceptar_terminos',
+        { dispositivo: disp(), acepta_terminos: true }, { token: d.token });
+      if (r.ok) n.guardar({ token: d.token, expira: d.exp, usuario: r.usuario });
+      else if (r.codigo === 'SESION' || r.codigo === 'DISPOSITIVO') n.limpiar();
+      return r;
     },
 
     /** Comprueba el token contra InsForge. Devuelve `{ ok }` sin lanzar. */
@@ -230,10 +262,12 @@
       if (!n) return { ok: false, codigo: 'SIN_NUBE', error: 'esta versión no trae el módulo de nube' };
       const d = n.leer();
       if (!d || !d.token) return { ok: false, codigo: 'SIN_SESION', error: 'no hay sesión de nube guardada' };
-      const r = await n.api('sesion', {}, { token: d.token });
+      const r = await n.api('sesion', { dispositivo: disp() }, { token: d.token });
       if (r.ok) {
         n.guardar({ token: d.token, expira: r.expira, usuario: r.usuario });
-      } else if (r.codigo === 'SESION') {
+      } else if (r.codigo === 'SESION' || r.codigo === 'DISPOSITIVO') {
+        // Token revocado, vencido o usado desde otro equipo: se borra para
+        // que la app deje de mandarlo. El espejo local sigue funcionando.
         n.limpiar();
       }
       return r;

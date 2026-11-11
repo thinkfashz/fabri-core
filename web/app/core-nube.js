@@ -9,6 +9,9 @@
  *     no puede tumbar la app por un timeout.
  *   · El token de sesión se guarda en `localStorage` bajo `fcore.nube`. En la
  *     base de InsForge sólo queda su SHA-256.
+ *   · El ID del dispositivo (`fcore.dispositivo`) es aleatorio y se crea una
+ *     vez por navegador. Viaja con cada login y la nube lo entrelaza con el
+ *     token: una sesión copiada a otro equipo deja de valer.
  *   · Si la nube no responde, `estado().ultimo` lo dice con honestidad
  *     (`sin-red`, `sin-base`, `error`) para que la puerta de acceso no finja
  *     que la cuenta quedó en la nube cuando en realidad quedó en el equipo.
@@ -18,6 +21,7 @@
 
   const API = 'https://fabri-api.vercel.app/api/auth';
   const KEY = 'fcore.nube';
+  const DISP = 'fcore.dispositivo';
   const ESPERA_MS = 9000;
 
   // Último resultado de red. La UI lo lee para mostrar el estado real.
@@ -45,6 +49,25 @@
 
   function limpiar() {
     try { localStorage.removeItem(KEY); } catch (_) {}
+  }
+
+  /**
+   * ID aleatorio del dispositivo. Se genera una vez y sobrevive a las
+   * recargas; es lo que ata el token a ESTE navegador. Límite honesto: si el
+   * usuario borra los datos del sitio, el ID se pierde y deberá entrar de
+   * nuevo (la sesión vieja deja de valer para él, que es lo correcto).
+   */
+  function dispositivo() {
+    try {
+      const previo = localStorage.getItem(DISP);
+      if (previo && /^[A-Za-z0-9_-]{16,64}$/.test(previo)) return previo;
+      const b = new Uint8Array(16);
+      if (typeof crypto !== 'undefined' && crypto.getRandomValues) crypto.getRandomValues(b);
+      else for (let i = 0; i < b.length; i++) b[i] = Math.floor(Math.random() * 256);
+      const id = Array.prototype.map.call(b, (x) => ('0' + x.toString(16)).slice(-2)).join('');
+      localStorage.setItem(DISP, id);
+      return id;
+    } catch (_) { return 'navegador'; }
   }
 
   /** ¿Hay token guardado y no vencido? (No comprueba contra el servidor.) */
@@ -116,8 +139,8 @@
   }
 
   window.CoreNube = {
-    API, KEY,
-    api, leer, guardar, limpiar, activa, vence, estado,
+    API, KEY, DISP,
+    api, leer, guardar, limpiar, activa, vence, estado, dispositivo,
     /** Marca el estado desde fuera (por ejemplo, tras un error local). */
     marcar(ultimo, detalle) { EST.ultimo = ultimo || 'sin-comprobar'; EST.detalle = detalle || ''; },
   };

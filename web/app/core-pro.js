@@ -316,8 +316,13 @@
         <div class="hint" id="cuNubeEstado">${nube.activa
           ? 'nube: InsForge · ' + esc(nube.email) + (nube.vence ? ' · vence ' + new Date(nube.vence).toLocaleDateString('es-CL') : '')
           : 'nube: sin sesión guardada (la cuenta vive sólo en este dispositivo)'}</div>
+        ${nube.activa ? `<div class="hint" id="cuTerminos">términos: ${nube.terminos && nube.terminos.vigente
+          ? 'aceptados · versión ' + esc(nube.terminos.version)
+          : 'pendientes de aceptar'}</div>` : ''}
         <div class="row" style="display:flex;gap:7px;margin-top:10px;flex-wrap:wrap">
           <button class="btn ghost" id="cuNube">Verificar en la nube</button>
+          ${nube.activa && nube.terminos && !nube.terminos.vigente
+            ? '<button class="btn ghost" id="cuTerminosBtn">Aceptar términos</button>' : ''}
           <button class="btn ghost" id="cuLogout">Cerrar sesión</button>
         </div>
       </div>
@@ -394,6 +399,14 @@
         f.toast(r.error || 'La nube no confirmó la sesión');
       }
     };
+    const cuTerm = $('#cuTerminosBtn');
+    if (cuTerm) cuTerm.onclick = async () => {
+      cuTerm.disabled = true;
+      const r = await window.CoreAuth.aceptarTerminos();
+      cuTerm.disabled = false;
+      if (r && r.ok) { f.toast('Términos aceptados'); renderCuenta(); }
+      else f.toast((r && r.error) || 'No pude guardar la aceptación');
+    };
     $('#cuPersist').onclick = async () => {
       try {
         const ok = await navigator.storage.persist();
@@ -450,14 +463,63 @@
    * `sessionStorage` y se olvida al cerrar la pestaña.
    */
   async function gate() {
-    const u = await window.CoreAuth.current();
-    if (u) { document.getElementById('login').classList.remove('on'); return u; }
     const host = document.getElementById('login');
+    const u = await window.CoreAuth.current();
+    if (u) {
+      host.classList.remove('on');
+      // Si la nube avisó que cambió la versión de los términos, se pide una
+      // vez. No bloquea la entrada: "Ahora no" deja seguir igual.
+      if (window.CoreNube && window.CoreNube.activa() && window.CoreAuth.terminos) {
+        const t = window.CoreAuth.terminos();
+        if (t && t.vigente === false) await pedirTerminos();
+      }
+      return u;
+    }
     host.classList.add('on');
     const clavePrevia = sessionStorage.getItem('fabri.invKey') || '';
     let modo = window.CoreAuth.count() === 0 ? 'crear' : 'entrar';
     let emailPrev = '';
     let nombrePrev = '';
+
+    /**
+     * Paso de aceptación cuando cambió la versión de los términos. Se muestra
+     * una vez, con la opción de seguir sin aceptar (no bloquea la entrada).
+     */
+    function pedirTerminos() {
+      return new Promise((listo) => {
+        const t = window.CoreAuth.terminos() || {};
+        host.classList.add('on');
+        host.innerHTML = `
+        <div class="login-box">
+          <div class="login-head">
+            <div class="mark" aria-hidden="true"><img src="./icons/logo-f.svg" alt=""></div>
+            <b>FORGE CORE STOCK</b>
+          </div>
+          <h2>Términos actualizados</h2>
+          <p class="hint">Cambió la versión de los términos (${esc(t.version || '')}). Acéptalos
+            para que tu cuenta quede al día; puedes seguir usando la app igual.</p>
+          <div id="lgTErr" class="hint" style="color:var(--err);margin:0 0 8px;text-align:left"></div>
+          <button class="btn primary" id="lgTAcepto" type="button">Acepto y continúo</button>
+          <button class="btn ghost block" id="lgTSigo" type="button" style="margin-top:8px">Ahora no</button>
+          <p class="hint" style="margin-top:10px">
+            <a href="./terminos.html" target="_blank" rel="noopener" style="color:var(--accent)">Leer los términos completos</a>
+          </p>
+        </div>`;
+        const aceptar = async () => {
+          const b = document.getElementById('lgTAcepto');
+          const e = document.getElementById('lgTErr');
+          b.disabled = true;
+          b.textContent = 'Guardando…';
+          const r = await window.CoreAuth.aceptarTerminos();
+          if (r && r.ok) { host.classList.remove('on'); listo(true); return; }
+          e.textContent = (r && r.error) || 'No pude guardar la aceptación: revisa la conexión.';
+          b.disabled = false;
+          b.textContent = 'Acepto y continúo';
+        };
+        document.getElementById('lgTAcepto').onclick = aceptar;
+        document.getElementById('lgTSigo').onclick = () => { host.classList.remove('on'); listo(false); };
+      });
+    }
 
     /** Estado real de la nube, sin adornos. */
     const estadoNube = () => {
@@ -489,6 +551,10 @@
         ${crear ? '<input id="lgPass2" class="field" type="password" placeholder="repite la contraseña" autocomplete="new-password">' : ''}
         <input id="lgKey" class="field" type="password" placeholder="clave del inventario (opcional)"
           autocomplete="off" value="${esc(clavePrevia)}">
+        ${crear ? `<label class="hint" style="display:flex;gap:8px;align-items:flex-start;margin:0 0 8px;text-align:left">
+          <input type="checkbox" id="lgTerm" style="width:auto;margin:4px 0 0">
+          <span>Acepto los <a href="./terminos.html" target="_blank" rel="noopener" style="color:var(--accent)">términos y condiciones</a>
+          y el tratamiento de mis datos para crear la cuenta.</span></label>` : ''}
         ${crear ? `<label class="hint" style="display:flex;gap:8px;align-items:center;margin:0 0 8px;text-align:left">
           <input type="checkbox" id="lgLocal" style="width:auto;margin:0">
           Crear sólo en este dispositivo (sin nube)</label>` : ''}
@@ -548,6 +614,9 @@
       const go = async () => {
         const email = $('#lgEmail').value.trim();
         const pass = $('#lgPass').value;
+        // La clave se lee ANTES del paso de términos: ese paso reemplaza el
+        // formulario y el campo ya no existiría después.
+        const claveVal = (($('#lgKey') || {}).value || '').trim();
         const err = $('#lgErr');
         const btn = $('#lgGo');
         err.textContent = '';
@@ -559,13 +628,21 @@
           let mensaje = '';
           if (crear) {
             if (pass !== $('#lgPass2').value) throw new Error('Las contraseñas no coinciden');
+            if (!($('#lgTerm') && $('#lgTerm').checked))
+              throw new Error('Tienes que aceptar los términos y condiciones para crear la cuenta');
             const soloLocal = Boolean($('#lgLocal') && $('#lgLocal').checked);
-            user = await window.CoreAuth.register(email, $('#lgName').value, pass, { soloLocal });
+            user = await window.CoreAuth.register(email, $('#lgName').value, pass,
+              { soloLocal, aceptaTerminos: true });
             mensaje = aviso(user, soloLocal);
           } else {
             user = await window.CoreAuth.login(email, pass);
+            // Cuenta vieja: si la nube dice que cambió la versión, se pide
+            // aceptar (con opción de seguir sin aceptar).
+            const t = window.CoreAuth.terminos();
+            if (t && t.vigente === false) await pedirTerminos();
           }
-          guardarClave();
+          if (claveVal) sessionStorage.setItem('fabri.invKey', claveVal);
+          else sessionStorage.removeItem('fabri.invKey');
           host.classList.remove('on');
           if (mensaje) {
             try { if (window.Fabri && window.Fabri.toast) window.Fabri.toast(mensaje); } catch (_) {}

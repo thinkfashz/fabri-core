@@ -107,6 +107,12 @@ window.Negocio = (function () {
   async function api(cuerpo) {
     const cabeceras = { "Content-Type": "application/json" };
     if (EST.token) cabeceras.Authorization = "Bearer " + EST.token;
+    // La sesión está atada a este dispositivo: sin esta cabecera la nube no
+    // puede recalcular la huella y responde DISPOSITIVO.
+    try {
+      cabeceras["X-Dispositivo"] = (window.CoreNube && window.CoreNube.dispositivo)
+        ? window.CoreNube.dispositivo() : "navegador";
+    } catch (e) { cabeceras["X-Dispositivo"] = "navegador"; }
     try {
       const r = await fetch(API, {
         method: "POST",
@@ -114,7 +120,18 @@ window.Negocio = (function () {
         body: JSON.stringify(cuerpo)
       });
       const d = await r.json().catch(() => ({}));
-      return d && typeof d === "object" ? d : { ok: false, error: "respuesta inválida" };
+      const res = d && typeof d === "object" ? d : { ok: false, error: "respuesta inválida" };
+      if (res && res.codigo === "DISPOSITIVO") {
+        // El token guardado no pertenece a este equipo: se borra para no
+        // reintentar en bucle. El espejo local y la clave siguen sirviendo.
+        try { if (window.CoreNube) window.CoreNube.limpiar(); } catch (e) {}
+        EST.token = "";
+        EST.cuenta = null;
+        EST.tiendas = [];
+        EST.sel = null;
+        EST.aviso = "La sesión se abrió en otro dispositivo: vuelve a entrar desde este.";
+      }
+      return res;
     } catch (e) {
       return { ok: false, error: "Sin conexión con la nube.", codigo: "SIN_RED" };
     }

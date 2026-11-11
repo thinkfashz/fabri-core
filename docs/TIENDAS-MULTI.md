@@ -42,7 +42,7 @@ sirve para `usuarios` y `resumen`. No se escribe en la web ni se comparte.
 | `FABRI_API_TOKEN` | recomendada | admin Bearer para listar cuentas y ver el resumen |
 | `CORE_INVITE` | opcional | si existe, el registro exige ese código |
 | `CORE_MAX_CUENTAS` | opcional | tope de cuentas (200 por defecto) |
-| `CORE_ROOT_EMAIL` | opcional | correo que siempre tiene rol `owner` |
+| `CORE_ROOT_EMAIL` | opcional | correo que siempre tiene rol `owner` (en producción: `F.eduardomicolta@gmail.com`) |
 | `VISITAS_SAL` | opcional | sal del contador de visitas |
 
 ### `forge-core-stock` (web)
@@ -50,12 +50,43 @@ sirve para `usuarios` y `resumen`. No se escribe en la web ni se comparte.
 No necesita secretos para este flujo. La web llama a la API pública; el token
 de sesión vive en `localStorage` (`fcore.nube`) y viaja como `Bearer`.
 
+## Sesión atada al dispositivo
+
+Cada login emite un **token único de 256 bits**. En la base queda:
+
+| Columna | Contenido |
+|---|---|
+| `token_hash` | `SHA-256` del token (nunca el token en claro) |
+| `dispositivo` | etiqueta legible (user agent acotado) |
+| `dispositivo_hash` | `sha256(dispositivo \| usuario_id \| token_hash)` |
+
+La huella se **recalcula en cada validación** y se compara en tiempo constante
+(`timingSafeEqual`). El ID del dispositivo es aleatorio (`fcore.dispositivo` en
+`localStorage`) y viaja en el cuerpo del login y en la cabecera
+`X-Dispositivo` de `/api/mercado`. Un token copiado a otro equipo responde
+`401 DISPOSITIVO` y la app borra el token de nube (el espejo local sigue).
+
+Otros topes: **12 sesiones activas** por cuenta (las más viejas se revocan),
+30 días de vigencia y revocación real al cerrar sesión. Las sesiones anteriores
+a esta versión (sin huella) se revocan una vez en la migración: hay que volver
+a entrar.
+
+## Términos y condiciones
+
+`TERMINOS_VERSION = '2026-11-11'`. El alta exige `acepta_terminos: true`; se
+guarda la versión y la fecha (`core_usuarios.terminos_version`, `terminos_ts`).
+La respuesta de `registrar`/`entrar`/`sesion` trae
+`usuario.terminos: { version, aceptada, vigente, ts }`. Si la versión cambia,
+la app pide aceptar con la acción `aceptar_terminos` **sin bloquear la
+entrada**. La página es `web/app/terminos.html` (en el precache del SW).
+
 ## Contrato de la API (`/api/mercado`)
 
 Autorización, en este orden:
 
 1. **Admin**: `Authorization: Bearer $FABRI_API_TOKEN`.
-2. **Cuenta dueña**: `Authorization: Bearer <token de /api/auth>` y
+2. **Cuenta dueña**: `Authorization: Bearer <token de /api/auth>` **con la
+   cabecera `X-Dispositivo` del mismo equipo que abrió la sesión**, y
    `mercado_locales.dueno_id = core_usuarios.id`.
 3. **Clave del local**: `clave` de 8 caracteres (SHA-256 en la base), respaldo.
 
