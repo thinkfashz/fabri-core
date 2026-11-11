@@ -18,13 +18,14 @@ Pedido: «seguimiento de pedido por código» como Fase 3 del plan global.
 | Página de seguimiento | `web/seguir.html`, `web/tienda-seguir.js`, `.sg-*` en `web/tienda.css` |
 | Enlace «Seguir mi pedido» en la pantalla de pago | `web/app/placer.js`, `web/app/placer.css` |
 | Botón «Enlace» en la pestaña Pedidos del dueño | `web/app/negocio.js`, `web/app/styles.css` |
-| Pruebas (69 + 3 en negocio) | `tests/web/seguimiento.js`, `tests/web/negocio.js` |
+| Pruebas (70 + 3 en negocio) | `tests/web/seguimiento.js`, `tests/web/negocio.js` |
 | Documentación | `docs/TIENDAS-MULTI.md` |
 
 - **Dos caminos al mismo pedido**: el enlace con `token` (20 hex que devuelve
   `pedido_crear`) y, si se perdió, el código `MP-XXXXX` + los últimos 4 dígitos
   del teléfono. Sin token, el código corto no alcanza; hay tope de 30 intentos
-  por IP cada 10 minutos.
+  **fallidos** por IP cada 10 minutos (los aciertos no gastan cupo: un comprador
+  puede mirar su pedido las veces que quiera).
 - **Historial real de estados** en `mercado_pedido_eventos`: se anota al crear y
   en cada cambio; repetir el mismo estado no duplica el evento. Los pedidos
   anteriores (sin historial) se dibujan con la fecha de creación en el primer

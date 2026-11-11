@@ -164,7 +164,11 @@ ok('pedido_crear devuelve el token de seguimiento', /const seguimiento = randomB
 ok('guarda el historial al crear', /INSERT INTO \$\{T_EVENTOS\} \(pedido_id, estado\) VALUES \(\$1, 'nuevo'\)/.test(api));
 ok('guarda el historial al cambiar de estado', /INSERT INTO \$\{T_EVENTOS\} \(pedido_id, estado\) VALUES \(\$1, \$2\)/.test(api));
 ok('sólo anota cambios reales', /estado <> \$1/.test(api));
-ok('el seguimiento se limita por IP', /permitirSeguir\(ipDe\(req\)\)/.test(api) && /429/.test(api));
+ok('el seguimiento se limita por IP', /seguirBloqueado\(ip\)/.test(api) && /429/.test(api));
+/* Los aciertos no gastan el límite: si no, un comprador que mira su pedido 30
+   veces en 10 minutos queda bloqueado. */
+ok('sólo los fallos gastan el límite', /function anotarFallo/.test(api) &&
+  /if \(!fila\) \{\s*anotarFallo\(ip\);/.test(api));
 ok('abre por token largo', /p\.seguimiento = \$1/.test(api));
 ok('abre por código + últimos 4', /right\(regexp_replace\(p\.telefono, '\[\^0-9\]', '', 'g'\), 4\) = \$2/.test(api));
 ok('el código se compara con o sin prefijo MP', /s\.startsWith\('MP'\)/.test(api) && /'MP' \+ s\.slice\(0, 5\)/.test(api));

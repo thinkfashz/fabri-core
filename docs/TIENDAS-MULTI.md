@@ -193,9 +193,10 @@ sesión. Se resuelve con **dos caminos** hacia el mismo dato:
 | **Código + teléfono** | `MP-XXXXX` y los últimos 4 dígitos del teléfono del pedido | si se perdió el enlace |
 
 - `pedido_seguir` es **público**, pero el código corto solo no basta: sin token
-  exige el teléfono, y hay un tope de **30 intentos por IP cada 10 minutos**
-  (`permitirSeguir`). El token no se puede adivinar (no se deriva del id ni del
-  código).
+  exige el teléfono, y hay un tope de **30 intentos fallidos por IP cada 10
+  minutos** (`seguirBloqueado` / `anotarFallo`: los aciertos no gastan cupo, así
+  que un comprador puede mirar su pedido las veces que quiera). El token no se
+  puede adivinar: no se deriva del id ni del código.
 - La respuesta **nunca** trae el teléfono completo, el token ni el id interno.
   Sí trae los productos, los totales, la entrega, el local (nombre, dirección,
   horario, abierto) y el historial.
@@ -290,7 +291,7 @@ Detalles que importan:
 ```sh
 node tests/web/negocio.js     # 88 comprobaciones: parsers, filtros, CSV, gráfico, enlace de seguimiento, contrato HTML/API/mapa
 node tests/web/plataforma.js  # 57 comprobaciones: puras, ids, seguridad del token, endpoints, precache
-node tests/web/seguimiento.js # 69 comprobaciones: código, teléfono, estados, línea de tiempo, contrato API/HTML
+node tests/web/seguimiento.js # 70 comprobaciones: código, teléfono, estados, línea de tiempo, contrato API/HTML
 node tests/web/auth-nube.js   # incluye CORE_ROOT_EMAIL y promoción a owner
 node tests/web/diseno.js      # shell, sistema visual y offline
 node tests/web/trafico.js     # capa de tráfico del mapa

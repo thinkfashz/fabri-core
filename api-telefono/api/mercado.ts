@@ -214,22 +214,32 @@ function ipDe(req: IncomingMessage): string {
 /**
  * El seguimiento es público y acepta un código corto + 4 dígitos, así que hay
  * que frenar la fuerza bruta. En serverless es "best effort" (cada instancia
- * tiene su mapa), pero corta el script tonto: 30 intentos por IP cada 10 min.
+ * tiene su mapa), pero corta el script tonto: 30 intentos FALLIDOS por IP cada
+ * 10 min. Los aciertos no cuentan: un comprador puede mirar su pedido las veces
+ * que quiera.
  */
 const intentosSeguir = new Map<string, { n: number; desde: number }>();
 const INTENTOS_SEGUIR = 30;
 const VENTANA_SEGUIR_MS = 10 * 60 * 1000;
 
-function permitirSeguir(ip: string): boolean {
+/** La ventana del IP, reiniciándola si ya expiró. */
+function ventanaDe(ip: string): { n: number; desde: number } {
   const ahora = Date.now();
   const previo = intentosSeguir.get(ip);
-  if (!previo || ahora - previo.desde > VENTANA_SEGUIR_MS) {
-    intentosSeguir.set(ip, { n: 1, desde: ahora });
-    return true;
-  }
-  if (previo.n >= INTENTOS_SEGUIR) return false;
-  previo.n += 1;
-  return true;
+  if (previo && ahora - previo.desde <= VENTANA_SEGUIR_MS) return previo;
+  const nueva = { n: 0, desde: ahora };
+  intentosSeguir.set(ip, nueva);
+  return nueva;
+}
+
+/** ¿Ya gastó sus intentos fallidos? Se consulta antes de buscar. */
+function seguirBloqueado(ip: string): boolean {
+  return ventanaDe(ip).n >= INTENTOS_SEGUIR;
+}
+
+/** Se anota sólo cuando la búsqueda no encontró el pedido. */
+function anotarFallo(ip: string): void {
+  ventanaDe(ip).n += 1;
 }
 
 /** Código de pedido comparable: mayúsculas, sin guiones, siempre con `MP`. */
@@ -940,7 +950,8 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
            del teléfono con que se hizo el pedido.
        Nunca devuelve el teléfono completo, el token ni el id interno. */
     if (accion === 'pedido_seguir') {
-      if (!permitirSeguir(ipDe(req))) {
+      const ip = ipDe(req);
+      if (seguirBloqueado(ip)) {
         return json(res, {
           ok: false, codigo: 'BLOQUEADO',
           error: 'demasiados intentos desde esta conexión: espera unos minutos',
@@ -988,6 +999,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       }
 
       if (!fila) {
+        anotarFallo(ip);
         return json(res, {
           ok: false, codigo: 'NO_ENCONTRADO',
           error: 'no encontramos ese pedido: revisa el código y el teléfono',
