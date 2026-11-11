@@ -1192,7 +1192,7 @@ window.Placer = (function () {
     if (!ESTADO.traficoOn || ESTADO.traficoAvisado) return;
     if (estado === "sin-red") {
       ESTADO.traficoAvisado = true;
-      avisar("Sin conexión para el tráfico. El mapa sigue funcionando.");
+      avisar("El tráfico no respondió. El mapa sigue funcionando.");
     } else if (estado === "sin-calles") {
       ESTADO.traficoAvisado = true;
       avisar("Esta zona no tiene calles mapeadas: no hay autos que mostrar.");

@@ -55,8 +55,8 @@ Pruebas ejecutadas: `tests/web/trafico.js` (69), `auth-nube`, `boleta`,
 `diseno`, `escaneo`, `arranque`, `inventario` y `seguridad` (23/23), todo en
 verde.
 
-Service worker **v66**. Deploy `vercel --prod` → `dpl_7Upzo1kL2NCKJL15hEJmp9S9JFoq`
-(los anteriores: `dpl_3dbwLA8…` v65, `dpl_2G4btte…` v64). Las dos URLs
+Service worker **v67**. Deploy `vercel --prod` → `dpl_3F5Nx1djKNd7PG5Y7ET6bXNJi94m`
+(los anteriores: `dpl_7Upzo1…` v66, `dpl_3dbwLA8…` v65, `dpl_2G4btte…` v64). Las dos URLs
 (`forge-core-stock.vercel.app`, `fabri-core-web.vercel.app`) y
 `/app/mapa-trafico.js` responden 200.
 
