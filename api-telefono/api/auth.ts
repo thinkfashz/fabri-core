@@ -26,6 +26,7 @@
 //   FABRI_API_TOKEN         token de administración (opcional para `usuarios`)
 //   CORE_INVITE             si está, el registro exige ese código
 //   CORE_MAX_CUENTAS        tope de cuentas (200 por defecto)
+//   CORE_ROOT_EMAIL         correo que siempre entra como `owner` (root)
 //
 // Las reglas (hash, bloqueo, tokens) viven en `_auth.js`, que no toca SQL ni
 // HTTP. Este archivo sólo pone el transporte y el repositorio de Postgres.
@@ -214,6 +215,10 @@ function crearRepo(pool: any) {
         [id, c.intentos, c.bloqueado_hasta ?? null, c.ultimo_login ?? null]);
     },
 
+    async guardarRol(id: unknown, rol: string) {
+      await pool.query(`UPDATE ${T_USUARIOS} SET rol = $1 WHERE id = $2`, [rol, id]);
+    },
+
     async crearSesion(s: any) {
       await pool.query(
         `INSERT INTO ${T_SESIONES} (usuario_id, token_hash, dispositivo, expira)
@@ -305,6 +310,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       admin_configurado: Boolean(process.env.FABRI_API_TOKEN),
       invitacion: Boolean(String(process.env.CORE_INVITE || '').trim()),
       max_cuentas: Number(process.env.CORE_MAX_CUENTAS) > 0 ? Number(process.env.CORE_MAX_CUENTAS) : MAX_CUENTAS,
+      root_configurado: Boolean(String(process.env.CORE_ROOT_EMAIL || '').trim()),
       tablas,
       base_detalle: detalle,
       acciones: ['asegurar', 'registrar', 'entrar', 'sesion', 'salir', 'usuarios', 'borrar'],
@@ -357,6 +363,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     const servicio = crearServicio(crearRepo(pool), {
       invitar: String(process.env.CORE_INVITE || '').trim(),
       maxCuentas: Number(process.env.CORE_MAX_CUENTAS) || MAX_CUENTAS,
+      rootEmail: String(process.env.CORE_ROOT_EMAIL || '').trim(),
     });
 
     const token = bearer(req);

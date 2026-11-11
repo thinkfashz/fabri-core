@@ -1084,48 +1084,164 @@
         <div class="screen-head">
           <p class="eyebrow">Negocio · panel</p>
           <h1>Tu local, <em>en números</em></h1>
-          <p class="sub">Pedidos que llegan desde MercadoPlacer, ventas del día, ticket promedio
-            y tu catálogo real. Conéctate con el ID de tu local y su clave para verlos
-            desde cualquier teléfono.</p>
+          <p class="sub">Tu cuenta crea la tienda y la publica en el mapa con nombre, marca,
+            logo y catálogo por categorías. Los pedidos llegan desde MercadoPlacer y se
+            administran acá, desde cualquier teléfono.</p>
         </div>
 
-        <div class="neg-nube" id="negNube">
+        <div class="neg-nube" id="negCuenta">
           <div class="neg-nube-cab">
-            <div class="eyebrow">Nube del local</div>
-            <span class="neg-chip pend" id="negNubeChip">sin conectar</span>
+            <div class="eyebrow">Cuenta de la nube</div>
+            <span class="neg-chip pend" id="negCuentaChip">sin sesión</span>
           </div>
+          <div class="neg-nube-fila neg-cuenta-fila">
+            <span class="neg-cuenta-mail" id="negCuentaMail">Sin cuenta en la nube</span>
+            <button class="btn sm ghost" type="button" id="negCuentaIr">Ir a mi cuenta</button>
+          </div>
+          <div class="neg-nube-pie">
+            <small id="negCuentaEstado">Entra a tu cuenta para crear tu tienda.</small>
+          </div>
+        </div>
+
+        <div class="neg-mis" id="negTiendas"></div>
+
+        <form class="neg-nube neg-crear" id="negFormTienda" hidden>
+          <div class="neg-nube-cab">
+            <div class="eyebrow">Nueva tienda</div>
+            <span class="neg-chip pend" id="negCrearChip">borrador</span>
+          </div>
+          <div class="neg-campo-fila">
+            <label class="neg-campo"><span>Nombre del local</span>
+              <input id="ntNombre" class="field" placeholder="Almacén Doña Rosa" autocomplete="off" required></label>
+            <label class="neg-campo"><span>Marca visible</span>
+              <input id="ntMarca" class="field" placeholder="Doña Rosa" autocomplete="off"></label>
+          </div>
+          <div class="neg-campo-fila">
+            <label class="neg-campo"><span>Rubro</span>
+              <input id="ntRubro" class="field" placeholder="Almacén" autocomplete="off" list="ntRubros"></label>
+            <label class="neg-campo"><span>Teléfono</span>
+              <input id="ntTel" class="field" placeholder="+569..." inputmode="tel" autocomplete="off"></label>
+          </div>
+          <datalist id="ntRubros">
+            <option value="Almacén"></option><option value="Supermercado"></option>
+            <option value="Verdulería"></option><option value="Carnicería"></option>
+            <option value="Panadería"></option><option value="Botillería"></option>
+            <option value="Farmacia"></option><option value="Ferretería"></option>
+            <option value="Tienda"></option>
+          </datalist>
+          <div class="neg-campo-fila">
+            <label class="neg-campo"><span>Dirección</span>
+              <input id="ntDireccion" class="field" placeholder="Av. Siempre Viva 742" autocomplete="off"></label>
+            <label class="neg-campo"><span>Comuna</span>
+              <input id="ntComuna" class="field" placeholder="Santiago" autocomplete="off"></label>
+          </div>
+          <div class="neg-campo-fila neg-campo-gps">
+            <label class="neg-campo"><span>Latitud</span>
+              <input id="ntLat" class="field" placeholder="-33.45" inputmode="decimal" autocomplete="off" required></label>
+            <label class="neg-campo"><span>Longitud</span>
+              <input id="ntLon" class="field" placeholder="-70.66" inputmode="decimal" autocomplete="off" required></label>
+            <button type="button" class="btn sm ghost" id="ntGps">Usar mi ubicación</button>
+          </div>
+          <div class="neg-campo-fila">
+            <label class="neg-campo"><span>Logo (se achica a 192 px)</span>
+              <input type="file" id="ntLogoFile" accept="image/*"></label>
+            <span class="neg-logo-prev" id="ntLogoPrev"></span>
+          </div>
+          <label class="neg-campo"><span>Descripción corta</span>
+            <input id="ntDesc" class="field" maxlength="160" placeholder="Almacén de barrio, abierto todos los días" autocomplete="off"></label>
+          <div class="neg-form-fila">
+            <button class="btn primary" type="submit">Publicar mi tienda</button>
+            <button class="btn ghost" type="button" id="ntCancelar">Cancelar</button>
+          </div>
+          <small class="neg-aviso" id="ntAviso"></small>
+        </form>
+
+        <div id="negPanel" hidden>
+          <div class="neg-bar" id="negTiendaCab"></div>
+          <div class="neg-kpis" id="negKpis"></div>
+
+          <div class="neg-grid">
+            <div class="card">
+              <div class="neg-cab"><div class="eyebrow">Pedidos</div><span class="badge acc" id="negPedCount">—</span></div>
+              <div class="neg-nube-pie">
+                <button id="negAbiertoBtn" class="btn sm" type="button" hidden></button>
+                <small id="negNubeEstado">Conectado a tu tienda.</small>
+              </div>
+              <div id="negPedidos"></div>
+            </div>
+
+            <div class="card">
+              <div class="neg-cab"><div class="eyebrow">Catálogo y stock</div><span class="badge" id="negProdCount">—</span></div>
+              <div id="negProductos"></div>
+              <form id="negFormProd" class="neg-form">
+                <input id="negProdNombre" class="field" placeholder="Nombre del producto" autocomplete="off" required>
+                <div class="neg-form-fila">
+                  <input id="negProdPrecio" class="field" placeholder="Precio CLP" inputmode="numeric" autocomplete="off" required>
+                  <input id="negProdStock" class="field" placeholder="Stock" inputmode="numeric" autocomplete="off">
+                </div>
+                <div class="neg-form-fila">
+                  <input id="negProdSku" class="field" placeholder="SKU (opcional)" autocomplete="off">
+                  <input id="negProdCategoria" class="field" placeholder="Categoría" autocomplete="off" list="negCategorias">
+                </div>
+                <datalist id="negCategorias"></datalist>
+                <button class="btn primary block sm" type="submit">Agregar al catálogo</button>
+              </form>
+              <div class="neg-import">
+                <label class="neg-campo"><span>Importar CSV o JSON</span>
+                  <input type="file" id="negImportFile" accept=".csv,.json,text/csv,application/json"></label>
+                <button class="btn ghost block sm" type="button" id="negImportStock">Traer de mi Stock</button>
+                <small class="neg-aviso" id="negImportAviso">Columnas: nombre, precio, sku, stock, categoria.</small>
+              </div>
+            </div>
+          </div>
+
+          <div class="card neg-ajustes">
+            <div class="neg-cab"><div class="eyebrow">Ficha de la tienda</div><span class="badge" id="negAjustesChip">editable</span></div>
+            <div class="neg-campo-fila">
+              <label class="neg-campo"><span>Nombre</span><input id="neNombre" class="field" autocomplete="off"></label>
+              <label class="neg-campo"><span>Marca</span><input id="neMarca" class="field" autocomplete="off"></label>
+            </div>
+            <div class="neg-campo-fila">
+              <label class="neg-campo"><span>Rubro</span><input id="neRubro" class="field" autocomplete="off" list="ntRubros"></label>
+              <label class="neg-campo"><span>Teléfono</span><input id="neTelefono" class="field" inputmode="tel" autocomplete="off"></label>
+            </div>
+            <div class="neg-campo-fila">
+              <label class="neg-campo"><span>Dirección</span><input id="neDireccion" class="field" autocomplete="off"></label>
+              <label class="neg-campo"><span>Comuna</span><input id="neComuna" class="field" autocomplete="off"></label>
+            </div>
+            <div class="neg-campo-fila">
+              <label class="neg-campo"><span>Horario</span><input id="neHorario" class="field" placeholder="Lun a sáb · 9 a 21 h" autocomplete="off"></label>
+              <label class="neg-campo"><span>Pedido mínimo (CLP)</span><input id="neMinimo" class="field" inputmode="numeric" autocomplete="off"></label>
+              <label class="neg-campo"><span>Envío (CLP)</span><input id="neEnvio" class="field" inputmode="numeric" autocomplete="off"></label>
+            </div>
+            <div class="neg-campo-fila">
+              <label class="neg-campo"><span>Logo (192 px)</span><input type="file" id="neLogoFile" accept="image/*"></label>
+              <span class="neg-logo-prev" id="neLogoPrev"></span>
+            </div>
+            <label class="neg-campo"><span>Descripción</span><input id="neDesc" class="field" maxlength="160" autocomplete="off"></label>
+            <div class="neg-campo-fila neg-entrega">
+              <label><input type="checkbox" id="neRetiro" checked> Retiro</label>
+              <label><input type="checkbox" id="neDelivery"> Delivery</label>
+            </div>
+            <div class="neg-form-fila">
+              <button class="btn primary" type="button" id="neGuardar">Guardar cambios</button>
+              <button class="btn ghost" type="button" id="neBorrar">Borrar tienda</button>
+            </div>
+            <small class="neg-aviso" id="neAviso"></small>
+          </div>
+        </div>
+
+        <details class="neg-nube" id="negClaveBox">
+          <summary>Conectar con ID y clave (respaldo para la APK)</summary>
           <div class="neg-nube-fila">
-            <input id="negNubeLocal" class="field" placeholder="ID del local (ej: t-ree-01)" autocomplete="off" spellcheck="false">
+            <input id="negNubeLocal" class="field" placeholder="ID del local (ej: almacen-dona-rosa)" autocomplete="off" spellcheck="false">
             <input id="negNubeClave" class="field" type="password" placeholder="Clave del local (8 caracteres)" autocomplete="off">
             <button id="negNubeBtn" class="btn sm" type="button">Conectar</button>
           </div>
           <div class="neg-nube-pie">
-            <button id="negAbiertoBtn" class="btn sm" type="button" hidden></button>
-            <small id="negNubeEstado">Mostrando solo este dispositivo.</small>
+            <small id="negNubeClaveEstado">La clave sirve si abres el panel sin cuenta.</small>
           </div>
-        </div>
-
-        <div class="neg-kpis" id="negKpis"></div>
-
-        <div class="neg-grid">
-          <div class="card">
-            <div class="neg-cab"><div class="eyebrow">Pedidos</div><span class="badge acc" id="negPedCount">—</span></div>
-            <div id="negPedidos"></div>
-          </div>
-
-          <div class="card">
-            <div class="neg-cab"><div class="eyebrow">Productos</div><span class="badge" id="negProdCount">—</span></div>
-            <div id="negProductos"></div>
-            <form id="negFormProd" class="neg-form">
-              <input id="negProdNombre" class="field" placeholder="Nombre del producto" autocomplete="off">
-              <div class="neg-form-fila">
-                <input id="negProdPrecio" class="field" placeholder="Precio CLP" inputmode="numeric" autocomplete="off">
-                <input id="negProdSku" class="field" placeholder="SKU (opcional)" autocomplete="off">
-              </div>
-              <button class="btn primary block sm" type="submit">Agregar producto</button>
-            </form>
-          </div>
-        </div>
+        </details>
       </section>
 
       <section class="screen" id="s-cuenta">

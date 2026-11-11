@@ -148,8 +148,20 @@ window.Placer = (function () {
     [/shell/i, "shell.cl"]
   ];
 
+  /** Icono del local: si tiene logo propio, manda el logo; si no, el rubro.
+   *  Van uno u otro, nunca los dos: antes el logo caía debajo del icono. */
+  function iconoDe(m, tam) {
+    const logo = logoDe(m);
+    return logo || icono(m.ico, tam);
+  }
+
   function logoDe(m) {
     if (!m || m.muestra) return "";
+    // Logo propio de la tienda (data URI redimensionado en el panel o URL https).
+    if (m.logo && /^(data:image\/|https:\/\/)/i.test(String(m.logo))) {
+      return '<img class="mp-logo mp-logo-propio" alt="" loading="lazy" referrerpolicy="no-referrer" ' +
+        'src="' + esc(m.logo) + '" onerror="this.remove()">';
+    }
     for (let i = 0; i < MARCAS.length; i++) {
       if (MARCAS[i][0].test(m.nombre)) {
         return '<img class="mp-logo" alt="" loading="lazy" referrerpolicy="no-referrer" ' +
@@ -688,6 +700,9 @@ window.Placer = (function () {
         nombre: t.nombre || "Local",
         tipo: t.ico || "tienda",
         rubro: t.rubro || "Local",
+        marca: t.marca || "",
+        logo: t.logo || "",
+        descripcion: t.descripcion || "",
         ico: t.ico || "tienda",
         lat: la, lon: lo,
         dist: Math.round(metrosc(lat, lon, la, lo)),
@@ -1137,7 +1152,11 @@ window.Placer = (function () {
     if (z >= 18) return lista.map((m) => ({ items: [m], lat: m.lat, lon: m.lon }));
     const celda = z >= 17 ? 0.0007 : z >= 16 ? 0.0014 : 0.0028;
     const grupos = new Map();
+    const sueltos = [];
     lista.forEach((m) => {
+      // Las tiendas registradas (forge) NUNCA se agrupan: el dueño tiene que
+      // ver su local con su logo, no un globo con un número.
+      if (m.forge) { sueltos.push({ items: [m], lat: m.lat, lon: m.lon }); return; }
       const k = Math.round(m.lat / celda) + "," + Math.round(m.lon / celda);
       if (!grupos.has(k)) grupos.set(k, { items: [], lat: 0, lon: 0 });
       const g = grupos.get(k);
@@ -1145,7 +1164,7 @@ window.Placer = (function () {
     });
     return [...grupos.values()].map((g) => ({
       items: g.items, lat: g.lat / g.items.length, lon: g.lon / g.items.length
-    }));
+    })).concat(sueltos);
   }
 
   function montarCanvas() {
@@ -1279,9 +1298,13 @@ window.Placer = (function () {
       }
       const m = g.items[0];
       const cerrado = m.forge && m.abierto === false;
+      const conLogo = m.forge && m.logo && /^(data:image\/|https:\/\/)/i.test(String(m.logo));
+      const cuerpo = conLogo
+        ? '<span class="mp-pin-cuerpo mp-pin-logo"><img src="' + esc(m.logo) + '" alt=""></span>'
+        : '<span class="mp-pin-cuerpo">' + icono(m.ico, 16) + "</span>";
       const ico = L.divIcon({
         className: "mp-pin" + (m.forge ? " forge" : "") + (cerrado ? " cerrado" : ""),
-        html: '<span class="mp-pin-cuerpo">' + icono(m.ico, 16) + "</span>" +
+        html: cuerpo +
           '<span class="mp-pin-pata"></span>' +
           '<b class="mp-pin-dist">' + (cerrado ? "cerrado" : distancia(m.dist)) + "</b>",
         iconSize: [30, 40], iconAnchor: [15, 36]
@@ -1370,6 +1393,7 @@ window.Placer = (function () {
 
   function descripcionDe(m) {
     if (m.muestra) return "Local de referencia (sin conexión)";
+    if (m.descripcion) return m.descripcion;
     return DESCRIPCION[m.ico] || "Local de barrio";
   }
   function categoriasDe(m) {
@@ -1405,10 +1429,10 @@ window.Placer = (function () {
       if (m.forge && m.minimo) tags.push('<em class="mp-tag mín">mín ' + clp(m.minimo) + "</em>");
       if (m.horario) tags.push('<em class="mp-tag">' + esc(acortar(m.horario, 26)) + "</em>");
       if (n) tags.push('<em class="mp-tag carrito">' + n + " en el pedido</em>");
-      const linea = [m.rubro, m.direccion || m.comuna].filter(Boolean).join(" · ");
+      const linea = [m.marca, m.rubro, m.direccion || m.comuna].filter(Boolean).join(" · ");
       return '<button type="button" class="mp-item' + (m.forge ? " forge" : "") +
           (m.forge && m.abierto === false ? " cerrado" : "") + '" data-id="' + esc(m.id) + '">' +
-        '<span class="mp-item-ico">' + icono(m.ico, 20) + logoDe(m) + "</span>" +
+        '<span class="mp-item-ico">' + iconoDe(m, 20) + "</span>" +
         '<span class="mp-item-txt"><b>' + esc(m.nombre) + "</b>" +
         "<small>" + esc(linea) + "</small>" +
         '<em class="mp-item-desc">' + esc(descripcionDe(m)) + "</em>" +
@@ -1507,10 +1531,10 @@ window.Placer = (function () {
     const carrito = ESTADO.carrito[m.id] || { items: {} };
     const todos = productos(m);
 
-    $("mpHojaIco").innerHTML = icono(m.ico, 22) + logoDe(m);
+    $("mpHojaIco").innerHTML = iconoDe(m, 22);
     $("mpHojaNombre").textContent = m.nombre;
     const estadoTxt = m.forge ? (m.abierto === false ? "Cerrado" : "Abierto") : "";
-    $("mpHojaSub").textContent = [m.rubro, distancia(m.dist) + " de ti", estadoTxt].filter(Boolean).join(" · ");
+    $("mpHojaSub").textContent = [m.marca, m.rubro, distancia(m.dist) + " de ti", estadoTxt].filter(Boolean).join(" · ");
 
     const acciones = [];
     acciones.push(accion("ruta", "Ruta",
@@ -2484,6 +2508,25 @@ window.Placer = (function () {
     });
   }
 
+  /** Abre el mapa en una tienda concreta (lo usa el panel del negocio).
+   *  Reintenta porque al cambiar de pantalla el mapa todavía está cargando. */
+  function irATienda(id) {
+    if (!id) return;
+    let intentos = 0;
+    const buscar = () => (ESTADO.mercados || []).find((x) => x.id === id);
+    const probar = () => {
+      const m = buscar();
+      if (m) {
+        if (ESTADO.mapa) ESTADO.mapa.setView([m.lat, m.lon], 17, { animate: true });
+        abrirHoja(m);
+        if (ESTADO.mapa) setTimeout(() => ESTADO.mapa.invalidateSize(), 140);
+        return;
+      }
+      if (intentos++ < 16) setTimeout(probar, 500);
+    };
+    probar();
+  }
+
   function render() {
     montar();
     if (ESTADO.mapa) setTimeout(() => { ESTADO.mapa.invalidateSize(); }, 90);
@@ -2502,6 +2545,7 @@ window.Placer = (function () {
 
   return {
     render,
+    irATienda,
     cerrarTodo: () => { cerrarHoja(); cerrarCarrito(); cerrarPago(); }
   };
 })();

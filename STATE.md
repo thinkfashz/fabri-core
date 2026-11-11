@@ -8,6 +8,44 @@
 
 Última actualización: 2026-11-11
 
+## Sesión 2026-11-11 · Tiendas multi-negocio: cuenta → tienda → catálogo → mapa
+
+El login ya estaba conectado a InsForge (`/api/auth`). Esta sesión cierra el
+flujo que faltaba: **cada cuenta crea y administra su propia tienda** y el mapa
+la muestra con nombre, marca, logo y catálogo.
+
+| Pieza | Dónde |
+|---|---|
+| Columnas `marca`, `logo`, `descripcion`, `dueno_id` + `local_mio` | `api-telefono/api/mercado.ts` |
+| `CORE_ROOT_EMAIL` (root explícito) y promoción a `owner` | `api-telefono/api/_auth.js`, `api/auth.ts` |
+| Panel: cuenta, crear tienda, ficha, catálogo/stock, importación | `web/app/negocio.js`, `web/app/index.html`, `styles.css` |
+| Mapa: logo en el pin, marca en lista/ficha, `irATienda` | `web/app/placer.js`, `placer.css` |
+| Pruebas | `tests/web/negocio.js` (56) + `tests/web/auth-nube.js` |
+| Documento | `docs/TIENDAS-MULTI.md` |
+
+Decisiones:
+
+- **Root**: no hay clave root en Vercel. Es la primera cuenta (`owner`) o el
+  correo de `CORE_ROOT_EMAIL`; si ya existía como `member`, se promueve al
+  entrar o al validar la sesión. `FABRI_API_TOKEN` sigue siendo el admin Bearer.
+- **Autorización de tiendas**: admin → cuenta dueña (`dueno_id`) → clave de 8
+  caracteres. La clave no desaparece: es el respaldo de la APK.
+- **Logo sin bucket**: data URI redimensionado en el navegador (192 px, JPEG,
+  ≤120 KB, fondo blanco). Se guarda en la fila del local.
+- **Importación**: CSV/JSON con sinónimos y precios chilenos (`$1.690`), en
+  lotes de 400; «Traer de mi Stock» usa `Fabri.q` sobre el SQLite local.
+- La migración es idempotente y el esquema se comprueba una vez por instancia.
+- `sw.js` subió a **fcore-v73** (el logo del pin se ancla en absoluto: dentro de
+  un grid, `width:100%` resolvía contra la pista que el propio logo estiraba).
+- Las tiendas registradas **no se agrupan** en el mapa: el dueño siempre ve su
+  local con su logo, no un globo con un número. El nombre admite dos líneas.
+- Desplegado: API `dpl_5SAn3VD1ucM5QsPYyAkP4bNR21Sh` y web
+  `forge-core-stock` (alias `forge-core-stock.vercel.app` y
+  `fabri-core-web.vercel.app`), ambas `READY`.
+- Probado contra producción con cuenta desechable: **36 comprobaciones** (cuenta,
+  tienda, catálogo, pedido, ficha, seguridad y limpieza) y luego borrada. El
+  panel y el mapa se verificaron con capturas reales.
+
 ## Sesión 2026-11-11 · Tráfico en el mapa: autos sobre las calles reales
 
 `MercadoPlacer` estrena una capa de **autos que circulan por las calles que

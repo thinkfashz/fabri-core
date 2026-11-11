@@ -303,7 +303,7 @@ La cuenta no da acceso a datos de nadie: el inventario y el mercado usan
 | Enumeración | Correo inexistente y clave mala devuelven el mismo código y tardan lo mismo |
 | Registro abierto | Por defecto cualquiera con la URL puede crear una cuenta. Para cerrarlo: `CORE_INVITE` (código obligatorio) y `CORE_MAX_CUENTAS` (tope) |
 | Límite por IP | 8 registros por hora y por instancia; es *best effort* en serverless, no un WAF |
-| Rol `owner` | Es la primera cuenta creada en la base. No es permiso sobre datos |
+| Rol `owner` | Es la primera cuenta creada en la base o el correo de `CORE_ROOT_EMAIL`. No es permiso sobre datos: cada tienda se autoriza por `dueno_id` |
 
 ### Variables nuevas en Vercel (`fabri-api`)
 
@@ -311,6 +311,20 @@ La cuenta no da acceso a datos de nadie: el inventario y el mercado usan
 |---|---|
 | `CORE_INVITE` | opcional: si está, `registrar` exige ese código |
 | `CORE_MAX_CUENTAS` | opcional: tope de cuentas (200 por defecto) |
+| `CORE_ROOT_EMAIL` | opcional: el correo que **siempre** entra como `owner`. Se aplica al registrar y, si la cuenta ya existía, se promueve al entrar o al validar la sesión |
+
+`FABRI_API_TOKEN` no es la cuenta root: es el token de administración (Bearer)
+para listar cuentas y ver el resumen del mercado. El root de la app es una
+cuenta normal con rol `owner`.
+
+### Tiendas por cuenta
+
+Cada cuenta puede crear hasta 20 tiendas propias desde **Negocio → Crear
+tienda**. El local guarda `dueno_id` (el id de `core_usuarios`), no el correo,
+y la autorización del panel viaja como `Authorization: Bearer <token>` de
+`/api/auth`. La `clave` de 8 caracteres sigue funcionando como respaldo para la
+APK y para locales creados por el admin. El detalle está en
+[`TIENDAS-MULTI.md`](./TIENDAS-MULTI.md).
 
 ### Probar
 

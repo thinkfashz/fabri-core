@@ -129,11 +129,13 @@ function dispositivo(v) {
  *   ahora       () => ms          (inyectable en pruebas)
  *   invitar     código opcional; si está, el registro lo exige
  *   maxCuentas  tope duro de cuentas (por defecto MAX_CUENTAS)
+ *   rootEmail   correo que SIEMPRE tiene rol `owner` (CORE_ROOT_EMAIL)
  */
 function crearServicio(repo, opciones = {}) {
   const ahora = typeof opciones.ahora === 'function' ? opciones.ahora : () => Date.now();
   const invitar = String(opciones.invitar ?? '').trim();
   const maxCuentas = Number(opciones.maxCuentas) > 0 ? Number(opciones.maxCuentas) : MAX_CUENTAS;
+  const rootEmail = normalizarEmail(opciones.rootEmail);
 
   const mal = (status, codigo, error) => ({ status, body: { ok: false, codigo, error } });
 
@@ -170,7 +172,10 @@ function crearServicio(repo, opciones = {}) {
       const salt = nuevoSalt();
       const hash = await hashPass(cuerpo.pass, salt, ITER);
       const nombre = normalizarNombre(cuerpo.nombre, email);
-      const rol = total === 0 ? 'owner' : 'member';
+      // `owner` = la primera cuenta de la base o el correo declarado en
+      // CORE_ROOT_EMAIL. El rol no da permisos sobre los locales: eso se
+      // resuelve por `dueno_id`.
+      const rol = total === 0 || (rootEmail && email === rootEmail) ? 'owner' : 'member';
       let usuario;
       try {
         usuario = await repo.crearUsuario({
@@ -230,12 +235,20 @@ function crearServicio(repo, opciones = {}) {
       await repo.guardarIntento(u.id, {
         intentos: 0, bloqueado_hasta: null, ultimo_login: ahora(),
       });
+      // CORE_ROOT_EMAIL manda: si esa cuenta ya existía como member, se
+      // promueve al entrar (una sola escritura, sólo cuando hace falta).
+      let rol = u.rol;
+      if (rootEmail && email === rootEmail && rol !== 'owner') {
+        rol = 'owner';
+        if (typeof repo.guardarRol === 'function') await repo.guardarRol(u.id, 'owner');
+        u.rol = rol;
+      }
       const s = await sesionNueva(u, dispositivo(cuerpo.dispositivo));
       return {
         status: 200,
         body: {
           ok: true, accion: 'entrar', nube: 'insforge',
-          usuario: { id: String(u.id), email: u.email, nombre: u.nombre, rol: u.rol },
+          usuario: { id: String(u.id), email: u.email, nombre: u.nombre, rol },
           token: s.token, expira: s.expira,
         },
       };
@@ -247,11 +260,16 @@ function crearServicio(repo, opciones = {}) {
       const s = await repo.sesionPorHash(sha256hex(t));
       if (!s || s.revocada) return mal(401, 'SESION', 'La sesión no existe o fue cerrada');
       if ((Number(s.expira_ms) || 0) <= ahora()) return mal(401, 'SESION', 'La sesión venció: vuelve a entrar');
+      let rol = s.rol;
+      if (rootEmail && s.email === rootEmail && rol !== 'owner') {
+        rol = 'owner';
+        if (typeof repo.guardarRol === 'function') await repo.guardarRol(s.id, 'owner');
+      }
       return {
         status: 200,
         body: {
           ok: true, accion: 'sesion', nube: 'insforge',
-          usuario: { id: String(s.id), email: s.email, nombre: s.nombre, rol: s.rol },
+          usuario: { id: String(s.id), email: s.email, nombre: s.nombre, rol },
           expira: Number(s.expira_ms),
         },
       };

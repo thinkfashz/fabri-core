@@ -57,6 +57,10 @@ function repoMemoria() {
       u.bloqueado_hasta = c.bloqueado_hasta;
       if (c.ultimo_login) u.ultimo_login = c.ultimo_login;
     },
+    async guardarRol(id, rol) {
+      const u = usuarios.find((x) => String(x.id) === String(id));
+      if (u) u.rol = rol;
+    },
     async crearSesion(s) {
       sesiones.push(Object.assign({ revocada: false }, s));
     },
@@ -176,6 +180,29 @@ async function probarNucleo() {
   igual('registro sin código → 403', (await svcInv.registrar({ email: 'a@b.cl', pass: 'clave-larga' })).body.codigo, 'INVITACION');
   igual('registro con código → 201',
     (await svcInv.registrar({ email: 'a@b.cl', pass: 'clave-larga', codigo: 'FORGE-2026' })).status, 201);
+
+  /* Root explícito: CORE_ROOT_EMAIL manda sobre "la primera cuenta". */
+  const repoRoot = repoMemoria();
+  const svcRoot = crearServicio(repoRoot, { ahora: () => reloj, rootEmail: 'jefa@local.cl' });
+  const primera = await svcRoot.registrar({ email: 'otro@local.cl', pass: 'clave-segura-1' });
+  igual('la primera cuenta sigue siendo owner', primera.body.usuario.rol, 'owner');
+  const jefa = await svcRoot.registrar({ email: 'jefa@local.cl', pass: 'clave-segura-2' });
+  igual('el correo de CORE_ROOT_EMAIL entra como owner', jefa.body.usuario.rol, 'owner');
+  igual('los demás siguen member',
+    (await svcRoot.registrar({ email: 'tercero@local.cl', pass: 'clave-segura-3' })).body.usuario.rol, 'member');
+
+  /* Una cuenta que ya existía como member se promueve al entrar. */
+  const repoProm = repoMemoria();
+  const svcProm = crearServicio(repoProm, { ahora: () => reloj });
+  await svcProm.registrar({ email: 'primero@local.cl', pass: 'clave-segura-1' });
+  await svcProm.registrar({ email: 'jefa@local.cl', pass: 'clave-segura-2' });
+  igual('antes de configurar root es member', repoProm.usuarios[1].rol, 'member');
+  const svcProm2 = crearServicio(repoProm, { ahora: () => reloj, rootEmail: 'jefa@local.cl' });
+  const entra = await svcProm2.entrar({ email: 'jefa@local.cl', pass: 'clave-segura-2' });
+  igual('al entrar con rootEmail se promueve a owner', entra.body.usuario.rol, 'owner');
+  igual('la promoción queda guardada en la base', repoProm.usuarios[1].rol, 'owner');
+  igual('la sesión nueva también ve owner',
+    (await svcProm2.sesion({}, entra.body.token)).body.usuario.rol, 'owner');
 }
 
 /* ── B · cliente real con SQLite ─────────────────────────────────────────── */

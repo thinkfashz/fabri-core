@@ -15,29 +15,36 @@
 //                                              → locales activos (público)
 //   POST { accion: "asegurar" }                 → crea las tablas (público)
 //   POST { accion: "locales", con_catalogo }    → igual que el GET (público)
-//   POST { accion: "local_crear", local }       → alta (ADMIN) · devuelve clave
-//   POST { accion: "local_actualizar", local_id, clave, campos }
-//                                              → edita (DUEÑO con clave · ADMIN)
-//   POST { accion: "local_estado", local_id, clave, abierto }
+//   POST { accion: "local_crear", local }       → alta (CUENTA · ADMIN)
+//                                              → devuelve clave de respaldo
+//   POST { accion: "local_mio" }                → mis tiendas + catálogo (CUENTA)
+//   POST { accion: "local_actualizar", local_id, clave?, campos }
+//                                              → edita (DUEÑO por cuenta/clave · ADMIN)
+//   POST { accion: "local_estado", local_id, clave?, abierto }
 //                                              → ABIERTO/CERRADO (DUEÑO · ADMIN)
-//   POST { accion: "local_borrar", local_id }   → baja (ADMIN)
-//   POST { accion: "productos_subir", local_id, clave, productos:[...] }
+//   POST { accion: "local_borrar", local_id, clave? }
+//                                              → baja (DUEÑO · ADMIN)
+//   POST { accion: "productos_subir", local_id, clave?, productos:[...] }
 //                                              → upsert de catálogo (DUEÑO · ADMIN)
-//   POST { accion: "producto_borrar", local_id, clave, skus:[...] }
+//   POST { accion: "producto_borrar", local_id, clave?, skus:[...] }
 //                                              → borra productos (DUEÑO · ADMIN)
 //   POST { accion: "pedido_crear", local_id, items, cliente... }
 //                                              → pedido del comprador (PÚBLICO)
-//   POST { accion: "pedidos_listar", local_id, clave, estado? }
+//   POST { accion: "pedidos_listar", local_id, clave?, estado? }
 //                                              → pedidos del local (DUEÑO · ADMIN)
-//   POST { accion: "pedido_estado", local_id, clave, pedido_id, estado }
+//   POST { accion: "pedido_estado", local_id, clave?, pedido_id, estado }
 //                                              → avanza el pedido (DUEÑO · ADMIN)
 //   POST { accion: "resumen" }                  → conteos (ADMIN)
 //
 // Seguridad:
-//   · Dos llaves distintas. El ADMIN (`FABRI_API_TOKEN`, Bearer) da de alta y
-//     borra locales. El DUEÑO usa su `clave` de local (8 caracteres), que se
-//     guarda como SHA-256: la base nunca tiene la clave en claro y el listado
-//     público jamás la devuelve.
+//   · Tres formas de autorizar, en este orden: el ADMIN (`FABRI_API_TOKEN`,
+//     Bearer), la CUENTA dueña del local (`Authorization: Bearer <token>` de
+//     `/api/auth`, que se guarda como SHA-256 en `core_sesiones`) y la `clave`
+//     de 8 caracteres del local (respaldo para la APK y para quien ya la
+//     tenía). La base nunca tiene la clave en claro y el listado público jamás
+//     la devuelve.
+//   · La primera cuenta creada en la base es `owner`; cualquier cuenta puede
+//     crear SU tienda. El local guarda `dueno_id`, no el correo.
 //   · Nombres de tabla y columna son fijos; todos los valores van como
 //     parámetros de `pg`. Nada de SQL armado con texto del cliente.
 //   · El servidor recalcula precios, subtotal y total del pedido: si el
@@ -49,12 +56,16 @@
 
 import type { IncomingMessage, ServerResponse } from 'http';
 import { createHash, randomBytes } from 'crypto';
+// @ts-ignore: `_auth.js` es JavaScript puro, sin declaraciones de tipos.
+import { sha256hex } from './_auth.js';
 
 export const config = { api: { bodyParser: false } };
 
 const T_LOCALES = 'mercado_locales';
 const T_PRODUCTOS = 'mercado_productos';
 const T_PEDIDOS = 'mercado_pedidos';
+const T_CUENTAS = 'core_usuarios';
+const T_SESIONES = 'core_sesiones';
 
 const MAX_TEXTO = 500;
 const MAX_LOCALES = 5000;
@@ -127,6 +138,12 @@ function texto(v: unknown, tope = MAX_TEXTO): string {
   return s.slice(0, tope);
 }
 
+/** Texto grande (logo en data URI, descripción). No pasa por `texto` porque
+ *  el logo se guarda como imagen ya redimensionada en el navegador. */
+function textoLargo(v: unknown, tope = 200_000): string {
+  return texto(v, tope);
+}
+
 function numero(v: unknown, tope = 100_000_000): number {
   const n = typeof v === 'number' ? v : Number(String(v ?? '').replace(',', '.'));
   if (!Number.isFinite(n)) return 0;
@@ -179,7 +196,12 @@ function codigoPedido(): string {
 
 /* ── tablas ─────────────────────────────────────────────────────────────── */
 
+/** El esquema se comprueba una vez por instancia: las migraciones
+ *  (`ADD COLUMN IF NOT EXISTS`) no necesitan repetirse en cada petición. */
+let esquemaListo = false;
+
 async function asegurar(pool: any) {
+  if (esquemaListo) return;
   await pool.query(`
     CREATE TABLE IF NOT EXISTS ${T_LOCALES} (
       id           TEXT PRIMARY KEY,
@@ -203,6 +225,13 @@ async function asegurar(pool: any) {
       actualizado  BIGINT NOT NULL DEFAULT 0,
       nube_ts      TIMESTAMPTZ NOT NULL DEFAULT now()
     )`);
+  // Columnas del negocio: se agregan con IF NOT EXISTS para que una base ya
+  // creada (con locales del piloto) siga funcionando sin migración manual.
+  await pool.query(`ALTER TABLE ${T_LOCALES} ADD COLUMN IF NOT EXISTS marca TEXT NOT NULL DEFAULT ''`);
+  await pool.query(`ALTER TABLE ${T_LOCALES} ADD COLUMN IF NOT EXISTS logo TEXT NOT NULL DEFAULT ''`);
+  await pool.query(`ALTER TABLE ${T_LOCALES} ADD COLUMN IF NOT EXISTS descripcion TEXT NOT NULL DEFAULT ''`);
+  await pool.query(`ALTER TABLE ${T_LOCALES} ADD COLUMN IF NOT EXISTS dueno_id TEXT NOT NULL DEFAULT ''`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_mercado_locales_dueno ON ${T_LOCALES} (dueno_id)`);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS ${T_PRODUCTOS} (
       local_id    TEXT NOT NULL,
@@ -237,11 +266,12 @@ async function asegurar(pool: any) {
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_mercado_productos_local ON ${T_PRODUCTOS} (local_id)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_mercado_pedidos_local ON ${T_PEDIDOS} (local_id, creado DESC)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_mercado_locales_activo ON ${T_LOCALES} (activo)`);
+  esquemaListo = true;
 }
 
 /* ── lecturas ───────────────────────────────────────────────────────────── */
 
-const CAMPOS_LOCAL = `id,nombre,rubro,ico,telefono,direccion,comuna,
+const CAMPOS_LOCAL = `id,nombre,marca,logo,descripcion,rubro,ico,telefono,direccion,comuna,
   lat::float8 AS lat, lon::float8 AS lon, abierto,horario,minimo,
   entrega,envio,demo,activo,plan,actualizado::float8 AS actualizado`;
 
@@ -284,6 +314,9 @@ function aTienda(l: any) {
   return {
     id: l.id,
     nombre: l.nombre,
+    marca: l.marca || '',
+    logo: l.logo || '',
+    descripcion: l.descripcion || '',
     rubro: l.rubro,
     ico: l.ico || 'tienda',
     telefono: l.telefono || '',
@@ -307,6 +340,9 @@ function normalizarLocal(crudo: Fila) {
   const lat = Number(crudo.lat), lon = Number(crudo.lon);
   return {
     nombre: texto(crudo.nombre, 120).trim(),
+    marca: texto(crudo.marca, 60).trim(),
+    logo: textoLargo(crudo.logo).trim(),
+    descripcion: texto(crudo.descripcion, 600).trim(),
     rubro: texto(crudo.rubro, 60).trim() || 'Local',
     ico: texto(crudo.ico, 30).trim() || 'tienda',
     telefono: texto(crudo.telefono, 30).replace(/[^\d+]/g, ''),
@@ -324,19 +360,45 @@ function normalizarLocal(crudo: Fila) {
   };
 }
 
-/** Dueño (clave) o admin. Devuelve la fila del local si pasa, o null. */
+/** Cuenta de la nube detrás del Bearer, o null. Nunca lanza: si las tablas de
+ *  cuentas no existen todavía (instalación nueva), la tienda sigue con clave. */
+async function cuentaDe(pool: any, req: IncomingMessage) {
+  const token = bearer(req);
+  if (!token) return null;
+  try {
+    const r = await pool.query(
+      `SELECT u.id, u.email, u.nombre, u.rol
+         FROM ${T_SESIONES} s
+         JOIN ${T_CUENTAS} u ON u.id = s.usuario_id
+        WHERE s.token_hash = $1 AND s.revocada = false AND s.expira > now()
+        LIMIT 1`,
+      [sha256hex(token)]
+    );
+    return r.rows[0] || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+/** Dueño (cuenta o clave) o admin. Devuelve la fila del local si pasa, o null. */
 async function autorizarLocal(pool: any, req: IncomingMessage, localId: string, clave: string) {
   const r = await pool.query(
-    `SELECT id,clave_hash,plan,minimo,abierto,entrega,envio,nombre FROM ${T_LOCALES} WHERE id = $1`,
+    `SELECT id,clave_hash,plan,minimo,abierto,entrega,envio,nombre,dueno_id
+       FROM ${T_LOCALES} WHERE id = $1`,
     [localId]
   );
   const local = r.rows[0];
   if (!local) return { local: null, motivo: 'local_inexistente' as const };
   if (esAdmin(req)) return { local, motivo: null };
-  if (!local.clave_hash || hashClave(clave) !== local.clave_hash) {
-    return { local: null, motivo: 'clave_mala' as const };
+  // La clave histórica manda si coincide: no gasta una consulta de sesión.
+  if (clave && local.clave_hash && hashClave(clave) === local.clave_hash) {
+    return { local, motivo: null };
   }
-  return { local, motivo: null };
+  const cuenta = await cuentaDe(pool, req);
+  if (cuenta && local.dueno_id && String(local.dueno_id) === String(cuenta.id)) {
+    return { local, motivo: null };
+  }
+  return { local: null, motivo: 'clave_mala' as const };
 }
 
 /* ── pedidos ────────────────────────────────────────────────────────────── */
@@ -441,8 +503,8 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       tablas,
       base_detalle: detalle,
       acciones: [
-        'asegurar', 'locales', 'local_crear', 'local_actualizar', 'local_estado',
-        'local_borrar', 'productos_subir', 'producto_borrar',
+        'asegurar', 'locales', 'local_crear', 'local_mio', 'local_actualizar',
+        'local_estado', 'local_borrar', 'productos_subir', 'producto_borrar',
         'pedido_crear', 'pedidos_listar', 'pedido_estado', 'resumen',
       ],
     });
@@ -493,13 +555,30 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       });
     }
 
-    /* ── alta de local (ADMIN) ── */
+    /* ── alta de local (CUENTA dueña o ADMIN) ── */
     if (accion === 'local_crear') {
-      if (!esAdmin(req)) return json(res, { ok: false, error: 'no autorizado', codigo: 'SIN_TOKEN' }, 401);
+      const admin = esAdmin(req);
+      const cuenta = admin ? null : await cuentaDe(pool, req);
+      if (!admin && !cuenta) {
+        return json(res, {
+          ok: false, error: 'entra a tu cuenta para crear tu tienda',
+          codigo: 'SIN_CUENTA',
+        }, 401);
+      }
       const crudo = (cuerpo.local && typeof cuerpo.local === 'object' ? cuerpo.local : cuerpo) as Fila;
       const l = normalizarLocal(crudo);
       if (l.nombre.length < 2) return json(res, { ok: false, error: 'falta el nombre' }, 400);
       if (!l.lat || !l.lon) return json(res, { ok: false, error: 'faltan coordenadas válidas de Chile' }, 400);
+
+      if (cuenta) {
+        const n = await pool.query(
+          `SELECT COUNT(*)::int AS n FROM ${T_LOCALES} WHERE dueno_id = $1`,
+          [String(cuenta.id)]
+        );
+        if (Number(n.rows[0]?.n) >= 20) {
+          return json(res, { ok: false, error: 'llegaste al máximo de 20 tiendas por cuenta', codigo: 'TOPE_TIENDAS' }, 409);
+        }
+      }
 
       let id = idLocal(cuerpo.local_id || cuerpo.id || l.nombre);
       if (!id) id = 'local-' + Date.now().toString(36);
@@ -508,17 +587,64 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       if (ya.rowCount) id = id.slice(0, 34) + '-' + randomBytes(2).toString('hex');
 
       const clave = nuevaClave();
+      const dueno = cuenta ? String(cuenta.id) : '';
       await pool.query(
         `INSERT INTO ${T_LOCALES}
-           (id,nombre,rubro,ico,telefono,direccion,comuna,lat,lon,abierto,
-            horario,minimo,entrega,envio,demo,activo,plan,clave_hash,actualizado)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb,$14,$15,$16,$17,$18,$19)`,
-        [id, l.nombre, l.rubro, l.ico, l.telefono, l.direccion, l.comuna, l.lat, l.lon,
-          l.abierto, l.horario, l.minimo, JSON.stringify(l.entrega), l.envio, l.demo,
-          true, 'gratis', hashClave(clave), l.actualizado]
+           (id,nombre,marca,logo,descripcion,rubro,ico,telefono,direccion,comuna,lat,lon,
+            abierto,horario,minimo,entrega,envio,demo,activo,plan,clave_hash,dueno_id,actualizado)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16::jsonb,$17,$18,$19,$20,$21,$22,$23)`,
+        [id, l.nombre, l.marca, l.logo, l.descripcion, l.rubro, l.ico, l.telefono,
+          l.direccion, l.comuna, l.lat, l.lon, l.abierto, l.horario, l.minimo,
+          JSON.stringify(l.entrega), l.envio, l.demo, true, 'gratis', hashClave(clave), dueno, l.actualizado]
       );
-      // `clave` se devuelve UNA sola vez: en la base sólo queda el hash.
-      return json(res, { ok: true, accion, id, clave, nombre: l.nombre });
+      // `clave` se devuelve UNA sola vez: en la base sólo queda el hash. Sirve
+      // para la APK y para el modo de respaldo del panel.
+      return json(res, {
+        ok: true, accion, id, clave, nombre: l.nombre, marca: l.marca,
+        dueno: cuenta ? cuenta.email : 'admin',
+      });
+    }
+
+    /* ── mis tiendas (CUENTA) ── */
+    if (accion === 'local_mio') {
+      const cuenta = await cuentaDe(pool, req);
+      if (!cuenta) return json(res, { ok: false, error: 'falta la sesión', codigo: 'SESION' }, 401);
+      const r = await pool.query(
+        `SELECT ${CAMPOS_LOCAL} FROM ${T_LOCALES} WHERE dueno_id = $1 ORDER BY nombre COLLATE "C"`,
+        [String(cuenta.id)]
+      );
+      const ids = r.rows.map((l: any) => l.id);
+      const catalogo: Record<string, any[]> = {};
+      const pendientes: Record<string, number> = {};
+      if (ids.length) {
+        const p = await pool.query(
+          `SELECT local_id,sku,nombre,precio::float8 AS precio,stock,categoria,unidad
+             FROM ${T_PRODUCTOS} WHERE local_id = ANY($1::text[])
+            ORDER BY local_id, nombre COLLATE "C"`,
+          [ids]
+        );
+        for (const f of p.rows) {
+          (catalogo[f.local_id] = catalogo[f.local_id] || []).push({
+            sku: f.sku, nombre: f.nombre, precio: f.precio,
+            stock: f.stock, categoria: f.categoria || '', unidad: f.unidad || '',
+          });
+        }
+        const pd = await pool.query(
+          `SELECT local_id, COUNT(*)::int AS n FROM ${T_PEDIDOS}
+            WHERE local_id = ANY($1::text[]) AND estado NOT IN ('entregado','cancelado')
+            GROUP BY local_id`,
+          [ids]
+        );
+        for (const f of pd.rows) pendientes[f.local_id] = f.n;
+      }
+      return json(res, {
+        ok: true, accion,
+        cuenta: { id: String(cuenta.id), email: cuenta.email, nombre: cuenta.nombre, rol: cuenta.rol },
+        tiendas: r.rows.map((l: any) => Object.assign(aTienda(l), {
+          catalogo: catalogo[l.id] || [],
+          pedidos_pendientes: pendientes[l.id] || 0,
+        })),
+      });
     }
 
     /* ── editar local (DUEÑO o ADMIN) ── */
@@ -530,6 +656,9 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       const campos = (cuerpo.campos && typeof cuerpo.campos === 'object' ? cuerpo.campos : cuerpo) as Fila;
       const permitidos: Record<string, (v: unknown) => unknown> = {
         nombre: (v) => texto(v, 120).trim(),
+        marca: (v) => texto(v, 60).trim(),
+        logo: (v) => textoLargo(v).trim(),
+        descripcion: (v) => texto(v, 600).trim(),
         rubro: (v) => texto(v, 60).trim(),
         ico: (v) => texto(v, 30).trim(),
         telefono: (v) => texto(v, 30).replace(/[^\d+]/g, ''),
@@ -576,8 +705,9 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     }
 
     if (accion === 'local_borrar') {
-      if (!esAdmin(req)) return json(res, { ok: false, error: 'no autorizado', codigo: 'SIN_TOKEN' }, 401);
       const localId = idLocal(cuerpo.local_id);
+      const { local, motivo } = await autorizarLocal(pool, req, localId, texto(cuerpo.clave, 60));
+      if (!local) return json(res, { ok: false, error: 'no autorizado', codigo: motivo }, 401);
       await pool.query(`DELETE FROM ${T_PRODUCTOS} WHERE local_id = $1`, [localId]);
       await pool.query(`DELETE FROM ${T_PEDIDOS} WHERE local_id = $1`, [localId]);
       const r = await pool.query(`DELETE FROM ${T_LOCALES} WHERE id = $1`, [localId]);
