@@ -8,6 +8,40 @@
 
 Última actualización: 2026-11-11
 
+## Sesión 2026-11-11 · Fase 4: avisar al cliente por WhatsApp desde el panel
+
+Pedido: «avisar al cliente por WhatsApp» como Fase 4.
+
+| Pieza | Dónde |
+|---|---|
+| `numeroWa`, `fraseEstado`, `mensajePedido`, `enlaceWa`, `abrirWa` | `web/app/negocio.js` |
+| Botón **Avisar** + selector de estado en cada pedido | `web/app/negocio.js`, `web/app/styles.css` |
+| Pruebas (118 en total, 30 nuevas) | `tests/web/negocio.js` |
+| Documentación | `docs/TIENDAS-MULTI.md` |
+
+- **Sin API nueva**: usa el `telefono` y el `seguimiento` que `pedidos_listar` ya
+  devolvía, y la acción `pedido_estado` que ya existía. La API sigue en 12
+  funciones y no hubo que redesplegarla.
+- **El mensaje cuenta el estado real del pedido** (`lo recibimos`, `está en
+  preparación`, `está listo para retirar` / `va en camino`, `fue entregado`, `fue
+  cancelado`) y lleva el enlace de seguimiento de la Fase 3.
+- **Se agregó el selector de estado**: antes el panel sólo podía saltar a
+  «entregado», así que no había forma de llegar a «listo» y avisar. Ahora el
+  dueño mueve el pedido por los cinco estados, y cada cambio queda en el
+  historial que ve el comprador.
+- **Teléfono normalizado**: `+56 9 1234 5678`, `9 1234 5678` y `09 1234 5678`
+  terminan en `56912345678`. Sin teléfono usable no hay botón; no se inventa
+  número.
+- **No se envía nada solo**: `wa.me` abre en otra pestaña con el texto escrito y
+  el dueño aprieta enviar.
+- **Diseño**: el selector va en secundario y «Avisar» en verde, para que haya una
+  sola acción protagonista; el orden de la fila es estado → avisar → enlace.
+- **Verificado**: 17 comprobaciones contra producción con pedido real (teléfono →
+  `wa.me` → texto con código, local y enlace → pasar a «listo» → el mensaje y el
+  enlace del comprador reflejan el estado nuevo → limpieza); batería local
+  completa en verde; captura a 390 px de la pestaña Pedidos.
+- **Deploy**: sólo web, `sw.js` a `fcore-v80`.
+
 ## Sesión 2026-11-11 · Fase 3: seguimiento del pedido por código
 
 Pedido: «seguimiento de pedido por código» como Fase 3 del plan global.

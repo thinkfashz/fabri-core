@@ -1158,7 +1158,7 @@ body.con-scan{overflow:hidden}
 .neg-ped-items span { font-size: 11px; color: var(--tx2); }
 .neg-ped-pie { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .neg-ped-pie > b { font-size: 15px; color: #e8c87a; font-weight: 750; }
-.neg-ped-acc { display: flex; align-items: center; gap: 6px; }
+.neg-ped-acc { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
 .neg-ped-acc button {
   padding: 6px 10px; border-radius: 9px; cursor: pointer;
   border: 1px solid rgba(200,255,0,.3); background: rgba(200,255,0,.1);
@@ -1169,6 +1169,31 @@ body.con-scan{overflow:hidden}
 }
 .neg-ped-acc button[data-enlace] {
   border-color: var(--line-2); background: transparent; color: var(--tx2);
+}
+/* Selector de estado del pedido de la nube: es el paso previo a «Avisar», así
+   que va en secundario para no competir con la acción principal. */
+.neg-ped-acc select.neg-ped-estado {
+  padding: 6px 8px; border-radius: 9px; cursor: pointer;
+  border: 1px solid var(--line-2); background: transparent;
+  color: var(--tx2); font: inherit; font-size: 10.5px; font-weight: 700;
+  -webkit-appearance: none; appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+                    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: calc(100% - 11px) 52%, calc(100% - 7px) 52%;
+  background-size: 4px 4px, 4px 4px;
+  background-repeat: no-repeat;
+  padding-right: 22px;
+}
+.neg-ped-acc select.neg-ped-estado option { background: #101210; color: #e8ece8; font-weight: 600; }
+/* «Avisar» es la acción principal del pedido abierto: manda el estado al
+   comprador por WhatsApp con el enlace de seguimiento ya escrito. */
+.neg-ped-acc button.wa {
+  border-color: rgba(37,211,102,.42); background: rgba(37,211,102,.13); color: #6ee7a8;
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.neg-ped-acc button.wa::before {
+  content: ""; width: 9px; height: 9px; border-radius: 999px;
+  background: #25d366; box-shadow: 0 0 0 2px rgba(37,211,102,.2);
 }
 
 .neg-prod {

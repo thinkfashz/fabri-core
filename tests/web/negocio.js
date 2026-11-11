@@ -176,6 +176,56 @@ igual('el enlace de seguimiento usa el origen del sitio',
 igual('sin token no hay enlace', N._test.enlaceSeguimiento(''), '');
 ok('el token va escapado', N._test.enlaceSeguimiento('a b&c').indexOf('a%20b%26c') > 0);
 
+/* ── aviso al cliente por WhatsApp ───────────────────────────────────────── */
+
+const NU = N._test.numeroWa;
+igual('número chileno con +56 y espacios', NU('+56 9 1234 5678'), '56912345678');
+igual('número chileno sin código de país', NU('9 1234 5678'), '56912345678');
+igual('celular escrito con 0 inicial', NU('09 1234 5678'), '56912345678');
+igual('con puntos y guiones', NU('9.1234.5678'), '56912345678');
+igual('número de otro país se respeta', NU('+54 11 4321 8765'), '541143218765');
+igual('sin teléfono no hay número', NU(''), '');
+igual('un teléfono muy corto no sirve', NU('12345'), '');
+ok('tolera nulos', NU(null) === '');
+
+const FR = N._test.fraseEstado;
+igual('recibido', FR({ estado: 'nuevo' }), 'lo recibimos');
+igual('preparando', FR({ estado: 'visto' }), 'está en preparación');
+igual('listo para retirar', FR({ estado: 'listo', entrega: 'retiro' }), 'está listo para retirar');
+igual('listo con delivery va en camino', FR({ estado: 'listo', entrega: 'delivery' }), 'va en camino');
+igual('entregado', FR({ estado: 'entregado' }), 'fue entregado');
+igual('cancelado', FR({ estado: 'cancelado' }), 'fue cancelado');
+
+const MSG = N._test.mensajePedido;
+const ped = {
+  codigo: 'MP-7K2QX', estado: 'listo', entrega: 'retiro',
+  seguimiento: 'abc123', cliente: { nombre: 'Ana Pérez', telefono: '+56912345678' }
+};
+const msg = MSG(ped, 'Almacén Doña Rosa');
+ok('saluda por el nombre de pila', msg.indexOf('Hola Ana,') === 0, msg);
+ok('dice el código del pedido', msg.indexOf('MP-7K2QX') > 0, msg);
+ok('dice el local', msg.indexOf('Almacén Doña Rosa') > 0, msg);
+ok('dice el estado en palabras del cliente', msg.indexOf('está listo para retirar') > 0, msg);
+ok('lleva el enlace de seguimiento', msg.indexOf('seguir.html?t=abc123') > 0, msg);
+ok('sin cliente no inventa nombre', MSG({ codigo: 'MP-1', estado: 'nuevo' }, 'X').indexOf('Hola,') === 0);
+ok('sin seguimiento igual hay mensaje',
+  MSG({ codigo: 'MP-1', estado: 'nuevo' }, 'X').indexOf('seguir.html') < 0);
+ok('un nombre compuesto usa el primero', MSG(Object.assign({}, ped, { cliente: { nombre: 'María José Soto' } }), 'X')
+  .indexOf('Hola María,') === 0);
+
+const EW = N._test.enlaceWa;
+const wa = EW(ped, 'Almacén Doña Rosa');
+ok('el enlace de WhatsApp usa wa.me', wa.indexOf('https://wa.me/56912345678?text=') === 0, wa);
+ok('el texto va escapado', EW(ped, 'X').indexOf(' ') < 0);
+igual('sin teléfono no hay enlace', EW({ codigo: 'MP-1', cliente: {} }, 'X'), '');
+igual('el pedido sin cliente no rompe', EW({ codigo: 'MP-1' }, 'X'), '');
+
+const panel = leer('web/app/negocio.js');
+ok('la lista pinta el botón Avisar', /data-wa=/.test(panel) && /button\.wa/.test(leer('web/app/styles.css')));
+ok('el botón abre WhatsApp en otra pestaña', /function abrirWa/.test(panel) && /window\.open\(url, "_blank"/.test(panel));
+ok('el dueño puede mover el pedido de estado', /data-estado=/.test(panel) && /accion: "pedido_estado"/.test(panel));
+ok('el selector no se muestra en pedidos ya cerrados', /hecho \|\| cancel \? "" : \(p\.nube/.test(panel));
+
 
 /* ── 5. contrato del HTML ────────────────────────────────────────────────── */
 console.log('\nContrato · index.html');

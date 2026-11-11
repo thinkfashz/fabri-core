@@ -213,6 +213,32 @@ sesión. Se resuelve con **dos caminos** hacia el mismo dato:
 - **En el panel del dueño**, cada pedido de la nube tiene un botón **Enlace**
   que copia la URL de seguimiento para reenviarla por WhatsApp.
 
+## Avisar al cliente por WhatsApp (panel del dueño)
+
+El comprador no tiene que preguntar «¿ya está?»: el dueño lo avisa desde el
+panel, con el mensaje ya escrito.
+
+En la pestaña **Pedidos**, cada pedido de la nube tiene ahora:
+
+| Acción | Qué hace |
+|---|---|
+| **selector de estado** | mueve el pedido a `Recibido → Preparando → Listo → Entregado → Cancelado` con `pedido_estado` (antes el panel sólo permitía saltar a «entregado») |
+| **Avisar** | abre WhatsApp con el teléfono del comprador y un mensaje armado: «Hola Ana, tu pedido MP-7K2QX de Almacén Doña Rosa está listo para retirar. Puedes verlo acá: …/seguir.html?t=…» |
+| **Enlace** | copia la URL de seguimiento, por si prefiere mandarla por otro medio |
+
+- **Sin API nueva**: usa el `telefono` y el `seguimiento` que `pedidos_listar` ya
+  devolvía y la acción `pedido_estado` que ya existía. La API sigue en 12 funciones.
+- **El mensaje cuenta el estado real**: `lo recibimos`, `está en preparación`,
+  `está listo para retirar` (o `va en camino` si es delivery), `fue entregado`,
+  `fue cancelado`.
+- **El teléfono se normaliza** (`numeroWa`): `+56 9 1234 5678`, `9 1234 5678` y
+  `09 1234 5678` terminan en `56912345678`. Si el pedido no trae un teléfono
+  usable, el botón no aparece; nunca se inventa un número.
+- **Se abre en otra pestaña** (`wa.me`), así el panel queda abierto y el dueño
+  puede volver. No se manda nada solo: el dueño revisa el texto y aprieta enviar.
+- El historial de estados de la Fase 3 se llena solo con este flujo: cada cambio
+  del selector deja un evento que el comprador ve en su línea de tiempo.
+
 ## Panel del dueño (pestañas y números reales)
 
 La pantalla **Negocio** abre con la tienda elegida en cuatro pestañas, para que el
@@ -289,7 +315,7 @@ Detalles que importan:
 ## Pruebas
 
 ```sh
-node tests/web/negocio.js     # 88 comprobaciones: parsers, filtros, CSV, gráfico, enlace de seguimiento, contrato HTML/API/mapa
+node tests/web/negocio.js     # 118 comprobaciones: parsers, filtros, CSV, gráfico, enlace de seguimiento, aviso por WhatsApp, contrato HTML/API/mapa
 node tests/web/plataforma.js  # 57 comprobaciones: puras, ids, seguridad del token, endpoints, precache
 node tests/web/seguimiento.js # 70 comprobaciones: código, teléfono, estados, línea de tiempo, contrato API/HTML
 node tests/web/auth-nube.js   # incluye CORE_ROOT_EMAIL y promoción a owner

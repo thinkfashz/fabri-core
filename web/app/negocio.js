@@ -917,6 +917,58 @@ window.Negocio = (function () {
     return base + "/seguir.html?t=" + encodeURIComponent(t);
   }
 
+  /* ── aviso al cliente por WhatsApp ───────────────────────────────────────── */
+
+  /**
+   * Número en formato wa.me. Acepta `+56 9 1234 5678`, `912345678` o
+   * `09 1234 5678`. Si no parece un teléfono, devuelve "" (no hay botón).
+   */
+  function numeroWa(tel) {
+    let d = String(tel == null ? "" : tel).replace(/\D/g, "");
+    if (d.length < 8) return "";
+    if (d.indexOf("56") === 0 && d.length >= 11) return d;
+    if (d.length > 11) return d;              // ya trae código de otro país
+    d = d.replace(/^0+/, "");
+    return d.length >= 8 ? "56" + d : "";
+  }
+
+  /** Qué se le dice al cliente según el estado del pedido. */
+  function fraseEstado(pedido) {
+    const e = pedido.estado || "nuevo";
+    if (e === "visto") return "está en preparación";
+    if (e === "listo") return pedido.entrega === "delivery" ? "va en camino" : "está listo para retirar";
+    if (e === "entregado") return "fue entregado";
+    if (e === "cancelado") return "fue cancelado";
+    return "lo recibimos";
+  }
+
+  /** Mensaje ya escrito para el cliente, con el enlace de seguimiento si existe. */
+  function mensajePedido(pedido, tienda) {
+    const nombre = (pedido.cliente && pedido.cliente.nombre || "").trim();
+    const quien = nombre ? "Hola " + nombre.split(/\s+/)[0] + ", " : "Hola, ";
+    const local = String(tienda || (pedido.local && pedido.local.nombre) || "").trim();
+    let txt = quien + "tu pedido " + (pedido.codigo || "") +
+      (local ? " de " + local : "") + " " + fraseEstado(pedido) + ".";
+    const enlace = enlaceSeguimiento(pedido.seguimiento);
+    if (enlace) txt += " Puedes verlo acá: " + enlace;
+    return txt;
+  }
+
+  /** URL de WhatsApp lista para abrir, o "" si el pedido no trae teléfono. */
+  function enlaceWa(pedido, tienda) {
+    const n = numeroWa(pedido.cliente && pedido.cliente.telefono);
+    if (!n) return "";
+    return "https://wa.me/" + n + "?text=" + encodeURIComponent(mensajePedido(pedido, tienda));
+  }
+
+  function abrirWa(url) {
+    if (!url) return;
+    try {
+      const v = window.open(url, "_blank", "noopener");
+      if (!v) window.location.href = url;
+    } catch (e) { window.location.href = url; }
+  }
+
   function copiarEnlace(token, boton) {
     const url = enlaceSeguimiento(token);
     if (!url) return;
@@ -947,6 +999,7 @@ window.Negocio = (function () {
       ? lista.slice(0, 60).map((p) => {
           const hecho = p.estado === "entregado";
           const cancel = p.estado === "cancelado";
+          const wa = enlaceWa(p, EST.sel && EST.sel.nombre);
           return '<article class="neg-pedido' + (hecho || cancel ? " hecho" : "") + '">' +
             '<div class="neg-ped-cab">' +
               "<b>" + esc(p.codigo) + "</b>" +
@@ -962,9 +1015,14 @@ window.Negocio = (function () {
             '<div class="neg-ped-pie">' +
               "<b>" + clp(p.total) + "</b>" +
               '<div class="neg-ped-acc">' +
+                (hecho || cancel ? "" : (p.nube
+                  ? '<select class="neg-ped-estado" data-estado="' + esc(p.pedido_id) + '" aria-label="Estado del pedido ' + esc(p.codigo) + '">' +
+                      ESTADOS_PEDIDO.map((e) => '<option value="' + e.clave + '"' +
+                        (e.clave === (p.estado || "nuevo") ? " selected" : "") + ">" + e.txt + "</option>").join("") +
+                    "</select>"
+                  : '<button type="button" data-hecho="' + esc(p.codigo) + '">Marcar entregado</button>')) +
+                (wa && !cancel ? '<button type="button" class="wa" data-wa="' + esc(wa) + '">Avisar</button>' : "") +
                 (p.seguimiento ? '<button type="button" data-enlace="' + esc(p.seguimiento) + '">Enlace</button>' : "") +
-                (hecho || cancel ? "" : '<button type="button" data-hecho="' + esc(p.nube ? p.pedido_id : p.codigo) + '"' +
-                  (p.nube ? ' data-nube="1"' : "") + ">Marcar entregado</button>") +
                 (p.nube ? "" : '<button type="button" class="borrar" data-borrar="' + esc(p.codigo) + '" aria-label="Borrar pedido">✕</button>') +
               "</div>" +
             "</div>" +
@@ -978,13 +1036,19 @@ window.Negocio = (function () {
 
     // La lista se repinta con cada filtro: los botones se vuelven a enganchar.
     caja.querySelectorAll("[data-hecho]").forEach((b) => {
-      b.onclick = () => marcarEntregado(b.dataset.hecho, b.dataset.nube === "1");
+      b.onclick = () => cambiarEstado(b.dataset.hecho, "entregado", false);
+    });
+    caja.querySelectorAll("[data-estado]").forEach((s) => {
+      s.onchange = () => { cambiarEstado(s.dataset.estado, s.value, true); };
     });
     caja.querySelectorAll("[data-borrar]").forEach((b) => {
       b.onclick = () => { guardar(leer().filter((p) => p.codigo !== b.dataset.borrar)); render(); };
     });
     caja.querySelectorAll("[data-enlace]").forEach((b) => {
       b.onclick = () => copiarEnlace(b.dataset.enlace, b);
+    });
+    caja.querySelectorAll("[data-wa]").forEach((b) => {
+      b.onclick = () => abrirWa(b.dataset.wa);
     });
   }
 
@@ -1255,18 +1319,33 @@ window.Negocio = (function () {
     toast(lista.length + " pedido(s) exportados");
   }
 
-  async function marcarEntregado(id, esNube) {
+  const ESTADOS_PEDIDO = [
+    { clave: "nuevo", txt: "Recibido" },
+    { clave: "visto", txt: "Preparando" },
+    { clave: "listo", txt: "Listo" },
+    { clave: "entregado", txt: "Entregado" },
+    { clave: "cancelado", txt: "Cancelado" }
+  ];
+
+  /** Avanza el pedido a `estado`. En la nube lo deja el historial de eventos. */
+  async function cambiarEstado(id, estado, esNube) {
     if (esNube) {
       if (!EST.sel) return;
       const d = await api({
         accion: "pedido_estado", local_id: EST.sel.id,
-        clave: EST.sel.clave || "", pedido_id: id, estado: "entregado"
+        clave: EST.sel.clave || "", pedido_id: id, estado
       });
-      if (d && d.ok) await cargarPedidos();
+      if (d && d.ok) {
+        await cargarPedidos();
+        const txt = (ESTADOS_PEDIDO.find((e) => e.clave === estado) || {}).txt;
+        toast("Pedido en «" + String(txt || estado).toLowerCase() + "»");
+      } else {
+        toast((d && d.error) || "No se pudo cambiar el estado");
+      }
       render();
       return;
     }
-    guardar(leer().map((p) => p.codigo === id ? Object.assign({}, p, { estado: "entregado" }) : p));
+    guardar(leer().map((p) => p.codigo === id ? Object.assign({}, p, { estado }) : p));
     render();
   }
 
@@ -1274,7 +1353,13 @@ window.Negocio = (function () {
   function enganchar() {
     // Pedidos locales / de la nube.
     document.querySelectorAll("[data-hecho]").forEach((b) => {
-      b.onclick = () => marcarEntregado(b.dataset.hecho, b.dataset.nube === "1");
+      b.onclick = () => cambiarEstado(b.dataset.hecho, "entregado", false);
+    });
+    document.querySelectorAll("[data-estado]").forEach((s) => {
+      s.onchange = () => { cambiarEstado(s.dataset.estado, s.value, true); };
+    });
+    document.querySelectorAll("[data-wa]").forEach((b) => {
+      b.onclick = () => abrirWa(b.dataset.wa);
     });
     document.querySelectorAll("[data-borrar]").forEach((b) => {
       b.onclick = () => { guardar(leer().filter((p) => p.codigo !== b.dataset.borrar)); render(); };
@@ -1504,6 +1589,7 @@ window.Negocio = (function () {
     render() { enlazarFormularios(); render(); },
     refrescar,
     /** Sólo para pruebas: parsers puros, sin DOM ni red. */
-    _test: { parseCSV, parseProductos, aProducto, normClave, filtrarPedidos, csvPedidos, barrasSerie, enlaceSeguimiento }
+    _test: { parseCSV, parseProductos, aProducto, normClave, filtrarPedidos, csvPedidos, barrasSerie,
+      enlaceSeguimiento, numeroWa, fraseEstado, mensajePedido, enlaceWa }
   };
 })();
