@@ -70,6 +70,20 @@
     {
       "src": "/api/auth",
       "dest": "/api/auth.ts"
+    },
+    {
+      "src": "/api/latido",
+      "dest": "/api/auth.ts"
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/latido",
+      "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/latido",
+      "schedule": "0 19 * * *"
     }
   ]
 }

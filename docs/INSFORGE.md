@@ -300,6 +300,31 @@ El inventario, las boletas, las claves de IA y la planilla **siguen locales**.
 La cuenta no da acceso a datos de nadie: el inventario y el mercado usan
 `local_id` + `clave` de 8 caracteres, que es otra credencial.
 
+### Latido diario (keep-alive de la base)
+
+Un proyecto de InsForge/Postgres se **pausa por inactividad**. Para que no se
+duerma hay un latido programado que hace una consulta real, comprueba las
+tablas, limpia sesiones vencidas y deja constancia:
+
+| Pieza | Dónde |
+|---|---|
+| Endpoint | `GET /api/latido` (ruta mapeada a `api/auth.ts`; no gasta una función nueva) |
+| Tabla | `core_latido (id, ts, ok, ms, detalle)`, se poda a 90 días |
+| Cron | `api-telefono/vercel.json` → `crons`: **07:00 y 19:00 UTC** (2 corridas/día) |
+| Auto-reparación | El latido corre `asegurar`: si faltan tablas, las crea |
+| Aviso | Si existe `TELEGRAM_BOT_TOKEN` en Vercel, un fallo se avisa al chat; si no, no hace nada |
+| Estado visible | `GET /api/auth?diag=1` devuelve `ultimo_latido`; la pantalla **Cuenta** muestra «base: despierta · último latido hace X» |
+
+Plan Hobby: 2 cron jobs como máximo y cada uno una vez al día. Por eso son dos
+horarios distintos y no uno cada 12 horas. Se puede disparar a mano con
+`GET /api/latido` (o `/api/auth?latido=1`).
+
+```sh
+curl --ipv4 -s https://fabri-api.vercel.app/api/latido
+curl --ipv4 -s "https://fabri-api.vercel.app/api/auth?diag=1"
+```
+
+
 ### Seguridad y límites honestos
 
 | Regla | Detalle |

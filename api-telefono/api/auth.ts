@@ -41,6 +41,7 @@ export const config = { api: { bodyParser: false } };
 
 const T_USUARIOS = 'core_usuarios';
 const T_SESIONES = 'core_sesiones';
+const T_LATIDO = 'core_latido';
 
 /* ── plomería http ──────────────────────────────────────────────────────── */
 
@@ -167,6 +168,16 @@ async function asegurar(pool: any) {
   // Limpieza barata: las sesiones vencidas hace más de una semana no sirven
   // para nada y no deben crecer sin fin.
   await pool.query(`DELETE FROM ${T_SESIONES} WHERE expira < now() - interval '7 days'`);
+  // Bitácora del latido diario (mantiene la base despierta y deja constancia).
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ${T_LATIDO} (
+      id      BIGSERIAL PRIMARY KEY,
+      ts      TIMESTAMPTZ NOT NULL DEFAULT now(),
+      ok      BOOLEAN NOT NULL,
+      ms      INTEGER NOT NULL DEFAULT 0,
+      detalle TEXT NOT NULL DEFAULT ''
+    )`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_core_latido_ts ON ${T_LATIDO} (ts)`);
 }
 
 /* ── repositorio Postgres ───────────────────────────────────────────────── */
@@ -309,6 +320,83 @@ function crearRepo(pool: any) {
   };
 }
 
+/* ── latido diario (keep-alive) ─────────────────────────────────────────── */
+
+/**
+ * Aviso opcional por Telegram. Si no hay `TELEGRAM_BOT_TOKEN` en el entorno
+ * no hace nada (y no falla): la alerta se activa sola el día que se agregue.
+ */
+async function avisarTelegram(texto: string) {
+  const tk = String(process.env.TELEGRAM_BOT_TOKEN || '').trim();
+  if (!tk) return false;
+  const chat = String(process.env.TELEGRAM_CHAT_ID || '8210503546').trim();
+  try {
+    const r = await fetch(`https://api.telegram.org/bot${tk}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chat, text: texto, disable_web_page_preview: true }),
+      signal: AbortSignal.timeout(6000),
+    });
+    return r.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Latido: despierta la base, comprueba las tres tablas, limpia sesiones
+ * vencidas y deja la corrida anotada en `core_latido`.
+ *
+ * Es idempotente: se puede invocar dos veces el mismo día sin efectos raros.
+ * Si algo falla, devuelve `ok:false` con el motivo y (si hay token) avisa por
+ * Telegram. Nunca lanza: el cron debe terminar siempre.
+ */
+async function latidoDiario(pool: any) {
+  const t0 = Date.now();
+  const salida: Record<string, unknown> = {
+    ts: new Date().toISOString(), ok: false, ms: 0, tablas: null, limpiadas: 0, aviso: false,
+  };
+  try {
+    // Auto-reparación: si esta es la primera corrida (o alguien borró las
+    // tablas), `asegurar` las deja listas. El DDL es idempotente.
+    await asegurar(pool);
+    const r = await pool.query(
+      `SELECT to_regclass('public.${T_USUARIOS}') AS u,
+              to_regclass('public.${T_SESIONES}') AS s,
+              to_regclass('public.${T_LATIDO}') AS l`);
+    const tablas = {
+      usuarios: Boolean(r.rows[0]?.u),
+      sesiones: Boolean(r.rows[0]?.s),
+      latido: Boolean(r.rows[0]?.l),
+    };
+    salida.tablas = tablas;
+    salida.ok = tablas.usuarios && tablas.sesiones;
+
+    const lim = await pool.query(
+      `DELETE FROM ${T_SESIONES} WHERE expira < now() - interval '7 days'`);
+    salida.limpiadas = Number(lim.rowCount) || 0;
+    // La bitácora no crece sin fin: 90 días alcanzan para ver la salud.
+    await pool.query(`DELETE FROM ${T_LATIDO} WHERE ts < now() - interval '90 days'`);
+    salida.ms = Date.now() - t0;
+    await pool.query(
+      `INSERT INTO ${T_LATIDO} (ok, ms, detalle) VALUES ($1, $2, $3)`,
+      [salida.ok, salida.ms, JSON.stringify(tablas)]);
+    return salida;
+  } catch (e: any) {
+    salida.ms = Date.now() - t0;
+    const detalle = String(e?.message || e).slice(0, 300);
+    salida.detalle = detalle;
+    try {
+      await pool.query(
+        `INSERT INTO ${T_LATIDO} (ok, ms, detalle) VALUES (false, $1, $2)`,
+        [salida.ms, detalle]);
+    } catch { /* si la base no responde, no hay dónde anotarlo */ }
+    salida.aviso = await avisarTelegram(
+      'FORGE CORE STOCK · el latido diario falló.\n' + detalle);
+    return salida;
+  }
+}
+
 /* ── handler ────────────────────────────────────────────────────────────── */
 
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
@@ -321,10 +409,42 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
 
   const url = new URL(String(req.url || '/'), 'https://fabri-api.local');
   const base = Boolean(process.env.INSFORGE_DATABASE_URL);
+  // El cron de Vercel pega a `/api/latido` (ruta mapeada en vercel.json a este
+  // mismo archivo, para no gastar una función). `?latido=1` sirve para
+  // dispararlo a mano desde el navegador o con curl.
+  const esLatido = url.pathname === '/api/latido' || url.searchParams.get('latido') === '1';
+
+  if (req.method === 'GET' && esLatido) {
+    if (!base) {
+      return json(res, {
+        ok: false, codigo: 'SIN_BASE',
+        error: 'INSFORGE_DATABASE_URL no configurada en el servidor',
+      }, 503);
+    }
+    const { Pool } = await import('pg');
+    const pool = new Pool({
+      connectionString: process.env.INSFORGE_DATABASE_URL,
+      ssl: { rejectUnauthorized: false },
+      connectionTimeoutMillis: 15000,
+      max: 1,
+    });
+    try {
+      const latido = await latidoDiario(pool);
+      return json(res, {
+        ok: Boolean(latido.ok),
+        servicio: 'fabri-api',
+        accion: 'latido',
+        latido,
+      }, latido.ok ? 200 : 500);
+    } finally {
+      try { await pool.end(); } catch { /* nada */ }
+    }
+  }
 
   if (req.method === 'GET') {
     let tablas: Record<string, boolean> | null = null;
     let detalle = 'no comprobado';
+    let ultimoLatido: Record<string, unknown> | null = null;
     if (url.searchParams.get('diag') === '1' && base) {
       try {
         const { Pool } = await import('pg');
@@ -336,10 +456,27 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         });
         const r = await pool.query(
           `SELECT to_regclass('public.${T_USUARIOS}') AS u,
-                  to_regclass('public.${T_SESIONES}') AS s`);
-        tablas = { usuarios: !!r.rows[0]?.u, sesiones: !!r.rows[0]?.s };
+                  to_regclass('public.${T_SESIONES}') AS s,
+                  to_regclass('public.${T_LATIDO}') AS l`);
+        tablas = {
+          usuarios: !!r.rows[0]?.u,
+          sesiones: !!r.rows[0]?.s,
+          latido: !!r.rows[0]?.l,
+        };
         detalle = tablas.usuarios && tablas.sesiones
           ? 'tablas presentes' : 'faltan tablas: usa accion "asegurar"';
+        if (tablas.latido) {
+          try {
+            const l = await pool.query(
+              `SELECT (EXTRACT(EPOCH FROM ts) * 1000)::bigint AS ts, ok, ms, detalle
+                 FROM ${T_LATIDO} ORDER BY id DESC LIMIT 1`);
+            const f = l.rows[0];
+            if (f) ultimoLatido = {
+              ts: Number(f.ts) || null, ok: Boolean(f.ok),
+              ms: Number(f.ms) || 0, detalle: f.detalle || '',
+            };
+          } catch { /* la bitácora es opcional */ }
+        }
         await pool.end();
       } catch (e: any) {
         detalle = 'error de conexión: ' + (e?.message || String(e)).slice(0, 120);
@@ -358,6 +495,8 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       terminos_version: TERMINOS_VERSION,
       tablas,
       base_detalle: detalle,
+      ultimo_latido: ultimoLatido,
+      latido: '/api/latido',
       acciones: ['asegurar', 'registrar', 'entrar', 'sesion', 'salir', 'aceptar_terminos', 'usuarios', 'borrar'],
     });
   }

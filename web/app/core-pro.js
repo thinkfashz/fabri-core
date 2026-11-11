@@ -289,6 +289,41 @@
     { id: 'pro', name: 'Pro', price: 'a medida', mb: 250, ai: 5000, users: 5, note: 'Para equipos y volúmenes reales.' }
   ];
 
+  /* ── latido de la base (keep-alive diario) ─────────────────────────────── */
+  let latidoCache = { ts: 0, datos: null };
+  async function pintarLatido() {
+    const caja = $('#cuLatido');
+    if (!caja) return;
+    const ahora = Date.now();
+    let d = latidoCache.datos;
+    if (!d || ahora - latidoCache.ts > 10 * 60 * 1000) {
+      try {
+        const ctrl = new AbortController();
+        const reloj = setTimeout(() => ctrl.abort(), 8000);
+        const r = await fetch('https://fabri-api.vercel.app/api/auth?diag=1', { signal: ctrl.signal });
+        clearTimeout(reloj);
+        const j = await r.json();
+        d = { tablas: j.tablas, latido: j.ultimo_latido, detalle: j.base_detalle };
+        latidoCache = { ts: ahora, datos: d };
+      } catch (_) {
+        if (caja) caja.textContent = 'base: no pude consultar el estado (revisa la conexión)';
+        return;
+      }
+    }
+    if (!caja) return;
+    const l = d.latido;
+    if (!l || !l.ts) {
+      caja.textContent = 'base: sin latidos todavía (el cron corre 2 veces al día)';
+      return;
+    }
+    const min = Math.max(0, Math.round((Date.now() - Number(l.ts)) / 60000));
+    const hace = min < 60 ? min + ' min' : Math.round(min / 60) + ' h';
+    caja.textContent = 'base: ' + (l.ok ? 'despierta' : 'con problemas') +
+      ' · último latido hace ' + hace + ' · tablas ' +
+      (d.tablas && d.tablas.usuarios && d.tablas.sesiones ? 'ok' : 'faltan');
+    if (!l.ok) caja.style.color = 'var(--err)';
+  }
+
   async function renderCuenta() {
     const f = F();
     const host = $('#pro-cuenta');
@@ -319,6 +354,7 @@
         ${nube.activa ? `<div class="hint" id="cuTerminos">términos: ${nube.terminos && nube.terminos.vigente
           ? 'aceptados · versión ' + esc(nube.terminos.version)
           : 'pendientes de aceptar'}</div>` : ''}
+        <div class="hint" id="cuLatido">base: comprobando el último latido…</div>
         <div class="row" style="display:flex;gap:7px;margin-top:10px;flex-wrap:wrap">
           <button class="btn ghost" id="cuNube">Verificar en la nube</button>
           ${nube.activa && nube.terminos && !nube.terminos.vigente
@@ -379,6 +415,8 @@
         <p class="hint" style="margin-top:8px">La copia abre con cualquier cliente SQLite y sirve para respaldar o mover la base a otro navegador.</p>
       </div>
     `;
+
+    pintarLatido();
 
     $('#cuLogout').onclick = async () => {
       await window.CoreAuth.logout();

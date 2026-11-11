@@ -8,6 +8,41 @@
 
 Última actualización: 2026-11-11
 
+## Sesión 2026-11-11 · Latido diario de la base + comprobación de continuidad
+
+Pedido: «que revise la base de datos cada 24 horas para que no se bloquee o se
+pause» y «confirmar que guarda el correo y que al entrar desde otro equipo
+aparece todo».
+
+| Pieza | Dónde |
+|---|---|
+| `GET /api/latido` (ruta nueva mapeada a `auth.ts`) | `api-telefono/vercel.json` |
+| Tabla `core_latido` + `latidoDiario()` + aviso Telegram opcional | `api-telefono/api/auth.ts` |
+| `ultimo_latido` en `?diag=1` y estado en la pantalla Cuenta | `api-telefono/api/auth.ts`, `web/app/core-pro.js` |
+| Crons 07:00 y 19:00 UTC | `api-telefono/vercel.json` |
+| Documentación | `docs/INSFORGE.md`, `docs/TIENDAS-MULTI.md` |
+
+- **Por qué dos crons**: el plan Hobby permite 2 cron jobs y cada uno una vez
+  al día. Dos horarios distintos dan dos latidos diarios y cubren una corrida
+  perdida (la entrega de cron es *best effort*).
+- **Latido** = `asegurar` (auto-reparación) + comprobar las 3 tablas + borrar
+  sesiones vencidas hace >7 días + podar la bitácora a 90 días + insertar en
+  `core_latido`. Idempotente; nunca lanza.
+- **Aviso**: si algún día se agrega `TELEGRAM_BOT_TOKEN` a `fabri-api`, un
+  fallo se avisa solo al chat. Hoy no hay token en el entorno, así que el
+  aviso queda inactivo (no falla).
+- **Verificado en producción**: `/api/latido` → `ok:true`, 366 ms, las 3
+  tablas; `vercel crons ls` lista los 2 jobs; `?diag=1` devuelve el último
+  latido.
+- **Continuidad entre dispositivos** (prueba real, cuenta desechable creada y
+  borrada): A crea tienda + 2 productos → B entra con el mismo correo y
+  contraseña → ve la misma tienda, el mismo catálogo y precio/stock reales; el
+  token de B no sirve desde A (`DISPOSITIVO`). 17 comprobaciones en verde.
+- **Hallazgo**: `core_usuarios` estaba **vacía** (0 cuentas) al momento de
+  revisar; las cuentas de prueba anteriores se borraron. La cuenta root existe
+  recién cuando se registra `F.eduardomicolta@gmail.com` en la app.
+- `sw.js` sube a **fcore-v75**.
+
 ## Sesión 2026-11-11 · Sesión atada al dispositivo + términos + root fijo
 
 Pedido textual: «F.eduardomicolta@gmail.com para mi usuario root y haz más

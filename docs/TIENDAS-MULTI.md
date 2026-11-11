@@ -71,6 +71,27 @@ Otros topes: **12 sesiones activas** por cuenta (las más viejas se revocan),
 a esta versión (sin huella) se revocan una vez en la migración: hay que volver
 a entrar.
 
+## Qué viaja con la cuenta y qué no
+
+Entrar con el **mismo correo y la misma contraseña** en otro teléfono o
+navegador devuelve la cuenta y todo lo que vive en la nube. Esto es lo que se
+comprobó contra producción (dispositivo A crea, dispositivo B entra y ve lo
+mismo):
+
+| Dato | ¿Viaja? | Dónde vive |
+|---|---|---|
+| Correo, nombre, rol, términos aceptados | **Sí** | `core_usuarios` |
+| Tiendas: nombre, marca, logo, descripción, rubro, dirección, comuna, teléfono, coordenadas, horario, mínimo, entrega, envío | **Sí** | `mercado_locales` |
+| Catálogo de la tienda: SKU, nombre, precio CLP, stock, categoría, unidad | **Sí** | `mercado_productos` |
+| Pedidos y su estado | **Sí** | `mercado_pedidos` |
+| Inventario de la app (`inv_productos`) | **Con credencial aparte**: `local_id` + clave de 8 caracteres | `inv_productos` |
+| Boletas, planilla, métricas, claves de IA | **No** | SQLite de cada navegador |
+| Tema y disposición de la interfaz | No aplica: es la misma app para todos | — |
+
+La **clave de 8 caracteres** del local se muestra en el panel de la tienda y
+sirve para conectar el inventario de la APK o de otro equipo. No es el token de
+la cuenta: son dos credenciales distintas a propósito.
+
 ## Términos y condiciones
 
 `TERMINOS_VERSION = '2026-11-11'`. El alta exige `acepta_terminos: true`; se
