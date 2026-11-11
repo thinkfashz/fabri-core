@@ -31,6 +31,7 @@ window.Placer = (function () {
   const CLAVE_UBI = "fcore.placer.ubicacion";
   const CLAVE_CLIENTE = "fcore.placer.cliente";
   const CLAVE_PEDIDOS = "fcore.placer.pedidos";
+  const CLAVE_TRAFICO = "fcore.placer.trafico";
 
   /* Santiago centro: solo si se niega la ubicación o el equipo no la entrega. */
   const RESPALDO = { lat: -33.4489, lon: -70.6693, nombre: "Santiago centro" };
@@ -66,7 +67,13 @@ window.Placer = (function () {
     cat: { q: "", categoria: "", orden: "relevancia" },
     teselasOk: 0,
     teselasError: 0,
-    capaIndice: 0
+    capaIndice: 0,
+    // Tráfico simbólico sobre las calles reales (ver mapa-trafico.js).
+    // Se recuerda apagado entre visitas: "0" es apagado, cualquier otra cosa
+    // (o nada) es encendido.
+    traficoOn: localStorage.getItem(CLAVE_TRAFICO) !== "0",
+    trafico: null,        // controlador de MapaTrafico
+    traficoAvisado: false // el aviso por falta de datos se da una sola vez
   };
 
   /* ── utilidades ─────────────────────────────────────────────────────────── */
@@ -1053,6 +1060,7 @@ window.Placer = (function () {
     L.control.scale({ imperial: false, position: "bottomleft", maxWidth: 90 }).addTo(ESTADO.mapa);
 
     montarCanvas();
+    montarTrafico();
     ESTADO.mapa.on("zoomend", marcarZoom);
     ESTADO.mapa.on("dragend", alMoverMapa);
     if (ESTADO.pos) marcarUsuario(ESTADO.pos);
@@ -1095,6 +1103,8 @@ window.Placer = (function () {
     const credito = $("mpCredito");
     if (credito) credito.innerHTML = ATRIB[modo] || ATRIB.calles;
     pintarRadio();
+    // Sin bucle de animación (reduced-motion) el cambio de capa no repinta solo.
+    if (ESTADO.trafico) ESTADO.trafico.repintar();
   }
 
   function marcarZoom() {
@@ -1150,6 +1160,43 @@ window.Placer = (function () {
       ESTADO.raf = requestAnimationFrame(bucle);
     };
     ESTADO.raf = requestAnimationFrame(bucle);
+  }
+
+  /* Tráfico: autos sobre las calles reales, en un canvas propio (z-index 401)
+     para no pelear con el radar. Si el módulo no cargó (sin red y sin caché),
+     el mapa funciona igual: simplemente no hay autos. */
+  function montarTrafico() {
+    const c = $("mpTrafico");
+    const btn = $("mpTraficoBtn");
+    if (btn) {
+      btn.classList.toggle("activo", ESTADO.traficoOn);
+      btn.setAttribute("aria-pressed", String(ESTADO.traficoOn));
+    }
+    if (!c || !ESTADO.mapa || !window.MapaTrafico) return;
+    if (ESTADO.trafico) return;
+    try {
+      ESTADO.trafico = window.MapaTrafico.montar(ESTADO.mapa, c, {
+        activo: ESTADO.traficoOn,
+        alEstado: alEstadoTrafico
+      });
+    } catch (e) {
+      // Que un fallo del tráfico no se lleve el mapa ni la lista de mercados.
+      console.error("MercadoPlacer tráfico:", e);
+      ESTADO.trafico = null;
+    }
+  }
+
+  /* Avisa una sola vez si no hay calles o no hay red. No se repite en cada
+     arrastre: sería insoportable. */
+  function alEstadoTrafico(estado) {
+    if (!ESTADO.traficoOn || ESTADO.traficoAvisado) return;
+    if (estado === "sin-red") {
+      ESTADO.traficoAvisado = true;
+      avisar("Sin conexión para el tráfico. El mapa sigue funcionando.");
+    } else if (estado === "sin-calles") {
+      ESTADO.traficoAvisado = true;
+      avisar("Esta zona no tiene calles mapeadas: no hay autos que mostrar.");
+    }
   }
 
   function pintarCanvas() {
@@ -2367,6 +2414,22 @@ window.Placer = (function () {
       btnMapa.setAttribute("aria-pressed", nuevo === "satelite");
       avisar(nuevo === "satelite" ? "Vista satélite" : "Vista de calles");
     };
+
+    // Tráfico: se enciende y apaga desde el menú y se recuerda entre visitas.
+    const btnTrafico = $("mpTraficoBtn");
+    if (btnTrafico) {
+      btnTrafico.classList.toggle("activo", ESTADO.traficoOn);
+      btnTrafico.setAttribute("aria-pressed", String(ESTADO.traficoOn));
+      btnTrafico.onclick = () => {
+        ESTADO.traficoOn = !ESTADO.traficoOn;
+        try { localStorage.setItem(CLAVE_TRAFICO, ESTADO.traficoOn ? "1" : "0"); } catch (e) { /* modo privado */ }
+        btnTrafico.classList.toggle("activo", ESTADO.traficoOn);
+        btnTrafico.setAttribute("aria-pressed", String(ESTADO.traficoOn));
+        if (!ESTADO.trafico) montarTrafico();
+        if (ESTADO.trafico) ESTADO.trafico.setActivo(ESTADO.traficoOn);
+        avisar(ESTADO.traficoOn ? "Tráfico encendido" : "Tráfico apagado");
+      };
+    }
 
     const radios = document.querySelectorAll("#mpRadios button");
     radios.forEach((b) => {

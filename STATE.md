@@ -6,7 +6,72 @@
 > `cl.fabrick.core`, crate `fabrick-core`, dominio `forge-core-stock.vercel.app`,
 > repo `thinkfashz/fabri-core`.
 
-Última actualización: 2026-11-10
+Última actualización: 2026-11-11
+
+## Sesión 2026-11-11 · Tráfico en el mapa: autos sobre las calles reales
+
+`MercadoPlacer` estrena una capa de **autos que circulan por las calles que
+OpenStreetMap tiene mapeadas, en los dos sentidos**. No es tráfico real (no hay
+velocidades ni congestión): es el flujo de la vía, dibujado.
+
+| Pieza | Dónde |
+|---|---|
+| Módulo: Overpass → geometría → autos | `web/app/mapa-trafico.js` |
+| Enganche, botón y avisos | `web/app/placer.js` (`montarTrafico`, `#mpTraficoBtn`) |
+| Canvas propio (no pelea con el radar) | `web/app/index.html` (`#mpTrafico`), `placer.css` (`z-index 401`) |
+| Prueba | `tests/web/trafico.js` (69 comprobaciones) |
+| Documento | `docs/TRAFICO-MAPA.md` |
+
+Decisiones:
+
+- Las vías se piden a Overpass con `out geom` (los **cuatro espejos en paralelo**,
+  gana el primero que contesta: en serie, un espejo caído se comía el
+  presupuesto de los demás). Solo con zoom ≥ 14 y vista ≤ 8 km (el mapa abre en 14 al encuadrar los locales: con el umbral 15 la capa no se veía nunca); caché de 15 min
+  y 10 zonas; 3.500 puntos de vía y 60 autos como techo.
+- **Si no hay calles o no hay red, no se inventan calles**: el estado queda en
+  `#mpTrafico.dataset.trafico` (`muy-lejos`, `sin-calles`, `sin-red`) y la app
+  avisa una sola vez. El mapa y la lista siguen funcionando.
+- Cada calle se vuelve una polilínea con longitud acumulada; los autos se
+  reparten alternando el sentido, avanzan a 25–50 km/h, **vuelven a entrar** al
+  llegar al final y se dibujan en el carril de su derecha con el rumbo de su
+  marcha (el que va al oeste apunta al oeste).
+- Autos de 6–15 px: a escala real serían invisibles; el tamaño está exagerado a
+  propósito y así se dice en el código.
+- Botón «Tráfico en vivo» en el menú `⋯`, recordado en
+  `fcore.placer.trafico`. Se pausa con la pestaña oculta y con
+  `prefers-reduced-motion` (autos quietos, sin bucle de `requestAnimationFrame`).
+- **No se lee `oneway` todavía**: en una calle de un solo sentido se ven autos
+  en los dos. Queda anotado como mejora barata (el dato ya viene en OSM).
+
+Bugs que encontró la prueba antes de desplegar:
+
+- `map.getBounds()` de Leaflet devuelve `.lng` y el módulo leía `.lon`: la
+  consulta salía con `NaN` y el tráfico **nunca** cargaba. Se normaliza en
+  `bboxDe()`.
+- El botón del menú y el canvas compartían `id="mpTrafico"`; el botón pasó a
+  `mpTraficoBtn` (si no, `getElementById` devolvía el canvas).
+
+Pruebas ejecutadas: `tests/web/trafico.js` (69), `auth-nube`, `boleta`,
+`diseno`, `escaneo`, `arranque`, `inventario` y `seguridad` (23/23), todo en
+verde.
+
+Service worker **v66**. Deploy `vercel --prod` → `dpl_7Upzo1kL2NCKJL15hEJmp9S9JFoq`
+(los anteriores: `dpl_3dbwLA8…` v65, `dpl_2G4btte…` v64). Las dos URLs
+(`forge-core-stock.vercel.app`, `fabri-core-web.vercel.app`) y
+`/app/mapa-trafico.js` responden 200.
+
+Hallazgo de la verificación en vivo: al cargar los locales, el `fitBounds` del
+mapa deja la vista en **zoom 14**, así que el umbral 15 con que nació la capa la
+dejaba apagada siempre. Se bajó a 14 (vista de hasta 8 km) y a ese zoom se
+reparten hasta **90 autos** en vez de 60.
+
+Capturas: en producción (`#panel` en Santiago centro) la capa queda en
+`sin-red` —esta red bloquea Overpass: **406** en `overpass-api.de`, CORS sin
+cabecera y 0 bytes en los demás espejos— y lo dice en pantalla en vez de
+inventar calles. Para verla dibujada se capturó **en local con geometría
+inyectada por CDP** (12 vías del centro de Santiago): a zoom 16 y a zoom 14 se
+ven los autos en los dos carriles, con borde oscuro para que se lean sobre
+teselas claras y sobre satélite.
 
 ## Sesión 2026-11-10 · El login pasa a InsForge (cuentas en la nube)
 
