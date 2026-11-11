@@ -8,6 +8,42 @@
 
 Última actualización: 2026-11-11
 
+## Sesión 2026-11-11 · Fase 3: seguimiento del pedido por código
+
+Pedido: «seguimiento de pedido por código» como Fase 3 del plan global.
+
+| Pieza | Dónde |
+|---|---|
+| Acción pública `pedido_seguir` + token al crear + historial | `api-telefono/api/mercado.ts` |
+| Página de seguimiento | `web/seguir.html`, `web/tienda-seguir.js`, `.sg-*` en `web/tienda.css` |
+| Enlace «Seguir mi pedido» en la pantalla de pago | `web/app/placer.js`, `web/app/placer.css` |
+| Botón «Enlace» en la pestaña Pedidos del dueño | `web/app/negocio.js`, `web/app/styles.css` |
+| Pruebas (69 + 3 en negocio) | `tests/web/seguimiento.js`, `tests/web/negocio.js` |
+| Documentación | `docs/TIENDAS-MULTI.md` |
+
+- **Dos caminos al mismo pedido**: el enlace con `token` (20 hex que devuelve
+  `pedido_crear`) y, si se perdió, el código `MP-XXXXX` + los últimos 4 dígitos
+  del teléfono. Sin token, el código corto no alcanza; hay tope de 30 intentos
+  por IP cada 10 minutos.
+- **Historial real de estados** en `mercado_pedido_eventos`: se anota al crear y
+  en cada cambio; repetir el mismo estado no duplica el evento. Los pedidos
+  anteriores (sin historial) se dibujan con la fecha de creación en el primer
+  paso.
+- **Privacidad**: la respuesta pública no trae el teléfono completo, ni el token,
+  ni el id interno. El listado del dueño sí trae el teléfono (es su pedido) y el
+  `seguimiento` para reenviar el enlace.
+- **Encontrado al probar contra la API real**: (1) `ts` llega como texto ISO y la
+  línea de tiempo salía sin horas; (2) la API exigía el prefijo `MP-` y un
+  cliente externo podía mandar solo las 5 letras. Los dos corregidos.
+- **Detalle de diseño**: `.ds-btn` del sistema mide con `content-box`, así que un
+  botón a ancho completo desborda la tarjeta; se corrige sólo en `seguir.html`
+  con `box-sizing: border-box`.
+- **Verificado**: 33 comprobaciones contra producción con cuenta y tienda
+  desechables (pedido → token → código+teléfono → 404 con datos malos → cambio
+  de estado → evento nuevo → limpieza); batería local completa en verde.
+- **Deploy**: API `fabri-…` READY; web `forge-core-stock-…` READY; `sw.js` en
+  `fcore-v79`.
+
 ## Sesión 2026-11-11 · Fase 2: panel de plataforma con token admin
 
 Pedido: «continúa» con la Fase 2 del plan por fases: la vista de **toda** la

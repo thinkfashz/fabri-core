@@ -986,6 +986,22 @@ body.mp-abierto .nav { transform: translateY(112%); transition: transform .24s c
 .mp-transf { padding: 12px; border-radius: var(--mp-r-md); border: 1px dashed var(--mp-line-2); }
 .mp-transf > p { margin: 0 0 8px; font-size: 12px; color: var(--mp-tx2); }
 .mp-pago-nota { margin: 10px 0 0; font-size: 10.5px; line-height: 1.5; color: var(--mp-tx4); }
+
+/* Seguimiento: el enlace que el comprador puede guardar o reenviar. */
+.mp-seguir { margin-top: 14px; }
+.mp-seguir-link {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 13px; border-radius: var(--mp-r, 14px);
+  border: 1px solid rgba(200, 245, 66, .32);
+  background: rgba(200, 245, 66, .07);
+  color: var(--mp-lima); text-decoration: none;
+  transition: background .18s ease, border-color .18s ease;
+}
+.mp-seguir-link:hover { background: rgba(200, 245, 66, .12); border-color: rgba(200, 245, 66, .5); }
+.mp-seguir-link svg { width: 20px; height: 20px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linejoin: round; }
+.mp-seguir-link span { display: grid; gap: 1px; font-size: 12px; font-weight: 700; }
+.mp-seguir-link b { font-size: 11px; font-weight: 600; letter-spacing: .04em; color: var(--mp-tx2); }
+.mp-seguir-pend { display: block; margin-top: 8px; font-size: 10.5px; line-height: 1.5; color: var(--mp-tx4); }
 .mp-procesando { display: grid; place-items: center; gap: 14px; padding: 40px 0; }
 .mp-procesando p { margin: 0; font-size: 13px; color: var(--mp-tx2); }
 .mp-spin {

@@ -1167,6 +1167,9 @@ body.con-scan{overflow:hidden}
 .neg-ped-acc button.borrar {
   padding: 6px 9px; border-color: var(--line-2); background: transparent; color: var(--tx4);
 }
+.neg-ped-acc button[data-enlace] {
+  border-color: var(--line-2); background: transparent; color: var(--tx2);
+}
 
 .neg-prod {
   display: grid; grid-template-columns: 1fr auto; gap: 0 10px;

@@ -34,7 +34,8 @@ global.document = {
 };
 global.window = {
   CoreNube: { leer: () => null },
-  Fabri: { q: () => [], toast: () => {}, go: () => {} }
+  Fabri: { q: () => [], toast: () => {}, go: () => {} },
+  location: { origin: 'https://forge-core-stock.vercel.app' }
 };
 
 require(path.join(RAIZ, 'web', 'app', 'negocio.js'));
@@ -168,6 +169,12 @@ igual('con pocos días se rotula cada uno', barras.map((b) => b.etiqueta).join('
 const barras30 = N._test.barrasSerie(Array.from({ length: 30 }, (_, i) =>
   ({ dia: '2026-11-' + String(i + 1).padStart(2, '0'), pedidos: 0, ventas: 0 })));
 igual('con 30 días se rotula cada 5 y el último', barras30.filter((b) => b.etiqueta).length, 7);
+
+/* El enlace de seguimiento se arma en el panel del dueño para reenviarlo. */
+igual('el enlace de seguimiento usa el origen del sitio',
+  N._test.enlaceSeguimiento('abc123'), 'https://forge-core-stock.vercel.app/seguir.html?t=abc123');
+igual('sin token no hay enlace', N._test.enlaceSeguimiento(''), '');
+ok('el token va escapado', N._test.enlaceSeguimiento('a b&c').indexOf('a%20b%26c') > 0);
 
 
 /* ── 5. contrato del HTML ────────────────────────────────────────────────── */

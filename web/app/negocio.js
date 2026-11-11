@@ -158,6 +158,7 @@ window.Negocio = (function () {
       codigo: p.codigo || p.id,
       pedido_id: p.id,
       nube: true,
+      seguimiento: p.seguimiento || "",
       fecha: Date.parse(p.creado) || Date.now(),
       items: (p.items || []).map((x) => ({ nombre: x.nombre, precio: x.precio, cantidad: x.cantidad })),
       subtotal: Number(p.subtotal) || 0,
@@ -907,6 +908,31 @@ window.Negocio = (function () {
       '<p class="neg-visitas-nota">La tabla de visitas no distingue local: el número es de toda la app.</p>';
   }
 
+  /* Enlace público de seguimiento de un pedido. Vive en la raíz del sitio
+     (`/seguir.html`), no dentro de la app: lo abre el comprador sin cuenta. */
+  function enlaceSeguimiento(token) {
+    const t = String(token == null ? "" : token).trim();
+    if (!t) return "";
+    const base = (window.location && window.location.origin) ? window.location.origin : "https://forge-core-stock.vercel.app";
+    return base + "/seguir.html?t=" + encodeURIComponent(t);
+  }
+
+  function copiarEnlace(token, boton) {
+    const url = enlaceSeguimiento(token);
+    if (!url) return;
+    const marcar = () => {
+      if (!boton) { toast("Enlace copiado"); return; }
+      const antes = boton.textContent;
+      boton.textContent = "Copiado";
+      setTimeout(() => { boton.textContent = antes; }, 1400);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(marcar, () => window.prompt("Copia el enlace", url));
+    } else {
+      window.prompt("Copia el enlace", url);
+    }
+  }
+
   function pintarPedidos() {
     const caja = $("negPedidos");
     if (!caja) return;
@@ -936,6 +962,7 @@ window.Negocio = (function () {
             '<div class="neg-ped-pie">' +
               "<b>" + clp(p.total) + "</b>" +
               '<div class="neg-ped-acc">' +
+                (p.seguimiento ? '<button type="button" data-enlace="' + esc(p.seguimiento) + '">Enlace</button>' : "") +
                 (hecho || cancel ? "" : '<button type="button" data-hecho="' + esc(p.nube ? p.pedido_id : p.codigo) + '"' +
                   (p.nube ? ' data-nube="1"' : "") + ">Marcar entregado</button>") +
                 (p.nube ? "" : '<button type="button" class="borrar" data-borrar="' + esc(p.codigo) + '" aria-label="Borrar pedido">✕</button>') +
@@ -955,6 +982,9 @@ window.Negocio = (function () {
     });
     caja.querySelectorAll("[data-borrar]").forEach((b) => {
       b.onclick = () => { guardar(leer().filter((p) => p.codigo !== b.dataset.borrar)); render(); };
+    });
+    caja.querySelectorAll("[data-enlace]").forEach((b) => {
+      b.onclick = () => copiarEnlace(b.dataset.enlace, b);
     });
   }
 
@@ -1474,6 +1504,6 @@ window.Negocio = (function () {
     render() { enlazarFormularios(); render(); },
     refrescar,
     /** Sólo para pruebas: parsers puros, sin DOM ni red. */
-    _test: { parseCSV, parseProductos, aProducto, normClave, filtrarPedidos, csvPedidos, barrasSerie }
+    _test: { parseCSV, parseProductos, aProducto, normClave, filtrarPedidos, csvPedidos, barrasSerie, enlaceSeguimiento }
   };
 })();

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>FORGE CORE STOCK · Sigue tu pedido</title>
+<meta name="description" content="Sigue tu pedido de FORGE CORE STOCK con el código que te dio el local y los últimos 4 dígitos de tu teléfono.">
+<meta name="theme-color" content="#08090A">
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="./components.css">
+<link rel="stylesheet" href="./tienda.css">
+</head>
+<body data-pg="pago">
+
+<div class="aurora" aria-hidden="true"></div>
+<div class="grain" aria-hidden="true"></div>
+<div id="fcs-nav"></div>
+
+<main class="ti-main ti-main--estrecho ti-entrada sg-main">
+
+  <section class="sg-cab" aria-label="Seguimiento de pedido">
+    <p class="ti-eyebrow">Seguimiento</p>
+    <h1 class="sg-tit">¿Cómo va tu pedido?</h1>
+    <p class="ti-sub" id="sgSub">Escribe el <b>código</b> que te dio el local y los <b>últimos 4 dígitos</b>
+      del teléfono con que hiciste el pedido. Si abriste el enlace que te enviaron,
+      el pedido aparece solo.</p>
+  </section>
+
+  <form class="sg-form" id="sgForm" autocomplete="off" novalidate>
+    <div class="sg-fila">
+      <label class="sg-campo" for="sgCodigo">
+        <span class="sg-label">Código del pedido</span>
+        <input id="sgCodigo" class="ds-input sg-input" type="text" name="codigo"
+               placeholder="MP-ABCDE" autocapitalize="characters" spellcheck="false"
+               autocomplete="off" enterkeyhint="next" maxlength="12">
+      </label>
+      <label class="sg-campo" for="sgTel">
+        <span class="sg-label">Últimos 4 del teléfono</span>
+        <input id="sgTel" class="ds-input sg-input" type="tel" name="contacto" inputmode="numeric"
+               placeholder="1234" autocomplete="off" enterkeyhint="go" maxlength="12">
+      </label>
+    </div>
+    <button class="ds-btn ds-btn--block" type="submit" id="sgBuscar">Ver el pedido</button>
+    <p class="sg-error" id="sgError" role="alert" hidden></p>
+  </form>
+
+  <section id="sgResultado" class="sg-resultado" aria-live="polite" hidden></section>
+
+  <p class="sg-pie" id="sgPie">¿Perdiste el código? Pídeselo al local por WhatsApp
+    y te lo reenvían.</p>
+
+</main>
+
+<script src="./tienda-nucleo.js"></script>
+<script src="./tienda-seguir.js"></script>
+</body>
+</html>

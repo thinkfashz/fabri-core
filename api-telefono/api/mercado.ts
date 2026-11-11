@@ -30,6 +30,11 @@
 //                                              → borra productos (DUEÑO · ADMIN)
 //   POST { accion: "pedido_crear", local_id, items, cliente... }
 //                                              → pedido del comprador (PÚBLICO)
+//                                              → devuelve `seguimiento` (token)
+//   POST { accion: "pedido_seguir", token }     → estado del pedido (PÚBLICO)
+//   POST { accion: "pedido_seguir", codigo, contacto }
+//                                              → igual, con código MP-XXXXX y
+//                                                los últimos 4 del teléfono
 //   POST { accion: "pedidos_listar", local_id, clave?, estado? }
 //                                              → pedidos del local (DUEÑO · ADMIN)
 //   POST { accion: "pedido_estado", local_id, clave?, pedido_id, estado }
@@ -68,6 +73,7 @@ export const config = { api: { bodyParser: false } };
 const T_LOCALES = 'mercado_locales';
 const T_PRODUCTOS = 'mercado_productos';
 const T_PEDIDOS = 'mercado_pedidos';
+const T_EVENTOS = 'mercado_pedido_eventos';
 const T_CUENTAS = 'core_usuarios';
 const T_SESIONES = 'core_sesiones';
 
@@ -198,6 +204,48 @@ function codigoPedido(): string {
   return 'MP-' + s;
 }
 
+/* ── límite del seguimiento público ──────────────────────────────────────── */
+
+function ipDe(req: IncomingMessage): string {
+  const f = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+  return f || String(req.socket?.remoteAddress || '');
+}
+
+/**
+ * El seguimiento es público y acepta un código corto + 4 dígitos, así que hay
+ * que frenar la fuerza bruta. En serverless es "best effort" (cada instancia
+ * tiene su mapa), pero corta el script tonto: 30 intentos por IP cada 10 min.
+ */
+const intentosSeguir = new Map<string, { n: number; desde: number }>();
+const INTENTOS_SEGUIR = 30;
+const VENTANA_SEGUIR_MS = 10 * 60 * 1000;
+
+function permitirSeguir(ip: string): boolean {
+  const ahora = Date.now();
+  const previo = intentosSeguir.get(ip);
+  if (!previo || ahora - previo.desde > VENTANA_SEGUIR_MS) {
+    intentosSeguir.set(ip, { n: 1, desde: ahora });
+    return true;
+  }
+  if (previo.n >= INTENTOS_SEGUIR) return false;
+  previo.n += 1;
+  return true;
+}
+
+/** Código de pedido comparable: mayúsculas, sin guiones, siempre con `MP`. */
+function codigoComparable(v: unknown): string {
+  let s = String(v == null ? '' : v).toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (!s) return '';
+  if (s.startsWith('MP')) s = s.slice(2);
+  return s ? 'MP' + s.slice(0, 5) : '';
+}
+
+/** Últimos 4 dígitos de un teléfono escrito de cualquier forma. */
+function ultimos4(v: unknown): string {
+  const d = String(v == null ? '' : v).replace(/\D/g, '');
+  return d.length >= 4 ? d.slice(-4) : '';
+}
+
 /* ── tablas ─────────────────────────────────────────────────────────────── */
 
 /** El esquema se comprueba una vez por instancia: las migraciones
@@ -270,6 +318,22 @@ async function asegurar(pool: any) {
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_mercado_productos_local ON ${T_PRODUCTOS} (local_id)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_mercado_pedidos_local ON ${T_PEDIDOS} (local_id, creado DESC)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_mercado_locales_activo ON ${T_LOCALES} (activo)`);
+  // Seguimiento del comprador: un token largo y aleatorio abre el pedido sin
+  // cuenta. El código corto (MP-XXXXX) no alcanza solo para mirar un pedido
+  // ajeno; el enlace lo lleva, y el formulario pide además los últimos 4
+  // dígitos del teléfono.
+  await pool.query(`ALTER TABLE ${T_PEDIDOS} ADD COLUMN IF NOT EXISTS seguimiento TEXT NOT NULL DEFAULT ''`);
+  await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_mercado_pedidos_seguimiento
+                      ON ${T_PEDIDOS} (seguimiento) WHERE seguimiento <> ''`);
+  // Historial de estados: sin esto el comprador sólo ve el estado actual y no
+  // sabe desde cuándo. Se llena en `pedido_crear` y en `pedido_estado`.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ${T_EVENTOS} (
+      pedido_id   TEXT NOT NULL,
+      estado      TEXT NOT NULL DEFAULT 'nuevo',
+      ts          TIMESTAMPTZ NOT NULL DEFAULT now()
+    )`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_mercado_eventos_pedido ON ${T_EVENTOS} (pedido_id, ts)`);
   esquemaListo = true;
 }
 
@@ -538,7 +602,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       acciones: [
         'asegurar', 'locales', 'local_crear', 'local_mio', 'local_actualizar',
         'local_estado', 'local_borrar', 'productos_subir', 'producto_borrar',
-        'pedido_crear', 'pedidos_listar', 'pedido_estado', 'ventas_serie', 'resumen',
+        'pedido_crear', 'pedido_seguir', 'pedidos_listar', 'pedido_estado', 'ventas_serie', 'resumen',
       ],
     });
   }
@@ -574,7 +638,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     await asegurar(pool);
 
     if (accion === 'asegurar') {
-      return json(res, { ok: true, accion, tablas: [T_LOCALES, T_PRODUCTOS, T_PEDIDOS] });
+      return json(res, { ok: true, accion, tablas: [T_LOCALES, T_PRODUCTOS, T_PEDIDOS, T_EVENTOS] });
     }
 
     /* ── lecturas por POST (mismo contrato para la APK) ── */
@@ -852,15 +916,114 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
 
       const id = 'ped-' + Date.now().toString(36) + randomBytes(3).toString('hex');
       const codigo = codigoPedido();
+      // Token de seguimiento: 20 caracteres aleatorios. No se deriva del id ni
+      // del código, así que no se puede adivinar desde fuera.
+      const seguimiento = randomBytes(10).toString('hex');
       await pool.query(
         `INSERT INTO ${T_PEDIDOS}
-           (id,local_id,codigo,cliente,telefono,items,subtotal,envio,total,entrega,direccion,nota,estado)
-         VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,$12,'nuevo')`,
+           (id,local_id,codigo,cliente,telefono,items,subtotal,envio,total,entrega,direccion,nota,estado,seguimiento)
+         VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,$12,'nuevo',$13)`,
         [id, localId, codigo, texto(cuerpo.cliente, 120).trim(), texto(cuerpo.telefono, 30).replace(/[^\d+]/g, ''),
           JSON.stringify(items), subtotal, envio, total, entrega,
-          texto(cuerpo.direccion, 200).trim(), texto(cuerpo.nota, 300).trim()]
+          texto(cuerpo.direccion, 200).trim(), texto(cuerpo.nota, 300).trim(), seguimiento]
       );
-      return json(res, { ok: true, accion, id, codigo, subtotal, envio, total, estado: 'nuevo' });
+      await pool.query(
+        `INSERT INTO ${T_EVENTOS} (pedido_id, estado) VALUES ($1, 'nuevo')`, [id]
+      );
+      return json(res, { ok: true, accion, id, codigo, seguimiento, subtotal, envio, total, estado: 'nuevo' });
+    }
+
+    /* ── seguimiento del comprador (PÚBLICO) ────────────────────────────────
+       Dos formas de abrir un pedido sin cuenta:
+         · `{ token }`  → el enlace que se le entrega al comprar.
+         · `{ codigo, contacto }` → el código MP-XXXXX y los últimos 4 dígitos
+           del teléfono con que se hizo el pedido.
+       Nunca devuelve el teléfono completo, el token ni el id interno. */
+    if (accion === 'pedido_seguir') {
+      if (!permitirSeguir(ipDe(req))) {
+        return json(res, {
+          ok: false, codigo: 'BLOQUEADO',
+          error: 'demasiados intentos desde esta conexión: espera unos minutos',
+        }, 429);
+      }
+
+      const token = texto(cuerpo.token, 64).trim().toLowerCase();
+      const codigo = codigoComparable(cuerpo.codigo);
+      const contacto = ultimos4(cuerpo.contacto);
+
+      if (!token && !(codigo && contacto)) {
+        return json(res, {
+          ok: false, codigo: 'FALTAN_DATOS',
+          error: token === '' && codigo
+            ? 'faltan los últimos 4 dígitos del teléfono'
+            : 'escribe el código del pedido y los últimos 4 dígitos del teléfono',
+        }, 400);
+      }
+
+      const columnas = `p.id, p.codigo, p.cliente, p.items,
+              p.subtotal::float8 AS subtotal, p.envio::float8 AS envio, p.total::float8 AS total,
+              p.entrega, p.direccion, p.nota, p.estado, p.creado, p.actualizado,
+              l.nombre AS local_nombre, l.telefono AS local_telefono,
+              l.direccion AS local_direccion, l.comuna AS local_comuna,
+              l.horario AS local_horario, l.abierto AS local_abierto`;
+
+      let fila: any = null;
+      if (token) {
+        const r = await pool.query(
+          `SELECT ${columnas} FROM ${T_PEDIDOS} p
+             LEFT JOIN ${T_LOCALES} l ON l.id = p.local_id
+            WHERE p.seguimiento = $1 LIMIT 1`, [token]
+        );
+        fila = r.rows[0] || null;
+      } else {
+        const r = await pool.query(
+          `SELECT ${columnas} FROM ${T_PEDIDOS} p
+             LEFT JOIN ${T_LOCALES} l ON l.id = p.local_id
+            WHERE upper(regexp_replace(p.codigo, '[^A-Za-z0-9]', '', 'g')) = $1
+              AND p.telefono <> ''
+              AND right(regexp_replace(p.telefono, '[^0-9]', '', 'g'), 4) = $2
+            ORDER BY p.creado DESC LIMIT 1`, [codigo, contacto]
+        );
+        fila = r.rows[0] || null;
+      }
+
+      if (!fila) {
+        return json(res, {
+          ok: false, codigo: 'NO_ENCONTRADO',
+          error: 'no encontramos ese pedido: revisa el código y el teléfono',
+        }, 404);
+      }
+
+      const ev = await pool.query(
+        `SELECT estado, ts FROM ${T_EVENTOS} WHERE pedido_id = $1 ORDER BY ts ASC`, [fila.id]
+      );
+
+      return json(res, {
+        ok: true, accion,
+        pedido: {
+          codigo: fila.codigo,
+          cliente: fila.cliente,
+          items: fila.items,
+          subtotal: fila.subtotal,
+          envio: fila.envio,
+          total: fila.total,
+          entrega: fila.entrega,
+          direccion: fila.direccion,
+          nota: fila.nota,
+          estado: fila.estado,
+          creado: fila.creado,
+          actualizado: fila.actualizado,
+          eventos: ev.rows,
+          local: {
+            nombre: fila.local_nombre || '',
+            telefono: fila.local_telefono || '',
+            direccion: fila.local_direccion || '',
+            comuna: fila.local_comuna || '',
+            horario: fila.local_horario || '',
+            abierto: fila.local_abierto !== false,
+          },
+        },
+      });
     }
 
     if (accion === 'pedidos_listar') {
@@ -874,7 +1037,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       if (ESTADOS.includes(estado)) { args.push(estado); where += ` AND estado = $${args.length}`; }
       args.push(limite);
       const r = await pool.query(
-        `SELECT id,codigo,cliente,telefono,items,
+        `SELECT id,codigo,seguimiento,cliente,telefono,items,
                 subtotal::float8 AS subtotal, envio::float8 AS envio, total::float8 AS total,
                 entrega,direccion,nota,estado,creado,actualizado
            FROM ${T_PEDIDOS} WHERE ${where}
@@ -895,9 +1058,15 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       }
       const r = await pool.query(
         `UPDATE ${T_PEDIDOS} SET estado = $1, actualizado = now()
-          WHERE id = $2 AND local_id = $3`,
+          WHERE id = $2 AND local_id = $3 AND estado <> $1`,
         [estado, pedidoId, localId]
       );
+      // El historial es lo que ve el comprador: sólo se anota un cambio real.
+      if (r.rowCount) {
+        await pool.query(
+          `INSERT INTO ${T_EVENTOS} (pedido_id, estado) VALUES ($1, $2)`, [pedidoId, estado]
+        );
+      }
       return json(res, { ok: true, accion, cambiados: r.rowCount, estado });
     }
 

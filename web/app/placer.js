@@ -1927,7 +1927,8 @@ window.Placer = (function () {
       items: itemsDe(m), subtotal: totalDe(m),
       numero: "", exp: "", cvv: "", titular: "",
       metodo: "tarjeta", entrega: entrega,
-      estado: "form"
+      estado: "form",
+      nube: "", seguimiento: ""
     };
     const hoja = $("mpPago");
     if (!hoja) return;
@@ -2021,9 +2022,11 @@ window.Placer = (function () {
             (envio ? fila("Envío", clp(envio)) : "") +
             fila("Total", "<b>" + clp(total) + "</b>") +
           "</div>" +
+          '<div class="mp-seguir" id="mpSeguir"></div>' +
           '<p class="mp-pago-nota">Esto es una simulación: no se cobró ni se enviaron datos de la tarjeta. ' +
             "El local confirma el pedido por WhatsApp.</p>" +
         "</div>";
+      pintarSeguir();
       $("mpPagoPie").innerHTML =
         '<button type="button" class="btn primary block" id="mpWhats">Confirmar por WhatsApp</button>' +
         '<button type="button" class="mp-link" id="mpCerrarPago">Cerrar</button>';
@@ -2213,6 +2216,25 @@ window.Placer = (function () {
      red, la API está caída o el local no está en la base, el pedido igual quedó
      en el historial local y se puede mandar por WhatsApp. Nunca frena la compra
      ni muestra un error al comprador. */
+  /* El enlace de seguimiento sólo aparece cuando la nube devolvió el token:
+     sin él no hay nada que el comprador pueda abrir. */
+  function pintarSeguir() {
+    const caja = $("mpSeguir");
+    if (!caja) return;
+    const seg = ESTADO.pago.seguimiento;
+    const cod = ESTADO.pago.nube || ESTADO.pago.codigo;
+    if (!seg) {
+      caja.innerHTML = '<small class="mp-seguir-pend">El seguimiento aparecerá acá cuando el local reciba el pedido.</small>';
+      return;
+    }
+    caja.innerHTML =
+      '<a class="mp-seguir-link" href="./seguir.html?t=' + encodeURIComponent(seg) + '">' +
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-5.2-7-11a7 7 0 1 1 14 0c0 5.8-7 11-7 11Z"/><circle cx="12" cy="10" r="2.6"/></svg>' +
+        "<span>Seguir mi pedido<b>" + esc(cod) + "</b></span>" +
+      "</a>" +
+      '<small class="mp-seguir-pend">Guarda este enlace: muestra el estado del pedido sin crear cuenta.</small>';
+  }
+
   function enviarPedidoNube(m) {
     if (!m || !m.forge) return; // los locales que vienen de OpenStreetMap no están en la base
     try {
@@ -2235,7 +2257,11 @@ window.Placer = (function () {
         })
       }).then(function (r) { return r.json(); }).then(function (d) {
         // El servidor recalcula el total y devuelve su propio código de pedido.
-        if (d && d.ok && d.codigo) ESTADO.pago.nube = d.codigo;
+        if (d && d.ok && d.codigo) {
+          ESTADO.pago.nube = d.codigo;
+          ESTADO.pago.seguimiento = d.seguimiento || "";
+          pintarSeguir();
+        }
       }).catch(function () { /* sin red: el pedido quedó en el historial local */ });
     } catch (e) { /* nunca romper el pago por la nube */ }
   }

@@ -123,7 +123,8 @@ Autorización, en este orden:
 | `producto_borrar` | dueño · admin | borra hasta 200 SKUs |
 | `pedidos_listar` | dueño · admin | pedidos del local |
 | `pedido_estado` | dueño · admin | avanza el pedido (`nuevo`, `visto`, `listo`, `entregado`, `cancelado`) |
-| `pedido_crear` | público | pedido del comprador (el servidor recalcula totales) |
+| `pedido_crear` | público | pedido del comprador (el servidor recalcula totales) y devuelve el `seguimiento` |
+| `pedido_seguir` | público | estado del pedido por `token` o por `codigo` + `contacto` (últimos 4 del teléfono) |
 | `ventas_serie` | dueño · clave · admin | resumen del panel: serie diaria, top de productos, conteo por estado, visitas y conversión (`dias` 1–90, por defecto 7) |
 
 ### Esquema nuevo de `mercado_locales`
@@ -180,6 +181,36 @@ siempre ve su local con su logo, no un globo con un número.
 
 `Placer.irATienda(id)` abre el mapa y enfoca la tienda; lo usa el botón
 **Ver en el mapa** del panel.
+
+## Seguimiento del pedido (público)
+
+El comprador no tiene cuenta, así que el seguimiento no puede depender de una
+sesión. Se resuelve con **dos caminos** hacia el mismo dato:
+
+| Camino | Cómo | Cuándo |
+|---|---|---|
+| **Enlace** | `seguir.html?t=<token>` — el token de 20 hex que devuelve `pedido_crear` | es el que se guarda y se reenvía; el teléfono lo recuerda solo |
+| **Código + teléfono** | `MP-XXXXX` y los últimos 4 dígitos del teléfono del pedido | si se perdió el enlace |
+
+- `pedido_seguir` es **público**, pero el código corto solo no basta: sin token
+  exige el teléfono, y hay un tope de **30 intentos por IP cada 10 minutos**
+  (`permitirSeguir`). El token no se puede adivinar (no se deriva del id ni del
+  código).
+- La respuesta **nunca** trae el teléfono completo, el token ni el id interno.
+  Sí trae los productos, los totales, la entrega, el local (nombre, dirección,
+  horario, abierto) y el historial.
+- **Historial de estados** en `mercado_pedido_eventos` (`pedido_id`, `estado`,
+  `ts`): se anota al crear y en cada cambio real de estado. Si el dueño repite el
+  mismo estado no se duplica el evento. Los pedidos viejos (sin historial) se
+  dibujan con la fecha de creación en el primer paso.
+- La página es `web/seguir.html` + `web/tienda-seguir.js`, sobre el sistema de
+  diseño de la tienda (`components.css` + `tienda.css`, bloque `.sg-*`). No se
+  indexa (`robots: noindex`).
+- **En el checkout**, la pantalla de éxito muestra «Seguir mi pedido» con el
+  código real del servidor y el enlace; si la nube no respondió, avisa que el
+  seguimiento aparecerá cuando el local reciba el pedido.
+- **En el panel del dueño**, cada pedido de la nube tiene un botón **Enlace**
+  que copia la URL de seguimiento para reenviarla por WhatsApp.
 
 ## Panel del dueño (pestañas y números reales)
 
@@ -257,8 +288,9 @@ Detalles que importan:
 ## Pruebas
 
 ```sh
-node tests/web/negocio.js     # 85 comprobaciones: parsers, filtros, CSV, gráfico, contrato HTML/API/mapa
+node tests/web/negocio.js     # 88 comprobaciones: parsers, filtros, CSV, gráfico, enlace de seguimiento, contrato HTML/API/mapa
 node tests/web/plataforma.js  # 57 comprobaciones: puras, ids, seguridad del token, endpoints, precache
+node tests/web/seguimiento.js # 69 comprobaciones: código, teléfono, estados, línea de tiempo, contrato API/HTML
 node tests/web/auth-nube.js   # incluye CORE_ROOT_EMAIL y promoción a owner
 node tests/web/diseno.js      # shell, sistema visual y offline
 node tests/web/trafico.js     # capa de tráfico del mapa
@@ -281,3 +313,12 @@ El panel de plataforma se probó contra la API real con el token de administraci
 `s-plataforma`, el CSS real y `plataforma.js` con respuestas simuladas, a 390 px:
 candado cerrado, panel abierto, 7 días, 30 días y búsqueda de cuentas. Ahí se
 corrigieron el campo del token pegado al botón y la fila «Tablas» de salud.
+
+El seguimiento se probó contra producción con cuenta y tienda desechables:
+pedido público → abrir por token → abrir por código + teléfono (con y sin
+prefijo) → 404 con teléfono o código equivocados → 400 sin datos → avanzar a
+`visto` → comprobar el evento nuevo → repetir el mismo estado (no duplica) →
+borrar la tienda y comprobar que el enlace deja de abrir: **33 comprobaciones en
+verde**. La página se revisó a 390 px con el HTML, el CSS y el JS reales y
+respuestas simuladas: formulario vacío y pedido «en camino» con línea de tiempo.
+Ahí salió que `ts` llega como texto ISO y la línea de tiempo quedaba sin horas.
