@@ -127,6 +127,49 @@ ok('sin nombre devuelve null', N._test.aProducto({ precio: 100 }) === null);
 ok('sin precio devuelve null', N._test.aProducto({ nombre: 'X', precio: 0 }) === null);
 igual('normClave quita acentos y signos', N._test.normClave('Categoría / Tipo'), 'categoria_tipo');
 
+/* ── 4 bis. panel · filtros, CSV y gráfico ───────────────────────────────── */
+console.log('\nPanel · filtros, CSV y gráfico');
+const PEDIDOS = [
+  { codigo: 'P-1', fecha: Date.UTC(2026, 10, 10, 12), cliente: { nombre: 'Ana Pérez', telefono: '+5691' },
+    items: [{ nombre: 'Tomate 1 kg', cantidad: 2, precio: 1390 }], subtotal: 2780, envio: 0,
+    total: 2780, entrega: 'retiro', direccion: '', estado: 'nuevo', nube: true, pedido_id: 'x1' },
+  { codigo: 'P-2', fecha: Date.UTC(2026, 10, 10, 13), cliente: { nombre: 'Luis Soto', telefono: '+5692' },
+    items: [{ nombre: 'Pan marraqueta', cantidad: 1, precio: 1200 }], subtotal: 1200, envio: 0,
+    total: 1200, entrega: 'delivery', direccion: 'Av. Siempre Viva 742', estado: 'entregado' },
+  { codigo: 'P-3', fecha: Date.UTC(2026, 10, 11, 9), cliente: { nombre: 'Rosa Díaz' },
+    items: [{ nombre: 'Leche 1 L', cantidad: 1, precio: 1290 }], subtotal: 1290, envio: 0,
+    total: 1290, entrega: 'retiro', estado: 'cancelado' }
+];
+igual('sin filtro devuelve todo', N._test.filtrarPedidos(PEDIDOS, '', '').length, 3);
+igual('«abiertos» deja fuera entregado y cancelado', N._test.filtrarPedidos(PEDIDOS, '', 'abiertos').length, 1);
+igual('filtro por estado exacto', N._test.filtrarPedidos(PEDIDOS, '', 'entregado').length, 1);
+igual('busca por cliente sin acentos', N._test.filtrarPedidos(PEDIDOS, 'ana perez', '').length, 1);
+igual('busca por producto', N._test.filtrarPedidos(PEDIDOS, 'tomate', '').length, 1);
+igual('busca por código en minúscula', N._test.filtrarPedidos(PEDIDOS, 'p-2', '').length, 1);
+igual('texto sin coincidencias', N._test.filtrarPedidos(PEDIDOS, 'zzz', '').length, 0);
+igual('filtro + texto se combinan', N._test.filtrarPedidos(PEDIDOS, 'ana', 'entregado').length, 0);
+
+const csvUno = N._test.csvPedidos([PEDIDOS[0]]);
+ok('CSV trae cabecera', csvUno.split('\r\n')[0].startsWith('codigo;fecha;cliente'));
+ok('CSV incluye totales', /;2780;0;2780;/.test(csvUno));
+ok('CSV arma los productos con cantidad', /2x Tomate 1 kg/.test(csvUno));
+ok('CSV escapa el separador', N._test.csvPedidos([{ codigo: 'A;B', items: [], estado: 'nuevo' }]).indexOf('"A;B"') > 0);
+
+const barras = N._test.barrasSerie([
+  { dia: '2026-11-09', pedidos: 1, ventas: 1000 },
+  { dia: '2026-11-10', pedidos: 0, ventas: 0 },
+  { dia: '2026-11-11', pedidos: 2, ventas: 3000 }
+]);
+igual('una barra por día', barras.length, 3);
+igual('la más alta ocupa 100 %', barras[2].alto, 100);
+igual('el día sin ventas conserva 2 %', barras[1].alto, 2);
+ok('el último día se marca como hoy', barras[2].hoy === true);
+igual('con pocos días se rotula cada uno', barras.map((b) => b.etiqueta).join(','), '09,10,11');
+const barras30 = N._test.barrasSerie(Array.from({ length: 30 }, (_, i) =>
+  ({ dia: '2026-11-' + String(i + 1).padStart(2, '0'), pedidos: 0, ventas: 0 })));
+igual('con 30 días se rotula cada 5 y el último', barras30.filter((b) => b.etiqueta).length, 7);
+
+
 /* ── 5. contrato del HTML ────────────────────────────────────────────────── */
 console.log('\nContrato · index.html');
 const html = leer('web/app/index.html');
@@ -134,7 +177,7 @@ const ids = [
   'negCuenta', 'negCuentaChip', 'negCuentaMail', 'negCuentaIr', 'negCuentaEstado',
   'negTiendas', 'negFormTienda', 'ntNombre', 'ntMarca', 'ntRubro', 'ntDireccion',
   'ntComuna', 'ntLat', 'ntLon', 'ntGps', 'ntLogoFile', 'ntLogoPrev', 'ntDesc',
-  'ntTel', 'ntAviso', 'ntCancelar', 'negPanel', 'negTiendaCab', 'negKpis',
+  'ntTel', 'ntAviso', 'ntCancelar', 'negPanel', 'negKpis',
   'negPedidos', 'negPedCount', 'negProductos', 'negProdCount', 'negFormProd',
   'negProdNombre', 'negProdPrecio', 'negProdStock', 'negProdSku', 'negProdCategoria',
   'negCategorias', 'negImportFile', 'negImportStock', 'negImportAviso',
@@ -142,12 +185,18 @@ const ids = [
   'neHorario', 'neMinimo', 'neEnvio', 'neLogoFile', 'neLogoPrev', 'neDesc',
   'neRetiro', 'neDelivery', 'neGuardar', 'neBorrar', 'neAviso',
   'negAbiertoBtn', 'negNubeEstado',
-  'negNubeLocal', 'negNubeClave', 'negNubeBtn', 'negNubeClaveEstado'
+  'negNubeLocal', 'negNubeClave', 'negNubeBtn', 'negNubeClaveEstado',
+  'negLive', 'negTabs', 'negTabResumen', 'negTabPedidos', 'negTabCatalogo', 'negTabAjustes',
+  'negRango', 'negSerie', 'negSerieSub', 'negSerieChip', 'negTop', 'negTopRango',
+  'negEstados', 'negEstCount', 'negVisitas', 'negPedTotal', 'negProdTotal',
+  'negPedBuscar', 'negPedFiltro', 'negPedExport'
 ];
 const faltan = ids.filter((id) => !new RegExp('id="' + id + '"').test(html));
 ok('todos los ids que usa negocio.js existen', faltan.length === 0, 'faltan: ' + faltan.join(', '));
 ok('la sección conserva id s-negocio', /id="s-negocio"/.test(html));
 ok('el respaldo por clave sigue presente', /negNubeBtn/.test(html) && /Conectar con ID y clave/.test(html));
+ok('la tienda abierta no se repite como cabecera aparte', !/negTiendaCab/.test(html));
+ok('la tienda abierta ofrece verla en el mapa', /data-mapa/.test(leer('web/app/negocio.js')));
 
 /* ── 6. contrato del backend ─────────────────────────────────────────────── */
 console.log('\nContrato · api/mercado.ts');
@@ -164,6 +213,19 @@ ok('aTienda devuelve marca', /marca: l\.marca \|\| ''/.test(api));
 ok('aTienda devuelve logo', /logo: l\.logo \|\| ''/.test(api));
 ok('local_crear acepta cuenta', /cuentaDe\(pool, req\)/.test(api));
 ok('borrar tienda ya no es sólo admin', /accion === 'local_borrar'[\s\S]{0,220}autorizarLocal/.test(api));
+
+/* ── 6 bis. contrato del resumen (panel del dueño) ───────────────────────── */
+console.log('\nContrato · resumen del panel');
+ok('acción ventas_serie', /accion === 'ventas_serie'/.test(api));
+ok('ventas_serie autoriza con autorizarLocal',
+  /accion === 'ventas_serie'[\s\S]{0,260}autorizarLocal/.test(api));
+ok('la serie se corta en hora de Chile', /America\/Santiago/.test(api));
+ok('la serie rellena los días sin ventas', /generate_series/.test(api));
+ok('top de productos desde el JSON del pedido', /jsonb_array_elements/.test(api));
+ok('los cancelados no suman', /estado <> 'cancelado'/.test(api));
+ok('las visitas no rompen si la tabla no existe', /to_regclass\('public\.visitas'\)/.test(api));
+ok('la conversión se devuelve calculada', /conversion:/.test(api));
+ok('ventas_serie aparece en el listado de acciones', /'ventas_serie'/.test(api));
 
 /* ── 7. contrato del mapa ────────────────────────────────────────────────── */
 console.log('\nContrato · placer.js');

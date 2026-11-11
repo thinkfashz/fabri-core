@@ -124,6 +124,7 @@ Autorización, en este orden:
 | `pedidos_listar` | dueño · admin | pedidos del local |
 | `pedido_estado` | dueño · admin | avanza el pedido (`nuevo`, `visto`, `listo`, `entregado`, `cancelado`) |
 | `pedido_crear` | público | pedido del comprador (el servidor recalcula totales) |
+| `ventas_serie` | dueño · clave · admin | resumen del panel: serie diaria, top de productos, conteo por estado, visitas y conversión (`dias` 1–90, por defecto 7) |
 
 ### Esquema nuevo de `mercado_locales`
 
@@ -180,10 +181,49 @@ siempre ve su local con su logo, no un globo con un número.
 `Placer.irATienda(id)` abre el mapa y enfoca la tienda; lo usa el botón
 **Ver en el mapa** del panel.
 
+## Panel del dueño (pestañas y números reales)
+
+La pantalla **Negocio** abre con la tienda elegida en cuatro pestañas, para que el
+dueño no tenga que bajar por una lista larga:
+
+| Pestaña | Qué muestra |
+|---|---|
+| **Resumen** | estado vivo, KPIs del periodo (ventas, ticket, por atender, visitas, conversión, productos), gráfico de ventas por día, más vendidos, pedidos por estado y tráfico de la app |
+| **Pedidos** | lista con búsqueda por código/cliente/producto, filtro por estado y **Exportar CSV** |
+| **Catálogo** | productos con stock y precio, alta manual, importación CSV/JSON y traída desde el Stock local |
+| **Ajustes** | ficha pública (marca, logo, descripción, horario, mínimo, envío, retiro/delivery) y borrado de la tienda |
+
+Todo sale de **una sola llamada**, `ventas_serie`, que exige dueño, clave de 8 o
+admin:
+
+```json
+{ "accion": "ventas_serie", "local_id": "…", "dias": 7 }
+```
+
+- **Serie diaria en `America/Santiago`**, no en UTC: a las 21:00 de Chile ya es el
+  día siguiente en UTC y las ventas de la noche caían en el día equivocado. Los
+  días sin ventas se rellenan con `generate_series` y llegan en cero, para que el
+  gráfico no mienta saltándose días.
+- **Los pedidos cancelados no suman** ni en la serie, ni en el top, ni en los
+  totales. El monto del top se recalcula con lo guardado en el pedido, nunca con
+  lo que mandó el comprador.
+- **Ticket promedio** = ventas ÷ pedidos del periodo (0 si no hay pedidos).
+- **Visitas**: la tabla `visitas` **no distingue local**, así que el número es de
+  toda la app y el panel lo dice en la tarjeta de tráfico (`alcance: 'app'`). La
+  conversión es pedidos ÷ visitas de la app; queda en `null` si no hay visitas.
+- **Top de productos**: máximo 8, por monto, desarmando el JSON `items` de los
+  pedidos del periodo.
+- Si la tabla `visitas` todavía no existe (nadie abrió el visor 3D), la acción
+  devuelve `visitas: null` en vez de fallar.
+
+El panel no depende de librerías: el gráfico son barras en CSS y el CSV se arma en
+el navegador con separador `;` y BOM, para que Excel en Chile abra los acentos
+bien. La lista de pedidos se filtra sin acentos (`normalizarBusqueda`).
+
 ## Pruebas
 
 ```sh
-node tests/web/negocio.js     # 56 comprobaciones: parsers, contrato HTML/API/mapa
+node tests/web/negocio.js     # 85 comprobaciones: parsers, filtros, CSV, gráfico, contrato HTML/API/mapa
 node tests/web/auth-nube.js   # incluye CORE_ROOT_EMAIL y promoción a owner
 node tests/web/diseno.js      # shell, sistema visual y offline
 node tests/web/trafico.js     # capa de tráfico del mapa
@@ -193,3 +233,9 @@ bash tests/arranque/correr.sh
 La prueba de API contra producción se hace con una cuenta desechable y se
 borra al terminar (registrar → entrar → `local_crear` → `local_mio` →
 `productos_subir` → `pedidos_listar` → `local_borrar` → borrar cuenta).
+
+`ventas_serie` se probó igual contra producción (cuenta + tienda + 2 pedidos →
+7 y 30 días → 401 sin sesión y con otra cuenta → limpieza): 24 comprobaciones en
+verde. El panel se revisó con un banco de pruebas que carga la sección real de
+`index.html`, el `styles.css` y el `negocio.js` reales con respuestas simuladas,
+capturado a 390 px en las cuatro pestañas y en 7 y 30 días.

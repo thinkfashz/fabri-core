@@ -1157,21 +1157,91 @@
         </form>
 
         <div id="negPanel" hidden>
-          <div class="neg-bar" id="negTiendaCab"></div>
-          <div class="neg-kpis" id="negKpis"></div>
+          <!-- Estado vivo: sólo dice «en vivo» cuando la última lectura es de
+               hace menos de un minuto; si no, muestra la hora real. -->
+          <div class="neg-estado">
+            <span class="neg-live" id="negLive"><i></i><b>en vivo</b></span>
+            <small id="negNubeEstado">Conectado a tu tienda.</small>
+            <button id="negAbiertoBtn" class="btn sm ghost" type="button" hidden></button>
+          </div>
 
-          <div class="neg-grid">
-            <div class="card">
-              <div class="neg-cab"><div class="eyebrow">Pedidos</div><span class="badge acc" id="negPedCount">—</span></div>
-              <div class="neg-nube-pie">
-                <button id="negAbiertoBtn" class="btn sm" type="button" hidden></button>
-                <small id="negNubeEstado">Conectado a tu tienda.</small>
+          <div class="neg-tabs" id="negTabs" role="tablist" aria-label="Secciones del panel">
+            <button class="neg-tab on" type="button" role="tab" aria-selected="true" data-tab="resumen">Resumen</button>
+            <button class="neg-tab" type="button" role="tab" aria-selected="false" data-tab="pedidos">Pedidos
+              <span class="neg-tab-n" id="negPedCount">—</span></button>
+            <button class="neg-tab" type="button" role="tab" aria-selected="false" data-tab="catalogo">Catálogo
+              <span class="neg-tab-n" id="negProdCount">—</span></button>
+            <button class="neg-tab" type="button" role="tab" aria-selected="false" data-tab="ajustes">Ajustes</button>
+          </div>
+
+          <!-- ══════════ RESUMEN ══════════ -->
+          <div class="neg-tab-panel" id="negTabResumen" role="tabpanel">
+
+            <div class="neg-rango" id="negRango" role="group" aria-label="Periodo del resumen">
+              <span>Periodo</span>
+              <button class="neg-rango-btn on" type="button" data-rango="7" aria-pressed="true">7 días</button>
+              <button class="neg-rango-btn" type="button" data-rango="30" aria-pressed="false">30 días</button>
+            </div>
+
+            <div class="neg-kpis" id="negKpis"></div>
+
+            <div class="card neg-serie">
+              <div class="neg-cab">
+                <div>
+                  <div class="eyebrow">Ventas por día</div>
+                  <small class="neg-serie-sub" id="negSerieSub">Cargando el periodo…</small>
+                </div>
+                <span class="neg-chip ok" id="negSerieChip">en vivo</span>
               </div>
-              <div id="negPedidos"></div>
+              <div class="neg-bars" id="negSerie"></div>
+            </div>
+
+            <div class="neg-grid">
+              <div class="card">
+                <div class="neg-cab"><div class="eyebrow">Más vendidos</div><span class="badge" id="negTopRango">—</span></div>
+                <div id="negTop"></div>
+              </div>
+              <div class="card">
+                <div class="neg-cab"><div class="eyebrow">Pedidos por estado</div><span class="badge" id="negEstCount">—</span></div>
+                <div class="neg-estados" id="negEstados"></div>
+              </div>
             </div>
 
             <div class="card">
-              <div class="neg-cab"><div class="eyebrow">Catálogo y stock</div><span class="badge" id="negProdCount">—</span></div>
+              <div class="neg-cab">
+                <div class="eyebrow">Tráfico de la app</div>
+                <span class="badge" id="negVisitasRango">—</span>
+              </div>
+              <div class="neg-visitas" id="negVisitas"></div>
+            </div>
+          </div>
+
+          <!-- ══════════ PEDIDOS ══════════ -->
+          <div class="neg-tab-panel" id="negTabPedidos" role="tabpanel" hidden>
+            <div class="card">
+              <div class="neg-cab"><div class="eyebrow">Pedidos</div><span class="badge acc" id="negPedTotal">—</span></div>
+              <div class="neg-tools">
+                <input id="negPedBuscar" class="field" type="search" placeholder="Buscar código, cliente o producto"
+                       autocomplete="off" aria-label="Buscar pedidos">
+                <select id="negPedFiltro" class="field" aria-label="Filtrar por estado">
+                  <option value="">Todos los estados</option>
+                  <option value="abiertos">Por atender</option>
+                  <option value="nuevo">Nuevos</option>
+                  <option value="visto">Vistos</option>
+                  <option value="listo">Listos para entrega</option>
+                  <option value="entregado">Entregados</option>
+                  <option value="cancelado">Cancelados</option>
+                </select>
+                <button class="btn ghost sm" type="button" id="negPedExport">Exportar CSV</button>
+              </div>
+              <div id="negPedidos"></div>
+            </div>
+          </div>
+
+          <!-- ══════════ CATÁLOGO ══════════ -->
+          <div class="neg-tab-panel" id="negTabCatalogo" role="tabpanel" hidden>
+            <div class="card">
+              <div class="neg-cab"><div class="eyebrow">Catálogo y stock</div><span class="badge" id="negProdTotal">—</span></div>
               <div id="negProductos"></div>
               <form id="negFormProd" class="neg-form">
                 <input id="negProdNombre" class="field" placeholder="Nombre del producto" autocomplete="off" required>
@@ -1195,39 +1265,44 @@
             </div>
           </div>
 
-          <div class="card neg-ajustes">
-            <div class="neg-cab"><div class="eyebrow">Ficha de la tienda</div><span class="badge" id="negAjustesChip">editable</span></div>
-            <div class="neg-campo-fila">
-              <label class="neg-campo"><span>Nombre</span><input id="neNombre" class="field" autocomplete="off"></label>
-              <label class="neg-campo"><span>Marca</span><input id="neMarca" class="field" autocomplete="off"></label>
+          <!-- ══════════ AJUSTES ══════════ -->
+          <div class="neg-tab-panel" id="negTabAjustes" role="tabpanel" hidden>
+            <div class="card neg-ajustes">
+              <div class="neg-cab"><div class="eyebrow">Ficha de la tienda</div><span class="badge" id="negAjustesChip">editable</span></div>
+              <div class="neg-campo-fila">
+                <label class="neg-campo"><span>Nombre</span><input id="neNombre" class="field" autocomplete="off"></label>
+                <label class="neg-campo"><span>Marca</span><input id="neMarca" class="field" autocomplete="off"></label>
+              </div>
+              <div class="neg-campo-fila">
+                <label class="neg-campo"><span>Rubro</span><input id="neRubro" class="field" autocomplete="off" list="ntRubros"></label>
+                <label class="neg-campo"><span>Teléfono</span><input id="neTelefono" class="field" inputmode="tel" autocomplete="off"></label>
+              </div>
+              <div class="neg-campo-fila">
+                <label class="neg-campo"><span>Dirección</span><input id="neDireccion" class="field" autocomplete="off"></label>
+                <label class="neg-campo"><span>Comuna</span><input id="neComuna" class="field" autocomplete="off"></label>
+              </div>
+              <div class="neg-campo-fila">
+                <label class="neg-campo"><span>Pedido mínimo (CLP)</span><input id="neMinimo" class="field" inputmode="numeric" autocomplete="off"></label>
+                <label class="neg-campo"><span>Envío (CLP)</span><input id="neEnvio" class="field" inputmode="numeric" autocomplete="off"></label>
+              </div>
+              <div class="neg-campo-fila">
+                <label class="neg-campo neg-campo-ancho"><span>Horario</span><input id="neHorario" class="field" placeholder="Lun a sáb · 9 a 21 h" autocomplete="off"></label>
+              </div>
+              <div class="neg-campo-fila">
+                <label class="neg-campo"><span>Logo (192 px)</span><input type="file" id="neLogoFile" accept="image/*"></label>
+                <span class="neg-logo-prev" id="neLogoPrev"></span>
+              </div>
+              <label class="neg-campo"><span>Descripción</span><input id="neDesc" class="field" maxlength="160" autocomplete="off"></label>
+              <div class="neg-campo-fila neg-entrega">
+                <label><input type="checkbox" id="neRetiro" checked> Retiro</label>
+                <label><input type="checkbox" id="neDelivery"> Delivery</label>
+              </div>
+              <div class="neg-form-fila">
+                <button class="btn primary" type="button" id="neGuardar">Guardar cambios</button>
+                <button class="btn ghost" type="button" id="neBorrar">Borrar tienda</button>
+              </div>
+              <small class="neg-aviso" id="neAviso"></small>
             </div>
-            <div class="neg-campo-fila">
-              <label class="neg-campo"><span>Rubro</span><input id="neRubro" class="field" autocomplete="off" list="ntRubros"></label>
-              <label class="neg-campo"><span>Teléfono</span><input id="neTelefono" class="field" inputmode="tel" autocomplete="off"></label>
-            </div>
-            <div class="neg-campo-fila">
-              <label class="neg-campo"><span>Dirección</span><input id="neDireccion" class="field" autocomplete="off"></label>
-              <label class="neg-campo"><span>Comuna</span><input id="neComuna" class="field" autocomplete="off"></label>
-            </div>
-            <div class="neg-campo-fila">
-              <label class="neg-campo"><span>Horario</span><input id="neHorario" class="field" placeholder="Lun a sáb · 9 a 21 h" autocomplete="off"></label>
-              <label class="neg-campo"><span>Pedido mínimo (CLP)</span><input id="neMinimo" class="field" inputmode="numeric" autocomplete="off"></label>
-              <label class="neg-campo"><span>Envío (CLP)</span><input id="neEnvio" class="field" inputmode="numeric" autocomplete="off"></label>
-            </div>
-            <div class="neg-campo-fila">
-              <label class="neg-campo"><span>Logo (192 px)</span><input type="file" id="neLogoFile" accept="image/*"></label>
-              <span class="neg-logo-prev" id="neLogoPrev"></span>
-            </div>
-            <label class="neg-campo"><span>Descripción</span><input id="neDesc" class="field" maxlength="160" autocomplete="off"></label>
-            <div class="neg-campo-fila neg-entrega">
-              <label><input type="checkbox" id="neRetiro" checked> Retiro</label>
-              <label><input type="checkbox" id="neDelivery"> Delivery</label>
-            </div>
-            <div class="neg-form-fila">
-              <button class="btn primary" type="button" id="neGuardar">Guardar cambios</button>
-              <button class="btn ghost" type="button" id="neBorrar">Borrar tienda</button>
-            </div>
-            <small class="neg-aviso" id="neAviso"></small>
           </div>
         </div>
 

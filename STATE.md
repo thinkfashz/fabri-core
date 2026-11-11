@@ -8,6 +8,44 @@
 
 Última actualización: 2026-11-11
 
+## Sesión 2026-11-11 · Fase 1: panel del dueño con pestañas y números reales
+
+Pedido: «vamos con la fase 1» del plan por fases que salió de la auditoría
+«dibujo → estado real».
+
+| Pieza | Dónde |
+|---|---|
+| Acción `ventas_serie` (serie, top, estados, visitas, conversión) | `api-telefono/api/mercado.ts` |
+| Panel en 4 pestañas: Resumen · Pedidos · Catálogo · Ajustes | `web/app/index.html` |
+| Estado vivo, pestañas, periodo, gráfico de barras, chips, tráfico | `web/app/styles.css` |
+| Lógica del panel: serie, top, estados, visitas, filtros, CSV | `web/app/negocio.js` |
+| Pruebas (85 comprobaciones) | `tests/web/negocio.js` |
+| Documentación | `docs/TIENDAS-MULTI.md` |
+
+- **Una sola llamada** `ventas_serie` (dueño · clave · admin) en vez de cuatro:
+  la serie diaria, los totales, el top de 8 productos, el conteo por estado y las
+  visitas llegan juntos. `dias` va de 1 a 90 y por defecto 7.
+- **Serie en `America/Santiago`**, rellenada con `generate_series`: los días sin
+  ventas aparecen en cero y la noche no cae en el día siguiente (UTC).
+- **Cancelados fuera** de la serie, del top y de los totales; el monto se
+  recalcula con el `items` guardado.
+- **Visitas**: la tabla es global (no tiene `local_id`), así que el panel dice
+  «de toda la app» y la conversión es pedidos ÷ visitas de la app. Si la tabla no
+  existe, `visitas: null` en vez de error.
+- **Pedidos**: búsqueda sin acentos por código/cliente/producto, filtro por
+  estado y exportación CSV (`;` + BOM para Excel chileno).
+- **Diseño**: cabecera con estado vivo (sólo dice «en vivo» si la última lectura
+  es de hace <1 min) → KPIs → periodo → gráfico protagonista → detalle. La
+  tarjeta de cuenta se esconde cuando hay tienda abierta (el estado vivo ya dice
+  con qué cuenta estás) y la tienda abierta no se repite como cabecera aparte:
+  su tarjeta ofrece «Ver mapa».
+- **Verificado**: `ventas_serie` en producción con cuenta + tienda + 2 pedidos
+  (7 y 30 días, 401 sin sesión y con otra cuenta, limpieza) → 24 comprobaciones;
+  batería local completa en verde; panel capturado a 390 px en las 4 pestañas y
+  en 7/30 días con un banco que carga la sección, el CSS y el JS reales.
+- **Deploys**: API `fabri-ldouc46zk…` READY; web `forge-core-stock-68h2oq7tf…`
+  READY; `sw.js` en `fcore-v77`; `/app/` y `fabri-core-web` en 200.
+
 ## Sesión 2026-11-11 · Latido diario de la base + comprobación de continuidad
 
 Pedido: «que revise la base de datos cada 24 horas para que no se bloquee o se

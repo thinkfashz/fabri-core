@@ -34,6 +34,10 @@
 //                                              → pedidos del local (DUEÑO · ADMIN)
 //   POST { accion: "pedido_estado", local_id, clave?, pedido_id, estado }
 //                                              → avanza el pedido (DUEÑO · ADMIN)
+//   POST { accion: "ventas_serie", local_id, clave?, dias? }
+//                                              → panel del dueño: serie diaria,
+//                                                top de productos, estados y
+//                                                visitas (DUEÑO · ADMIN)
 //   POST { accion: "resumen" }                  → conteos (ADMIN)
 //
 // Seguridad:
@@ -534,7 +538,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       acciones: [
         'asegurar', 'locales', 'local_crear', 'local_mio', 'local_actualizar',
         'local_estado', 'local_borrar', 'productos_subir', 'producto_borrar',
-        'pedido_crear', 'pedidos_listar', 'pedido_estado', 'resumen',
+        'pedido_crear', 'pedidos_listar', 'pedido_estado', 'ventas_serie', 'resumen',
       ],
     });
   }
@@ -895,6 +899,129 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         [estado, pedidoId, localId]
       );
       return json(res, { ok: true, accion, cambiados: r.rowCount, estado });
+    }
+
+    /* ── panel del dueño: serie, top, estados y visitas ── */
+    if (accion === 'ventas_serie') {
+      const localId = idLocal(cuerpo.local_id);
+      const { local, motivo } = await autorizarLocal(pool, req, localId, texto(cuerpo.clave, 60));
+      if (!local) return json(res, { ok: false, error: 'no autorizado', codigo: motivo }, 401);
+
+      // 90 días es el techo: más que eso no se dibuja en un teléfono.
+      const dias = Math.min(90, Math.max(1, entero(cuerpo.dias, 90) || 7));
+      // Los días se cortan en hora de Chile, no en UTC: a las 21:00 de acá ya
+      // es el día siguiente en UTC y las ventas de la noche caerían mal.
+      const TZ = 'America/Santiago';
+
+      const serie = await pool.query(
+        `WITH dias AS (
+           SELECT (d)::date AS dia
+             FROM generate_series(
+               ((now() AT TIME ZONE '${TZ}')::date - ($2::int - 1)),
+               ((now() AT TIME ZONE '${TZ}')::date),
+               interval '1 day') AS d
+         )
+         SELECT to_char(d.dia, 'YYYY-MM-DD') AS dia,
+                COUNT(p.id)::int AS pedidos,
+                COALESCE(SUM(p.total), 0)::float8 AS ventas
+           FROM dias d
+           LEFT JOIN ${T_PEDIDOS} p
+             ON p.local_id = $1
+            AND p.estado <> 'cancelado'
+            AND (p.creado AT TIME ZONE '${TZ}')::date = d.dia
+          GROUP BY d.dia
+          ORDER BY d.dia`,
+        [localId, dias]
+      );
+
+      const tot = await pool.query(
+        `SELECT COUNT(*)::int AS pedidos,
+                COALESCE(SUM(total), 0)::float8 AS ventas,
+                COUNT(*) FILTER (WHERE estado IN ('nuevo','visto','listo'))::int AS abiertos
+           FROM ${T_PEDIDOS}
+          WHERE local_id = $1 AND estado <> 'cancelado'
+            AND creado >= now() - make_interval(days => $2::int)`,
+        [localId, dias]
+      );
+
+      // Top de productos: se desarma el JSON del pedido. Los cancelados no
+      // cuentan, y el monto se recalcula con lo que quedó guardado (nunca con
+      // lo que mandó el comprador).
+      const top = await pool.query(
+        `SELECT it->>'nombre' AS nombre,
+                SUM((it->>'cantidad')::int)::int AS unidades,
+                SUM(((it->>'precio')::numeric) * ((it->>'cantidad')::int))::float8 AS monto
+           FROM ${T_PEDIDOS} p
+           CROSS JOIN LATERAL jsonb_array_elements(p.items) AS it
+          WHERE p.local_id = $1
+            AND p.estado <> 'cancelado'
+            AND jsonb_typeof(p.items) = 'array'
+            AND p.creado >= now() - make_interval(days => $2::int)
+          GROUP BY 1
+          ORDER BY monto DESC NULLS LAST
+          LIMIT 8`,
+        [localId, dias]
+      );
+
+      const est = await pool.query(
+        `SELECT estado, COUNT(*)::int AS n
+           FROM ${T_PEDIDOS}
+          WHERE local_id = $1 AND creado >= now() - make_interval(days => $2::int)
+          GROUP BY estado`,
+        [localId, dias]
+      );
+      const estados: Record<string, number> = {};
+      for (const e of ESTADOS) estados[e] = 0;
+      for (const f of est.rows) estados[f.estado] = f.n;
+
+      // Visitas: la tabla es de toda la app (no distingue local), así que se
+      // devuelve tal cual y el panel lo dice. Si todavía no existe (nadie
+      // abrió el visor 3D), se devuelve null en vez de un error.
+      let visitas: Record<string, unknown> | null = null;
+      try {
+        const existe = await pool.query(`SELECT to_regclass('public.visitas') AS v`);
+        if (existe.rows[0]?.v) {
+          const vd = await pool.query(
+            `SELECT to_char((ts AT TIME ZONE '${TZ}')::date, 'YYYY-MM-DD') AS dia,
+                    COUNT(*)::int AS n
+               FROM visitas
+              WHERE ts >= now() - make_interval(days => $1::int)
+              GROUP BY 1 ORDER BY 1`,
+            [dias]
+          );
+          const vc = await pool.query(
+            `SELECT canal, COUNT(*)::int AS n
+               FROM visitas
+              WHERE ts >= now() - make_interval(days => $1::int)
+              GROUP BY canal ORDER BY n DESC LIMIT 8`,
+            [dias]
+          );
+          const total = vd.rows.reduce((a: number, f: any) => a + Number(f.n), 0);
+          visitas = { total, por_dia: vd.rows, por_canal: vc.rows, alcance: 'app' };
+        }
+      } catch (e) {
+        visitas = null;
+      }
+
+      const t0 = tot.rows[0] || {};
+      const pedidos = Number(t0.pedidos) || 0;
+      const ventas = Number(t0.ventas) || 0;
+      const totalVisitas = visitas ? Number(visitas.total) || 0 : 0;
+      return json(res, {
+        ok: true, accion, dias,
+        local: { id: local.id, nombre: local.nombre },
+        serie: serie.rows,
+        totales: {
+          pedidos, ventas,
+          ticket: pedidos ? Math.round(ventas / pedidos) : 0,
+          abiertos: Number(t0.abiertos) || 0,
+        },
+        top: top.rows,
+        estados,
+        visitas,
+        // Pedidos ÷ visitas de la app. Null cuando no hay con qué comparar.
+        conversion: totalVisitas ? Number(((pedidos / totalVisitas) * 100).toFixed(1)) : null,
+      });
     }
 
     if (accion === 'resumen') {

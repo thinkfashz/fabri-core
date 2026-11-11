@@ -1206,11 +1206,11 @@ body.con-scan{overflow:hidden}
 .neg-tienda-cab { display: flex; align-items: center; gap: 11px; margin-bottom: 12px; }
 .neg-tienda-cab .neg-tienda-txt { flex: 1; }
 .neg-tienda-cab .btn { flex: 0 0 auto; }
-/* Barra «estás administrando esta tienda»: no es otra tarjeta, es contexto. */
+/* Barra «estás administrando esta tienda»: no es otra tarjeta, es contexto.
+   La tienda ya aparece marcada en «Mis tiendas», así que acá va sin caja. */
 .neg-bar {
-  display: flex; align-items: center; gap: 11px; margin-bottom: 12px; padding: 10px 12px;
-  border: 1px solid rgba(200,255,0,.24); border-radius: var(--r-lg);
-  background: linear-gradient(180deg, rgba(200,255,0,.07), rgba(200,255,0,.018));
+  display: flex; align-items: center; gap: 10px; margin-bottom: 6px; padding: 0;
+  border: 0; background: none;
 }
 .neg-bar .neg-tienda-txt { flex: 1; min-width: 0; }
 .neg-bar .btn { flex: 0 0 auto; }
@@ -1231,6 +1231,7 @@ body.con-scan{overflow:hidden}
 .neg-campo { display: grid; gap: 4px; flex: 1; min-width: 130px; }
 .neg-campo > span { font-size: 9.5px; font-weight: 750; letter-spacing: .1em; text-transform: uppercase; color: var(--tx3); }
 .neg-campo-fila { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; align-items: end; }
+.neg-campo-ancho { flex: 1 1 100%; }
 .neg-campo-gps .btn { align-self: end; }
 .neg-campo input[type="file"] { font: inherit; font-size: 11px; color: var(--tx3); }
 .neg-entrega { align-items: center; gap: 16px; font-size: 11.5px; color: var(--tx2); }
@@ -1254,6 +1255,128 @@ body.con-scan{overflow:hidden}
 }
 .neg-prod-acc button.borrar { padding: 5px 7px; color: var(--tx4); }
 .neg-prod.on { background: rgba(200,255,0,.05); border-radius: 8px; }
+
+/* ── panel del dueño: estado vivo, pestañas, periodo y gráfico ───────────── */
+.neg-estado { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; margin: 0 0 10px; }
+.neg-estado small {
+  flex: 1; min-width: 0; font-size: 10.5px; color: var(--tx4);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.neg-estado .btn { flex: 0 0 auto; min-height: 30px; padding: 0 9px; font-size: 10.5px; }
+.neg-live {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 2px 9px 2px 7px; border-radius: 999px;
+  background: rgba(74,222,128,.1); border: 1px solid rgba(74,222,128,.28);
+}
+.neg-live i {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--ok);
+  animation: negPulso 2.4s infinite;
+}
+.neg-live b { font-size: 9.5px; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; color: var(--ok); }
+.neg-live.stale { background: rgba(255,255,255,.04); border-color: var(--line-2); }
+.neg-live.stale i { background: var(--tx4); animation: none; box-shadow: none; }
+.neg-live.stale b { color: var(--tx3); }
+@keyframes negPulso {
+  0% { box-shadow: 0 0 0 0 rgba(74,222,128,.45); }
+  70% { box-shadow: 0 0 0 7px rgba(74,222,128,0); }
+  100% { box-shadow: 0 0 0 0 rgba(74,222,128,0); }
+}
+@media (prefers-reduced-motion: reduce) { .neg-live i { animation: none; } }
+
+.neg-tabs {
+  display: flex; gap: 4px; margin-bottom: 12px; padding: 3px;
+  border: 1px solid var(--line); border-radius: 14px;
+  background: rgba(255,255,255,.022);
+  overflow-x: auto; scrollbar-width: none;
+}
+.neg-tabs::-webkit-scrollbar { display: none; }
+.neg-tab {
+  flex: 1 1 0; min-width: 0; display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+  min-height: 40px; padding: 0 6px; border: 0; border-radius: 11px; cursor: pointer;
+  background: transparent; color: var(--tx3);
+  font: inherit; font-size: 11px; font-weight: 700; letter-spacing: 0;
+  transition: background .16s, color .16s;
+}
+.neg-tab:hover { color: var(--tx2); background: rgba(255,255,255,.04); }
+.neg-tab.on { background: rgba(200,255,0,.13); color: var(--accent); }
+.neg-tab-n {
+  min-width: 18px; padding: 1px 5px; border-radius: 999px;
+  background: rgba(255,255,255,.07); color: var(--tx3);
+  font-size: 9.5px; font-weight: 800; font-variant-numeric: tabular-nums;
+}
+.neg-tab.on .neg-tab-n { background: rgba(200,255,0,.22); color: var(--accent); }
+.neg-tab-panel[hidden] { display: none; }
+
+.neg-rango { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
+.neg-rango > span {
+  margin-right: 2px; font-size: 9.5px; font-weight: 750;
+  letter-spacing: .12em; text-transform: uppercase; color: var(--tx3);
+}
+.neg-rango-btn {
+  min-height: 32px; padding: 0 12px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--line-2); background: transparent; color: var(--tx3);
+  font: inherit; font-size: 11px; font-weight: 700;
+}
+.neg-rango-btn.on { border-color: rgba(200,255,0,.45); background: rgba(200,255,0,.12); color: var(--accent); }
+
+.neg-serie { margin-bottom: 12px; }
+.neg-serie-sub { display: block; margin-top: 2px; font-size: 10.5px; color: var(--tx4); }
+.neg-bars {
+  display: flex; align-items: flex-end; gap: 3px; height: 132px;
+  margin-top: 6px; padding-bottom: 2px;
+  overflow-x: auto; scrollbar-width: none;
+}
+.neg-bars::-webkit-scrollbar { display: none; }
+.neg-bars-dia {
+  flex: 1 1 7px; min-width: 7px; height: 100%;
+  display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px;
+}
+.neg-bars-col {
+  width: 100%; max-width: 26px; min-height: 2px;
+  border-radius: 5px 5px 2px 2px;
+  background: linear-gradient(180deg, var(--accent), rgba(200,255,0,.35));
+  transition: height .3s var(--ease);
+}
+.neg-bars-dia.vacia .neg-bars-col { background: rgba(255,255,255,.09); }
+.neg-bars-dia.hoy .neg-bars-col { box-shadow: 0 0 14px -2px rgba(200,255,0,.55); }
+.neg-bars-dia small { font-size: 8.5px; color: var(--tx4); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.neg-bars-dia.hoy small { color: var(--accent); font-weight: 700; }
+
+.neg-top-fila { display: flex; align-items: center; gap: 9px; padding: 7px 0; border-bottom: 1px solid var(--line); }
+.neg-top-fila:last-child { border-bottom: 0; }
+.neg-top-n { flex: 0 0 20px; font-size: 10px; font-weight: 800; color: var(--tx4); font-variant-numeric: tabular-nums; }
+.neg-top-txt { flex: 1; min-width: 0; display: grid; gap: 1px; }
+.neg-top-txt b { font-size: 12px; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.neg-top-txt small { font-size: 10px; color: var(--tx4); }
+.neg-top-monto { font-size: 12.5px; font-weight: 750; color: #e8c87a; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+.neg-estados { display: flex; flex-wrap: wrap; gap: 6px; }
+.neg-estado-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 9px; border-radius: 999px;
+  border: 1px solid var(--line-2); background: rgba(255,255,255,.03);
+  font-size: 10.5px; color: var(--tx3);
+}
+.neg-estado-chip b { font-size: 12px; color: var(--tx); font-variant-numeric: tabular-nums; }
+.neg-estado-chip.nuevo { border-color: rgba(96,165,250,.32); color: var(--info); }
+.neg-estado-chip.visto { border-color: rgba(180,140,255,.32); color: #b48cff; }
+.neg-estado-chip.listo { border-color: rgba(251,191,36,.32); color: var(--warn); }
+.neg-estado-chip.entregado { border-color: rgba(74,222,128,.32); color: var(--ok); }
+.neg-estado-chip.cancelado { opacity: .6; }
+
+.neg-visitas { margin-top: 2px; }
+.neg-visitas-cab { display: flex; align-items: baseline; gap: 8px; }
+.neg-visitas-cab b { font-size: 20px; font-weight: 780; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.neg-visitas-cab small { font-size: 10px; color: var(--tx4); }
+.neg-visitas-nota { margin: 5px 0 0; font-size: 10px; line-height: 1.45; color: var(--tx4); }
+.neg-canales { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+.neg-canal { padding: 2px 7px; border-radius: 999px; background: rgba(255,255,255,.05); font-size: 9.5px; color: var(--tx3); }
+
+.neg-tools { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; margin-bottom: 10px; }
+.neg-tools .field { min-width: 0; }
+.neg-tools input[type="search"] { grid-column: 1 / -1; }
+.neg-tools select { grid-column: 1; width: 100%; }
+.neg-tools .btn { grid-column: 2; }
 
 /* ══════════════════════════════════════════════════════════════════════════
    Mercado FORGE · escaparate de productos (marca de la APK)

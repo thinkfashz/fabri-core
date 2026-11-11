@@ -90,7 +90,16 @@ window.Negocio = (function () {
     logoNueva: "",       // data URI del formulario de alta
     logoEditar: "",      // data URI del formulario de ficha
     editandoSku: "",     // producto que se está editando
-    pendienteSel: ""     // tienda a seleccionar tras refrescar
+    pendienteSel: "",    // tienda a seleccionar tras refrescar
+    /* panel de administración */
+    tab: "resumen",      // "resumen" | "pedidos" | "catalogo" | "ajustes"
+    rango: 7,            // días del resumen (7 o 30)
+    serie: null,         // respuesta de ventas_serie
+    serieTs: 0,          // cuándo llegó (para el «en vivo»)
+    serieError: "",
+    cargandoSerie: false,
+    buscar: "",          // filtro de la lista de pedidos
+    filtro: ""           // "" | "abiertos" | estado
   };
 
   /* ── red ────────────────────────────────────────────────────────────────── */
@@ -168,6 +177,79 @@ window.Negocio = (function () {
     if (!EST.sel) return local;
     const otros = local.filter((p) => !(p.local && p.local.id === EST.sel.id));
     return EST.pedidos.concat(otros).sort((a, b) => (b.fecha || 0) - (a.fecha || 0));
+  }
+
+  /* ── filtros y exportación (puros: se prueban sin DOM ni red) ───────────── */
+  function normalizarBusqueda(s) {
+    return String(s == null ? "" : s).toLowerCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .replace(/\s+/g, " ").trim();
+  }
+
+  /** Pedidos que coinciden con el texto y el estado elegidos. */
+  function filtrarPedidos(pedidos, buscar, filtro) {
+    const q = normalizarBusqueda(buscar);
+    return (Array.isArray(pedidos) ? pedidos : []).filter((p) => {
+      if (filtro === "abiertos") {
+        if (p.estado === "entregado" || p.estado === "cancelado") return false;
+      } else if (filtro && p.estado !== filtro) {
+        return false;
+      }
+      if (!q) return true;
+      const texto = normalizarBusqueda([
+        p.codigo,
+        p.cliente && p.cliente.nombre,
+        p.cliente && p.cliente.telefono,
+        p.direccion,
+        (p.items || []).map((x) => x.nombre).join(" ")
+      ].filter(Boolean).join(" "));
+      return texto.indexOf(q) >= 0;
+    });
+  }
+
+  /** Pedidos → CSV para Excel chileno (separador «;» y BOM). */
+  function csvPedidos(pedidos) {
+    const cabecera = ["codigo", "fecha", "cliente", "telefono", "entrega",
+      "direccion", "productos", "subtotal", "envio", "total", "estado"];
+    const celda = (v) => {
+      const s = String(v == null ? "" : v);
+      return /[";\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    };
+    const filas = (Array.isArray(pedidos) ? pedidos : []).map((p) => [
+      p.codigo || "",
+      p.fecha ? new Date(p.fecha).toISOString() : "",
+      (p.cliente && p.cliente.nombre) || "",
+      (p.cliente && p.cliente.telefono) || "",
+      p.entrega === "delivery" ? "delivery" : "retiro",
+      p.direccion || "",
+      (p.items || []).map((x) => x.cantidad + "x " + x.nombre).join(" | "),
+      Number(p.subtotal) || 0,
+      Number(p.envio) || 0,
+      Number(p.total) || 0,
+      p.estado || ""
+    ].map(celda).join(";"));
+    return [cabecera.join(";")].concat(filas).join("\r\n");
+  }
+
+  /** Serie diaria → barras con alto relativo y etiqueta legible. */
+  function barrasSerie(serie) {
+    const datos = Array.isArray(serie) ? serie : [];
+    if (!datos.length) return [];
+    const max = Math.max(1, ...datos.map((d) => Number(d.ventas) || 0));
+    const cada = datos.length <= 10 ? 1 : 5;
+    return datos.map((d, i) => {
+      const ventas = Number(d.ventas) || 0;
+      const ultimo = i === datos.length - 1;
+      return {
+        dia: d.dia,
+        ventas,
+        pedidos: Number(d.pedidos) || 0,
+        alto: Math.max(2, Math.round((ventas / max) * 100)),
+        // Con 30 barras no caben 30 números: se rotula cada 5 y el último.
+        etiqueta: (i % cada === 0 || ultimo) ? String(d.dia || "").slice(8, 10) : "",
+        hoy: ultimo
+      };
+    });
   }
 
   /* ── logo ───────────────────────────────────────────────────────────────── */
@@ -408,6 +490,32 @@ window.Negocio = (function () {
     return true;
   }
 
+  /** Serie del periodo + top + estados + visitas (una sola llamada). */
+  async function cargarSerie() {
+    if (!EST.sel || EST.cargandoSerie) return;
+    const tienda = EST.sel.id;
+    EST.cargandoSerie = true;
+    const d = await api({
+      accion: "ventas_serie",
+      local_id: EST.sel.id,
+      clave: EST.sel.clave || "",
+      dias: EST.rango
+    });
+    EST.cargandoSerie = false;
+    // Si mientras cargaba el dueño cambió de tienda, esta respuesta ya no sirve.
+    if (!EST.sel || EST.sel.id !== tienda) return;
+    if (d && d.ok) {
+      EST.serie = d;
+      EST.serieTs = Date.now();
+      EST.serieError = "";
+    } else {
+      EST.serie = null;
+      EST.serieError = (d && (d.error || d.codigo)) || "sin respuesta de la nube";
+    }
+    pintarResumen();
+    pintarEstadoVivo();
+  }
+
   async function refrescar(opciones) {
     const o = opciones || {};
     if (EST.cargando) return;
@@ -449,8 +557,13 @@ window.Negocio = (function () {
           EST.sel = null;
         }
       }
-      if (EST.sel) await cargarPedidos();
-      else EST.pedidos = [];
+      if (EST.sel) {
+        await cargarPedidos();
+        await cargarSerie();
+      } else {
+        EST.pedidos = [];
+        EST.serie = null;
+      }
     } finally {
       EST.cargando = false;
       EST.ts = Date.now();
@@ -463,10 +576,14 @@ window.Negocio = (function () {
     if (!t) return;
     EST.sel = t;
     EST.pedidos = [];
+    EST.serie = null;
+    EST.serieError = "";
+    EST.serieTs = 0;
     EST.logoEditar = "";
     EST.editandoSku = "";
     guardarJSON(CLAVE_SEL, id);
     await cargarPedidos();
+    await cargarSerie();
     render();
   }
 
@@ -485,6 +602,12 @@ window.Negocio = (function () {
   function pintarCuenta() {
     const chip = $("negCuentaChip"), mail = $("negCuentaMail"), est = $("negCuentaEstado");
     const token = tokenNube();
+    // Con una tienda abierta, la tarjeta de cuenta es puro estorbo: el estado
+    // vivo ya dice con qué cuenta estás y la pantalla «Cuenta» sigue a un toque.
+    // Se queda visible si hay algo que contar (error, sin sesión, sin tienda).
+    const caja = $("negCuenta");
+    if (caja) caja.hidden = !!(EST.sel && token && !EST.aviso);
+
     const u = EST.cuenta || (function () {
       try {
         const d = window.CoreNube && window.CoreNube.leer();
@@ -560,17 +683,30 @@ window.Negocio = (function () {
           const abierto = t.abierto !== false;
           const prods = (t.catalogo || []).length;
           const pend = Number(t.pedidos_pendientes) || 0;
-          return '<article class="neg-tienda-card' + (EST.sel && EST.sel.id === t.id ? " on" : "") + '" data-tienda="' + esc(t.id) + '">' +
+          const sel = EST.sel && EST.sel.id === t.id;
+          // La tienda abierta no repite «Administrar»: ya estás dentro, así
+          // que su acción útil es verla como la ve el cliente.
+          return '<article class="neg-tienda-card' + (sel ? " on" : "") + '" data-tienda="' + esc(t.id) + '">' +
             logoTienda(t, 44) +
             '<div class="neg-tienda-txt"><b>' + esc(t.nombre) + "</b>" +
               "<small>" + esc([t.marca, t.rubro, t.comuna].filter(Boolean).join(" · ") || "Sin marca") +
                 " · " + (abierto ? "abierto" : "cerrado") + "</small>" +
-              "<em>" + prods + " productos" + (pend ? " · " + pend + " pedido(s) por atender" : "") + "</em>" +
+              "<em>" + prods + " productos" + (pend ? " · " + pend + " por atender" : "") + "</em>" +
             "</div>" +
-            '<button class="btn sm" type="button" data-abrir="' + esc(t.id) + '">Administrar</button>' +
+            (sel
+              ? '<button class="btn sm ghost" type="button" data-mapa="' + esc(t.id) + '">Ver mapa</button>'
+              : '<button class="btn sm" type="button" data-abrir="' + esc(t.id) + '">Administrar</button>') +
           "</article>";
         }).join("") +
       "</div>";
+  }
+
+  /** Abre el local en el mapa (la ficha pública que ve el cliente). */
+  function verEnMapa(id) {
+    const tienda = id || (EST.sel && EST.sel.id);
+    if (!tienda) return;
+    if (window.Fabri) window.Fabri.go("panel");
+    if (window.Placer && window.Placer.irATienda) window.Placer.irATienda(tienda);
   }
 
   function pintarPanel() {
@@ -581,17 +717,6 @@ window.Negocio = (function () {
 
     const t = EST.sel;
     const abierto = t.abierto !== false;
-    const cab = $("negTiendaCab");
-    if (cab) {
-      cab.innerHTML =
-        logoTienda(t, 46) +
-        '<div class="neg-tienda-txt"><b>' + esc(t.nombre) + "</b>" +
-          "<small>" + esc([t.marca, t.rubro, t.comuna].filter(Boolean).join(" · ") || "Ficha sin marca") +
-            " · " + (abierto ? "abierto" : "cerrado") + "</small>" +
-          (t.descripcion ? "<em>" + esc(t.descripcion) + "</em>" : "") +
-        "</div>" +
-        '<button class="btn sm ghost" type="button" id="negVerMapa">Ver en el mapa</button>';
-    }
 
     const ab = $("negAbiertoBtn");
     if (ab) {
@@ -602,37 +727,198 @@ window.Negocio = (function () {
     if (estado) {
       estado.textContent = EST.cargando ? "Sincronizando con la nube…"
         : EST.aviso ? EST.aviso
-        : "Pedidos y catálogo de " + t.nombre + " · " + (EST.modo === "cuenta" ? "cuenta" : "clave");
+        : "Pedidos y catálogo · " + (EST.modo === "cuenta" ? "tu cuenta" : "clave de la tienda");
     }
 
+    // Contadores de las pestañas (los mismos números en el título de la tarjeta).
+    const pedidos = pedidosVisibles();
+    const prods = t.catalogo || [];
+    const pc = $("negPedCount"), prc = $("negProdCount");
+    if (pc) pc.textContent = pedidos.length;
+    if (prc) prc.textContent = prods.length;
+    const pt = $("negPedTotal"), prt = $("negProdTotal");
+    if (pt) pt.textContent = pedidos.length;
+    if (prt) prt.textContent = prods.length;
+
+    pintarTabs();
+    pintarEstadoVivo();
+    pintarResumen();
     pintarPedidos();
     pintarCatalogo();
     pintarAjustes();
   }
 
+  /* ── pestañas ───────────────────────────────────────────────────────────── */
+  const TABS = ["resumen", "pedidos", "catalogo", "ajustes"];
+
+  function pintarTabs() {
+    const cont = $("negTabs");
+    if (!cont) return;
+    cont.querySelectorAll("[data-tab]").forEach((b) => {
+      const on = b.dataset.tab === EST.tab;
+      b.classList.toggle("on", on);
+      b.setAttribute("aria-selected", on ? "true" : "false");
+    });
+    TABS.forEach((k) => {
+      const p = $("negTab" + k.charAt(0).toUpperCase() + k.slice(1));
+      if (p) p.hidden = k !== EST.tab;
+    });
+  }
+
+  /** «En vivo» sólo si la última lectura es de hace menos de un minuto. */
+  function pintarEstadoVivo() {
+    const el = $("negLive");
+    if (!el) return;
+    const ts = EST.serieTs || EST.ts || 0;
+    const min = ts ? Math.max(0, Math.round((Date.now() - ts) / 60000)) : null;
+    const vivo = min !== null && min < 1;
+    el.className = "neg-live" + (vivo ? "" : " stale");
+    const txt = vivo ? "en vivo"
+      : min === null ? "sin lectura"
+      : "hace " + (min < 60 ? min + " min" : Math.round(min / 60) + " h");
+    el.innerHTML = "<i></i><b>" + esc(txt) + "</b>";
+  }
+
+  /* ── resumen: KPIs, serie, top, estados y visitas ───────────────────────── */
+  function pintarResumen() {
+    const kpis = $("negKpis");
+    if (!kpis) return;
+
+    const s = EST.serie;
+    const t = (s && s.totales) || {};
+    const v = (s && s.visitas) || null;
+    const dias = EST.rango;
+    const periodo = dias + " días";
+
+    kpis.innerHTML =
+      tarjeta("Ventas · " + periodo, s ? clp(t.ventas) : "—",
+        s ? (t.pedidos || 0) + " pedido(s)" : "sin datos", "oro") +
+      tarjeta("Ticket promedio", s ? clp(t.ticket) : "—", "por pedido del periodo", "") +
+      tarjeta("Por atender", s ? String(t.abiertos || 0) : "—",
+        (s && t.abiertos) ? "requieren atención" : "todo al día",
+        (s && t.abiertos) ? "alerta" : "") +
+      tarjeta("Visitas a la app", v ? String(v.total || 0) : "—",
+        v ? "de todos los locales" : "sin datos", "") +
+      tarjeta("Conversión", (s && s.conversion != null)
+        ? String(s.conversion).replace(".", ",") + " %" : "—", "pedidos ÷ visitas de la app", "") +
+      tarjeta("Productos", String((EST.sel && EST.sel.catalogo || []).length),
+        "en tu catálogo", "");
+
+    const sub = $("negSerieSub");
+    if (sub) {
+      sub.textContent = s
+        ? "Últimos " + dias + " días · " + clp(t.ventas) + " en total"
+        : EST.cargandoSerie ? "Cargando el periodo…" : "Sin datos del periodo";
+    }
+    const chip = $("negSerieChip");
+    if (chip) {
+      chip.textContent = EST.serieError ? "sin datos" : "en vivo";
+      chip.className = "neg-chip " + (EST.serieError ? "pend" : "ok");
+    }
+
+    pintarSerie();
+    pintarTop();
+    pintarEstados();
+    pintarVisitas();
+  }
+
+  function pintarSerie() {
+    const caja = $("negSerie");
+    if (!caja) return;
+    if (EST.serieError) {
+      caja.innerHTML = '<div class="neg-vacio"><b>No pude leer el periodo</b>' +
+        "<p>" + esc(EST.serieError) + ". Revisa la conexión y vuelve a abrir la pestaña.</p></div>";
+      return;
+    }
+    if (!EST.serie) {
+      caja.innerHTML = '<div class="neg-vacio"><b>Cargando…</b><p>Pidiendo la serie de ventas.</p></div>';
+      return;
+    }
+    const barras = barrasSerie(EST.serie.serie);
+    if (!barras.length) {
+      caja.innerHTML = '<div class="neg-vacio"><b>Sin días que mostrar</b><p>El periodo llegó vacío.</p></div>';
+      return;
+    }
+    caja.innerHTML = barras.map((b) =>
+      '<div class="neg-bars-dia' + (b.ventas ? "" : " vacia") + (b.hoy ? " hoy" : "") + '"' +
+        ' title="' + esc(b.dia + " · " + clp(b.ventas) + " · " + b.pedidos + " pedido(s)") + '">' +
+        '<span class="neg-bars-col" style="height:' + b.alto + '%"></span>' +
+        "<small>" + esc(b.etiqueta) + "</small>" +
+      "</div>").join("");
+  }
+
+  function pintarTop() {
+    const caja = $("negTop");
+    if (!caja) return;
+    const rango = $("negTopRango");
+    if (rango) rango.textContent = EST.rango + " días";
+    const top = (EST.serie && EST.serie.top) || [];
+    caja.innerHTML = top.length
+      ? top.map((p, i) =>
+          '<div class="neg-top-fila">' +
+            '<span class="neg-top-n">' + (i + 1) + "</span>" +
+            '<div class="neg-top-txt"><b>' + esc(p.nombre || "Producto") + "</b>" +
+              "<small>" + (Number(p.unidades) || 0) + " unidades</small></div>" +
+            '<span class="neg-top-monto">' + clp(p.monto) + "</span>" +
+          "</div>").join("")
+      : '<div class="neg-vacio"><b>Sin ventas en el periodo</b>' +
+        "<p>Cuando entre un pedido, acá aparece qué se vende más.</p></div>";
+  }
+
+  function pintarEstados() {
+    const caja = $("negEstados");
+    if (!caja) return;
+    const e = (EST.serie && EST.serie.estados) || null;
+    const total = $("negEstCount");
+    if (!e) {
+      caja.innerHTML = '<span class="neg-estado-chip">sin datos</span>';
+      if (total) total.textContent = "—";
+      return;
+    }
+    const orden = ["nuevo", "visto", "listo", "entregado", "cancelado"];
+    const suma = orden.reduce((a, k) => a + (Number(e[k]) || 0), 0);
+    if (total) total.textContent = suma;
+    const visibles = orden.filter((k) => Number(e[k]) > 0);
+    caja.innerHTML = visibles.length
+      ? visibles.map((k) =>
+          '<span class="neg-estado-chip ' + k + '">' + esc(k) + " <b>" + e[k] + "</b></span>").join("")
+      : '<span class="neg-estado-chip">sin pedidos en el periodo</span>';
+  }
+
+  function pintarVisitas() {
+    const caja = $("negVisitas");
+    if (!caja) return;
+    const rango = $("negVisitasRango");
+    if (rango) rango.textContent = EST.rango + " días";
+    const v = EST.serie && EST.serie.visitas;
+    if (!v) {
+      caja.innerHTML = '<div class="neg-visitas-cab"><b>—</b><small>visitas a la app</small></div>' +
+        '<p class="neg-visitas-nota">Todavía no hay visitas registradas en el periodo.</p>';
+      return;
+    }
+    const canales = (v.por_canal || []).filter((c) => Number(c.n) > 0);
+    caja.innerHTML =
+      '<div class="neg-visitas-cab"><b>' + (Number(v.total) || 0) + "</b>" +
+        "<small>visitas a la app en el periodo</small></div>" +
+      (canales.length
+        ? '<div class="neg-canales">' + canales.map((c) =>
+            '<span class="neg-canal">' + esc(c.canal) + " · " + (Number(c.n) || 0) + "</span>").join("") + "</div>"
+        : "") +
+      '<p class="neg-visitas-nota">La tabla de visitas no distingue local: el número es de toda la app.</p>';
+  }
+
   function pintarPedidos() {
     const caja = $("negPedidos");
     if (!caja) return;
-    const pedidos = pedidosVisibles();
-    const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
-    const delDia = pedidos.filter((p) => p.fecha >= hoy.getTime());
-    const ventas = delDia.reduce((a, p) => a + (Number(p.total) || 0), 0);
-    const ticket = delDia.length ? Math.round(ventas / delDia.length) : 0;
-    const pendientes = pedidos.filter((p) => p.estado !== "entregado" && p.estado !== "cancelado").length;
-    const prods = (EST.sel && EST.sel.catalogo) || [];
+    const todos = pedidosVisibles();
+    const lista = filtrarPedidos(todos, EST.buscar, EST.filtro);
+    const total = $("negPedTotal");
+    if (total) total.textContent = lista.length === todos.length
+      ? todos.length
+      : lista.length + " de " + todos.length;
 
-    $("negKpis").innerHTML =
-      tarjeta("Ventas de hoy", clp(ventas), delDia.length + " pedidos", "oro") +
-      tarjeta("Pedidos por entregar", String(pendientes), pendientes ? "requieren atención" : "todo al día", pendientes ? "alerta" : "") +
-      tarjeta("Ticket promedio", clp(ticket), "por pedido de hoy", "") +
-      tarjeta("Productos", String(prods.length), prods.length ? "en tu catálogo" : "sin cargar", "");
-
-    const pc = $("negPedCount"), prc = $("negProdCount");
-    if (pc) pc.textContent = pedidos.length;
-    if (prc) prc.textContent = prods.length;
-
-    caja.innerHTML = pedidos.length
-      ? pedidos.slice(0, 40).map((p) => {
+    caja.innerHTML = lista.length
+      ? lista.slice(0, 60).map((p) => {
           const hecho = p.estado === "entregado";
           const cancel = p.estado === "cancelado";
           return '<article class="neg-pedido' + (hecho || cancel ? " hecho" : "") + '">' +
@@ -657,7 +943,19 @@ window.Negocio = (function () {
             "</div>" +
           "</article>";
         }).join("")
-      : '<div class="mp-vacio"><b>Todavía no hay pedidos</b><p>Cuando alguien pague en MercadoPlacer, aparece acá.</p></div>';
+      : (todos.length
+        ? '<div class="mp-vacio"><b>Ningún pedido coincide</b>' +
+          "<p>Prueba con otro texto o quita el filtro de estado.</p></div>"
+        : '<div class="mp-vacio"><b>Todavía no hay pedidos</b>' +
+          "<p>Cuando alguien pague en MercadoPlacer, aparece acá.</p></div>");
+
+    // La lista se repinta con cada filtro: los botones se vuelven a enganchar.
+    caja.querySelectorAll("[data-hecho]").forEach((b) => {
+      b.onclick = () => marcarEntregado(b.dataset.hecho, b.dataset.nube === "1");
+    });
+    caja.querySelectorAll("[data-borrar]").forEach((b) => {
+      b.onclick = () => { guardar(leer().filter((p) => p.codigo !== b.dataset.borrar)); render(); };
+    });
   }
 
   function pintarCatalogo() {
@@ -908,6 +1206,25 @@ window.Negocio = (function () {
     render();
   }
 
+  /** Descarga la lista visible (con sus filtros) como CSV para Excel. */
+  function exportarPedidos() {
+    const lista = filtrarPedidos(pedidosVisibles(), EST.buscar, EST.filtro);
+    if (!lista.length) { toast("No hay pedidos que exportar"); return; }
+    const csv = csvPedidos(lista);
+    // BOM: sin esto Excel abre los acentos como basura.
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "pedidos-" + ((EST.sel && EST.sel.id) || "local") + "-" +
+      new Date().toISOString().slice(0, 10) + ".csv";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+    toast(lista.length + " pedido(s) exportados");
+  }
+
   async function marcarEntregado(id, esNube) {
     if (esNube) {
       if (!EST.sel) return;
@@ -933,6 +1250,58 @@ window.Negocio = (function () {
       b.onclick = () => { guardar(leer().filter((p) => p.codigo !== b.dataset.borrar)); render(); };
     });
 
+    // Pestañas del panel.
+    const tabs = $("negTabs");
+    if (tabs && !tabs.dataset.listo) {
+      tabs.dataset.listo = "1";
+      tabs.addEventListener("click", (ev) => {
+        const b = ev.target.closest("[data-tab]");
+        if (!b) return;
+        EST.tab = b.dataset.tab;
+        pintarTabs();
+        // Pedidos cambia todo el tiempo: al abrir la pestaña se relee.
+        if (EST.tab === "pedidos" && EST.sel) {
+          cargarPedidos().then(() => pintarPedidos());
+        }
+      });
+    }
+
+    // Periodo del resumen (7 o 30 días).
+    const rango = $("negRango");
+    if (rango && !rango.dataset.listo) {
+      rango.dataset.listo = "1";
+      rango.addEventListener("click", (ev) => {
+        const b = ev.target.closest("[data-rango]");
+        if (!b) return;
+        const n = Number(b.dataset.rango) || 7;
+        if (n === EST.rango) return;
+        EST.rango = n;
+        rango.querySelectorAll("[data-rango]").forEach((x) => {
+          const on = Number(x.dataset.rango) === n;
+          x.classList.toggle("on", on);
+          x.setAttribute("aria-pressed", on ? "true" : "false");
+        });
+        EST.serie = null;
+        EST.serieError = "";
+        pintarResumen();
+        cargarSerie();
+      });
+    }
+
+    // Filtros de la lista de pedidos.
+    const buscar = $("negPedBuscar");
+    if (buscar && !buscar.dataset.listo) {
+      buscar.dataset.listo = "1";
+      buscar.addEventListener("input", () => { EST.buscar = buscar.value; pintarPedidos(); });
+    }
+    const filtro = $("negPedFiltro");
+    if (filtro && !filtro.dataset.listo) {
+      filtro.dataset.listo = "1";
+      filtro.addEventListener("change", () => { EST.filtro = filtro.value; pintarPedidos(); });
+    }
+    const exp = $("negPedExport");
+    if (exp) exp.onclick = exportarPedidos;
+
     // Mis tiendas.
     const caja = $("negTiendas");
     if (caja && !caja.dataset.listo) {
@@ -941,9 +1310,11 @@ window.Negocio = (function () {
         const crear = ev.target.closest("[data-crear]");
         const cuenta = ev.target.closest("[data-cuenta]");
         const abrir = ev.target.closest("[data-abrir]");
+        const mapa = ev.target.closest("[data-mapa]");
         const card = ev.target.closest("[data-tienda]");
         if (crear) { mostrarFormTienda(); return; }
         if (cuenta) { if (window.Fabri) window.Fabri.go("cuenta"); return; }
+        if (mapa) { verEnMapa(mapa.dataset.mapa); return; }
         if (abrir) { abrirTienda(abrir.dataset.abrir); return; }
         if (card) abrirTienda(card.dataset.tienda);
       });
@@ -970,11 +1341,7 @@ window.Negocio = (function () {
     if (cuentaIr) cuentaIr.onclick = () => { if (window.Fabri) window.Fabri.go("cuenta"); };
 
     const verMapa = $("negVerMapa");
-    if (verMapa) verMapa.onclick = () => {
-      if (!EST.sel) return;
-      if (window.Fabri) window.Fabri.go("panel");
-      if (window.Placer && window.Placer.irATienda) window.Placer.irATienda(EST.sel.id);
-    };
+    if (verMapa) verMapa.onclick = () => verEnMapa();
 
     const ab = $("negAbiertoBtn");
     if (ab) ab.onclick = alternarAbierto;
@@ -1107,6 +1474,6 @@ window.Negocio = (function () {
     render() { enlazarFormularios(); render(); },
     refrescar,
     /** Sólo para pruebas: parsers puros, sin DOM ni red. */
-    _test: { parseCSV, parseProductos, aProducto, normClave }
+    _test: { parseCSV, parseProductos, aProducto, normClave, filtrarPedidos, csvPedidos, barrasSerie }
   };
 })();
