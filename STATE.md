@@ -8,6 +8,42 @@
 
 Última actualización: 2026-11-11
 
+## Sesión 2026-11-11 · Fase 2: panel de plataforma con token admin
+
+Pedido: «continúa» con la Fase 2 del plan por fases: la vista de **toda** la
+plataforma para el dueño de la app, no para el dueño de una tienda.
+
+| Pieza | Dónde |
+|---|---|
+| Módulo del panel: candado, KPIs, barras, canales, cuentas, salud | `web/app/plataforma.js` |
+| Pantalla `s-plataforma` con candado de token y panel | `web/app/index.html` |
+| Estilos `plat-*` + alias compartidos `.kpi-grid`/`.kpi` y `.barras*` | `web/app/styles.css` |
+| Entrada en Cuenta (sólo `rol === 'owner'`) y hook en `go()` | `web/app/core-pro.js`, `web/app/app.js` |
+| Pruebas (57 comprobaciones) | `tests/web/plataforma.js` |
+| Documentación | `docs/TIENDAS-MULTI.md` |
+
+- **Sin endpoint nuevo**: la API queda en las mismas 12 funciones. Se reusan
+  `GET /api/auth?diag=1`, `POST /api/mercado {resumen}`, `POST /api/auth {usuarios}`
+  y `GET /api/visitas?dias=N` en paralelo con `Promise.allSettled`.
+- **El token no vive en el sitio**: se pega una vez en el candado, va a
+  `sessionStorage` y sólo pasa a `localStorage` con «Recordar en este equipo». El
+  campo se vacía al entrar y el token no se vuelve a pintar. Un 401 en cualquiera
+  de las tres llamadas protegidas se trata como token inválido.
+- **Orden de diseño**: estado vivo → periodo 7/30 días → 6 KPIs → visitas por día
+  (gráfico protagonista) → canales y rutas/países → cuentas con búsqueda sin
+  acentos → salud de la base (tablas, último latido, plan, token).
+- **`tope_plan` es un objeto** (`{ gratis: 300, pro: 3000 }` = productos por plan),
+  no un número: se muestra como «productos: 300 gratis · 3.000 pro». Se detectó
+  al probar contra la API real, donde antes salía `[object Object]`.
+- **Verificado**: contra la API real con el token admin (diagnóstico, `resumen`,
+  `usuarios`, `visitas?dias=7`, y 401 con token falso) → 15 comprobaciones;
+  batería local completa en verde; capturado a 390 px en candado cerrado, panel
+  abierto, 7 y 30 días con un banco que carga la sección, el CSS y el JS reales.
+  Ahí se corrigieron el campo del token pegado al botón y la fila «Tablas».
+- **Deploy**: web `forge-core-stock-55ews9i29…` READY; `sw.js` en `fcore-v78`;
+  md5 de los seis archivos idénticos a local; `/app/`, la raíz y `fabri-core-web`
+  en 200.
+
 ## Sesión 2026-11-11 · Fase 1: panel del dueño con pestañas y números reales
 
 Pedido: «vamos con la fase 1» del plan por fases que salió de la auditoría

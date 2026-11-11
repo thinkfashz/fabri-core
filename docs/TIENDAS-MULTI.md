@@ -220,10 +220,45 @@ El panel no depende de librerías: el gráfico son barras en CSS y el CSV se arm
 el navegador con separador `;` y BOM, para que Excel en Chile abra los acentos
 bien. La lista de pedidos se filtra sin acentos (`normalizarBusqueda`).
 
+## Panel de plataforma (administración)
+
+La pantalla **Plataforma** (`#plataforma`) es la vista de todo el sistema, para el
+dueño de la app y no para el dueño de una tienda. No se entra con la cuenta: se
+entra con el **token de administración** (`FABRI_API_TOKEN`), que no viaja en el
+código. Se pega una vez en el campo del candado; queda en `sessionStorage` (muere
+al cerrar la pestaña) y sólo pasa a `localStorage` si se marca **«Recordar en este
+equipo»**. El campo se vacía al entrar y el token nunca se vuelve a pintar.
+
+**No hay endpoint nuevo.** Reusa cuatro llamadas que ya existían:
+
+| Llamada | Para qué | Auth |
+|---|---|---|
+| `GET /api/auth?diag=1` | tablas presentes y último latido (`ts`, `ok`, `ms`) | público |
+| `POST /api/mercado { accion: "resumen" }` | tiendas, tiendas abiertas, productos, pedidos, `tope_plan` | token admin |
+| `POST /api/auth { accion: "usuarios" }` | cuentas sin hash (correo, nombre, rol, términos, último login) | token admin |
+| `GET /api/visitas?dias=N` | total, únicos, hoy, ayer, canales con `pct`, por día, rutas, países | token admin |
+
+Qué se ve, en el orden del sistema de diseño: estado vivo → periodo (7/30 días) →
+seis KPIs → visitas por día (gráfico protagonista) → canales y rutas/países →
+cuentas con búsqueda sin acentos → salud de la base. Si una de las cuatro
+llamadas responde **401**, el panel lo trata como token inválido y lo dice; una
+caída de una no tumba a las otras (`Promise.allSettled`).
+
+Detalles que importan:
+
+- `tope_plan` es un **objeto** (`{ gratis, pro }`, productos por plan), no un
+  número: se muestra como «productos: 300 gratis · 3.000 pro».
+- Las barras de visitas rellenan con cero los días sin datos y se cortan en UTC,
+  porque `visitas` agrupa con `date_trunc('day', ts)` en UTC.
+- La entrada al panel aparece en **Cuenta → Panel de plataforma**, sólo cuando la
+  sesión de nube tiene `rol === 'owner'`. La pantalla igual queda protegida por el
+  token: el rol sólo evita mostrar el botón a quien no lo necesita.
+
 ## Pruebas
 
 ```sh
 node tests/web/negocio.js     # 85 comprobaciones: parsers, filtros, CSV, gráfico, contrato HTML/API/mapa
+node tests/web/plataforma.js  # 57 comprobaciones: puras, ids, seguridad del token, endpoints, precache
 node tests/web/auth-nube.js   # incluye CORE_ROOT_EMAIL y promoción a owner
 node tests/web/diseno.js      # shell, sistema visual y offline
 node tests/web/trafico.js     # capa de tráfico del mapa
@@ -239,3 +274,10 @@ borra al terminar (registrar → entrar → `local_crear` → `local_mio` →
 verde. El panel se revisó con un banco de pruebas que carga la sección real de
 `index.html`, el `styles.css` y el `negocio.js` reales con respuestas simuladas,
 capturado a 390 px en las cuatro pestañas y en 7 y 30 días.
+
+El panel de plataforma se probó contra la API real con el token de administración
+(diagnóstico, `resumen`, `usuarios`, `visitas?dias=7` y 401 con un token falso):
+15 comprobaciones en verde. Visualmente se revisó igual, con un banco que carga
+`s-plataforma`, el CSS real y `plataforma.js` con respuestas simuladas, a 390 px:
+candado cerrado, panel abierto, 7 días, 30 días y búsqueda de cuentas. Ahí se
+corrigieron el campo del token pegado al botón y la fila «Tablas» de salud.

@@ -464,7 +464,7 @@
   const PUBLICAS = { publico: 1, panel: 1, tienda: 1, mercado: 1 };
   /* Migas para las pantallas que no tienen botón en el nav (el público no lo
      ve). Sin esto la portada seguía diciendo «Panel». */
-  const CRUMB = { publico: "MercadoPlacer", mercado: "Catálogo", panel: "Mapa", tienda: "Visor 3D" };
+  const CRUMB = { publico: "MercadoPlacer", mercado: "Catálogo", panel: "Mapa", tienda: "Visor 3D", plataforma: "Plataforma" };
 
   function go(id) {
     /* En modo visitante, entrar a una pantalla privada abre la cuenta en vez
@@ -512,6 +512,7 @@
     if (id === 'mercado' && window.Mercado) Mercado.render();
     if (id === 'hoja') Sheet.mount($('#pro-hoja'));
     if (id === 'cuenta') Pro.renderCuenta();
+    if (id === 'plataforma' && window.Plataforma) Plataforma.render();
     if (id === 'wiki' && window.Wiki) Wiki.render();
     history.replaceState(null, '', location.pathname + location.search + '#' + id);
   }

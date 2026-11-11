@@ -357,6 +357,8 @@
         <div class="hint" id="cuLatido">base: comprobando el último latido…</div>
         <div class="row" style="display:flex;gap:7px;margin-top:10px;flex-wrap:wrap">
           <button class="btn ghost" id="cuNube">Verificar en la nube</button>
+          ${nube.activa && nube.rol === 'owner'
+            ? '<button class="btn ghost" id="cuPlataforma">Panel de plataforma</button>' : ''}
           ${nube.activa && nube.terminos && !nube.terminos.vigente
             ? '<button class="btn ghost" id="cuTerminosBtn">Aceptar términos</button>' : ''}
           <button class="btn ghost" id="cuLogout">Cerrar sesión</button>
@@ -437,6 +439,8 @@
         f.toast(r.error || 'La nube no confirmó la sesión');
       }
     };
+    const cuPlat = $('#cuPlataforma');
+    if (cuPlat) cuPlat.onclick = () => { if (f.go) f.go('plataforma'); };
     const cuTerm = $('#cuTerminosBtn');
     if (cuTerm) cuTerm.onclick = async () => {
       cuTerm.disabled = true;

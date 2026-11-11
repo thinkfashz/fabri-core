@@ -1327,6 +1327,79 @@
             cifradas y la planilla. Nada viaja a un servidor propio.</p>
         </div>
         <div id="pro-cuenta"></div>
+      <section class="screen" id="s-plataforma">
+        <div class="screen-head">
+          <p class="eyebrow">Plataforma · administración</p>
+          <h1>Todo el sistema, <em>de un vistazo</em></h1>
+          <p class="sub">Cuentas, tiendas, pedidos y tráfico de toda la app. Se entra con el
+            token de administración: no viaja en el código, lo pegas una vez en este equipo.</p>
+        </div>
+
+        <div class="card" id="platCandado">
+          <div class="neg-cab">
+            <div class="eyebrow">Acceso</div>
+            <span class="badge" id="platCandadoChip">bloqueado</span>
+          </div>
+          <input id="platToken" class="field plat-token" type="password" placeholder="Pega el token de administración"
+                 autocomplete="off" spellcheck="false" autocapitalize="off" aria-label="Token de administración">
+          <div class="plat-candado-pie">
+            <label class="plat-recuerda"><input type="checkbox" id="platRecordar"> Recordar en este equipo</label>
+            <button class="btn primary" type="button" id="platEntrar">Entrar</button>
+          </div>
+          <small class="hint" id="platCandadoAviso">Sin recordar, el token se borra al cerrar la pestaña.</small>
+        </div>
+
+        <div id="platPanel" hidden>
+          <div class="neg-estado">
+            <span class="neg-live" id="platLive"><i></i><b>—</b></span>
+            <small id="platEstado">—</small>
+            <button class="btn sm ghost" type="button" id="platSalir">Salir</button>
+          </div>
+
+          <div class="neg-rango" id="platRango" role="group" aria-label="Periodo del tráfico">
+            <span>Periodo</span>
+            <button class="neg-rango-btn on" type="button" data-dias="7" aria-pressed="true">7 días</button>
+            <button class="neg-rango-btn" type="button" data-dias="30" aria-pressed="false">30 días</button>
+          </div>
+
+          <div class="kpi-grid" id="platKpis"></div>
+
+          <div class="card">
+            <div class="neg-cab">
+              <div>
+                <div class="eyebrow">Visitas por día</div>
+                <small class="neg-serie-sub" id="platVisitasSub">Cargando el periodo…</small>
+              </div>
+              <span class="badge" id="platVisitasChip">—</span>
+            </div>
+            <div class="barras" id="platVisitas"></div>
+          </div>
+
+          <div class="neg-grid">
+            <div class="card">
+              <div class="neg-cab"><div class="eyebrow">De dónde llega la gente</div><span class="badge" id="platCanalesTotal">—</span></div>
+              <div id="platCanales"></div>
+            </div>
+            <div class="card">
+              <div class="neg-cab"><div class="eyebrow">Rutas y países</div><span class="badge" id="platRutasChip">—</span></div>
+              <div id="platRutas"></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="neg-cab"><div class="eyebrow">Cuentas</div><span class="badge" id="platCuentasN">—</span></div>
+            <div class="neg-tools">
+              <input id="platCuentasBuscar" class="field" type="search" placeholder="Buscar por correo o nombre"
+                     autocomplete="off" aria-label="Buscar cuentas">
+            </div>
+            <div id="platCuentas"></div>
+          </div>
+
+          <div class="card">
+            <div class="neg-cab"><div class="eyebrow">Salud de la base</div><span class="badge" id="platSaludChip">—</span></div>
+            <div class="plat-salud" id="platSalud"></div>
+          </div>
+        </div>
       </section>
     </main>
   </div>
@@ -1381,6 +1454,7 @@
 <script src="./mapa-trafico.js"></script>
 <script src="./placer.js"></script>
 <script src="./negocio.js"></script>
+<script src="./plataforma.js"></script>
 <script src="./tienda3d.js"></script>
 <script src="./app.js"></script>
 <script src="./cloud.js"></script>

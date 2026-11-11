@@ -1121,19 +1121,21 @@ body.con-scan{overflow:hidden}
 .neg-nube-fila .field { flex: 1; min-width: 150px; }
 .neg-nube-pie { display: flex; align-items: center; gap: 10px; margin-top: 9px; flex-wrap: wrap; }
 .neg-nube-pie small { font-size: 10.5px; color: var(--tx4); }
-.neg-kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
-.neg-kpi {
+/* Rejilla de KPIs: la usan el panel del dueño (`neg-*`) y el de plataforma
+   (`kpi-*`). Los dos nombres apuntan a las mismas reglas para no duplicar. */
+.neg-kpis, .kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+.neg-kpi, .kpi {
   display: grid; gap: 2px; padding: 14px;
   border-radius: var(--r-lg); border: 1px solid var(--line);
   background: linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.015));
   box-shadow: var(--sh-1);
 }
-.neg-kpi span { font-size: 9.5px; font-weight: 750; letter-spacing: .12em; text-transform: uppercase; color: var(--tx3); }
-.neg-kpi b { font-size: 24px; letter-spacing: -.035em; font-weight: 780; font-variant-numeric: tabular-nums; }
-.neg-kpi small { font-size: 10.5px; color: var(--tx4); }
-.neg-kpi.oro b { color: #e8c87a; }
-.neg-kpi.alerta { border-color: rgba(251,191,36,.32); background: rgba(251,191,36,.06); }
-.neg-kpi.alerta b { color: var(--warn); }
+.neg-kpi span, .kpi span { font-size: 9.5px; font-weight: 750; letter-spacing: .12em; text-transform: uppercase; color: var(--tx3); }
+.neg-kpi b, .kpi b { font-size: 24px; letter-spacing: -.035em; font-weight: 780; font-variant-numeric: tabular-nums; }
+.neg-kpi small, .kpi small { font-size: 10.5px; color: var(--tx4); }
+.neg-kpi.oro b, .kpi.oro b { color: #e8c87a; }
+.neg-kpi.alerta, .kpi.alerta { border-color: rgba(251,191,36,.32); background: rgba(251,191,36,.06); }
+.neg-kpi.alerta b, .kpi.alerta b { color: var(--warn); }
 
 .neg-grid { display: grid; gap: 12px; }
 @media (min-width: 960px) { .neg-grid { grid-template-columns: 1.15fr .85fr; align-items: start; } }
@@ -1321,26 +1323,28 @@ body.con-scan{overflow:hidden}
 
 .neg-serie { margin-bottom: 12px; }
 .neg-serie-sub { display: block; margin-top: 2px; font-size: 10.5px; color: var(--tx4); }
-.neg-bars {
+/* Gráfico de barras compartido: `neg-bars*` en el panel del dueño,
+   `barras*` en el de plataforma. Mismas reglas, dos nombres. */
+.neg-bars, .barras {
   display: flex; align-items: flex-end; gap: 3px; height: 132px;
   margin-top: 6px; padding-bottom: 2px;
   overflow-x: auto; scrollbar-width: none;
 }
-.neg-bars::-webkit-scrollbar { display: none; }
-.neg-bars-dia {
+.neg-bars::-webkit-scrollbar, .barras::-webkit-scrollbar { display: none; }
+.neg-bars-dia, .barras-dia {
   flex: 1 1 7px; min-width: 7px; height: 100%;
   display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px;
 }
-.neg-bars-col {
+.neg-bars-col, .barras-col {
   width: 100%; max-width: 26px; min-height: 2px;
   border-radius: 5px 5px 2px 2px;
   background: linear-gradient(180deg, var(--accent), rgba(200,255,0,.35));
   transition: height .3s var(--ease);
 }
-.neg-bars-dia.vacia .neg-bars-col { background: rgba(255,255,255,.09); }
-.neg-bars-dia.hoy .neg-bars-col { box-shadow: 0 0 14px -2px rgba(200,255,0,.55); }
-.neg-bars-dia small { font-size: 8.5px; color: var(--tx4); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.neg-bars-dia.hoy small { color: var(--accent); font-weight: 700; }
+.neg-bars-dia.vacia .neg-bars-col, .barras-dia.vacia .barras-col { background: rgba(255,255,255,.09); }
+.neg-bars-dia.hoy .neg-bars-col, .barras-dia.hoy .barras-col { box-shadow: 0 0 14px -2px rgba(200,255,0,.55); }
+.neg-bars-dia small, .barras-dia small { font-size: 8.5px; color: var(--tx4); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.neg-bars-dia.hoy small, .barras-dia.hoy small { color: var(--accent); font-weight: 700; }
 
 .neg-top-fila { display: flex; align-items: center; gap: 9px; padding: 7px 0; border-bottom: 1px solid var(--line); }
 .neg-top-fila:last-child { border-bottom: 0; }
@@ -1377,6 +1381,34 @@ body.con-scan{overflow:hidden}
 .neg-tools input[type="search"] { grid-column: 1 / -1; }
 .neg-tools select { grid-column: 1; width: 100%; }
 .neg-tools .btn { grid-column: 2; }
+
+/* ── panel de plataforma (cuentas, canales, salud) ───────────────────────── */
+.plat-recuerda { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--tx3); }
+.plat-recuerda input { width: 15px; height: 15px; accent-color: var(--accent); }
+.plat-token { width: 100%; margin-bottom: 10px; }
+.plat-candado-pie { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.plat-candado-pie .btn { flex: 0 0 auto; }
+.plat-candado-pie + .hint { display: block; margin-top: 8px; }
+
+.plat-tablas { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 4px; }
+
+.plat-canal { display: grid; grid-template-columns: 88px minmax(0, 1fr) 42px; align-items: center; gap: 8px; padding: 5px 0; }
+.plat-canal > span { font-size: 11px; color: var(--tx2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.plat-canal-barra { height: 6px; border-radius: 999px; background: rgba(255,255,255,.07); overflow: hidden; }
+.plat-canal-barra i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--accent), rgba(200,255,0,.45)); }
+.plat-canal > b { font-size: 10.5px; text-align: right; color: var(--tx3); font-variant-numeric: tabular-nums; }
+
+.plat-cuenta { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--line); }
+.plat-cuenta:last-child { border-bottom: 0; }
+.plat-cuenta-txt { flex: 1; min-width: 0; display: grid; gap: 1px; }
+.plat-cuenta-txt b { font-size: 12px; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.plat-cuenta-txt small { font-size: 10px; color: var(--tx4); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.plat-cuenta .hint { flex: 0 0 auto; font-size: 10px; white-space: nowrap; }
+
+.plat-salud { display: grid; gap: 7px; }
+.plat-salud-fila { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 11.5px; color: var(--tx3); }
+.plat-salud-fila > b { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; text-align: right; color: var(--tx); font-weight: 600; }
+.plat-salud-fila .mono { font-size: 11px; color: var(--tx2); }
 
 /* ══════════════════════════════════════════════════════════════════════════
    Mercado FORGE · escaparate de productos (marca de la APK)
