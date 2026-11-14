@@ -15,7 +15,11 @@
 
   var MERCADO = "https://fabri-api.vercel.app/api/mercado";
   var K_ULTIMO = "fcs.seguir.ultimo";   // { codigo, token } del último pedido
+  var K_RESENADO = "fcs.seguir.resenado"; // pedidos ya calificados en este equipo
   var F = window.FCS || {};
+  /* Con qué se probó que el pedido es tuyo: el enlace (token) o el código +
+     los últimos 4 del teléfono. La reseña viaja con lo mismo. */
+  var CRED = { token: "", codigo: "", contacto: "" };
 
   /* ── utilidades puras ─────────────────────────────────────────────────── */
 
@@ -151,6 +155,141 @@
     catch (e) { /* modo privado: el enlace igual sirve */ }
   }
 
+  /* ── reseña (sólo con el pedido entregado) ─────────────────────────────── */
+
+  function claveCred(cred) {
+    if (cred && cred.token) return cred.token;
+    if (cred && cred.codigo) return "c:" + cred.codigo;
+    return "";
+  }
+
+  function yaResenado(cred) {
+    var clave = claveCred(cred);
+    if (!clave) return false;
+    try {
+      var lista = JSON.parse(localStorage.getItem(K_RESENADO) || "[]");
+      return Array.isArray(lista) && lista.indexOf(clave) >= 0;
+    } catch (e) { return false; }
+  }
+
+  function marcarResenado(cred) {
+    var clave = claveCred(cred);
+    if (!clave) return;
+    try {
+      var lista = JSON.parse(localStorage.getItem(K_RESENADO) || "[]");
+      if (!Array.isArray(lista)) lista = [];
+      if (lista.indexOf(clave) < 0) lista.push(clave);
+      localStorage.setItem(K_RESENADO, JSON.stringify(lista.slice(-40)));
+    } catch (e) { /* modo privado */ }
+  }
+
+  var ESTRELLA = "M12 3.3l2.55 5.3 5.85.82-4.25 4.1 1.02 5.8L12 16.6l-5.17 2.72 1.02-5.8-4.25-4.1 5.85-.82z";
+
+  /** Cinco estrellas, llenas hasta `n`. Es lo mismo que ve la ficha del local. */
+  /** Una sola estrella: el botón de calificar es una estrella, no cinco. */
+  function unEstrella(tam) {
+    var alto = tam || 20;
+    return '<svg class="sg-estrella-svg" viewBox="0 0 24 24" width="' + alto + '" height="' + alto +
+      '" aria-hidden="true"><path d="' + ESTRELLA + '" ' +
+      'fill="currentColor" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/></svg>';
+  }
+
+  function estrellas(n, tam) {
+    var k = Math.max(0, Math.min(5, Math.round(Number(n) || 0)));
+    var alto = tam || 12;
+    var svg = '<svg class="sg-estrellas" viewBox="0 0 120 24" width="' + alto * 5 +
+      '" height="' + alto + '" aria-hidden="true">';
+    for (var i = 0; i < 5; i++) {
+      svg += '<path d="' + ESTRELLA + '" transform="translate(' + i * 24 + ' 0)" ' +
+        (i < k ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="1.2" opacity=".35"') + "/>";
+    }
+    return svg + "</svg>";
+  }
+
+  function bloqueResena(pedido, cred) {
+    if (pedido.estado !== "entregado") return "";
+    if (!claveCred(cred)) return "";
+    if (yaResenado(cred)) {
+      return '<div class="ds-card sg-resena sg-resena-hecha">' +
+        "<h2>Gracias por calificar</h2>" +
+        '<p class="sg-dato">Tu reseña ya está publicada en la ficha del local.</p></div>';
+    }
+    // Una estrella por botón, en orden 1→5: al tocar la tercera, se llenan tres.
+    var botones = "";
+    for (var i = 1; i <= 5; i++) {
+      botones += '<button type="button" class="sg-estrella" data-estrella="' + i +
+        '" aria-label="' + i + " de 5\" aria-pressed=\"false\">" + unEstrella(20) + "</button>";
+    }
+    return '<div class="ds-card sg-resena" id="sgResena">' +
+      "<h2>¿Cómo estuvo tu pedido?</h2>" +
+      '<p class="sg-dato">Tu opinión ayuda a otros compradores. Se publica con tu nombre abreviado.</p>' +
+      '<div class="sg-estrellas-fila" role="group" aria-label="Calificación">' + botones + "</div>" +
+      '<textarea id="sgResenaTexto" class="ds-input sg-textarea" rows="3" maxlength="500" ' +
+        'placeholder="Cuenta qué tal estuvo la atención, la entrega o los productos (opcional)"></textarea>' +
+      '<p class="sg-error" id="sgResenaError" role="alert" hidden></p>' +
+      '<button type="button" class="ds-btn ds-btn--block sg-resena-btn" id="sgResenaEnviar">Publicar reseña</button>' +
+      '<small class="sg-dato sg-resena-nota">Sólo puedes calificar una vez por pedido.</small>' +
+    "</div>";
+  }
+
+  function engancharResena(cred) {
+    var caja = document.getElementById("sgResena");
+    if (!caja) return;
+    var elegidas = 5;
+    var botones = caja.querySelectorAll(".sg-estrella");
+
+    function pintarEstrellas() {
+      for (var i = 0; i < botones.length; i++) {
+        var n = Number(botones[i].getAttribute("data-estrella")) || 0;
+        botones[i].className = "sg-estrella" + (n <= elegidas ? " on" : "");
+        botones[i].setAttribute("aria-pressed", n === elegidas ? "true" : "false");
+      }
+    }
+    for (var i = 0; i < botones.length; i++) {
+      botones[i].onclick = function () {
+        elegidas = Number(this.getAttribute("data-estrella")) || 5;
+        pintarEstrellas();
+      };
+    }
+    pintarEstrellas();
+
+    var enviar = document.getElementById("sgResenaEnviar");
+    if (!enviar) return;
+    enviar.onclick = function () {
+      var textoEl = document.getElementById("sgResenaTexto");
+      var errEl = document.getElementById("sgResenaError");
+      enviar.disabled = true;
+      enviar.textContent = "Publicando…";
+      if (errEl) errEl.hidden = true;
+      var cuerpo = { accion: "resena_crear", estrellas: elegidas, texto: textoEl ? textoEl.value : "" };
+      if (cred && cred.token) cuerpo.token = cred.token;
+      else { cuerpo.codigo = cred.codigo; cuerpo.contacto = cred.contacto; }
+      buscar(cuerpo).then(function (d) {
+        if (d && d.ok) {
+          marcarResenado(cred);
+          var prom = d.calificacion && d.calificacion.promedio;
+          caja.innerHTML = "<h2>Gracias por calificar</h2>" +
+            '<p class="sg-dato">' + (prom
+              ? "Tu reseña ya se ve en la ficha del local (promedio " +
+                String(prom).replace(".", ",") + " de 5)."
+              : "Tu reseña ya se ve en la ficha del local.") + "</p>";
+          caja.className = "ds-card sg-resena sg-resena-hecha";
+          return;
+        }
+        enviar.disabled = false;
+        enviar.textContent = "Publicar reseña";
+        if (errEl) {
+          errEl.hidden = false;
+          errEl.textContent = (d && d.error) || "No pudimos publicar la reseña.";
+        }
+      }).catch(function () {
+        enviar.disabled = false;
+        enviar.textContent = "Publicar reseña";
+        if (errEl) { errEl.hidden = false; errEl.textContent = "No hay conexión. Inténtalo de nuevo."; }
+      });
+    };
+  }
+
   function buscar(cuerpo) {
     return fetch(MERCADO, {
       method: "POST",
@@ -248,7 +387,8 @@
       "</div>" +
       linea(pedido) +
       resumen(pedido) +
-      localHtml(pedido);
+      localHtml(pedido) +
+      bloqueResena(pedido, CRED);
     cont.hidden = false;
     error("");
 
@@ -259,6 +399,8 @@
     if (pie) pie.hidden = true;
     var sub = document.getElementById("sgSub");
     if (sub) sub.textContent = "Este es el estado de tu pedido. El local lo actualiza desde su panel.";
+
+    engancharResena(CRED);
 
     try {
       cont.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -276,6 +418,7 @@
   /* ── flujo ────────────────────────────────────────────────────────────── */
 
   function porToken(token) {
+    CRED = { token: token || "", codigo: "", contacto: "" };
     cargando(true);
     error("");
     return buscar({ accion: "pedido_seguir", token: token }).then(function (d) {
@@ -293,6 +436,7 @@
   }
 
   function porCodigo(codigo, contacto) {
+    CRED = { token: "", codigo: codigo || "", contacto: contacto || "" };
     cargando(true);
     error("");
     return buscar({ accion: "pedido_seguir", codigo: codigo, contacto: contacto })
@@ -348,7 +492,9 @@
   window.Seguir = {
     render: montar,
     buscar: porToken,
-    _test: { normalizarCodigo: normalizarCodigo, telefono4: telefono4, estadoInfo: estadoInfo, pasos: pasos, fechaCorta: fechaCorta, clp: clp }
+    _test: { normalizarCodigo: normalizarCodigo, telefono4: telefono4, estadoInfo: estadoInfo,
+      pasos: pasos, fechaCorta: fechaCorta, clp: clp, estrellas: estrellas,
+      claveCred: claveCred, bloqueResena: bloqueResena }
   };
 
   if (document.readyState === "loading") {

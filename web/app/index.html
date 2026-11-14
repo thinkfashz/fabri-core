@@ -1171,6 +1171,8 @@
               <span class="neg-tab-n" id="negPedCount">—</span></button>
             <button class="neg-tab" type="button" role="tab" aria-selected="false" data-tab="catalogo">Catálogo
               <span class="neg-tab-n" id="negProdCount">—</span></button>
+            <button class="neg-tab" type="button" role="tab" aria-selected="false" data-tab="resenas">Reseñas
+              <span class="neg-tab-n" id="negResCount">—</span></button>
             <button class="neg-tab" type="button" role="tab" aria-selected="false" data-tab="ajustes">Ajustes</button>
           </div>
 
@@ -1262,6 +1264,18 @@
                 <button class="btn ghost block sm" type="button" id="negImportStock">Traer de mi Stock</button>
                 <small class="neg-aviso" id="negImportAviso">Columnas: nombre, precio, sku, stock, categoria.</small>
               </div>
+            </div>
+          </div>
+
+          <!-- ══════════ RESEÑAS ══════════ -->
+          <div class="neg-tab-panel" id="negTabResenas" role="tabpanel" hidden>
+            <div class="card" id="negResenasCaja">
+              <div class="neg-cab">
+                <div class="eyebrow">Lo que dicen tus clientes</div>
+                <span class="badge" id="negResChip">—</span>
+              </div>
+              <div class="neg-resumen-resenas" id="negResResumen"></div>
+              <div class="neg-resenas-lista" id="negResLista"></div>
             </div>
           </div>
 

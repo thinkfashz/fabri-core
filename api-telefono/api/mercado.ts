@@ -35,6 +35,11 @@
 //   POST { accion: "pedido_seguir", codigo, contacto }
 //                                              → igual, con código MP-XXXXX y
 //                                                los últimos 4 del teléfono
+//   POST { accion: "resenas_listar", local_id } → reseñas visibles + promedio (PÚBLICO)
+//   POST { accion: "resena_crear", token, estrellas, texto }
+//                                              → califica un pedido entregado (PÚBLICO)
+//   POST { accion: "resenas_panel", local_id }  → todas, con las ocultas (DUEÑO · ADMIN)
+//   POST { accion: "resena_moderar", ... }      → oculta o muestra una reseña (DUEÑO · ADMIN)
 //   POST { accion: "pedidos_listar", local_id, clave?, estado? }
 //                                              → pedidos del local (DUEÑO · ADMIN)
 //   POST { accion: "pedido_estado", local_id, clave?, pedido_id, estado }
@@ -74,6 +79,7 @@ const T_LOCALES = 'mercado_locales';
 const T_PRODUCTOS = 'mercado_productos';
 const T_PEDIDOS = 'mercado_pedidos';
 const T_EVENTOS = 'mercado_pedido_eventos';
+const T_RESENAS = 'mercado_resenas';
 const T_CUENTAS = 'core_usuarios';
 const T_SESIONES = 'core_sesiones';
 
@@ -242,6 +248,24 @@ function anotarFallo(ip: string): void {
   ventanaDe(ip).n += 1;
 }
 
+/* Una reseña exige un pedido entregado, así que el abuso ya es bajo; aun así
+   se frena un script que cree pedidos en serie: 20 reseñas por IP por hora. */
+const resenasPorIp = new Map<string, { n: number; desde: number }>();
+const RESENAS_HORA = 20;
+const VENTANA_RESENA_MS = 60 * 60 * 1000;
+
+function permitirResena(ip: string): boolean {
+  const ahora = Date.now();
+  const previo = resenasPorIp.get(ip);
+  if (!previo || ahora - previo.desde > VENTANA_RESENA_MS) {
+    resenasPorIp.set(ip, { n: 1, desde: ahora });
+    return true;
+  }
+  if (previo.n >= RESENAS_HORA) return false;
+  previo.n += 1;
+  return true;
+}
+
 /** Código de pedido comparable: mayúsculas, sin guiones, siempre con `MP`. */
 function codigoComparable(v: unknown): string {
   let s = String(v == null ? '' : v).toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -344,6 +368,25 @@ async function asegurar(pool: any) {
       ts          TIMESTAMPTZ NOT NULL DEFAULT now()
     )`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_mercado_eventos_pedido ON ${T_EVENTOS} (pedido_id, ts)`);
+  // Reseñas: sólo puede calificar quien compró, y sólo cuando el local marcó
+  // el pedido como entregado. `pedido_id` es único: una reseña por pedido.
+  // La respuesta pública nunca lleva el nombre ni el teléfono completos: se
+  // guarda `autor` ya abreviado («Ana P.») al crear la reseña.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ${T_RESENAS} (
+      id        TEXT PRIMARY KEY,
+      local_id  TEXT NOT NULL,
+      pedido_id TEXT NOT NULL,
+      autor     TEXT NOT NULL DEFAULT '',
+      estrellas SMALLINT NOT NULL DEFAULT 5,
+      texto     TEXT NOT NULL DEFAULT '',
+      oculta    BOOLEAN NOT NULL DEFAULT false,
+      creado    TIMESTAMPTZ NOT NULL DEFAULT now()
+    )`);
+  await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_mercado_resenas_pedido
+                      ON ${T_RESENAS} (pedido_id)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_mercado_resenas_local
+                      ON ${T_RESENAS} (local_id, creado DESC)`);
   esquemaListo = true;
 }
 
@@ -358,6 +401,19 @@ async function traerLocales(pool: any, conCatalogo: boolean) {
     `SELECT ${CAMPOS_LOCAL} FROM ${T_LOCALES} WHERE activo = true ORDER BY nombre COLLATE "C"`
   );
   const locales: any[] = r.rows;
+
+  // Calificación de cada local en una sola consulta: la ficha y la lista la
+  // muestran sin pedir nada extra. Redondeo a un decimal (4.7, no 4.66666).
+  const cal = await pool.query(
+    `SELECT local_id, COUNT(*)::int AS n, AVG(estrellas)::float8 AS promedio
+       FROM ${T_RESENAS} WHERE oculta = false GROUP BY local_id`
+  );
+  const calDe: Record<string, any> = {};
+  for (const fila of cal.rows) {
+    calDe[fila.local_id] = { n: fila.n, promedio: Math.round((Number(fila.promedio) || 0) * 10) / 10 };
+  }
+  for (const l of locales) l.calificacion = calDe[l.id] || { n: 0, promedio: 0 };
+
   if (!conCatalogo) {
     const c = await pool.query(
       `SELECT local_id, COUNT(*)::int AS n FROM ${T_PRODUCTOS} GROUP BY local_id`
@@ -409,7 +465,21 @@ function aTienda(l: any) {
     envio: Number(l.envio) || 0,
     demo: Boolean(l.demo),
     catalogo: Array.isArray(l.catalogo) ? l.catalogo : [],
+    calificacion: {
+      n: Number(l.calificacion && l.calificacion.n) || 0,
+      promedio: Number(l.calificacion && l.calificacion.promedio) || 0,
+    },
   };
+}
+
+/** Nombre público de quien opina: «Ana P.». Nunca el nombre ni el teléfono
+ *  completos, y sin acentos raros: se muestra tal cual en la ficha. */
+function autorPublico(nombre: unknown): string {
+  const partes = texto(nombre, 120).trim().split(/\s+/).filter(Boolean);
+  if (!partes.length) return 'Cliente';
+  const primero = partes[0].slice(0, 24);
+  if (partes.length === 1) return primero;
+  return primero + ' ' + partes[partes.length - 1].charAt(0).toUpperCase() + '.';
 }
 
 /* ── escrituras ─────────────────────────────────────────────────────────── */
@@ -612,7 +682,9 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       acciones: [
         'asegurar', 'locales', 'local_crear', 'local_mio', 'local_actualizar',
         'local_estado', 'local_borrar', 'productos_subir', 'producto_borrar',
-        'pedido_crear', 'pedido_seguir', 'pedidos_listar', 'pedido_estado', 'ventas_serie', 'resumen',
+        'pedido_crear', 'pedido_seguir', 'pedidos_listar', 'pedido_estado',
+        'resenas_listar', 'resena_crear', 'resenas_panel', 'resena_moderar',
+        'ventas_serie', 'resumen',
       ],
     });
   }
@@ -648,7 +720,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     await asegurar(pool);
 
     if (accion === 'asegurar') {
-      return json(res, { ok: true, accion, tablas: [T_LOCALES, T_PRODUCTOS, T_PEDIDOS, T_EVENTOS] });
+      return json(res, { ok: true, accion, tablas: [T_LOCALES, T_PRODUCTOS, T_PEDIDOS, T_EVENTOS, T_RESENAS] });
     }
 
     /* ── lecturas por POST (mismo contrato para la APK) ── */
@@ -822,6 +894,9 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       if (!local) return json(res, { ok: false, error: 'no autorizado', codigo: motivo }, 401);
       await pool.query(`DELETE FROM ${T_PRODUCTOS} WHERE local_id = $1`, [localId]);
       await pool.query(`DELETE FROM ${T_PEDIDOS} WHERE local_id = $1`, [localId]);
+      // Las reseñas cuelgan del local, no del pedido: si no se borran quedan
+      // huérfanas y reaparecen si alguien reabre una tienda con el mismo id.
+      await pool.query(`DELETE FROM ${T_RESENAS} WHERE local_id = $1`, [localId]);
       const r = await pool.query(`DELETE FROM ${T_LOCALES} WHERE id = $1`, [localId]);
       return json(res, { ok: true, accion, borrado: r.rowCount });
     }
@@ -1038,6 +1113,165 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       });
     }
 
+    /* ── reseñas (público: leer y escribir) ─────────────────────────────────
+       Calificar exige el token del pedido y que el local lo haya marcado como
+       entregado: no se puede opinar de una compra que no ocurrió. Una reseña
+       por pedido (índice único en `pedido_id`). */
+    if (accion === 'resenas_listar') {
+      const localId = idLocal(cuerpo.local_id);
+      const limite = Math.min(30, Math.max(1, entero(cuerpo.limite, 30) || 12));
+      const r = await pool.query(
+        `SELECT autor, estrellas::int AS estrellas, texto, creado
+           FROM ${T_RESENAS}
+          WHERE local_id = $1 AND oculta = false
+          ORDER BY creado DESC LIMIT $2`, [localId, limite]
+      );
+      const prom = await pool.query(
+        `SELECT COUNT(*)::int AS n, AVG(estrellas)::float8 AS promedio,
+                COUNT(*) FILTER (WHERE estrellas = 5)::int AS cinco,
+                COUNT(*) FILTER (WHERE estrellas = 4)::int AS cuatro,
+                COUNT(*) FILTER (WHERE estrellas = 3)::int AS tres,
+                COUNT(*) FILTER (WHERE estrellas = 2)::int AS dos,
+                COUNT(*) FILTER (WHERE estrellas = 1)::int AS uno
+           FROM ${T_RESENAS} WHERE local_id = $1 AND oculta = false`, [localId]
+      );
+      const c = prom.rows[0] || {};
+      return json(res, {
+        ok: true, accion,
+        calificacion: {
+          n: Number(c.n) || 0,
+          promedio: Math.round((Number(c.promedio) || 0) * 10) / 10,
+          reparto: {
+            5: Number(c.cinco) || 0, 4: Number(c.cuatro) || 0, 3: Number(c.tres) || 0,
+            2: Number(c.dos) || 0, 1: Number(c.uno) || 0,
+          },
+        },
+        resenas: r.rows.map((x: any) => ({
+          autor: x.autor, estrellas: x.estrellas, texto: x.texto, creado: x.creado,
+        })),
+      });
+    }
+
+    if (accion === 'resena_crear') {
+      if (!permitirResena(ipDe(req))) {
+        return json(res, {
+          ok: false, codigo: 'BLOQUEADO',
+          error: 'demasiadas reseñas desde esta conexión: inténtalo más tarde',
+        }, 429);
+      }
+      const token = texto(cuerpo.token, 64).trim().toLowerCase();
+      const codigo = codigoComparable(cuerpo.codigo);
+      const contacto = ultimos4(cuerpo.contacto);
+      const estrellas = entero(cuerpo.estrellas, 5);
+      const textoResena = texto(cuerpo.texto, 500).trim();
+      // Dos formas de probar que el pedido es tuyo, las mismas del seguimiento:
+      // el enlace (token) o el código + los últimos 4 del teléfono.
+      if (!token && !(codigo && contacto)) {
+        return json(res, {
+          ok: false, codigo: 'FALTAN_DATOS',
+          error: 'falta el enlace del pedido, o el código y los últimos 4 del teléfono',
+        }, 400);
+      }
+      if (!(estrellas >= 1 && estrellas <= 5)) {
+        return json(res, { ok: false, codigo: 'ESTRELLAS', error: 'elige de 1 a 5 estrellas' }, 400);
+      }
+
+      const rp = token
+        ? await pool.query(
+            `SELECT id, local_id, estado, cliente FROM ${T_PEDIDOS}
+              WHERE seguimiento = $1 LIMIT 1`, [token]
+          )
+        : await pool.query(
+            `SELECT id, local_id, estado, cliente FROM ${T_PEDIDOS}
+              WHERE upper(regexp_replace(codigo, '[^A-Za-z0-9]', '', 'g')) = $1
+                AND telefono <> ''
+                AND right(regexp_replace(telefono, '[^0-9]', '', 'g'), 4) = $2
+              ORDER BY creado DESC LIMIT 1`, [codigo, contacto]
+          );
+      const pedido = rp.rows[0];
+      if (!pedido) {
+        return json(res, { ok: false, codigo: 'NO_ENCONTRADO', error: 'no encontramos ese pedido' }, 404);
+      }
+      if (pedido.estado !== 'entregado') {
+        return json(res, {
+          ok: false, codigo: 'NO_ENTREGADO',
+          error: 'puedes calificar cuando el local marque el pedido como entregado',
+        }, 409);
+      }
+
+      const id = 'res-' + Date.now().toString(36) + randomBytes(3).toString('hex');
+      try {
+        await pool.query(
+          `INSERT INTO ${T_RESENAS} (id, local_id, pedido_id, autor, estrellas, texto)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [id, pedido.local_id, pedido.id, autorPublico(pedido.cliente), estrellas, textoResena]
+        );
+      } catch (e: any) {
+        // El índice único en `pedido_id` es el que impide opinar dos veces.
+        if (String(e && e.code) === '23505') {
+          return json(res, {
+            ok: false, codigo: 'YA_OPINO', error: 'ya calificaste este pedido',
+          }, 409);
+        }
+        throw e;
+      }
+
+      const prom = await pool.query(
+        `SELECT COUNT(*)::int AS n, AVG(estrellas)::float8 AS promedio
+           FROM ${T_RESENAS} WHERE local_id = $1 AND oculta = false`, [pedido.local_id]
+      );
+      const c = prom.rows[0] || {};
+      return json(res, {
+        ok: true, accion, estrellas,
+        calificacion: {
+          n: Number(c.n) || 0,
+          promedio: Math.round((Number(c.promedio) || 0) * 10) / 10,
+        },
+      });
+    }
+
+    /* ── moderación de reseñas (dueño · clave · admin) ─────────────────────
+       El dueño puede ocultar una reseña sin borrarla: deja de contar en el
+       promedio y deja de mostrarse, pero queda el registro. */
+    if (accion === 'resena_moderar') {
+      const localId = idLocal(cuerpo.local_id);
+      const { local, motivo } = await autorizarLocal(pool, req, localId, texto(cuerpo.clave, 60));
+      if (!local) return json(res, { ok: false, error: 'no autorizado', codigo: motivo }, 401);
+      const resenaId = texto(cuerpo.resena_id, 60).trim();
+      const oculta = booleano(cuerpo.oculta, true);
+      const r = await pool.query(
+        `UPDATE ${T_RESENAS} SET oculta = $1 WHERE id = $2 AND local_id = $3`,
+        [oculta, resenaId, localId]
+      );
+      return json(res, { ok: true, accion, cambiados: r.rowCount, oculta });
+    }
+
+    /* ── reseñas del panel (dueño ve también las ocultas) ─────────────────── */
+    if (accion === 'resenas_panel') {
+      const localId = idLocal(cuerpo.local_id);
+      const { local, motivo } = await autorizarLocal(pool, req, localId, texto(cuerpo.clave, 60));
+      if (!local) return json(res, { ok: false, error: 'no autorizado', codigo: motivo }, 401);
+      const r = await pool.query(
+        `SELECT id, autor, estrellas::int AS estrellas, texto, oculta, creado
+           FROM ${T_RESENAS} WHERE local_id = $1 ORDER BY creado DESC LIMIT 200`, [localId]
+      );
+      const prom = await pool.query(
+        `SELECT COUNT(*)::int AS n, AVG(estrellas)::float8 AS promedio,
+                COUNT(*) FILTER (WHERE oculta)::int AS ocultas
+           FROM ${T_RESENAS} WHERE local_id = $1 AND oculta = false`, [localId]
+      );
+      const c = prom.rows[0] || {};
+      return json(res, {
+        ok: true, accion,
+        calificacion: {
+          n: Number(c.n) || 0,
+          promedio: Math.round((Number(c.promedio) || 0) * 10) / 10,
+          ocultas: Number(c.ocultas) || 0,
+        },
+        resenas: r.rows,
+      });
+    }
+
     if (accion === 'pedidos_listar') {
       const localId = idLocal(cuerpo.local_id);
       const { local, motivo } = await autorizarLocal(pool, req, localId, texto(cuerpo.clave, 60));
@@ -1188,6 +1422,22 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       const pedidos = Number(t0.pedidos) || 0;
       const ventas = Number(t0.ventas) || 0;
       const totalVisitas = visitas ? Number(visitas.total) || 0 : 0;
+
+      // La calificación viaja con el resumen: así la pestaña Reseñas muestra su
+      // contador sin una llamada extra al abrir el panel.
+      let resenas = { n: 0, promedio: 0 };
+      try {
+        const rr = await pool.query(
+          `SELECT COUNT(*)::int AS n, AVG(estrellas)::float8 AS promedio
+             FROM ${T_RESENAS} WHERE local_id = $1 AND oculta = false`, [localId]
+        );
+        const c = rr.rows[0] || {};
+        resenas = {
+          n: Number(c.n) || 0,
+          promedio: Math.round((Number(c.promedio) || 0) * 10) / 10,
+        };
+      } catch (e) { /* tabla nueva: si aún no existe, el panel sigue igual */ }
+
       return json(res, {
         ok: true, accion, dias,
         local: { id: local.id, nombre: local.nombre },
@@ -1200,6 +1450,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         top: top.rows,
         estados,
         visitas,
+        resenas,
         // Pedidos ÷ visitas de la app. Null cuando no hay con qué comparar.
         conversion: totalVisitas ? Number(((pedidos / totalVisitas) * 100).toFixed(1)) : null,
       });

@@ -1327,3 +1327,59 @@ button.mp-accion { font-family: inherit; cursor: pointer; width: 100%; text-alig
 .mp-car-grupo.cerrado { border-color: rgba(255,120,120,.22); }
 
 .btn[disabled], .btn:disabled { opacity: .5; }
+
+/* ── 13 · calificación y reseñas ────────────────────────────────────────── */
+/* El comprador no puede opinar de una compra que no ocurrió: se califica desde
+   el enlace del pedido, cuando el local lo marcó como entregado. Acá sólo se
+   muestra lo que ya está publicado. */
+.mp-estrellas { display: inline-block; vertical-align: -1px; color: var(--mp-lima); }
+.mp-cal-chip {
+  display: inline-flex; align-items: center; gap: 5px; margin-top: 2px;
+  font-size: 10.5px; color: var(--mp-tx3);
+}
+.mp-cal-chip b { font-size: 11px; font-weight: 750; color: var(--mp-tx2); }
+.mp-cal-chip small { font-size: 9.5px; color: var(--mp-tx4); }
+
+.mp-resenas { margin-bottom: 16px; }
+/* Los colores van explícitos: la ficha se monta dentro de la hoja del mapa,
+   pero el bloque también se prueba y se reusa fuera de ella. */
+.mp-resenas .mp-cat-cab h3 { color: var(--mp-tx); }
+.mp-resenas-vacio {
+  margin: 0 0 14px; padding: 11px 12px;
+  border-radius: var(--mp-r-md); border: 1px dashed var(--mp-line);
+  font-size: 11px; line-height: 1.55; color: var(--mp-tx4);
+}
+.mp-resenas-resumen {
+  display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: center;
+  padding: 12px; margin-bottom: 10px;
+  border-radius: var(--mp-r-md); border: 1px solid var(--mp-line); background: var(--mp-card);
+}
+.mp-resenas-nota { display: grid; gap: 2px; justify-items: start; }
+.mp-resenas-nota b {
+  font-size: 30px; font-weight: 800; letter-spacing: -.05em; line-height: 1;
+  color: var(--mp-tx);
+}
+.mp-resenas-nota small { font-size: 9.5px; color: var(--mp-tx4); }
+.mp-reparto { display: grid; gap: 3px; min-width: 0; }
+.mp-reparto-fila { display: grid; grid-template-columns: 10px 1fr 18px; gap: 6px; align-items: center; }
+.mp-reparto-fila span { font-size: 9px; color: var(--mp-tx4); text-align: right; }
+.mp-reparto-fila i { display: block; height: 5px; border-radius: 999px; background: rgba(255,255,255,.09); overflow: hidden; }
+.mp-reparto-fila i b { display: block; height: 100%; border-radius: 999px; background: var(--mp-lima); }
+.mp-reparto-fila em { font-size: 9px; font-style: normal; color: var(--mp-tx4); text-align: right; }
+
+.mp-resenas-lista { display: grid; gap: 8px; }
+.mp-resena {
+  padding: 10px 11px; border-radius: var(--mp-r-md);
+  border: 1px solid var(--mp-line); background: var(--mp-card);
+}
+.mp-resena-cab { display: flex; align-items: center; gap: 7px; }
+.mp-resena-cab b { font-size: 11.5px; font-weight: 700; color: var(--mp-tx); }
+.mp-resena-est { display: inline-flex; }
+.mp-resena-cab small { margin-left: auto; font-size: 9.5px; color: var(--mp-tx4); }
+.mp-resena-txt { margin: 6px 0 0; font-size: 11.5px; line-height: 1.5; color: var(--mp-tx2); }
+
+@media (max-width: 420px) {
+  .mp-resenas-resumen { grid-template-columns: 1fr; gap: 10px; }
+  .mp-resenas-nota { grid-auto-flow: column; align-items: center; gap: 8px; justify-items: start; }
+  .mp-resenas-nota b { font-size: 24px; }
+}

@@ -6,7 +6,51 @@
 > `cl.fabrick.core`, crate `fabrick-core`, dominio `forge-core-stock.vercel.app`,
 > repo `thinkfashz/fabri-core`.
 
-Última actualización: 2026-11-11
+Última actualización: 2026-11-14
+
+## Sesión 2026-11-14 · Fase 5: reseñas y calificación de la tienda
+
+Pedido: «continúa donde quedaste la última vez, revisa que no haya archivos
+cortados y continúa». Después de los reinicios del servidor se verificó primero
+la integridad del repo y luego se construyó la Fase 5.
+
+| Pieza | Dónde |
+|---|---|
+| Tabla `mercado_resenas` + índice único por pedido | `api-telefono/api/mercado.ts` |
+| `resenas_listar`, `resena_crear`, `resenas_panel`, `resena_moderar` | `api-telefono/api/mercado.ts` |
+| Promedio en `locales`, `resenas_listar` y `ventas_serie` | `api-telefono/api/mercado.ts` |
+| Estrellas y bloque de reseñas en la ficha pública | `web/app/placer.js`, `web/app/placer.css` |
+| Formulario de reseña en el seguimiento | `web/tienda-seguir.js`, `web/tienda.css` |
+| Pestaña Reseñas con moderación | `web/app/index.html`, `web/app/negocio.js`, `web/app/styles.css` |
+| Pruebas (83 comprobaciones) | `tests/web/resenas.js` |
+| Documentación | `docs/TIENDAS-MULTI.md` |
+
+- **Sólo opina quien compró**: `resena_crear` exige el `token` del pedido o el
+  `codigo` + últimos 4 del teléfono, y que el local lo haya marcado como
+  `entregado`. Una reseña por pedido (índice único en `pedido_id`); el segundo
+  intento responde `409 YA_OPINO`.
+- **Privacidad**: el autor se guarda abreviado (`autorPublico` → «Ana P.») al
+  crear la reseña; la respuesta pública no lleva el nombre completo, el
+  teléfono, el token ni el `pedido_id`.
+- **Moderar es reversible**: `oculta = true` deja de mostrarse y deja de contar
+  en el promedio, pero no borra. Al borrar la tienda sí se borran sus reseñas.
+- **Sin llamadas extra**: el promedio viaja en `locales` (chip + subtítulo de la
+  ficha), en `resenas_listar` (bloque completo) y en `ventas_serie` (contador de
+  la pestaña), así el panel no pide nada solo para mostrar un número.
+- **Un formulario donde el comprador ya está**: calificar vive en `seguir.html`,
+  donde el token (o la prueba código+teléfono) ya existe. Aparece sólo con el
+  pedido entregado; después agradece y no lo vuelve a pedir en ese equipo.
+- **La API sigue en 12 funciones**: las cuatro acciones nuevas viven dentro de
+  `mercado.ts`.
+- **Verificado**: 83 comprobaciones locales; la API en producción, **39**;
+  la cadena completa con navegador real sobre la página publicada, **18**;
+  batería completa y arranque en verde. Capturas a 390 px de la ficha con y sin
+  reseñas, del formulario y de la pestaña Reseñas.
+- **Bugs encontrados al capturar**: el formulario pintaba 5 estrellas por botón
+  (25 en total) y desbordaba la tarjeta; el encabezado y los autores dependían
+  del color heredado; las cinco pestañas no cabían con el contador en píldora.
+- **Deploy**: API `fabri-fopl31n7q…` READY; web `forge-core-stock-eieo8tpmo…`
+  READY; `sw.js` en `fcore-v81`.
 
 ## Sesión 2026-11-11 · Fase 4: avisar al cliente por WhatsApp desde el panel
 

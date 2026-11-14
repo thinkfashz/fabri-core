@@ -906,3 +906,26 @@ img { max-width: 100%; display: block; }
 @media (max-width: 520px) {
   .sg-fila { grid-template-columns: 1fr; }
 }
+
+/* ── reseña del pedido entregado (seguir.html) ──────────────────────────── */
+.sg-resena { display: grid; gap: 8px; }
+.sg-resena h2 { margin: 0; font-size: 14px; font-weight: 750; letter-spacing: -.01em; }
+.sg-estrellas { display: inline-block; vertical-align: -3px; color: var(--ds-ok); }
+.sg-estrellas-fila { display: flex; gap: 4px; margin: 2px 0 4px; }
+.sg-estrella {
+  padding: 4px; border: 0; background: none; cursor: pointer; line-height: 0;
+  color: var(--ds-border-strong, rgba(255,255,255,.22)); border-radius: 8px;
+  transition: color .15s ease, transform .15s ease;
+}
+.sg-estrella svg { display: block; }
+.sg-estrella.on { color: var(--ds-ok); }
+.sg-estrella:active { transform: scale(.94); }
+.sg-estrella:focus-visible { outline: 2px solid var(--ds-accent); outline-offset: 2px; }
+.sg-textarea {
+  width: 100%; min-height: 74px; resize: vertical;
+  font: inherit; font-size: 12.5px; line-height: 1.5;
+  padding: 10px 12px; border-radius: var(--ds-radius-md);
+}
+.sg-resena .ds-btn { box-sizing: border-box; margin-top: 2px; }
+.sg-resena-nota { margin: 0; font-size: 10.5px; }
+.sg-resena-hecha { border-color: rgba(61,220,132,.3); background: rgba(61,220,132,.06); }

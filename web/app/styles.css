@@ -1321,19 +1321,27 @@ body.con-scan{overflow:hidden}
 }
 .neg-tabs::-webkit-scrollbar { display: none; }
 .neg-tab {
-  flex: 1 1 0; min-width: 0; display: inline-flex; align-items: center; justify-content: center; gap: 4px;
-  min-height: 40px; padding: 0 6px; border: 0; border-radius: 11px; cursor: pointer;
+  flex: 1 1 0; min-width: 0; display: inline-flex; align-items: center; justify-content: center; gap: 3px;
+  min-height: 40px; padding: 0 5px; border: 0; border-radius: 11px; cursor: pointer;
   background: transparent; color: var(--tx3);
-  font: inherit; font-size: 11px; font-weight: 700; letter-spacing: 0;
+  font: inherit; font-size: 10.5px; font-weight: 700; letter-spacing: 0;
+  white-space: nowrap;
   transition: background .16s, color .16s;
 }
+/* Cinco pestañas en 390 px: el texto no se parte y el contador se encoge antes
+   que la etiqueta. */
+.neg-tab { overflow: hidden; }
+.neg-tab-n { flex: 0 0 auto; }
 .neg-tab:hover { color: var(--tx2); background: rgba(255,255,255,.04); }
 .neg-tab.on { background: rgba(200,255,0,.13); color: var(--accent); }
+/* El contador va sin píldora: cinco pestañas en 390 px no aguantan cinco
+   blobs, y el número se lee igual. */
 .neg-tab-n {
-  min-width: 18px; padding: 1px 5px; border-radius: 999px;
-  background: rgba(255,255,255,.07); color: var(--tx3);
+  min-width: 0; padding: 0; border-radius: 0;
+  background: none; color: inherit; opacity: .62;
   font-size: 9.5px; font-weight: 800; font-variant-numeric: tabular-nums;
 }
+.neg-tab.on .neg-tab-n { opacity: .85; }
 .neg-tab.on .neg-tab-n { background: rgba(200,255,0,.22); color: var(--accent); }
 .neg-tab-panel[hidden] { display: none; }
 
@@ -3086,3 +3094,37 @@ body.visitante .merc-barra { bottom: calc(88px + env(safe-area-inset-bottom)); }
   .pub-prods { grid-template-columns: repeat(6, 1fr); }
   .pub-bar { bottom: 18px; }
 }
+
+/* ── pestaña Reseñas (moderación del dueño) ──────────────────────────────── */
+.neg-estrellas { display: inline-block; vertical-align: -2px; color: var(--accent); }
+.neg-resumen-resenas { margin-bottom: 10px; }
+.neg-res-nota {
+  display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
+  padding: 10px 12px; border-radius: 12px;
+  border: 1px solid var(--line); background: rgba(255,255,255,.022);
+}
+.neg-res-nota b {
+  font-size: 26px; font-weight: 800; letter-spacing: -.05em; line-height: 1;
+  color: var(--tx);
+}
+.neg-res-nota small { font-size: 10.5px; color: var(--tx3); }
+
+.neg-resenas-lista { display: grid; gap: 8px; }
+.neg-resena {
+  padding: 10px 11px; border-radius: 12px;
+  border: 1px solid var(--line); background: rgba(255,255,255,.018);
+}
+.neg-resena.oculta { opacity: .55; border-style: dashed; }
+.neg-resena-cab { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.neg-resena-cab b { font-size: 11.5px; font-weight: 700; }
+.neg-resena-est { display: inline-flex; }
+.neg-resena-cab small { margin-left: auto; font-size: 9.5px; color: var(--tx4); }
+.neg-resena-txt { margin: 6px 0 0; font-size: 11.5px; line-height: 1.5; color: var(--tx2); }
+.neg-resena-txt.neg-resena-sin { color: var(--tx4); font-style: italic; }
+.neg-resena-pie { display: flex; align-items: center; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.neg-resena-pie button {
+  margin-left: auto; padding: 5px 9px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--line-2); background: transparent; color: var(--tx3);
+  font: inherit; font-size: 10px; font-weight: 700;
+}
+.neg-resena-pie button:hover { color: var(--tx); border-color: var(--line-3, var(--line-2)); }

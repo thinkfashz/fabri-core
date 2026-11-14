@@ -99,7 +99,10 @@ window.Negocio = (function () {
     serieError: "",
     cargandoSerie: false,
     buscar: "",          // filtro de la lista de pedidos
-    filtro: ""           // "" | "abiertos" | estado
+    filtro: "",          // "" | "abiertos" | estado
+    resenas: null,       // { calificacion, resenas } de resenas_panel
+    resenasError: "",
+    cargandoResenas: false
   };
 
   /* ── red ────────────────────────────────────────────────────────────────── */
@@ -746,11 +749,12 @@ window.Negocio = (function () {
     pintarResumen();
     pintarPedidos();
     pintarCatalogo();
+    pintarResenas();
     pintarAjustes();
   }
 
   /* ── pestañas ───────────────────────────────────────────────────────────── */
-  const TABS = ["resumen", "pedidos", "catalogo", "ajustes"];
+  const TABS = ["resumen", "pedidos", "catalogo", "resenas", "ajustes"];
 
   function pintarTabs() {
     const cont = $("negTabs");
@@ -1080,6 +1084,116 @@ window.Negocio = (function () {
       : '<div class="mp-vacio"><b>Sin productos cargados</b><p>Agrega el primero abajo, importa un CSV/JSON o trae los de tu Stock.</p></div>';
   }
 
+  /* ── reseñas del panel ───────────────────────────────────────────────────── */
+
+  const ESTRELLA = "M12 3.3l2.55 5.3 5.85.82-4.25 4.1 1.02 5.8L12 16.6l-5.17 2.72 1.02-5.8-4.25-4.1 5.85-.82z";
+
+  /** Cinco estrellas en SVG, llenas hasta el promedio redondeado. */
+  function estrellas(n, tam) {
+    const k = Math.max(0, Math.min(5, Math.round(Number(n) || 0)));
+    const alto = tam || 12;
+    let svg = '<svg class="neg-estrellas" viewBox="0 0 120 24" width="' + (alto * 5) +
+      '" height="' + alto + '" aria-hidden="true">';
+    for (let i = 0; i < 5; i++) {
+      svg += '<path d="' + ESTRELLA + '" transform="translate(' + i * 24 + ' 0)" ' +
+        (i < k ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="1.2" opacity=".35"') + "/>";
+    }
+    return svg + "</svg>";
+  }
+
+  async function cargarResenas() {
+    if (!EST.sel || EST.cargandoResenas) return;
+    EST.cargandoResenas = true;
+    const d = await api({
+      accion: "resenas_panel", local_id: EST.sel.id, clave: EST.sel.clave || ""
+    });
+    EST.cargandoResenas = false;
+    if (d && d.ok) {
+      EST.resenas = { calificacion: d.calificacion || { n: 0, promedio: 0, ocultas: 0 }, resenas: d.resenas || [] };
+      EST.resenasError = "";
+    } else {
+      EST.resenasError = (d && d.error) || "no se pudieron leer las reseñas";
+    }
+    pintarResenas();
+  }
+
+  function pintarResenas() {
+    const lista = $("negResLista"), resumen = $("negResResumen");
+    if (!lista || !resumen) return;
+    const total = $("negResCount"), chip = $("negResChip");
+    const r = EST.resenas;
+
+    if (!r) {
+      // Antes de abrir la pestaña, el contador sale del resumen (ventas_serie).
+      const s = EST.serie && EST.serie.resenas;
+      if (total) total.textContent = s ? s.n : "—";
+      if (chip) chip.textContent = EST.resenasError ? "error" : "—";
+      resumen.innerHTML = "";
+      lista.innerHTML = '<div class="neg-vacio"><b>' +
+        (EST.resenasError ? "No pudimos leer las reseñas" : "Cargando reseñas…") + "</b>" +
+        (EST.resenasError ? "<p>" + esc(EST.resenasError) + "</p>" : "") + "</div>";
+      return;
+    }
+
+    const c = r.calificacion || { n: 0, promedio: 0, ocultas: 0 };
+    if (total) total.textContent = c.n;
+    if (chip) {
+      chip.textContent = c.n ? "promedio " + String(c.promedio.toFixed(1)).replace(".", ",") : "sin reseñas";
+      chip.className = "badge" + (c.n ? " ok" : "");
+    }
+
+    if (!c.n) {
+      resumen.innerHTML = "";
+      lista.innerHTML = '<div class="neg-vacio"><b>Todavía no tienes reseñas</b>' +
+        "<p>El comprador puede calificar desde el enlace de su pedido, " +
+        "cuando lo marcas como entregado.</p></div>";
+      return;
+    }
+
+    const prom = String(c.promedio.toFixed(1)).replace(".", ",");
+    resumen.innerHTML =
+      '<div class="neg-res-nota"><b>' + prom + "</b>" + estrellas(c.promedio, 13) +
+        "<small>" + c.n + (c.n === 1 ? " comprador calificó" : " compradores calificaron") +
+        (c.ocultas ? " · " + c.ocultas + " oculta" + (c.ocultas === 1 ? "" : "s") : "") + "</small></div>";
+
+    lista.innerHTML = (r.resenas || []).map((x) => {
+      const est = Math.max(1, Math.min(5, Number(x.estrellas) || 5));
+      return '<article class="neg-resena' + (x.oculta ? " oculta" : "") + '">' +
+          '<div class="neg-resena-cab">' +
+            "<b>" + esc(x.autor || "Cliente") + "</b>" +
+            '<span class="neg-resena-est">' + estrellas(est, 11) + "</span>" +
+            '<small>' + esc(dia(Date.parse(x.creado)) + " · " + hora(Date.parse(x.creado))) + "</small>" +
+          "</div>" +
+          (x.texto ? '<p class="neg-resena-txt">' + esc(x.texto) + "</p>"
+            : '<p class="neg-resena-txt neg-resena-sin">sin comentario</p>') +
+          '<div class="neg-resena-pie">' +
+            (x.oculta ? '<span class="badge">oculta</span>' : "") +
+            '<button type="button" data-moderar="' + esc(x.id) + '" data-oculta="' + (x.oculta ? "0" : "1") + '">' +
+              (x.oculta ? "Mostrar" : "Ocultar") + "</button>" +
+          "</div>" +
+        "</article>";
+    }).join("");
+
+    lista.querySelectorAll("[data-moderar]").forEach((b) => {
+      b.onclick = () => moderarResena(b.dataset.moderar, b.dataset.oculta === "1");
+    });
+  }
+
+  /** Ocultar no borra: la reseña deja de mostrarse y de contar en el promedio. */
+  async function moderarResena(id, oculta) {
+    if (!EST.sel) return;
+    const d = await api({
+      accion: "resena_moderar", local_id: EST.sel.id, clave: EST.sel.clave || "",
+      resena_id: id, oculta
+    });
+    if (d && d.ok) {
+      toast(oculta ? "Reseña oculta" : "Reseña publicada de nuevo");
+      await cargarResenas();
+    } else {
+      toast((d && d.error) || "No se pudo cambiar la reseña");
+    }
+  }
+
   function pintarAjustes() {
     const t = EST.sel;
     if (!t) return;
@@ -1378,6 +1492,9 @@ window.Negocio = (function () {
         if (EST.tab === "pedidos" && EST.sel) {
           cargarPedidos().then(() => pintarPedidos());
         }
+        // Las reseñas también llegan solas (el comprador califica desde su
+        // enlace), así que se releen al abrir la pestaña.
+        if (EST.tab === "resenas" && EST.sel) cargarResenas();
       });
     }
 

@@ -713,6 +713,10 @@ window.Placer = (function () {
         entrega: Array.isArray(t.entrega) && t.entrega.length ? t.entrega.slice() : ["retiro"],
         envio: Math.max(0, Math.round(Number(t.envio) || 0)),
         catalogo: Array.isArray(t.catalogo) ? t.catalogo : [],
+        calificacion: {
+          n: Math.max(0, Math.round(Number(t.calificacion && t.calificacion.n) || 0)),
+          promedio: Math.max(0, Math.min(5, Number(t.calificacion && t.calificacion.promedio) || 0))
+        },
         forge: true,
         demo: !!t.demo
       };
@@ -1435,6 +1439,7 @@ window.Placer = (function () {
         '<span class="mp-item-ico">' + iconoDe(m, 20) + "</span>" +
         '<span class="mp-item-txt"><b>' + esc(m.nombre) + "</b>" +
         "<small>" + esc(linea) + "</small>" +
+        resumenCalificacion(m) +
         '<em class="mp-item-desc">' + esc(descripcionDe(m)) + "</em>" +
         '<span class="mp-item-prods">' + categoriasDe(m).map((c) => "<span>" + esc(c) + "</span>").join("") +
           (tags.length ? tags.join("") : "") + "</span>" +
@@ -1456,6 +1461,30 @@ window.Placer = (function () {
   function acortar(t, n) {
     t = String(t || "");
     return t.length > n ? t.slice(0, n - 1) + "…" : t;
+  }
+
+  /* ── calificación ─────────────────────────────────────────────────────── */
+  const ESTRELLA = "M12 3.3l2.55 5.3 5.85.82-4.25 4.1 1.02 5.8L12 16.6l-5.17 2.72 1.02-5.8-4.25-4.1 5.85-.82z";
+
+  /** Cinco estrellas en SVG; las llenas salen del promedio redondeado. */
+  function estrellas(promedio, tam) {
+    const llenas = Math.max(0, Math.min(5, Math.round(Number(promedio) || 0)));
+    let svg = '<svg class="mp-estrellas" viewBox="0 0 120 24" width="' +
+      (tam ? Math.round((tam || 12) * 5) : 60) + '" height="' + (tam || 12) + '" aria-hidden="true">';
+    for (let i = 0; i < 5; i++) {
+      svg += '<path d="' + ESTRELLA + '" transform="translate(' + (i * 24) + ' 0)" ' +
+        (i < llenas ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="1.2" opacity=".38"') + "/>";
+    }
+    return svg + "</svg>";
+  }
+
+  /** «4,7 · 12 reseñas», o nada si el local todavía no tiene ninguna. */
+  function resumenCalificacion(m) {
+    const c = m && m.calificacion;
+    if (!c || !c.n) return "";
+    const prom = String(c.promedio.toFixed(1)).replace(".", ",");
+    return '<span class="mp-cal-chip">' + estrellas(c.promedio, 11) +
+      "<b>" + prom + "</b><small>" + c.n + (c.n === 1 ? " reseña" : " reseñas") + "</small></span>";
   }
 
   function pintarLeyenda(origen, n) {
@@ -1525,6 +1554,81 @@ window.Placer = (function () {
       (cerrado ? '<p class="mp-cerrado-aviso">Este local está cerrado: puedes mirar su catálogo, pero no pedir por ahora.</p>' : "");
   }
 
+  /* ── reseñas de la ficha ──────────────────────────────────────────────── */
+
+  /** «hace 3 días», «hace 2 meses»: la reseña se ubica sin dar la hora exacta. */
+  function haceDias(ms) {
+    const t = Date.parse(ms) || Number(ms) || 0;
+    if (!t) return "";
+    const d = Math.floor((Date.now() - t) / 86400000);
+    if (d <= 0) return "hoy";
+    if (d === 1) return "ayer";
+    if (d < 30) return "hace " + d + " días";
+    const m = Math.floor(d / 30);
+    if (m < 12) return "hace " + m + (m === 1 ? " mes" : " meses");
+    const a = Math.floor(m / 12);
+    return "hace " + a + (a === 1 ? " año" : " años");
+  }
+
+  function bloqueResenas(d) {
+    const c = d.calificacion || { n: 0, promedio: 0, reparto: {} };
+    if (!c.n) {
+      return '<div class="mp-cat-cab"><h3>Reseñas</h3><span class="mp-tag ref">sin reseñas</span></div>' +
+        '<p class="mp-resenas-vacio">Todavía nadie calificó este local. ' +
+        "Si compraste, puedes calificarlo desde el enlace de tu pedido.</p>";
+    }
+    const prom = String(c.promedio.toFixed(1)).replace(".", ",");
+    const reparto = c.reparto || {};
+    const filas = [5, 4, 3, 2, 1].map((n) => {
+      const cuantos = Number(reparto[n]) || 0;
+      const pct = c.n ? Math.round((cuantos / c.n) * 100) : 0;
+      return '<div class="mp-reparto-fila"><span>' + n + "</span>" +
+        '<i><b style="width:' + pct + '%"></b></i>' +
+        "<em>" + cuantos + "</em></div>";
+    }).join("");
+
+    const lista = (d.resenas || []).map((r) => {
+      const est = Math.max(1, Math.min(5, Number(r.estrellas) || 5));
+      return '<article class="mp-resena">' +
+          '<div class="mp-resena-cab"><b>' + esc(r.autor || "Cliente") + "</b>" +
+            '<span class="mp-resena-est">' + estrellas(est, 11) + "</span>" +
+            '<small>' + esc(haceDias(r.creado)) + "</small></div>" +
+          (r.texto ? '<p class="mp-resena-txt">' + esc(r.texto) + "</p>" : "") +
+        "</article>";
+    }).join("");
+
+    return '<div class="mp-cat-cab"><h3>Reseñas</h3>' +
+        '<span class="mp-tag ref">' + c.n + (c.n === 1 ? " reseña" : " reseñas") + "</span></div>" +
+      '<div class="mp-resenas-resumen">' +
+        '<div class="mp-resenas-nota"><b>' + prom + "</b>" + estrellas(c.promedio, 13) +
+          "<small>de " + c.n + (c.n === 1 ? " comprador" : " compradores") + "</small></div>" +
+        '<div class="mp-reparto">' + filas + "</div>" +
+      "</div>" +
+      '<div class="mp-resenas-lista">' + lista + "</div>";
+  }
+
+  /** Trae las reseñas del local y las pinta dentro de la ficha abierta. */
+  async function cargarResenas(m) {
+    const caja = $("mpResenas");
+    if (!caja) return;
+    caja.innerHTML = '<div class="mp-cat-cab"><h3>Reseñas</h3></div>' +
+      '<p class="mp-resenas-vacio">Cargando…</p>';
+    try {
+      const r = await fetch(API_MERCADO, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accion: "resenas_listar", local_id: m.id, limite: 12 })
+      });
+      const d = await r.json();
+      // La ficha pudo haberse cerrado o cambiado de local mientras llegaba.
+      if (!caja.isConnected) return;
+      if (!d || !d.ok) throw new Error("sin reseñas");
+      caja.innerHTML = bloqueResenas(d);
+    } catch (e) {
+      caja.innerHTML = "";
+    }
+  }
+
   function pintarHoja() {
     const m = ESTADO.viendo;
     if (!m) return;
@@ -1534,7 +1638,11 @@ window.Placer = (function () {
     $("mpHojaIco").innerHTML = iconoDe(m, 22);
     $("mpHojaNombre").textContent = m.nombre;
     const estadoTxt = m.forge ? (m.abierto === false ? "Cerrado" : "Abierto") : "";
-    $("mpHojaSub").textContent = [m.marca, m.rubro, distancia(m.dist) + " de ti", estadoTxt].filter(Boolean).join(" · ");
+    const cal = m.calificacion && m.calificacion.n
+      ? String(m.calificacion.promedio.toFixed(1)).replace(".", ",") + " de 5 (" + m.calificacion.n + ")"
+      : "";
+    $("mpHojaSub").textContent = [m.marca, m.rubro, distancia(m.dist) + " de ti", estadoTxt, cal]
+      .filter(Boolean).join(" · ");
 
     const acciones = [];
     acciones.push(accion("ruta", "Ruta",
@@ -1562,6 +1670,7 @@ window.Placer = (function () {
         "<div><b>" + [...new Set(todos.map((p) => p.categoria))].length + "</b><span>categorías</span></div>" +
         "<div><b>" + (ofertas || "—") + "</b><span>ofertas</span></div>" +
       "</div>" +
+      (m.forge ? '<div class="mp-resenas" id="mpResenas"></div>' : "") +
       '<div class="mp-cat-cab">' +
         '<h3>Catálogo del local</h3>' +
         '<span class="mp-tag ' + (m.muestra ? "muestra" : m.forge ? "ref" : "ref") + '">' +
@@ -1614,6 +1723,7 @@ window.Placer = (function () {
     };
     engancharProductos(m);
     pintarPieHoja(m);
+    if (m.forge) cargarResenas(m);
   }
 
   function pintarProductos(m, lista) {
@@ -2572,6 +2682,8 @@ window.Placer = (function () {
   return {
     render,
     irATienda,
-    cerrarTodo: () => { cerrarHoja(); cerrarCarrito(); cerrarPago(); }
+    cerrarTodo: () => { cerrarHoja(); cerrarCarrito(); cerrarPago(); },
+    // Puras de la ficha: se prueban sin mapa ni red (tests/web/resenas.js).
+    _test: { estrellas, resumenCalificacion, bloqueResenas, haceDias }
   };
 })();

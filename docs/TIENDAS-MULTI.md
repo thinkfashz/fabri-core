@@ -124,8 +124,22 @@ Autorización, en este orden:
 | `pedidos_listar` | dueño · admin | pedidos del local |
 | `pedido_estado` | dueño · admin | avanza el pedido (`nuevo`, `visto`, `listo`, `entregado`, `cancelado`) |
 | `pedido_crear` | público | pedido del comprador (el servidor recalcula totales) y devuelve el `seguimiento` |
+| `resenas_listar` | público | reseñas visibles, promedio y reparto |
+| `resena_crear` | público | califica un pedido entregado (token o código + teléfono) |
+| `resenas_panel` | dueño · clave · admin | todas las reseñas, con las ocultas |
+| `resena_moderar` | dueño · clave · admin | oculta o muestra una reseña |
 | `pedido_seguir` | público | estado del pedido por `token` o por `codigo` + `contacto` (últimos 4 del teléfono) |
 | `ventas_serie` | dueño · clave · admin | resumen del panel: serie diaria, top de productos, conteo por estado, visitas y conversión (`dias` 1–90, por defecto 7) |
+
+### Tablas del marketplace
+
+| Tabla | Para qué |
+|---|---|
+| `mercado_locales` | tiendas, ficha pública, dueño y plan |
+| `mercado_productos` | catálogo por local (SKU, precio, stock) |
+| `mercado_pedidos` | pedidos, estado actual y `seguimiento` (token) |
+| `mercado_pedido_eventos` | historial de estados (línea de tiempo del comprador) |
+| `mercado_resenas` | calificación por pedido entregado, con `oculta` para moderar |
 
 ### Esquema nuevo de `mercado_locales`
 
@@ -212,6 +226,47 @@ sesión. Se resuelve con **dos caminos** hacia el mismo dato:
   seguimiento aparecerá cuando el local reciba el pedido.
 - **En el panel del dueño**, cada pedido de la nube tiene un botón **Enlace**
   que copia la URL de seguimiento para reenviarla por WhatsApp.
+
+## Reseñas y calificación (Fase 5)
+
+Calificar no es un campo libre: **sólo puede opinar quien compró**, y sólo
+cuando el local marcó el pedido como **entregado**. La prueba de compra viaja
+con el pedido, igual que el seguimiento.
+
+| Acción | Quién | Qué hace |
+|---|---|---|
+| `resenas_listar` | público | reseñas visibles + promedio + reparto 5→1 |
+| `resena_crear` | público | califica con el `token` del pedido **o** con `codigo` + últimos 4 del teléfono |
+| `resenas_panel` | dueño · clave · admin | todas las reseñas, incluidas las ocultas |
+| `resena_moderar` | dueño · clave · admin | oculta o vuelve a mostrar (no borra) |
+
+Reglas que importan:
+
+- **Una reseña por pedido**: índice único en `mercado_resenas.pedido_id`. El
+  segundo intento responde `409 YA_OPINO`.
+- **El autor se guarda abreviado** (`autorPublico`: «Ana P.»). Ni el nombre ni
+  el teléfono completos salen nunca de la base; la respuesta pública tampoco
+  incluye `pedido_id` ni el token.
+- **Ocultar es reversible**: `oculta = true` deja de mostrarse y deja de contar
+  en el promedio, pero la reseña queda registrada.
+- **Tope de 20 reseñas por IP por hora** (`permitirResena`), best effort en
+  serverless, además de la barrera real: hace falta un pedido entregado.
+- **El promedio viene redondeado a un decimal**, y viaja ya calculado en tres
+  sitios para no pedir nada extra: `locales` (chip y ficha), `resenas_listar`
+  (ficha completa) y `ventas_serie` (contador de la pestaña del panel).
+- **Al borrar la tienda se borran sus reseñas**, para que no queden huérfanas
+  ni reaparezcan si se reabre un local con el mismo id.
+
+Dónde se ve:
+
+| Dónde | Qué |
+|---|---|
+| **Ficha del local** (MercadoPlacer) | promedio con estrellas en el subtítulo, chip en la lista y bloque de reseñas con reparto 5→1 y las últimas 12 |
+| **Enlace del pedido** (`seguir.html`) | con el pedido **entregado**, formulario de 5 estrellas + comentario opcional; después muestra «Gracias por calificar» y no vuelve a pedirlo en ese equipo |
+| **Panel del dueño → Reseñas** | promedio, cuántos calificaron, lista con las ocultas marcadas y botón Ocultar/Mostrar |
+
+El formulario aparece sólo cuando el pedido está entregado, y funciona igual si
+el comprador entró por el enlace (`token`) o buscando por código + teléfono.
 
 ## Avisar al cliente por WhatsApp (panel del dueño)
 
@@ -318,6 +373,7 @@ Detalles que importan:
 node tests/web/negocio.js     # 118 comprobaciones: parsers, filtros, CSV, gráfico, enlace de seguimiento, aviso por WhatsApp, contrato HTML/API/mapa
 node tests/web/plataforma.js  # 57 comprobaciones: puras, ids, seguridad del token, endpoints, precache
 node tests/web/seguimiento.js # 70 comprobaciones: código, teléfono, estados, línea de tiempo, contrato API/HTML
+node tests/web/resenas.js     # 83 comprobaciones: contrato de reseñas, estrellas, reparto, privacidad, panel
 node tests/web/auth-nube.js   # incluye CORE_ROOT_EMAIL y promoción a owner
 node tests/web/diseno.js      # shell, sistema visual y offline
 node tests/web/trafico.js     # capa de tráfico del mapa
@@ -349,3 +405,28 @@ borrar la tienda y comprobar que el enlace deja de abrir: **33 comprobaciones en
 verde**. La página se revisó a 390 px con el HTML, el CSS y el JS reales y
 respuestas simuladas: formulario vacío y pedido «en camino» con línea de tiempo.
 Ahí salió que `ts` llega como texto ISO y la línea de tiempo quedaba sin horas.
+
+El aviso por WhatsApp se probó contra producción: pedido real → teléfono
+normalizado → enlace `wa.me` → mensaje con código, local y enlace → pasar a
+«listo» → el mensaje y el enlace del comprador reflejan el estado nuevo:
+**17 comprobaciones**. La app publicada se revisó aparte (**13**): el JS y el
+CSS desplegados traen el botón y el selector, y el enlace del mensaje abre el
+pedido.
+
+Las reseñas se probaron contra producción en dos tandas. La API sola, con dos
+pedidos y una tienda desechable: sin entregar → 409, entregar los dos,
+calificar por enlace y por código, repetir el mismo pedido → `YA_OPINO`,
+0/6 estrellas → 400, público con autor abreviado y sin teléfono ni token,
+ocultar → el promedio cambia y el público ve una, volver a mostrar, 401 sin
+autorización, y borrar la tienda se lleva sus reseñas (**39**). La cadena
+completa con navegador real sobre la página publicada (**18**): el formulario
+aparece con el pedido entregado, calificar por API publica la reseña, la ficha
+y el `locales` la traen, el panel la ve y el resumen la cuenta, ocultar la saca
+del público.
+
+Visualmente, a 390 px: la ficha con reseñas y sin ellas, el formulario en
+`seguir.html`, y la pestaña Reseñas del panel. Ahí salieron dos bugs reales: el
+formulario pintaba cinco estrellas **por botón** (25 en total, y eso desbordaba
+la tarjeta), y el encabezado y los autores dependían del color heredado del
+contenedor. Las cinco pestañas del panel tampoco cabían con el contador en
+píldora: el número pasó a ir sin fondo.
