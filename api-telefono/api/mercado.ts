@@ -37,6 +37,8 @@
 //                                                los últimos 4 del teléfono
 //   POST { accion: "push_suscribir", token, suscripcion } → avisos push del pedido (PÚBLICO)
 //   POST { accion: "push_baja", token, endpoint }         → deja de avisar (PÚBLICO)
+//   POST { accion: "push_local_suscribir", local_id, suscripcion } → avisos de la tienda (DUEÑO · ADMIN)
+//   POST { accion: "push_local_baja", local_id, endpoint }        → deja de avisar la tienda (DUEÑO · ADMIN)
 //   POST { accion: "resenas_listar", local_id } → reseñas visibles + promedio (PÚBLICO)
 //   POST { accion: "resena_crear", token, estrellas, texto }
 //                                              → califica un pedido entregado (PÚBLICO)
@@ -85,6 +87,7 @@ const T_PEDIDOS = 'mercado_pedidos';
 const T_EVENTOS = 'mercado_pedido_eventos';
 const T_RESENAS = 'mercado_resenas';
 const T_PUSH = 'mercado_push';
+const T_PUSH_LOCAL = 'mercado_push_local';
 const T_CUENTAS = 'core_usuarios';
 const T_SESIONES = 'core_sesiones';
 
@@ -451,6 +454,21 @@ async function asegurar(pool: any) {
                       ON ${T_PUSH} (pedido_id, huella)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_mercado_push_pedido_id
                       ON ${T_PUSH} (pedido_id)`);
+  // Avisos al dueño: una fila por navegador suscrito a la tienda. Se separa de
+  // la tabla del comprador porque la autorización es distinta (dueño/clave).
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ${T_PUSH_LOCAL} (
+      id        TEXT PRIMARY KEY,
+      local_id  TEXT NOT NULL,
+      huella    TEXT NOT NULL,
+      endpoint  TEXT NOT NULL,
+      p256dh    TEXT NOT NULL,
+      auth      TEXT NOT NULL,
+      creado    TIMESTAMPTZ NOT NULL DEFAULT now(),
+      ultimo_ok TIMESTAMPTZ
+    )`);
+  await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_mercado_push_local
+                      ON ${T_PUSH_LOCAL} (local_id, huella)`);
   esquemaListo = true;
 }
 
@@ -592,10 +610,30 @@ function textoAviso(estado: string, pedido: any) {
  * esfuerzo": si el servicio de push falla, el cambio de estado ya quedó
  * guardado y el panel no se entera. Una suscripción muerta (404/410) se borra.
  */
+async function despachar(pool: any, tabla: string, filas: any[], aviso: string, cfg: any): Promise<number> {
+  if (!filas.length) return 0;
+  let enviados = 0;
+  await Promise.allSettled(filas.map(async (s: any) => {
+    try {
+      const r = await enviarPush(
+        { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
+        aviso,
+        { publica: cfg.publica, privada: cfg.privada, subject: cfg.subject, timeoutMs: 1000 }
+      );
+      if (r.status === 404 || r.status === 410) {
+        await pool.query(`DELETE FROM ${tabla} WHERE id = $1`, [s.id]);
+      } else if (r.ok) {
+        enviados++;
+        await pool.query(`UPDATE ${tabla} SET ultimo_ok = now() WHERE id = $1`, [s.id]);
+      }
+    } catch (e) { /* sin red o servicio caído: se ignora */ }
+  }));
+  return enviados;
+}
+
 async function avisarCambio(pool: any, pedidoId: string, estado: string): Promise<number> {
   const cfg = vapidConfig();
   if (!cfg) return 0;
-  let enviados = 0;
   try {
     const p = await pool.query(
       `SELECT p.codigo,p.seguimiento,p.entrega,l.nombre AS local_nombre
@@ -613,24 +651,35 @@ async function avisarCambio(pool: any, pedidoId: string, estado: string): Promis
     );
     if (!subs.rowCount) return 0;
 
-    const aviso = JSON.stringify(textoAviso(estado, pedido));
-    await Promise.allSettled(subs.rows.map(async (s: any) => {
-      try {
-        const r = await enviarPush(
-          { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
-          aviso,
-          { publica: cfg.publica, privada: cfg.privada, subject: cfg.subject, timeoutMs: 2000 }
-        );
-        if (r.status === 404 || r.status === 410) {
-          await pool.query(`DELETE FROM ${T_PUSH} WHERE id = $1`, [s.id]);
-        } else if (r.ok) {
-          enviados++;
-          await pool.query(`UPDATE ${T_PUSH} SET ultimo_ok = now() WHERE id = $1`, [s.id]);
-        }
-      } catch (e) { /* sin red o servicio caído: se ignora */ }
-    }));
+    return await despachar(pool, T_PUSH, subs.rows, JSON.stringify(textoAviso(estado, pedido)), cfg);
   } catch (e) { /* base o red: el pedido ya está actualizado */ }
-  return enviados;
+  return 0;
+}
+
+/**
+ * Avisa al dueño que entró un pedido. Va después del commit y con tope corto:
+ * el comprador está esperando su confirmación, así que si el push tarda se
+ * corta y el pedido ya está guardado igual.
+ */
+async function avisarLocal(pool: any, localId: string, pedido: any): Promise<number> {
+  const cfg = vapidConfig();
+  if (!cfg) return 0;
+  try {
+    const subs = await pool.query(
+      `SELECT id,endpoint,p256dh,auth FROM ${T_PUSH_LOCAL} WHERE local_id = $1 LIMIT 3`,
+      [localId]
+    );
+    if (!subs.rowCount) return 0;
+    const monto = '$' + Math.round(Number(pedido.total) || 0).toLocaleString('es-CL');
+    const quien = texto(pedido.cliente, 40).trim().split(/\s+/)[0] || 'Cliente';
+    const aviso = JSON.stringify({
+      titulo: 'Nuevo pedido ' + texto(pedido.codigo, 20),
+      cuerpo: monto + ' · ' + quien + ' · ' + (pedido.entrega === 'delivery' ? 'delivery' : 'retiro'),
+      codigo: texto(pedido.codigo, 20),
+      url: sitioPublico() + '/app/#negocio',
+    });
+    return await despachar(pool, T_PUSH_LOCAL, subs.rows, aviso, cfg);
+  } catch (e) { return 0; }
 }
 
 /** Nombre comparable: sin acentos, minúsculas y espacios simples. */
@@ -846,6 +895,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         'asegurar', 'locales', 'local_crear', 'local_mio', 'local_actualizar',
         'local_estado', 'local_borrar', 'productos_subir', 'producto_borrar',
         'pedido_crear', 'pedido_seguir', 'push_suscribir', 'push_baja',
+        'push_local_suscribir', 'push_local_baja',
         'pedidos_listar', 'pedido_estado',
         'resenas_listar', 'resena_crear', 'resenas_panel', 'resena_moderar',
         'ventas_serie', 'resumen',
@@ -884,7 +934,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     await asegurar(pool);
 
     if (accion === 'asegurar') {
-      return json(res, { ok: true, accion, tablas: [T_LOCALES, T_PRODUCTOS, T_PEDIDOS, T_EVENTOS, T_RESENAS, T_PUSH] });
+      return json(res, { ok: true, accion, tablas: [T_LOCALES, T_PRODUCTOS, T_PEDIDOS, T_EVENTOS, T_RESENAS, T_PUSH, T_PUSH_LOCAL] });
     }
 
     /* ── lecturas por POST (mismo contrato para la APK) ── */
@@ -1330,6 +1380,10 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
           try { cliente_pg.release(); } catch (e) { /* ya liberado */ }
           cliente_pg = null;
         }
+        // Aviso al dueño con el panel cerrado. Va al final: el pedido ya está
+        // guardado y, si el push tarda, se corta solo.
+        try { await avisarLocal(pool, localId, { codigo, total, cliente: nombreCliente, entrega }); }
+        catch (e) { /* el pedido ya está guardado: el aviso es opcional */ }
         return json(res, {
           ok: true, accion, id, codigo, seguimiento, subtotal, envio, total, estado: 'nuevo',
         });
@@ -1515,6 +1569,75 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       const r = await pool.query(
         `DELETE FROM ${T_PUSH} WHERE pedido_id = $1 AND huella = $2`,
         [pedido.id, sha256hex(endpoint)]
+      );
+      return json(res, { ok: true, accion, borrados: r.rowCount });
+    }
+
+    /* ── avisos push del dueño (DUEÑO · CLAVE · ADMIN) ─────────────────────
+       El navegador del local se suscribe a SU tienda. Se separa del aviso del
+       comprador porque la autorización es la del panel, no el token del pedido. */
+    if (accion === 'push_local_suscribir') {
+      const cfg = vapidConfig();
+      if (!cfg) {
+        return json(res, {
+          ok: false, codigo: 'SIN_PUSH',
+          error: 'las notificaciones no están configuradas en este servidor',
+        }, 503);
+      }
+      const localId = idLocal(cuerpo.local_id);
+      const { local, motivo } = await autorizarLocal(pool, req, localId, texto(cuerpo.clave, 60));
+      if (!local) return json(res, { ok: false, error: 'no autorizado', codigo: motivo }, 401);
+
+      const sus = (cuerpo.suscripcion && typeof cuerpo.suscripcion === 'object' ? cuerpo.suscripcion : {}) as Fila;
+      const claves = (sus.keys && typeof sus.keys === 'object' ? sus.keys : {}) as Fila;
+      const endpoint = texto(sus.endpoint, 1000).trim();
+      const p256dh = texto(claves.p256dh, 200).trim();
+      const auth = texto(claves.auth, 100).trim();
+      if (!endpoint || !p256dh || !auth) {
+        return json(res, { ok: false, codigo: 'FALTAN_DATOS', error: 'faltan datos de la suscripción' }, 400);
+      }
+      if (!/^https:\/\//i.test(endpoint)) {
+        return json(res, { ok: false, codigo: 'ENDPOINT', error: 'el endpoint debe ser https' }, 400);
+      }
+      if (p256dh.length < 40 || auth.length < 10) {
+        return json(res, { ok: false, codigo: 'CLAVES', error: 'las claves del navegador no son válidas' }, 400);
+      }
+
+      const huella = sha256hex(endpoint);
+      const ya = await pool.query(
+        `SELECT id FROM ${T_PUSH_LOCAL} WHERE local_id = $1 AND huella = $2`, [localId, huella]
+      );
+      if (ya.rowCount) {
+        await pool.query(
+          `UPDATE ${T_PUSH_LOCAL} SET endpoint = $2, p256dh = $3, auth = $4 WHERE id = $1`,
+          [ya.rows[0].id, endpoint, p256dh, auth]
+        );
+        return json(res, { ok: true, accion, avisos: true, actualizado: true });
+      }
+      const total = await pool.query(
+        `SELECT COUNT(*)::int AS n FROM ${T_PUSH_LOCAL} WHERE local_id = $1`, [localId]
+      );
+      if (Number(total.rows[0]?.n) >= 5) {
+        return json(res, { ok: false, codigo: 'TOPE', error: 'esta tienda ya tiene 5 dispositivos' }, 409);
+      }
+      await pool.query(
+        `INSERT INTO ${T_PUSH_LOCAL} (id,local_id,huella,endpoint,p256dh,auth)
+         VALUES ($1,$2,$3,$4,$5,$6)`,
+        ['pushl-' + Date.now().toString(36) + randomBytes(4).toString('hex'),
+          localId, huella, endpoint, p256dh, auth]
+      );
+      return json(res, { ok: true, accion, avisos: true });
+    }
+
+    if (accion === 'push_local_baja') {
+      const localId = idLocal(cuerpo.local_id);
+      const { local, motivo } = await autorizarLocal(pool, req, localId, texto(cuerpo.clave, 60));
+      if (!local) return json(res, { ok: false, error: 'no autorizado', codigo: motivo }, 401);
+      const endpoint = texto(cuerpo.endpoint, 1000).trim();
+      if (!endpoint) return json(res, { ok: false, codigo: 'FALTAN_DATOS', error: 'falta el endpoint' }, 400);
+      const r = await pool.query(
+        `DELETE FROM ${T_PUSH_LOCAL} WHERE local_id = $1 AND huella = $2`,
+        [localId, sha256hex(endpoint)]
       );
       return json(res, { ok: true, accion, borrados: r.rowCount });
     }
@@ -1795,7 +1918,9 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       await cliente.query('COMMIT');
 
       // El aviso push va después del commit: si falla, el pedido ya cambió.
-      const avisados = await avisarCambio(pool, pedidoId, estado);
+      let avisados = 0;
+      try { avisados = await avisarCambio(pool, pedidoId, estado); }
+      catch (e) { /* el estado ya está guardado: el aviso es opcional */ }
       return json(res, {
         ok: true, accion, cambiados: 1, estado, avisados,
         ...(devueltos ? { stock_devuelto: devueltos } : {}),
@@ -1937,6 +2062,9 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         estados,
         visitas,
         resenas,
+        push: vapidConfig()
+          ? { disponible: true, clave: vapidConfig()!.publica }
+          : { disponible: false, clave: '' },
         // Pedidos ÷ visitas de la app. Null cuando no hay con qué comparar.
         conversion: totalVisitas ? Number(((pedidos / totalVisitas) * 100).toFixed(1)) : null,
       });

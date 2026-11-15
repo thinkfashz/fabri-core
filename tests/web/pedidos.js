@@ -54,6 +54,7 @@ console.log('\nPedido · el servidor manda');
 ok('los precios salen del catálogo, no del cliente',
   /SELECT sku,nombre,precio::float8 AS precio,stock FROM \$\{T_PRODUCTOS\}/.test(api) &&
   /precio: Number\(enCat\.precio\) \|\| 0/.test(api));
+ok('el comparador de nombres está definido', /function nombreClave\(v: unknown\)/.test(api));
 ok('busca por SKU y, si no, por nombre comparable',
   /porSku\.get\(it\.sku\)\) \|\| porNombre\.get\(nombreClave\(it\.nombre\)\)/.test(api) &&
   /function nombreClave/.test(api));
@@ -81,6 +82,7 @@ ok('un código repetido se reintenta con otro',
 
 /* ── 3. cambio de estado ─────────────────────────────────────────────────── */
 console.log('\nEstado · sin retrocesos ni stock perdido');
+ok('los estados terminales están definidos', /const ESTADOS_FINALES = \['entregado', 'cancelado'\]/.test(api));
 ok('los estados terminales están bloqueados',
   /const ESTADOS_FINALES = \['entregado', 'cancelado'\]/.test(api) &&
   /if \(ESTADOS_FINALES\.includes\(fila\.estado\)\)/.test(api));

@@ -8,6 +8,49 @@
 
 Última actualización: 2026-11-15
 
+## Sesión 2026-11-15 · Fase 8: el dueño recibe el pedido nuevo
+
+Pedido: «continúa». Cierra el círculo del aviso: el comprador ya sabía cuándo
+cambiaba su pedido; ahora el local sabe cuándo entra uno, con el panel cerrado.
+
+| Pieza | Dónde |
+|---|---|
+| Tabla `mercado_push_local` + `push_local_suscribir` / `push_local_baja` | `api-telefono/api/mercado.ts` |
+| Aviso al dueño al crear el pedido (`avisarLocal`, después del commit) | `api-telefono/api/mercado.ts` |
+| Clave pública en el resumen del panel (`ventas_serie.push`) | `api-telefono/api/mercado.ts` |
+| Despachador común comprador/dueño (`despachar`) | `api-telefono/api/mercado.ts` |
+| Push y clic del aviso en el service worker de la app | `web/app/sw.js` |
+| Tarjeta «Avisos del local» en Ajustes | `web/app/index.html`, `web/app/negocio.js`, `web/app/styles.css` |
+| Pruebas (92 en la suite de push) | `tests/web/push.js` |
+| Documentación | `docs/TIENDAS-MULTI.md` |
+
+- **Se separa del aviso del comprador**: otra tabla y otra autorización (dueño o
+  clave, hasta 5 dispositivos por tienda). El comprador sigue con su token.
+- **El aviso no frena al comprador**: sale después del commit, con tope de 1 s
+  por dispositivo y 3 dispositivos; si tarda o falla, el pedido ya está
+  guardado. Se blindó con `try/catch` para que ningún fallo convierta un pedido
+  válido en error 500.
+- **Texto**: «Nuevo pedido MP-XXXXX» + «$3.980 · Ana · retiro»; al tocarlo abre
+  `/app/#negocio`.
+- **El service worker de la app** (`/app/sw.js`) es el que recibe el aviso del
+  dueño; el del comprador (`/sw-push.js`, raíz) no se toca.
+- **Bug encontrado y corregido**: `[hidden]` no ocultaba `.btn` ni `.badge`
+  porque sus clases traen `display`; se agregó la regla semántica
+  `[hidden] { display: none !important; }` (había parches sueltos por todo el
+  CSS).
+- **Bug encontrado en producción y corregido**: el reemplazo de funciones se
+  había llevado `nombreClave` y `ESTADOS_FINALES`, y `pedido_crear` respondía
+  `ERROR_BASE`. Se restauraron, se añadió la prueba que los exige y se blindaron
+  las llamadas de aviso.
+- **Verificado**: 92 comprobaciones locales de push (incluye al dueño y los dos
+  service workers), 17 contra la API real (clave en el resumen, suscripción y
+  baja del local, 401 sin autorización, pedido que entra con el push caído, y
+  pedido sin dispositivos), más las regresiones de Fase 6 (25) y Fase 7 (32).
+  Batería completa y arranque en verde. Captura a 390 px de la tarjeta en
+  Ajustes y del Resumen intacto.
+- **Deploy**: API `fabri-2b2enf404…` READY; web `forge-core-stock-q6z3r1y4f…`
+  READY; `sw.js` en `fcore-v83`.
+
 ## Sesión 2026-11-15 · Fase 7: pedido endurecido y contador con rastro
 
 Pedido: «endurece el pedido y contador de pedidos en admin del vendedor con

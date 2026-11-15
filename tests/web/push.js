@@ -175,7 +175,7 @@ const igual = (nombre, a, b) => ok(nombre, JSON.stringify(a) === JSON.stringify(
     /CREATE TABLE IF NOT EXISTS \$\{T_PUSH\}[\s\S]*?endpoint\s+TEXT NOT NULL[\s\S]*?p256dh/.test(api));
   ok('un endpoint por pedido (índice único con huella)',
     /idx_mercado_push_pedido\s+ON \$\{T_PUSH\} \(pedido_id, huella\)/.test(api));
-  ok('la tabla entra en asegurar', /T_RESENAS, T_PUSH\]/.test(api));
+  ok('la tabla entra en asegurar', /T_RESENAS, T_PUSH/.test(api));
   ok('existe push_suscribir', /accion === 'push_suscribir'/.test(api));
   ok('existe push_baja', /accion === 'push_baja'/.test(api));
   ok('las dos están en la lista del GET', /'push_suscribir', 'push_baja'/.test(api));
@@ -195,7 +195,9 @@ const igual = (nombre, a, b) => ok(nombre, JSON.stringify(a) === JSON.stringify(
     /cuerpo\.suscripcion = suscripcion/.test(leer('web/tienda-seguir.js')));
 
   console.log('\nAviso al cambiar el estado');
-  ok('se avisa después de guardar el cambio', /const avisados = await avisarCambio\(pool, pedidoId, estado\)/.test(api));
+  ok('se avisa después de guardar el cambio', /avisados = await avisarCambio\(pool, pedidoId, estado\)/.test(api));
+  ok('un fallo del aviso no tumba el cambio',
+    /try \{ avisados = await avisarCambio[\s\S]{0,160}catch \(e\) \{ \/\* el estado ya está guardado/.test(api));
   ok('el aviso es mejor esfuerzo (no tumba el cambio)',
     /async function avisarCambio[\s\S]*?catch \(e\) \{ \/\* base o red/.test(api));
   ok('una suscripción muerta se borra', /r\.status === 404 \|\| r\.status === 410/.test(api));
@@ -208,6 +210,33 @@ const igual = (nombre, a, b) => ok(nombre, JSON.stringify(a) === JSON.stringify(
   ok('sin VAPID no se finge disponibilidad', /disponible: false, clave: ''/.test(api));
   ok('borrar la tienda borra sus avisos', /DELETE FROM \$\{T_PUSH\}[\s\S]*?local_id = \$1/.test(api));
 
+  /* ── 3b. avisos al dueño ─────────────────────────────────────────────── */
+  console.log('\nAvisos al dueño (pedido nuevo)');
+  ok('existe la tabla de suscripciones del local', /const T_PUSH_LOCAL = 'mercado_push_local'/.test(api));
+  ok('la tabla se crea y es única por local',
+    /CREATE TABLE IF NOT EXISTS \$\{T_PUSH_LOCAL\}/.test(api) &&
+    /idx_mercado_push_local[\s\S]{0,90}\(local_id, huella\)/.test(api));
+  ok('la tabla entra en asegurar', /T_RESENAS, T_PUSH, T_PUSH_LOCAL\]/.test(api));
+  ok('existen push_local_suscribir y push_local_baja',
+    /accion === 'push_local_suscribir'/.test(api) && /accion === 'push_local_baja'/.test(api));
+  ok('las dos están en la lista del GET', /'push_local_suscribir', 'push_local_baja'/.test(api));
+  ok('suscribir exige dueño o clave',
+    /accion === 'push_local_suscribir'[\s\S]{0,700}autorizarLocal/.test(api));
+  ok('limita a 5 dispositivos por tienda', />= 5[\s\S]{0,120}5 dispositivos/.test(api));
+  ok('el aviso del dueño no espera al comprador (tope corto)',
+    /async function despachar[\s\S]{0,700}timeoutMs: 1000/.test(api) &&
+    /async function avisarLocal[\s\S]{0,1200}LIMIT 3/.test(api));
+  ok('se avisa al dueño recién cuando el pedido está guardado',
+    /await avisarLocal\(pool, localId/.test(api) &&
+    api.indexOf('avisarLocal(pool, localId') > api.indexOf("query('COMMIT')"));
+  ok('el aviso lleva código, monto y local',
+    /titulo: 'Nuevo pedido ' \+ texto\(pedido\.codigo/.test(api) &&
+    /url: sitioPublico\(\) \+ '\/app\/#negocio'/.test(api));
+  ok('el resumen del panel publica la clave pública',
+    /resenas,[\s\S]{0,120}push: vapidConfig\(\)/.test(api));
+  ok('borrar la tienda borra sus avisos',
+    /DELETE FROM \$\{T_PUSH_LOCAL\}|DELETE FROM \$\{T_PUSH\}/.test(api));
+
   /* ── 4. service worker ───────────────────────────────────────────────── */
   console.log('\nService worker de avisos (raíz)');
   const sw = leer('web/sw-push.js');
@@ -218,6 +247,13 @@ const igual = (nombre, a, b) => ok(nombre, JSON.stringify(a) === JSON.stringify(
   ok('reusa la pestaña abierta', /clients\.matchAll/.test(sw) && /focus\(\)/.test(sw));
   ok('no cachea ni intercepta pedidos', !/addEventListener\('fetch'/.test(sw) && !/caches\./.test(sw));
   ok('el aviso sin JSON no rompe', /catch \(err\)/.test(sw));
+
+  console.log('\nService worker de la app (dueño)');
+  const swApp = leer('web/app/sw.js');
+  ok('la app también escucha push', /addEventListener\('push'/.test(swApp));
+  ok('abre el panel al tocar el aviso', /d\.url \|\| '\/app\/#negocio'/.test(swApp));
+  ok('reusa la pestaña del panel', /clients\.matchAll/.test(swApp) && /focus\(\)/.test(swApp));
+  ok('sigue sin interceptar de más (un solo fetch)', (swApp.match(/addEventListener\('fetch'/g) || []).length === 1);
 
   /* ── 5. página de seguimiento ────────────────────────────────────────── */
   console.log('\nPágina de seguimiento');
@@ -238,6 +274,21 @@ const igual = (nombre, a, b) => ok(nombre, JSON.stringify(a) === JSON.stringify(
   ok('la web nunca ve la clave privada', !/VAPID_PRIVATE|privada/.test(js) &&
     !/VAPID_PRIVATE/.test(leer('web/sw-push.js')));
   ok('el CSS del bloque existe', /\.sg-avisos/.test(leer('web/tienda.css')));
+
+  console.log('\nPanel del dueño · activar avisos');
+  const neg = leer('web/app/negocio.js');
+  const htmlApp = leer('web/app/index.html');
+  ok('hay tarjeta de avisos en Ajustes', /id="negAvisosCard"/.test(htmlApp) &&
+    /id="negAvisosBtn"/.test(htmlApp) && /id="negAvisosQuitar"/.test(htmlApp));
+  ok('se suscribe a la tienda', /accion: "push_local_suscribir"/.test(neg) &&
+    /local_id: EST\.sel\.id/.test(neg));
+  ok('usa la clave pública del resumen', /applicationServerKey: claveToUint8\(push\.clave\)/.test(neg));
+  ok('pide permiso al tocar el botón', /Notification\.requestPermission\(\)/.test(neg) &&
+    /btn\.onclick = activarAvisosDueno/.test(neg));
+  ok('se puede dejar de avisar', /accion: "push_local_baja"/.test(neg) && /unsubscribe\(\)/.test(neg));
+  ok('muestra el estado real del navegador', /getSubscription\(\)\.then/.test(neg) &&
+    /pintarAvisosDueno\(Boolean\(s\)/.test(neg));
+  ok('avisa si el servidor no tiene push', /El servidor no tiene los avisos configurados/.test(neg));
 
   console.log(fallos
     ? '\n\x1b[1;31m✖ ' + fallos + ' fallo(s) de ' + pasos + '\x1b[0m\n'

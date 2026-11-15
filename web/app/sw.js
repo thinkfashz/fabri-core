@@ -5,7 +5,7 @@
    La lista de precache es deliberadamente explícita: si un archivo falta, el
    install falla y la app deja de ser offline — mejor detectarlo en la prueba
    `tests/web/diseno.js` que en el teléfono del usuario. */
-const V = 'fcore-v82';
+const V = 'fcore-v83';
 const SHELL = [
   './', './index.html', './terminos.html', './styles.css', './app.js', './cloud.js', './lottie-mount.js',
   './mercado.js', './placer.js', './placer.css', './mapa-trafico.js', './negocio.js', './plataforma.js', './tienda3d.js', './visitas.js',
@@ -71,4 +71,35 @@ self.addEventListener('fetch', e => {
       return r;
     }).catch(() => hit))
   );
+});
+/* ── avisos del dueño ──────────────────────────────────────────────────────
+   El panel se suscribe a la tienda y recibe el pedido nuevo aunque esté
+   cerrado. No hay `fetch` nuevo: el shell sigue igual. */
+self.addEventListener('push', (e) => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch (err) {
+    try { d = { cuerpo: e.data ? e.data.text() : '' }; } catch (e2) { d = {}; }
+  }
+  const titulo = String(d.titulo || 'FORGE CORE STOCK').slice(0, 80);
+  const cuerpo = String(d.cuerpo || 'Tienes novedades en tu tienda.').slice(0, 160);
+  e.waitUntil(self.registration.showNotification(titulo, {
+    body: cuerpo,
+    icon: './icons/icon-192.png',
+    badge: './icons/icon-192.png',
+    tag: 'pedido-local',
+    renotify: true,
+    data: { url: String(d.url || '/app/#negocio') },
+  }));
+});
+
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  const url = (e.notification.data && e.notification.data.url) || '/app/#negocio';
+  const base = url.split('#')[0];
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((lista) => {
+    for (const c of lista) {
+      if (c.url && c.url.indexOf(base) === 0 && 'focus' in c) return c.focus();
+    }
+    return self.clients.openWindow(url);
+  }));
 });

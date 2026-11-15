@@ -94,6 +94,7 @@ window.Negocio = (function () {
     logoEditar: "",      // data URI del formulario de ficha
     editandoSku: "",     // producto que se está editando
     pendienteSel: "",    // tienda a seleccionar tras refrescar
+    avisosConsultados: false, // ya se preguntó al navegador si hay suscripción
     /* panel de administración */
     tab: "resumen",      // "resumen" | "pedidos" | "catalogo" | "ajustes"
     rango: 7,            // días del resumen (7 o 30)
@@ -610,6 +611,7 @@ window.Negocio = (function () {
     if (!t) return;
     EST.sel = t;
     EST.pedidos = [];
+    EST.avisosConsultados = false;   // el estado del push se pregunta por tienda
     EST.serie = null;
     EST.serieError = "";
     EST.serieTs = 0;
@@ -1251,8 +1253,137 @@ window.Negocio = (function () {
     }
   }
 
+  /* ── avisos push del dueño ───────────────────────────────────────────────── */
+
+  function soportaAvisos() {
+    return typeof window !== "undefined" && "Notification" in window &&
+      "serviceWorker" in navigator && "PushManager" in window;
+  }
+
+  function claveToUint8(b64) {
+    const s = String(b64 || "").replace(/-/g, "+").replace(/_/g, "/");
+    let con = s;
+    while (con.length % 4) con += "=";
+    const raw = atob(con);
+    const out = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+    return out;
+  }
+
+  function pintarAvisosDueno(activo, nota) {
+    const chip = $("negAvisosChip"), btn = $("negAvisosBtn"), quitar = $("negAvisosQuitar");
+    const txt = $("negAvisosTxt"), av = $("negAvisosNota");
+    if (chip) {
+      chip.textContent = activo ? "activado" : "sin activar";
+      chip.className = "badge" + (activo ? " ok" : "");
+    }
+    if (txt) {
+      txt.textContent = activo
+        ? "Te avisaremos acá cuando entre un pedido, aunque tengas el panel cerrado."
+        : "Recibe un aviso cuando entre un pedido, aunque tengas el panel cerrado.";
+    }
+    if (btn) btn.hidden = Boolean(activo);
+    if (quitar) quitar.hidden = !activo;
+    if (av) av.textContent = nota || "";
+  }
+
+  function consultarAvisosDueno() {
+    if (!EST.sel || !soportaAvisos()) return;
+    navigator.serviceWorker.getRegistration("/app/sw.js").then((reg) => {
+      if (!reg || !reg.pushManager) return pintarAvisosDueno(false, "");
+      return reg.pushManager.getSubscription().then((s) => pintarAvisosDueno(Boolean(s), ""));
+    }).catch(() => pintarAvisosDueno(false, ""));
+  }
+
+  function activarAvisosDueno() {
+    const btn = $("negAvisosBtn");
+    if (!EST.sel) return;
+    const push = EST.serie && EST.serie.push;
+    if (!push || !push.disponible) {
+      pintarAvisosDueno(false, "El servidor no tiene los avisos configurados.");
+      return;
+    }
+    if (!soportaAvisos()) {
+      pintarAvisosDueno(false, "Este navegador no soporta notificaciones push.");
+      return;
+    }
+    if (btn) { btn.disabled = true; btn.textContent = "Activando…"; }
+    pintarAvisosDueno(false, "");
+
+    const pedir = Notification.permission === "granted"
+      ? Promise.resolve("granted")
+      : Notification.requestPermission();
+
+    pedir.then((permiso) => {
+      if (permiso !== "granted") throw new Error("permiso");
+      return navigator.serviceWorker.register("/app/sw.js");
+    }).then((reg) => reg.pushManager.getSubscription().then((actual) => {
+      if (actual) return actual;
+      return reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: claveToUint8(push.clave),
+      });
+    })).then((sub) => {
+      const json = sub.toJSON ? sub.toJSON() : null;
+      if (!json || !json.endpoint) throw new Error("suscripcion");
+      return api({
+        accion: "push_local_suscribir", local_id: EST.sel.id,
+        clave: EST.sel.clave || "", suscripcion: json,
+      }).then((d) => {
+        if (!d || !d.ok) throw new Error("guardar");
+        if (btn) { btn.disabled = false; btn.textContent = "Activar avisos"; }
+        pintarAvisosDueno(true, "Listo: este teléfono recibirá los pedidos nuevos.");
+      });
+    }).catch((e) => {
+      if (btn) { btn.disabled = false; btn.textContent = "Activar avisos"; }
+      pintarAvisosDueno(false, e && e.message === "permiso"
+        ? "El navegador bloqueó las notificaciones. Actívalas en los ajustes del sitio."
+        : "No se pudieron activar los avisos. Inténtalo de nuevo.");
+    });
+  }
+
+  function quitarAvisosDueno() {
+    const quitar = $("negAvisosQuitar");
+    if (quitar) { quitar.disabled = true; quitar.textContent = "Quitando…"; }
+    navigator.serviceWorker.getRegistration("/app/sw.js").then((reg) => {
+      const sub = reg && reg.pushManager ? reg.pushManager.getSubscription() : null;
+      return Promise.resolve(sub).then((s) => {
+        if (!s) return null;
+        const json = s.toJSON ? s.toJSON() : {};
+        return s.unsubscribe().then(() => json.endpoint || "");
+      });
+    }).then((endpoint) => {
+      if (!endpoint || !EST.sel) return null;
+      return api({
+        accion: "push_local_baja", local_id: EST.sel.id,
+        clave: EST.sel.clave || "", endpoint,
+      });
+    }).then(() => {
+      if (quitar) { quitar.disabled = false; quitar.textContent = "Dejar de avisar"; }
+      pintarAvisosDueno(false, "Este teléfono ya no recibirá avisos.");
+    }).catch(() => {
+      if (quitar) { quitar.disabled = false; quitar.textContent = "Dejar de avisar"; }
+      pintarAvisosDueno(false, "");
+    });
+  }
+
+  function engancharAvisosDueno() {
+    const btn = $("negAvisosBtn");
+    if (btn && !btn.dataset.listo) { btn.dataset.listo = "1"; btn.onclick = activarAvisosDueno; }
+    const quitar = $("negAvisosQuitar");
+    if (quitar && !quitar.dataset.listo) { quitar.dataset.listo = "1"; quitar.onclick = quitarAvisosDueno; }
+    const card = $("negAvisosCard");
+    if (card) card.hidden = !EST.sel;
+  }
+
   function pintarAjustes() {
     const t = EST.sel;
+    engancharAvisosDueno();
+    if (t && !EST.avisosConsultados) {
+      EST.avisosConsultados = true;
+      if (soportaAvisos()) consultarAvisosDueno();
+      else pintarAvisosDueno(false, "Este navegador no soporta notificaciones push.");
+    }
     if (!t) return;
     const poner = (id, v) => { const el = $(id); if (el) el.value = v == null ? "" : v; };
     poner("neNombre", t.nombre);

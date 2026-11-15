@@ -134,6 +134,8 @@ Autorización, en este orden:
 | `resena_moderar` | dueño · clave · admin | oculta o muestra una reseña |
 | `push_suscribir` | público | suscribe un navegador a los avisos de un pedido (token o código + teléfono) |
 | `push_baja` | público | quita ese navegador de los avisos |
+| `push_local_suscribir` | dueño · clave · admin | suscribe el navegador del local a los pedidos nuevos |
+| `push_local_baja` | dueño · clave · admin | quita ese navegador de los avisos del local |
 | `pedido_seguir` | público | estado del pedido por `token` o por `codigo` + `contacto` (últimos 4 del teléfono) |
 | `ventas_serie` | dueño · clave · admin | resumen del panel: serie diaria, top de productos, conteo por estado, visitas y conversión (`dias` 1–90, por defecto 7) |
 
@@ -146,7 +148,8 @@ Autorización, en este orden:
 | `mercado_pedidos` | pedidos, estado actual y `seguimiento` (token) |
 | `mercado_pedido_eventos` | historial de estados (línea de tiempo del comprador) |
 | `mercado_resenas` | calificación por pedido entregado, con `oculta` para moderar |
-| `mercado_push` | suscripciones de navegador para avisar el cambio de estado |
+| `mercado_push` | suscripciones del comprador para avisar el cambio de estado |
+| `mercado_push_local` | suscripciones del local para avisar el pedido nuevo |
 
 ### Esquema nuevo de `mercado_locales`
 
@@ -401,6 +404,21 @@ El pedido no se cree lo que manda el teléfono. Lo que importa:
 
 El panel del dueño muestra ese historial en cada pedido (desplegable «Historial · N»), y `pedidos_listar` lo entrega junto con el pedido, sin una llamada por pedido.
 
+### Avisos al dueño
+
+El local también puede recibir el pedido sin tener el panel abierto:
+
+- En **Ajustes → Avisos del local** se activa (permiso del navegador al tocar el
+  botón). Se suscribe con `push_local_suscribir`, que exige dueño o clave; hasta
+  5 dispositivos por tienda.
+- Cada pedido nuevo manda «Nuevo pedido MP-XXXXX · $3.980 · Ana · retiro» y al
+  tocarlo abre `/app/#negocio`.
+- El aviso sale **después del commit** y con tope de 1 s por dispositivo: si el
+  push tarda, el pedido ya está guardado y el comprador recibe su código igual.
+  Un fallo del aviso nunca convierte un pedido bueno en error.
+- El service worker de la app (`/app/sw.js`) es el que recibe el aviso; el del
+  comprador (`/sw-push.js`, raíz) sigue siendo aparte.
+
 ### Contador del panel
 
 - **Con nube**: el número sale de `pedidos_listar` (`total`, `nuevos`, `abiertos`), no del tamaño de la página. La pestaña y la tarjeta muestran el mismo total, y un chip aparte dice cuántos hay **por atender**.
@@ -456,7 +474,7 @@ node tests/web/negocio.js     # 118 comprobaciones: parsers, filtros, CSV, gráf
 node tests/web/plataforma.js  # 57 comprobaciones: puras, ids, seguridad del token, endpoints, precache
 node tests/web/seguimiento.js # 70 comprobaciones: código, teléfono, estados, línea de tiempo, contrato API/HTML
 node tests/web/resenas.js     # 83 comprobaciones: contrato de reseñas, estrellas, reparto, privacidad, panel
-node tests/web/push.js        # 68 comprobaciones: cifrado ida y vuelta, VAPID, contrato, service worker
+node tests/web/push.js        # 92 comprobaciones: cifrado ida y vuelta, VAPID, comprador y dueño, service workers
 node tests/web/pedidos.js     # 36 comprobaciones: precio/stock del servidor, idempotencia, estados, contador e historial
 node tests/web/auth-nube.js   # incluye CORE_ROOT_EMAIL y promoción a owner
 node tests/web/diseno.js      # shell, sistema visual y offline
