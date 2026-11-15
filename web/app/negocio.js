@@ -84,6 +84,9 @@ window.Negocio = (function () {
     tiendas: [],         // mis tiendas con catálogo
     sel: null,           // tienda abierta
     pedidos: [],         // pedidos de la nube del local abierto
+    pedidosTotal: 0,     // total del local en la nube (no el de la página)
+    pedidosNuevos: 0,    // sin abrir todavía
+    pedidosAbiertos: 0,  // sin entregar ni cancelar
     cargando: false,
     ts: 0,
     aviso: "",
@@ -170,7 +173,31 @@ window.Negocio = (function () {
       entrega: p.entrega === "delivery" ? "delivery" : "retiro",
       direccion: p.direccion || "",
       cliente: { nombre: p.cliente || "", telefono: p.telefono || "" },
-      estado: p.estado || "nuevo"
+      estado: p.estado || "nuevo",
+      eventos: Array.isArray(p.eventos) ? p.eventos : []
+    };
+  }
+
+  /**
+   * Contador del local abierto. Cuando hay nube manda el total del servidor
+   * (no el de la página); sin conexión se cuenta lo que quedó en este teléfono,
+   * y se dice: nunca se muestra un número que no sea real.
+   */
+  function contarPedidos() {
+    if (!EST.sel) return { total: 0, abiertos: 0, nuevos: 0, origen: "nube" };
+    const conNube = EST.modo === "cuenta" || EST.pedidos.length > 0;
+    if (conNube) {
+      return {
+        total: EST.pedidosTotal, abiertos: EST.pedidosAbiertos,
+        nuevos: EST.pedidosNuevos, origen: "nube",
+      };
+    }
+    const local = leer().filter((p) => p.local && p.local.id === EST.sel.id);
+    return {
+      total: local.length,
+      abiertos: local.filter((p) => p.estado !== "entregado" && p.estado !== "cancelado").length,
+      nuevos: 0,
+      origen: "local",
     };
   }
 
@@ -453,6 +480,9 @@ window.Negocio = (function () {
     });
     if (d && d.ok) {
       EST.pedidos = (d.pedidos || []).map(aLocal);
+      EST.pedidosTotal = Number(d.total) || EST.pedidos.length;
+      EST.pedidosNuevos = Number(d.nuevos) || 0;
+      EST.pedidosAbiertos = Number(d.abiertos) || 0;
       EST.aviso = "";
     } else if (d && d.codigo === "clave_mala") {
       EST.aviso = "La sesión no autoriza este local.";
@@ -734,14 +764,24 @@ window.Negocio = (function () {
         : "Pedidos y catálogo · " + (EST.modo === "cuenta" ? "tu cuenta" : "clave de la tienda");
     }
 
-    // Contadores de las pestañas (los mismos números en el título de la tarjeta).
-    const pedidos = pedidosVisibles();
+    // Contadores: el del servidor cuando hay nube; si no, lo que hay en este
+    // teléfono. La pestaña y la tarjeta muestran el mismo número.
+    const cuenta = contarPedidos();
     const prods = t.catalogo || [];
     const pc = $("negPedCount"), prc = $("negProdCount");
-    if (pc) pc.textContent = pedidos.length;
+    if (pc) pc.textContent = cuenta.total;
     if (prc) prc.textContent = prods.length;
     const pt = $("negPedTotal"), prt = $("negProdTotal");
-    if (pt) pt.textContent = pedidos.length;
+    if (pt) {
+      pt.textContent = cuenta.total + (cuenta.origen === "local" ? " · local" : "");
+      pt.className = "badge " + (cuenta.total ? "acc" : "");
+    }
+    const pend = $("negPedPend");
+    if (pend) {
+      pend.hidden = !cuenta.abiertos;
+      pend.textContent = cuenta.abiertos + (cuenta.abiertos === 1 ? " por atender" : " por atender");
+      pend.className = "badge " + (cuenta.nuevos ? "acc" : "warn");
+    }
     if (prt) prt.textContent = prods.length;
 
     pintarTabs();
@@ -1030,6 +1070,7 @@ window.Negocio = (function () {
                 (p.nube ? "" : '<button type="button" class="borrar" data-borrar="' + esc(p.codigo) + '" aria-label="Borrar pedido">✕</button>') +
               "</div>" +
             "</div>" +
+            historialPedido(p) +
           "</article>";
         }).join("")
       : (todos.length
@@ -1054,6 +1095,22 @@ window.Negocio = (function () {
     caja.querySelectorAll("[data-wa]").forEach((b) => {
       b.onclick = () => abrirWa(b.dataset.wa);
     });
+  }
+
+  /** Historial del pedido: quién lo movió, cuándo y con qué nota. */
+  function historialPedido(p) {
+    const ev = (p.eventos || []).filter((e) => e && e.estado);
+    if (ev.length < 2) return "";
+    return '<details class="neg-ped-hist">' +
+        "<summary>Historial · " + ev.length + "</summary>" +
+        "<ol>" + ev.map((e) => {
+          const ts = Date.parse(e.ts);
+          return "<li><b>" + esc(e.estado) + "</b>" +
+            "<small>" + esc(dia(ts) + " " + hora(ts)) +
+              (e.actor && e.actor !== "sistema" ? " · " + esc(e.actor) : "") + "</small>" +
+            (e.nota ? "<p>" + esc(e.nota) + "</p>" : "") + "</li>";
+        }).join("") + "</ol>" +
+      "</details>";
   }
 
   function pintarCatalogo() {

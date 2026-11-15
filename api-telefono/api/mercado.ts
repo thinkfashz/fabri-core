@@ -386,6 +386,20 @@ async function asegurar(pool: any) {
   await pool.query(`ALTER TABLE ${T_PEDIDOS} ADD COLUMN IF NOT EXISTS seguimiento TEXT NOT NULL DEFAULT ''`);
   await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_mercado_pedidos_seguimiento
                       ON ${T_PEDIDOS} (seguimiento) WHERE seguimiento <> ''`);
+  // Idempotencia del comprador: si el teléfono reintenta el mismo pedido (doble
+  // toque, red que se corta y vuelve), no se crea otro. La clave la genera el
+  // cliente y es única por local.
+  await pool.query(`ALTER TABLE ${T_PEDIDOS} ADD COLUMN IF NOT EXISTS idempotencia TEXT NOT NULL DEFAULT ''`);
+  await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_mercado_pedidos_idempotencia
+                      ON ${T_PEDIDOS} (local_id, idempotencia) WHERE idempotencia <> ''`);
+  // El código corto se usa para buscar el pedido: dos pedidos con el mismo
+  // código harían ambigua la búsqueda. En una base vieja puede haber repetidos,
+  // así que si el índice no entra no se tumba el arranque (la creación igual
+  // reintenta con otro código).
+  try {
+    await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_mercado_pedidos_codigo
+                        ON ${T_PEDIDOS} (codigo) WHERE codigo <> ''`);
+  } catch (e) { /* duplicados heredados: se resuelve al crear, no acá */ }
   // Historial de estados: sin esto el comprador sólo ve el estado actual y no
   // sabe desde cuándo. Se llena en `pedido_crear` y en `pedido_estado`.
   await pool.query(`
@@ -394,6 +408,10 @@ async function asegurar(pool: any) {
       estado      TEXT NOT NULL DEFAULT 'nuevo',
       ts          TIMESTAMPTZ NOT NULL DEFAULT now()
     )`);
+  // Quién movió el pedido y por qué: «comprador» al crear, «dueño» al cambiar
+  // de estado, y una nota corta que se ve en la línea de tiempo.
+  await pool.query(`ALTER TABLE ${T_EVENTOS} ADD COLUMN IF NOT EXISTS actor TEXT NOT NULL DEFAULT 'sistema'`);
+  await pool.query(`ALTER TABLE ${T_EVENTOS} ADD COLUMN IF NOT EXISTS nota TEXT NOT NULL DEFAULT ''`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_mercado_eventos_pedido ON ${T_EVENTOS} (pedido_id, ts)`);
   // Reseñas: sólo puede calificar quien compró, y sólo cuando el local marcó
   // el pedido como entregado. `pedido_id` es único: una reseña por pedido.
@@ -614,6 +632,20 @@ async function avisarCambio(pool: any, pedidoId: string, estado: string): Promis
   } catch (e) { /* base o red: el pedido ya está actualizado */ }
   return enviados;
 }
+
+/** Nombre comparable: sin acentos, minúsculas y espacios simples. */
+function nombreClave(v: unknown): string {
+  return texto(v, 160).trim().toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ');
+}
+
+/**
+ * Estados terminales: un pedido entregado o cancelado ya no se mueve. Evita
+ * que un toque equivocado devuelva a «listo» un pedido que el comprador ya
+ * recibió (y que el historial y el stock queden mintiendo).
+ */
+const ESTADOS_FINALES = ['entregado', 'cancelado'];
 
 function normalizarLocal(crudo: Fila) {
   const lat = Number(crudo.lat), lon = Number(crudo.lon);
@@ -1108,6 +1140,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
 
     /* ── pedidos ── */
     if (accion === 'pedido_crear') {
+      let cliente_pg: any = null;
       const localId = idLocal(cuerpo.local_id);
       const rl = await pool.query(
         `SELECT id,nombre,minimo,abierto,entrega,envio,activo FROM ${T_LOCALES} WHERE id = $1`, [localId]
@@ -1118,16 +1151,100 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         return json(res, { ok: false, error: 'el local está cerrado', codigo: 'CERRADO' }, 409);
       }
 
-      const items = normalizarItems(cuerpo.items);
-      if (!items.length) return json(res, { ok: false, error: 'el pedido no tiene productos válidos' }, 400);
+      // Idempotencia: el mismo intento repetido devuelve el pedido que ya se
+      // creó, en vez de duplicarlo. Es lo que pasa con doble toque o cuando la
+      // red del teléfono se corta justo después de enviar.
+      const idem = texto(cuerpo.idempotencia, 80).replace(/[^A-Za-z0-9_-]/g, '');
+      if (idem) {
+        const ya = await pool.query(
+          `SELECT id,codigo,seguimiento,subtotal::float8 AS subtotal,envio::float8 AS envio,
+                  total::float8 AS total,estado
+             FROM ${T_PEDIDOS} WHERE local_id = $1 AND idempotencia = $2 LIMIT 1`,
+          [localId, idem]
+        );
+        if (ya.rowCount) {
+          const p = ya.rows[0];
+          return json(res, {
+            ok: true, accion, id: p.id, codigo: p.codigo, seguimiento: p.seguimiento,
+            subtotal: p.subtotal, envio: p.envio, total: p.total, estado: p.estado,
+            repetido: true,
+          });
+        }
+      }
+
+      const crudos = normalizarItems(cuerpo.items);
+      if (!crudos.length) return json(res, { ok: false, error: 'el pedido no tiene productos válidos' }, 400);
+      if (crudos.length > 100) {
+        return json(res, { ok: false, error: 'el pedido tiene demasiadas líneas (máximo 100)' }, 400);
+      }
+
+      // Los precios NO se creen al cliente: se buscan en el catálogo del local.
+      // Si un producto no está (o cambió de nombre), se rechaza con claridad en
+      // vez de cobrar un precio inventado.
+      const cat = await pool.query(
+        `SELECT sku,nombre,precio::float8 AS precio,stock FROM ${T_PRODUCTOS} WHERE local_id = $1`,
+        [localId]
+      );
+      const porSku = new Map<string, any>();
+      const porNombre = new Map<string, any>();
+      for (const f of cat.rows) {
+        if (f.sku) porSku.set(String(f.sku), f);
+        porNombre.set(nombreClave(f.nombre), f);
+      }
+
+      const items: any[] = [];
+      for (const it of crudos) {
+        const enCat = (it.sku && porSku.get(it.sku)) || porNombre.get(nombreClave(it.nombre)) || null;
+        if (!enCat) {
+          return json(res, {
+            ok: false, codigo: 'NO_CATALOGO',
+            error: `«${it.nombre}» ya no está en el catálogo del local`,
+            producto: it.nombre,
+          }, 409);
+        }
+        const stock = enCat.stock === null || enCat.stock === undefined ? null : Number(enCat.stock);
+        if (stock !== null && it.cantidad > stock) {
+          return json(res, {
+            ok: false, codigo: 'SIN_STOCK',
+            error: stock > 0
+              ? `sólo quedan ${stock} de «${enCat.nombre}»`
+              : `«${enCat.nombre}» está agotado`,
+            producto: enCat.nombre, disponible: stock,
+          }, 409);
+        }
+        items.push({
+          sku: enCat.sku,
+          nombre: enCat.nombre,
+          precio: Number(enCat.precio) || 0,
+          cantidad: it.cantidad,
+          categoria: it.categoria,
+          unidad: it.unidad,
+          stock,
+        });
+      }
 
       const subtotal = items.reduce((a, it) => a + it.precio * it.cantidad, 0);
+      if (!subtotal) return json(res, { ok: false, error: 'el pedido suma cero' }, 400);
+      if (subtotal > 5_000_000) {
+        return json(res, { ok: false, error: 'el pedido supera el máximo permitido' }, 400);
+      }
       if (local.minimo > 0 && subtotal < local.minimo) {
         return json(res, {
           ok: false,
           error: `el pedido mínimo es ${local.minimo} y el pedido suma ${subtotal}`,
           codigo: 'BAJO_MINIMO', minimo: local.minimo, subtotal,
         }, 409);
+      }
+
+      // El local tiene que poder responder: nombre y teléfono son la única
+      // forma de avisar y de que el comprador recupere el pedido sin enlace.
+      const nombreCliente = texto(cuerpo.cliente, 120).trim();
+      const telefono = texto(cuerpo.telefono, 30).replace(/[^\d+]/g, '');
+      if (nombreCliente.length < 2) {
+        return json(res, { ok: false, codigo: 'SIN_NOMBRE', error: 'falta el nombre de quien pide' }, 400);
+      }
+      if (telefono.replace(/\D/g, '').length < 8) {
+        return json(res, { ok: false, codigo: 'SIN_TELEFONO', error: 'falta un teléfono válido' }, 400);
       }
 
       const permitidas: string[] = Array.isArray(local.entrega) ? local.entrega : ['retiro'];
@@ -1137,22 +1254,86 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       const total = subtotal + envio;
 
       const id = 'ped-' + Date.now().toString(36) + randomBytes(3).toString('hex');
-      const codigo = codigoPedido();
-      // Token de seguimiento: 20 caracteres aleatorios. No se deriva del id ni
-      // del código, así que no se puede adivinar desde fuera.
+      // El token de seguimiento no se deriva del id ni del código.
       const seguimiento = randomBytes(10).toString('hex');
-      await pool.query(
-        `INSERT INTO ${T_PEDIDOS}
-           (id,local_id,codigo,cliente,telefono,items,subtotal,envio,total,entrega,direccion,nota,estado,seguimiento)
-         VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,$12,'nuevo',$13)`,
-        [id, localId, codigo, texto(cuerpo.cliente, 120).trim(), texto(cuerpo.telefono, 30).replace(/[^\d+]/g, ''),
-          JSON.stringify(items), subtotal, envio, total, entrega,
-          texto(cuerpo.direccion, 200).trim(), texto(cuerpo.nota, 300).trim(), seguimiento]
-      );
-      await pool.query(
-        `INSERT INTO ${T_EVENTOS} (pedido_id, estado) VALUES ($1, 'nuevo')`, [id]
-      );
-      return json(res, { ok: true, accion, id, codigo, seguimiento, subtotal, envio, total, estado: 'nuevo' });
+      const nota = texto(cuerpo.nota, 300).trim();
+
+      // La transacción descuenta stock y crea el pedido como una sola cosa: si
+      // el stock no alcanza, no queda un pedido a medias.
+      let intento = 0;
+      for (;;) {
+        intento++;
+        const codigo = codigoPedido();
+        cliente_pg = await pool.connect();
+        try {
+          await cliente_pg.query('BEGIN');
+          for (const it of items) {
+            if (it.stock === null) continue;      // stock null = sin límite
+            const descontado = await cliente_pg.query(
+              `UPDATE ${T_PRODUCTOS} SET stock = stock - $3
+                WHERE local_id = $1 AND sku = $2 AND stock IS NOT NULL AND stock >= $3`,
+              [localId, it.sku, it.cantidad]
+            );
+            if (!descontado.rowCount) {
+              await cliente_pg.query('ROLLBACK');
+              return json(res, {
+                ok: false, codigo: 'SIN_STOCK',
+                error: `«${it.nombre}» se agotó mientras armabas el pedido`,
+                producto: it.nombre, disponible: 0,
+              }, 409);
+            }
+          }
+
+          await cliente_pg.query(
+            `INSERT INTO ${T_PEDIDOS}
+               (id,local_id,codigo,cliente,telefono,items,subtotal,envio,total,entrega,
+                direccion,nota,estado,seguimiento,idempotencia)
+             VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,$12,'nuevo',$13,$14)`,
+            [id, localId, codigo, nombreCliente, telefono,
+              JSON.stringify(items.map((x) => ({
+                sku: x.sku, nombre: x.nombre, precio: x.precio, cantidad: x.cantidad,
+                categoria: x.categoria, unidad: x.unidad,
+              }))),
+              subtotal, envio, total, entrega,
+              texto(cuerpo.direccion, 200).trim(), nota, seguimiento, idem]
+          );
+          await cliente_pg.query(
+            `INSERT INTO ${T_EVENTOS} (pedido_id, estado, actor, nota)
+             VALUES ($1, 'nuevo', 'comprador', $2)`,
+            [id, 'pedido creado' + (entrega === 'delivery' ? ' (delivery)' : ' (retiro)')]
+          );
+          await cliente_pg.query('COMMIT');
+        } catch (e: any) {
+          try { await cliente_pg.query('ROLLBACK'); } catch (e2) { /* ya cerrada */ }
+          const cons = String(e && e.constraint || '');
+          // Otro intento con la misma clave ganó la carrera: se devuelve ese.
+          if (cons === 'idx_mercado_pedidos_idempotencia' && idem) {
+            const ya = await pool.query(
+              `SELECT id,codigo,seguimiento,subtotal::float8 AS subtotal,envio::float8 AS envio,
+                      total::float8 AS total,estado
+                 FROM ${T_PEDIDOS} WHERE local_id = $1 AND idempotencia = $2 LIMIT 1`,
+              [localId, idem]
+            );
+            if (ya.rowCount) {
+              const p = ya.rows[0];
+              return json(res, {
+                ok: true, accion, id: p.id, codigo: p.codigo, seguimiento: p.seguimiento,
+                subtotal: p.subtotal, envio: p.envio, total: p.total, estado: p.estado,
+                repetido: true,
+              });
+            }
+          }
+          // Código repetido (32^5 combinaciones): se prueba con otro.
+          if (cons === 'idx_mercado_pedidos_codigo' && intento < 5) continue;
+          throw e;
+        } finally {
+          try { cliente_pg.release(); } catch (e) { /* ya liberado */ }
+          cliente_pg = null;
+        }
+        return json(res, {
+          ok: true, accion, id, codigo, seguimiento, subtotal, envio, total, estado: 'nuevo',
+        });
+      }
     }
 
     /* ── seguimiento del comprador (PÚBLICO) ────────────────────────────────
@@ -1503,19 +1684,43 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       if (!local) return json(res, { ok: false, error: 'no autorizado', codigo: motivo }, 401);
       const estado = texto(cuerpo.estado, 20).trim();
       const limite = Math.min(200, Math.max(1, entero(cuerpo.limite, 200) || 50));
+
       const args: unknown[] = [localId];
-      let where = 'local_id = $1';
-      if (ESTADOS.includes(estado)) { args.push(estado); where += ` AND estado = $${args.length}`; }
-      args.push(limite);
-      const r = await pool.query(
-        `SELECT id,codigo,seguimiento,cliente,telefono,items,
-                subtotal::float8 AS subtotal, envio::float8 AS envio, total::float8 AS total,
-                entrega,direccion,nota,estado,creado,actualizado
-           FROM ${T_PEDIDOS} WHERE ${where}
-          ORDER BY creado DESC LIMIT $${args.length}`,
-        args
+      let where = 'p.local_id = $1';
+      if (ESTADOS.includes(estado)) { args.push(estado); where += ` AND p.estado = $${args.length}`; }
+
+      // El contador del panel necesita el total de verdad, no el de la página.
+      const cuenta = await pool.query(
+        `SELECT COUNT(*)::int AS n,
+                COUNT(*) FILTER (WHERE p.estado = 'nuevo')::int AS nuevos,
+                COUNT(*) FILTER (WHERE p.estado NOT IN ('entregado', 'cancelado'))::int AS abiertos
+           FROM ${T_PEDIDOS} p WHERE ${where}`, args
       );
-      return json(res, { ok: true, accion, pedidos: r.rows, total: r.rowCount, local: local.nombre });
+      const c = cuenta.rows[0] || {};
+
+      // El historial viaja con cada pedido: el dueño ve quién hizo qué y
+      // cuándo, sin una llamada por pedido.
+      const r = await pool.query(
+        `SELECT p.id,p.codigo,p.seguimiento,p.cliente,p.telefono,p.items,
+                p.subtotal::float8 AS subtotal, p.envio::float8 AS envio, p.total::float8 AS total,
+                p.entrega,p.direccion,p.nota,p.estado,p.creado,p.actualizado,
+                COALESCE((
+                  SELECT json_agg(json_build_object(
+                           'estado', e.estado, 'ts', e.ts, 'actor', e.actor, 'nota', e.nota
+                         ) ORDER BY e.ts)
+                    FROM ${T_EVENTOS} e WHERE e.pedido_id = p.id
+                ), '[]'::json) AS eventos
+           FROM ${T_PEDIDOS} p WHERE ${where}
+          ORDER BY p.creado DESC LIMIT $${args.length + 1}`,
+        [...args, limite]
+      );
+      return json(res, {
+        ok: true, accion, pedidos: r.rows,
+        total: Number(c.n) || 0,
+        nuevos: Number(c.nuevos) || 0,
+        abiertos: Number(c.abiertos) || 0,
+        local: local.nombre,
+      });
     }
 
     if (accion === 'pedido_estado') {
@@ -1527,21 +1732,74 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       if (!ESTADOS.includes(estado)) {
         return json(res, { ok: false, error: 'estado inválido', validos: ESTADOS }, 400);
       }
-      const r = await pool.query(
-        `UPDATE ${T_PEDIDOS} SET estado = $1, actualizado = now()
-          WHERE id = $2 AND local_id = $3 AND estado <> $1`,
-        [estado, pedidoId, localId]
+
+      // La fila se bloquea para que dos toques seguidos no se pisen: el
+      // historial y el stock quedan contados una sola vez.
+      cliente = await pool.connect();
+      await cliente.query('BEGIN');
+      const cur = await cliente.query(
+        `SELECT estado, items FROM ${T_PEDIDOS} WHERE id = $1 AND local_id = $2 FOR UPDATE`,
+        [pedidoId, localId]
       );
-      // El historial es lo que ve el comprador: sólo se anota un cambio real.
-      if (r.rowCount) {
-        await pool.query(
-          `INSERT INTO ${T_EVENTOS} (pedido_id, estado) VALUES ($1, $2)`, [pedidoId, estado]
-        );
-        // El aviso push va después de guardar: si falla, el pedido ya cambió.
-        const avisados = await avisarCambio(pool, pedidoId, estado);
-        return json(res, { ok: true, accion, cambiados: r.rowCount, estado, avisados });
+      const fila = cur.rows[0];
+      if (!fila) {
+        await cliente.query('ROLLBACK');
+        return json(res, { ok: false, error: 'pedido no encontrado' }, 404);
       }
-      return json(res, { ok: true, accion, cambiados: r.rowCount, estado });
+      if (ESTADOS_FINALES.includes(fila.estado)) {
+        await cliente.query('ROLLBACK');
+        return json(res, {
+          ok: false, codigo: 'TERMINADO',
+          error: fila.estado === 'entregado'
+            ? 'ese pedido ya fue entregado: no se puede cambiar'
+            : 'ese pedido ya fue cancelado: no se puede cambiar',
+          estado: fila.estado,
+        }, 409);
+      }
+      if (fila.estado === estado) {
+        await cliente.query('ROLLBACK');
+        return json(res, { ok: true, accion, cambiados: 0, estado });
+      }
+
+      await cliente.query(
+        `UPDATE ${T_PEDIDOS} SET estado = $1, actualizado = now() WHERE id = $2`,
+        [estado, pedidoId]
+      );
+      // Rastro: quién lo movió y una nota legible. El dueño con clave o cuenta
+      // es «dueño»; el token admin es «sistema».
+      const actor = esAdmin(req) ? 'sistema' : 'dueño';
+      const ETIQUETA: Record<string, string> = {
+        nuevo: 'recibido', visto: 'en preparación', listo: 'listo',
+        entregado: 'entregado', cancelado: 'cancelado',
+      };
+      const nota = texto(cuerpo.nota, 120).trim() || ('marcado como ' + (ETIQUETA[estado] || estado));
+
+      // Cancelar devuelve al catálogo lo que el pedido había descontado.
+      let devueltos = 0;
+      if (estado === 'cancelado') {
+        for (const it of (Array.isArray(fila.items) ? fila.items : [])) {
+          if (!it || !it.sku) continue;
+          const r = await cliente.query(
+            `UPDATE ${T_PRODUCTOS} SET stock = stock + $3
+              WHERE local_id = $1 AND sku = $2 AND stock IS NOT NULL`,
+            [localId, String(it.sku), Math.max(1, Number(it.cantidad) || 1)]
+          );
+          if (r.rowCount) devueltos++;
+        }
+      }
+
+      await cliente.query(
+        `INSERT INTO ${T_EVENTOS} (pedido_id, estado, actor, nota) VALUES ($1, $2, $3, $4)`,
+        [pedidoId, estado, actor, devueltos ? nota + ' · stock devuelto' : nota]
+      );
+      await cliente.query('COMMIT');
+
+      // El aviso push va después del commit: si falla, el pedido ya cambió.
+      const avisados = await avisarCambio(pool, pedidoId, estado);
+      return json(res, {
+        ok: true, accion, cambiados: 1, estado, avisados,
+        ...(devueltos ? { stock_devuelto: devueltos } : {}),
+      });
     }
 
     /* ── panel del dueño: serie, top, estados y visitas ── */

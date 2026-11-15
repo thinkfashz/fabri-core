@@ -3128,3 +3128,23 @@ body.visitante .merc-barra { bottom: calc(88px + env(safe-area-inset-bottom)); }
   font: inherit; font-size: 10px; font-weight: 700;
 }
 .neg-resena-pie button:hover { color: var(--tx); border-color: var(--line-3, var(--line-2)); }
+
+/* ── historial del pedido (panel del dueño) ─────────────────────────────── */
+.neg-ped-hist { margin-top: 8px; border-top: 1px solid var(--line); padding-top: 7px; }
+.neg-ped-hist summary {
+  cursor: pointer; list-style: none;
+  font-size: 10.5px; font-weight: 700; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--tx4);
+}
+.neg-ped-hist summary::-webkit-details-marker { display: none; }
+.neg-ped-hist summary::before { content: "+ "; color: var(--tx4); font-weight: 800; }
+.neg-ped-hist[open] summary::before { content: "\2212 "; }
+.neg-ped-hist ol { list-style: none; margin: 7px 0 0; padding: 0 0 0 10px; display: grid; gap: 6px; }
+.neg-ped-hist li { position: relative; padding-left: 12px; }
+.neg-ped-hist li::before {
+  content: ""; position: absolute; left: 0; top: 4px;
+  width: 5px; height: 5px; border-radius: 999px; background: var(--accent); opacity: .7;
+}
+.neg-ped-hist li b { font-size: 11px; font-weight: 700; text-transform: capitalize; }
+.neg-ped-hist li small { display: block; font-size: 9.5px; color: var(--tx4); }
+.neg-ped-hist li p { margin: 1px 0 0; font-size: 10.5px; line-height: 1.45; color: var(--tx3); }

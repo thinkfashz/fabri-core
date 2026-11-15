@@ -161,9 +161,12 @@ const api = leer('api-telefono/api/mercado.ts');
 ok('existe la acción pública pedido_seguir', /accion === 'pedido_seguir'/.test(api));
 ok('pedido_crear devuelve el token de seguimiento', /const seguimiento = randomBytes\(10\)/.test(api) &&
   /codigo, seguimiento, subtotal/.test(api));
-ok('guarda el historial al crear', /INSERT INTO \$\{T_EVENTOS\} \(pedido_id, estado\) VALUES \(\$1, 'nuevo'\)/.test(api));
-ok('guarda el historial al cambiar de estado', /INSERT INTO \$\{T_EVENTOS\} \(pedido_id, estado\) VALUES \(\$1, \$2\)/.test(api));
-ok('sólo anota cambios reales', /estado <> \$1/.test(api));
+ok('guarda el historial al crear (con actor y nota)',
+  /INSERT INTO \$\{T_EVENTOS\} \(pedido_id, estado, actor, nota\)\s*VALUES \(\$1, 'nuevo', 'comprador'/.test(api));
+ok('guarda el historial al cambiar de estado (con actor y nota)',
+  /INSERT INTO \$\{T_EVENTOS\} \(pedido_id, estado, actor, nota\) VALUES \(\$1, \$2, \$3, \$4\)/.test(api));
+ok('sólo anota cambios reales', /if \(fila\.estado === estado\)/.test(api) &&
+  /cambiados: 0, estado/.test(api));
 ok('el seguimiento se limita por IP', /seguirBloqueado\(ip\)/.test(api) && /429/.test(api));
 /* Los aciertos no gastan el límite: si no, un comprador que mira su pedido 30
    veces en 10 minutos queda bloqueado. */
@@ -174,7 +177,7 @@ ok('abre por código + últimos 4', /right\(regexp_replace\(p\.telefono, '\[\^0-
 ok('el código se compara con o sin prefijo MP', /s\.startsWith\('MP'\)/.test(api) && /'MP' \+ s\.slice\(0, 5\)/.test(api));
 ok('no devuelve el teléfono del comprador', !/telefono: fila\.telefono/.test(api));
 ok('no devuelve el token en la respuesta', !/seguimiento: fila\.seguimiento/.test(api));
-ok('el listado del dueño sí trae el enlace', /SELECT id,codigo,seguimiento,cliente/.test(api));
+ok('el listado del dueño sí trae el enlace', /p\.seguimiento,p\.cliente/.test(api));
 
 /* ── 9. checkout y panel del dueño ───────────────────────────────────────── */
 console.log('\nCheckout y panel del dueño');

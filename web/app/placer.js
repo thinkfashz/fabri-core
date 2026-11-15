@@ -2038,7 +2038,10 @@ window.Placer = (function () {
       numero: "", exp: "", cvv: "", titular: "",
       metodo: "tarjeta", entrega: entrega,
       estado: "form",
-      nube: "", seguimiento: ""
+      nube: "", seguimiento: "",
+      // Un pedido, una clave: si el teléfono reintenta el envío (red que se
+      // corta, doble toque), el servidor devuelve el mismo pedido y no crea dos.
+      idempotencia: "pc-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10)
     };
     const hoja = $("mpPago");
     if (!hoja) return;
@@ -2109,7 +2112,10 @@ window.Placer = (function () {
     const items = ESTADO.pago.items || [];
     const subtotal = ESTADO.pago.subtotal || 0;
     const envio = costoEnvio();
-    const total = subtotal + envio;
+    // Si la nube ajustó el total (precio de catálogo), se muestra ese.
+    const total = ESTADO.pago.estado === "listo" && ESTADO.pago.totalServidor
+      ? ESTADO.pago.totalServidor
+      : subtotal + envio;
     const p = ESTADO.pedido;
     const minimo = m.minimo || 0;
     const faltaMin = minimo > 0 && subtotal < minimo;
@@ -2352,26 +2358,58 @@ window.Placer = (function () {
         return { nombre: x.nombre, precio: x.precio, cantidad: x.cantidad };
       });
       if (!items.length) return;
-      fetch(API_MERCADO, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          accion: "pedido_crear",
-          local_id: m.id,
-          items: items,
-          entrega: ESTADO.pago.entrega,
-          direccion: ESTADO.pago.direccion || "",
-          nota: ESTADO.pedido.nota || "",
-          cliente: ESTADO.pedido.nombre || "",
-          telefono: ESTADO.pedido.telefono || ""
-        })
-      }).then(function (r) { return r.json(); }).then(function (d) {
-        // El servidor recalcula el total y devuelve su propio código de pedido.
-        if (d && d.ok && d.codigo) {
-          ESTADO.pago.nube = d.codigo;
-          ESTADO.pago.seguimiento = d.seguimiento || "";
-          pintarSeguir();
+      const cuerpo = {
+        accion: "pedido_crear",
+        local_id: m.id,
+        items: items,
+        entrega: ESTADO.pago.entrega,
+        direccion: ESTADO.pago.direccion || "",
+        nota: ESTADO.pedido.nota || "",
+        cliente: ESTADO.pedido.nombre || "",
+        telefono: ESTADO.pedido.telefono || "",
+        idempotencia: ESTADO.pago.idempotencia || ""
+      };
+
+      // Un reintento con la misma clave: si el primer envío sí llegó pero la
+      // respuesta se perdió, el servidor devuelve ese mismo pedido.
+      const enviar = function (intento) {
+        return fetch(API_MERCADO, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(cuerpo)
+        }).then(function (r) { return r.json(); }).catch(function (e) {
+          if (intento < 2) {
+            return new Promise(function (ok) { setTimeout(ok, 1400); }).then(function () {
+              return enviar(intento + 1);
+            });
+          }
+          throw e;
+        });
+      };
+
+      enviar(1).then(function (d) {
+        if (!d) return;
+        if (!d.ok) {
+          // El servidor dijo por qué: stock, catálogo, local cerrado. Se avisa
+          // sin romper la pantalla de pago ya hecha.
+          if (window.Fabri && window.Fabri.toast) {
+            window.Fabri.toast(d.error || "El local no pudo recibir el pedido");
+          }
+          return;
         }
+        ESTADO.pago.nube = d.codigo;
+        ESTADO.pago.seguimiento = d.seguimiento || "";
+        // El precio lo fija el catálogo del local: si cambió mientras el
+        // comprador pagaba, se muestra el total real del servidor.
+        const local = (ESTADO.pago.subtotal || 0) + costoEnvio();
+        if (Number(d.total) && Number(d.total) !== local) {
+          ESTADO.pago.totalServidor = Number(d.total);
+          if (window.Fabri && window.Fabri.toast) {
+            window.Fabri.toast("El total se ajustó a " + clp(Number(d.total)));
+          }
+          try { pintarPago(); } catch (e) { /* pantalla ya cerrada */ }
+        }
+        pintarSeguir();
       }).catch(function () { /* sin red: el pedido quedó en el historial local */ });
     } catch (e) { /* nunca romper el pago por la nube */ }
   }

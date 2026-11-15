@@ -8,6 +8,52 @@
 
 Última actualización: 2026-11-15
 
+## Sesión 2026-11-15 · Fase 7: pedido endurecido y contador con rastro
+
+Pedido: «endurece el pedido y contador de pedidos en admin del vendedor con
+rastreo de acciones en el flujo de compra».
+
+| Pieza | Dónde |
+|---|---|
+| Precio y stock desde el catálogo, idempotencia, transacción | `api-telefono/api/mercado.ts` |
+| Estados terminales bloqueados y stock devuelto al cancelar | `api-telefono/api/mercado.ts` |
+| Eventos con `actor` y `nota` | `api-telefono/api/mercado.ts` |
+| Total real, nuevos y por atender en `pedidos_listar` | `api-telefono/api/mercado.ts` |
+| Contador honesto y chip «por atender» | `web/app/negocio.js`, `web/app/index.html` |
+| Historial desplegable por pedido | `web/app/negocio.js`, `web/app/styles.css` |
+| Clave de idempotencia, reintento y total del servidor | `web/app/placer.js` |
+| Pruebas (36 comprobaciones) | `tests/web/pedidos.js` |
+| Documentación | `docs/TIENDAS-MULTI.md` |
+
+- **El servidor no cree precios ni stock del cliente**: cada línea se resuelve
+  contra `mercado_productos` (por `sku` o nombre comparable) y el precio sale de
+  ahí. Fuera del catálogo → `NO_CATALOGO`; más que el stock → `SIN_STOCK`.
+- **Todo o nada**: descontar stock, insertar el pedido y anotar el primer evento
+  van en una transacción. Si el stock se agota en el medio, se revierte.
+- **Idempotencia**: `pedido_crear` acepta una clave del cliente; repetir el
+  envío devuelve el mismo pedido (`repetido: true`). Índice único por local.
+  El checkout la genera una vez al abrir el pago y reintenta con la misma.
+- **Estados terminales**: `entregado` y `cancelado` ya no se mueven
+  (`409 TERMINADO`), con `FOR UPDATE` para dos toques seguidos. Cancelar
+  devuelve el stock descontado, una sola vez.
+- **Rastro**: `mercado_pedido_eventos` guarda `actor` (`comprador` · `dueño` ·
+  `sistema`) y `nota` («pedido creado (retiro)», «marcado como listo»,
+  «… · stock devuelto»). El panel lo muestra por pedido y `pedidos_listar` lo
+  entrega junto al pedido.
+- **Contador**: `pedidos_listar` devuelve `total`, `nuevos` y `abiertos`
+  contados en la base (no el tamaño de la página). El panel muestra ese total en
+  la pestaña y en la tarjeta, más un chip «N por atender»; sin conexión cuenta
+  lo del teléfono y lo dice («5 · local»).
+- **Código único**: índice único en `codigo` (protegido con try/catch por si una
+  base vieja trae repetidos) y reintento de hasta 5 códigos al crear.
+- **Verificado**: 36 comprobaciones locales y 32 contra la API real (precio de
+  catálogo ignorando el del cliente, idempotencia con mismo id, stock descontado
+  y rechazo por exceso, producto inventado, nombre/teléfono, cancelación con
+  stock devuelto, bloqueo de terminales, repetición de estado, historial con
+  actor y nota). Batería completa y arranque en verde.
+- **Deploy**: API `fabri-iut3zsz77…` READY; web `forge-core-stock-rc3qr5s3d…`
+  READY; `sw.js` en `fcore-v82`.
+
 ## Sesión 2026-11-15 · Fase 6: avisos push del pedido
 
 Pedido: «continúa» con la Fase 6: que el comprador reciba el aviso solo, sin

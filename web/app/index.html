@@ -1221,7 +1221,11 @@
           <!-- ══════════ PEDIDOS ══════════ -->
           <div class="neg-tab-panel" id="negTabPedidos" role="tabpanel" hidden>
             <div class="card">
-              <div class="neg-cab"><div class="eyebrow">Pedidos</div><span class="badge acc" id="negPedTotal">—</span></div>
+              <div class="neg-cab">
+                <div class="eyebrow">Pedidos</div>
+                <span class="badge acc" id="negPedTotal">—</span>
+                <span class="badge warn" id="negPedPend" hidden>—</span>
+              </div>
               <div class="neg-tools">
                 <input id="negPedBuscar" class="field" type="search" placeholder="Buscar código, cliente o producto"
                        autocomplete="off" aria-label="Buscar pedidos">

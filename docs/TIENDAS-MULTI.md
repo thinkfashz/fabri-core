@@ -374,6 +374,38 @@ Detalles que importan:
   sesión de nube tiene `rol === 'owner'`. La pantalla igual queda protegida por el
   token: el rol sólo evita mostrar el botón a quien no lo necesita.
 
+## Pedido endurecido (precio, stock y rastro)
+
+El pedido no se cree lo que manda el teléfono. Lo que importa:
+
+| Regla | Qué hace |
+|---|---|
+| **Precio del catálogo** | cada línea se busca en `mercado_productos` por `sku` o por nombre comparable; el precio lo pone el servidor. Una línea fuera del catálogo se rechaza con `NO_CATALOGO` |
+| **Stock real** | si el producto tiene stock, no se puede pedir más; se descuenta dentro de la misma transacción, con `stock >= cantidad` como condición atómica |
+| **Todo o nada** | descontar stock, crear el pedido y anotar el primer evento van en una transacción: si el stock no alcanza, no queda un pedido a medias |
+| **Idempotencia** | el cliente manda `idempotencia`; repetir el envío (doble toque, red que se corta) devuelve el mismo pedido con `repetido: true` en vez de crear otro |
+| **Datos usables** | exige nombre (≥2) y teléfono (≥8 dígitos): son la única forma de avisar y de recuperar el pedido sin enlace |
+| **Topes** | 100 líneas por pedido y $5.000.000 de subtotal |
+| **Estados terminales** | un pedido `entregado` o `cancelado` ya no se mueve (`409 TERMINADO`); la fila se bloquea con `FOR UPDATE` para que dos toques no se pisen |
+| **Cancelar devuelve stock** | al cancelar se devuelven las unidades que el pedido había descontado, una sola vez |
+| **Código único** | índice único en `codigo`; si choca, se genera otro (hasta 5 intentos) |
+
+### Rastro de acciones
+
+`mercado_pedido_eventos` guarda `estado`, `ts`, **`actor`** y **`nota`**:
+
+- `comprador` → «pedido creado (retiro)» / «(delivery)».
+- `dueño` → «marcado como en preparación», «marcado como listo», «marcado como entregado».
+- `sistema` → lo mismo cuando lo hace el token admin.
+- Al cancelar con stock devuelto, la nota lo dice: «… · stock devuelto».
+
+El panel del dueño muestra ese historial en cada pedido (desplegable «Historial · N»), y `pedidos_listar` lo entrega junto con el pedido, sin una llamada por pedido.
+
+### Contador del panel
+
+- **Con nube**: el número sale de `pedidos_listar` (`total`, `nuevos`, `abiertos`), no del tamaño de la página. La pestaña y la tarjeta muestran el mismo total, y un chip aparte dice cuántos hay **por atender**.
+- **Sin conexión**: cuenta lo que quedó en este teléfono y lo dice (`5 · local`), en vez de mostrar un número que no es.
+
 ## Avisos push del pedido
 
 El comprador puede pedir que le avisen **sin instalar nada**: desde la página de
@@ -425,6 +457,7 @@ node tests/web/plataforma.js  # 57 comprobaciones: puras, ids, seguridad del tok
 node tests/web/seguimiento.js # 70 comprobaciones: código, teléfono, estados, línea de tiempo, contrato API/HTML
 node tests/web/resenas.js     # 83 comprobaciones: contrato de reseñas, estrellas, reparto, privacidad, panel
 node tests/web/push.js        # 68 comprobaciones: cifrado ida y vuelta, VAPID, contrato, service worker
+node tests/web/pedidos.js     # 36 comprobaciones: precio/stock del servidor, idempotencia, estados, contador e historial
 node tests/web/auth-nube.js   # incluye CORE_ROOT_EMAIL y promoción a owner
 node tests/web/diseno.js      # shell, sistema visual y offline
 node tests/web/trafico.js     # capa de tráfico del mapa
