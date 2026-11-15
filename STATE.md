@@ -8,6 +8,85 @@
 
 Última actualización: 2026-11-15
 
+## Sesión 2026-11-15 · Fase 9: el descuento lo cobra el servidor y el admin lo ve
+
+Pedido: «continúa y robustece más la lógica del descuento de productos y stock,
+la del vendedor y la conexión con el admin».
+
+**El problema real**: el descuento no existía en la base. `placer.js` lo
+inventaba en el navegador (`azar(semilla + i)` sobre `[10, 15, 20, 25] %`) para
+~20 % de los productos, el comprador veía una oferta que el local nunca dio y
+`pedido_crear` cobraba el precio de lista. No había forma de que el vendedor
+fijara una oferta ni de que el admin supiera cuánto se había rebajado.
+
+| Pieza | Dónde |
+|---|---|
+| Columnas `descuento` (0–90) y `oferta_hasta` (unix s) + `CHECK` | `api-telefono/api/mercado.ts` |
+| Columna `ahorro` en el pedido | `api-telefono/api/mercado.ts` |
+| `dctoVigente()` / `precioEfectivo()` / `CAMPOS_PRODUCTO` / `productoDeFila()` | `api-telefono/api/mercado.ts` |
+| `productos_subir` con `tocaOferta` y conteo `ofertas` | `api-telefono/api/mercado.ts` |
+| `pedido_crear` cobra el efectivo y guarda `precio_lista`/`descuento`/`ahorro` | `api-telefono/api/mercado.ts` |
+| `resumen` con ofertas, stock crítico, inventario y descuentos | `api-telefono/api/mercado.ts` |
+| Comprador sin ofertas inventadas y con tope de stock | `web/app/placer.js`, `web/app/placer.css` |
+| Formulario, importación, catálogo y pedidos del dueño | `web/app/negocio.js`, `web/app/index.html` |
+| Tarjetas **Ofertas vigentes**, **Stock por reponer** e **Inventario y descuentos** | `web/app/plataforma.js`, `web/app/index.html`, `web/app/styles.css` |
+| Pruebas (61 comprobaciones nuevas) | `tests/web/descuentos.js` |
+| Documentación | `docs/TIENDAS-MULTI.md` |
+
+- **Un solo precio**: catálogo público, `local_mio`, pedido y panel usan la
+  misma expresión SQL. `precioEfectivo()` = `GREATEST(1, round(precio × (100 −
+  dcto) / 100))`; nunca queda en $0. `dctoVigente()` devuelve 0 si la oferta
+  venció, sin borrar el porcentaje guardado.
+- **Oferta que sobrevive a la planilla**: importar un lote sin columna
+  `descuento` **conserva** la oferta existente (`tocaOferta`). Enviar
+  `descuento: 0` la apaga y limpia la fecha. Una fecha suelta (`YYYY-MM-DD`)
+  vale hasta el final de ese día en Chile (`T23:59:59-04:00`).
+- **El pedido guarda el ahorro**: cada ítem lleva `precio_lista` y `descuento`;
+  el pedido lleva `ahorro`. El admin lo ve como «Descuentos entregados» y el
+  dueño como «ahorró $… con ofertas». `ventas_serie` suma `descuento` por
+  periodo (sólo pedidos no cancelados).
+- **El carrito topa con el stock**: el `+` se apaga al llegar y un agotado no
+  deja agregar; el servidor sigue siendo la última palabra (`SIN_STOCK` con
+  `disponible`). Cancelar devuelve el stock (Fase 7 intacta).
+- **En el pago el ahorro es informativo** («Ahorro por ofertas $400», sin signo
+  menos): el subtotal ya viene rebajado; restarlo otra vez mentiría el total.
+- **Orden del panel admin**: estado vivo → KPIs → periodo → visitas por día
+  (gráfico protagonista) → canales/rutas → ofertas y stock → inventario →
+  cuentas → salud. Las tarjetas nuevas salen del mismo `resumen`; no hay
+  endpoint extra (la API sigue en 12 funciones).
+- **Se dejó intacto el escaparate legacy** `web/tienda-nucleo.js`
+  (`window.FORGE_OFERTA` fijo): es otra tienda, la de `/api/catalogo`, no el
+  marketplace multi-local.
+
+**Verificado de verdad**:
+
+- `node tests/web/descuentos.js` → **61 comprobaciones OK**; `pedidos.js` → 40;
+  `negocio.js` → 118; `plataforma.js` → 57; `push.js` → 92; `resenas.js` → 83;
+  `seguimiento.js` → 70. Batería completa local en verde (`auth-nube`,
+  `boleta`, `diseno`, `escaneo`, `trafico` incluidos).
+- Typecheck con TS 5.9.3 y `strict` sobre `mercado.ts`: **0 errores reales**
+  (sólo el TS7016 preexistente de `pg` sin `@types`; Vercel usa esbuild y no
+  type-checkea).
+- **Producción, 43 comprobaciones** (`/tmp/opencode/f9-prod.mjs`, cuenta y
+  tienda desechables borradas al final): catálogo con `precio_efectivo`,
+  importación que conserva la oferta, oferta vencida que no rebaja, pedido con
+  `ahorro` y `precio_lista`, `SIN_STOCK` con `disponible`, cancelar devuelve
+  stock, `ventas_serie.descuento`, `resumen` con ofertas/stock/inventario,
+  `sw.js` ≥ v84 y `placer.js` publicado sin `azar`. Base limpia después:
+  0 cuentas y las 2 tiendas demo.
+- Captura a 390 px del panel admin con las tres tarjetas nuevas y el orden
+  completo.
+
+**Deploy**: API `dpl_ErTEw2hPV3otPXmDJi9hgpEBFHhi` READY (alias
+`https://fabri-api.vercel.app`); web `dpl_7DXJouZnw5p33CVSSfiKRRZ8cYYw` READY
+(alias `https://fabri-core-web.vercel.app`); `sw.js` en `fcore-v84`.
+`forge-core-stock.vercel.app`, `fabri-core-web.vercel.app` y `/app/` en 200.
+
+**Sigue pendiente** (igual que en Fase 8): no hay cuenta root porque
+`core_usuarios` está vacía — hay que registrar `F.eduardomicolta@gmail.com` una
+vez en `/app/` para que quede `owner` por `CORE_ROOT_EMAIL`. El aviso por
+Telegram sigue inactivo: falta `TELEGRAM_BOT_TOKEN` en el proyecto `fabri-api`.
+
 ## Sesión 2026-11-15 · Fase 8: el dueño recibe el pedido nuevo
 
 Pedido: «continúa». Cierra el círculo del aviso: el comprador ya sabía cuándo

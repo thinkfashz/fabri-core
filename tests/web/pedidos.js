@@ -52,8 +52,15 @@ ok('el historial gana actor y nota',
 /* ── 2. creación del pedido ──────────────────────────────────────────────── */
 console.log('\nPedido · el servidor manda');
 ok('los precios salen del catálogo, no del cliente',
-  /SELECT sku,nombre,precio::float8 AS precio,stock FROM \$\{T_PRODUCTOS\}/.test(api) &&
-  /precio: Number\(enCat\.precio\) \|\| 0/.test(api));
+  /SELECT \$\{CAMPOS_PRODUCTO\} FROM \$\{T_PRODUCTOS\} WHERE local_id = \$1/.test(api) &&
+  /const efectivo = Number\(enCat\.precio_efectivo\) \|\| lista/.test(api));
+ok('el descuento y el ahorro salen del mismo catálogo',
+  /const dcto = Number\(enCat\.descuento_vigente\) \|\| 0/.test(api) &&
+  /precio_lista: lista/.test(api) && /descuento: dcto/.test(api) &&
+  /const ahorro = items\.reduce/.test(api));
+ok('el pedido guarda el ahorro',
+  /ADD COLUMN IF NOT EXISTS ahorro NUMERIC NOT NULL DEFAULT 0/.test(api) &&
+  /idempotencia,ahorro\)/.test(api));
 ok('el comparador de nombres está definido', /function nombreClave\(v: unknown\)/.test(api));
 ok('busca por SKU y, si no, por nombre comparable',
   /porSku\.get\(it\.sku\)\) \|\| porNombre\.get\(nombreClave\(it\.nombre\)\)/.test(api) &&

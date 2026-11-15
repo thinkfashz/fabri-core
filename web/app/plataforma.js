@@ -8,7 +8,8 @@
    De dónde salen los datos (no hay endpoint nuevo: se reusan los existentes)
 
      GET  /api/auth?diag=1          → tablas + último latido (público)
-     POST /api/mercado {resumen}    → tiendas, productos, pedidos (token admin)
+     POST /api/mercado {resumen}    → tiendas, productos, pedidos, ofertas y
+                                      stock crítico (token admin)
      POST /api/auth   {usuarios}    → cuentas (token admin)
      GET  /api/visitas?dias=N       → tráfico por día, canal, ruta y país
 
@@ -57,6 +58,11 @@
     const v = Number(n);
     if (!isFinite(v)) return "—";
     return v.toLocaleString("es-CL");
+  }
+
+  /** Precio en pesos: "$1.690". */
+  function clp(n) {
+    return "$" + num(Math.round(Number(n) || 0));
   }
 
   function normalizar(s) {
@@ -216,6 +222,7 @@
     pintarCandado();
     pintarEstado();
     pintarKpis();
+    pintarCatalogo();
     pintarVisitas();
     pintarCanales();
     pintarRutas();
@@ -284,7 +291,11 @@
     caja.innerHTML =
       kpi("Tiendas activas", EST.resumen ? num(r.locales) : "—",
         (r.locales_abiertos != null ? r.locales_abiertos + " abiertas ahora" : "sin datos"), "oro") +
-      kpi("Productos", EST.resumen ? num(r.productos) : "—", "en todos los catálogos", "") +
+      kpi("Productos", EST.resumen ? num(r.productos) : "—",
+        EST.resumen && r.productos_oferta ? r.productos_oferta + " en oferta" : "en todos los catálogos", "") +
+      kpi("Stock crítico", EST.resumen ? num((Number(r.stock_bajo) || 0) + (Number(r.stock_agotado) || 0)) : "—",
+        EST.resumen ? num(r.stock_agotado) + " agotados · " + num(r.stock_bajo) + " bajos" : "sin datos",
+        EST.resumen && (r.stock_agotado || r.stock_bajo) ? "alerta" : "") +
       kpi("Pedidos", EST.resumen ? num(r.pedidos) : "—", "histórico completo", "") +
       kpi("Cuentas", EST.resumen || EST.cuentas.length ? num(cuentas.length) : "—",
         owners + " owner · " + conTerminos + " con términos", "") +
@@ -292,6 +303,99 @@
         EST.visitas ? num(v.unicos) + " únicos" : "sin datos", "") +
       kpi("Hoy", EST.visitas ? num(v.hoy) : "—",
         EST.visitas ? "ayer " + num(v.ayer) : "sin datos", "");
+  }
+
+  /* ── catálogo: ofertas, stock crítico e inventario ──────────────────────── */
+  /* El admin ve DÓNDE mirar: qué producto está en oferta, cuál se está por
+     agotar y cuánto vale la bodega. Todo sale del mismo `resumen`; no hay
+     llamada extra. El descuento y el precio efectivo los calcula el servidor. */
+  function pintarCatalogo() {
+    const ofertasCaja = $("platOfertas");
+    const stockCaja = $("platStock");
+    const invCaja = $("platInventario");
+    const r = (EST.resumen && EST.resumen.resumen) || {};
+    const ofertas = (EST.resumen && EST.resumen.ofertas) || [];
+    const criticos = (EST.resumen && EST.resumen.stock_critico) || [];
+
+    const chip = (id, txt, tono) => {
+      const el = $(id);
+      if (!el) return;
+      el.textContent = txt;
+      el.className = "badge" + (tono ? " " + tono : "");
+    };
+
+    // Ofertas vigentes: producto, local, precio de antes → precio que se cobra.
+    if (ofertasCaja) {
+      ofertasCaja.innerHTML = !EST.resumen
+        ? '<div class="neg-vacio"><b>Sin datos</b><p>La API no devolvió el catálogo.</p></div>'
+        : ofertas.length
+          ? ofertas.map((o) => {
+              const hasta = Number(o.oferta_hasta) || 0;
+              const dias = hasta ? Math.ceil((hasta * 1000 - Date.now()) / 86400000) : 0;
+              const vence = !hasta ? "sin vencimiento"
+                : dias <= 0 ? "vence hoy"
+                : dias === 1 ? "vence mañana"
+                : "vence en " + dias + " días";
+              return '<div class="plat-catalogo-fila">' +
+                '<div class="plat-catalogo-txt">' +
+                  "<b>" + esc(o.nombre || "Producto") + "</b>" +
+                  "<small>" + esc(o.local || "sin tienda") + " · " + esc(vence) + "</small>" +
+                "</div>" +
+                '<div class="plat-catalogo-precio">' +
+                  "<s>" + clp(o.precio) + "</s>" +
+                  "<b>" + clp(o.precio_efectivo) + "</b>" +
+                  '<em class="plat-catalogo-off">−' + num(o.descuento) + "%</em>" +
+                "</div>" +
+              "</div>";
+            }).join("")
+          : '<div class="neg-vacio"><b>Sin ofertas activas</b><p>Cuando un local rebaje un producto, aparece acá.</p></div>';
+      chip("platOfertasChip", ofertas.length ? ofertas.length + " vigentes" : "ninguna",
+        ofertas.length ? "acc" : "");
+    }
+
+    // Stock crítico: agotados primero (stock 0), después los que quedan pocos.
+    if (stockCaja) {
+      stockCaja.innerHTML = !EST.resumen
+        ? '<div class="neg-vacio"><b>Sin datos</b><p>La API no devolvió el catálogo.</p></div>'
+        : criticos.length
+          ? criticos.map((p) => {
+              const n = Number(p.stock) || 0;
+              const agotado = n <= 0;
+              return '<div class="plat-catalogo-fila">' +
+                '<div class="plat-catalogo-txt">' +
+                  "<b>" + esc(p.nombre || "Producto") + "</b>" +
+                  "<small>" + esc(p.local || "sin tienda") +
+                    (p.sku ? " · " + esc(p.sku) : "") + "</small>" +
+                "</div>" +
+                '<span class="badge ' + (agotado ? "err" : "warn") + '">' +
+                  (agotado ? "agotado" : "quedan " + n) + "</span>" +
+              "</div>";
+            }).join("")
+          : '<div class="neg-vacio"><b>Stock al día</b><p>Ningún producto está agotado ni bajo 5 unidades.</p></div>';
+      const agotados = Number(r.stock_agotado) || 0;
+      chip("platStockChip", criticos.length ? (agotados ? agotados + " agotados" : criticos.length + " por reponer") : "al día",
+        agotados ? "err" : criticos.length ? "warn" : "ok");
+    }
+
+    // Inventario: el valor de la bodega y lo regalado en descuentos.
+    if (invCaja) {
+      const fila = (k, v, tono) =>
+        '<div class="plat-salud-fila"><span>' + esc(k) + "</span>" +
+        '<b class="' + (tono || "") + '">' + v + "</b></div>";
+      invCaja.innerHTML = !EST.resumen
+        ? fila("Inventario", '<span class="badge warn">sin datos</span>')
+        : fila("Valor del inventario", EST.resumen ? clp(r.valor_inventario) : "—") +
+          fila("Descuentos entregados", EST.resumen ? clp(r.descuento_entregado) : "—",
+            Number(r.descuento_entregado) ? "ok" : "") +
+          fila("Productos en oferta", EST.resumen
+            ? num(r.productos_oferta) + " de " + num(r.productos)
+            : "—") +
+          fila("Agotados", EST.resumen
+            ? '<span class="badge ' + (Number(r.stock_agotado) ? "err" : "ok") + '">' +
+              num(r.stock_agotado) + "</span>"
+            : "—");
+      chip("platInvChip", EST.resumen ? clp(r.valor_inventario) : "—", "");
+    }
   }
 
   function pintarVisitas() {
@@ -518,6 +622,6 @@
   window.Plataforma = {
     render,
     cargar,
-    _test: { haceCuanto, filtrarCuentas, barrasVisitas, normalizar, num, textoPlan }
+    _test: { haceCuanto, filtrarCuentas, barrasVisitas, normalizar, num, clp, textoPlan }
   };
 })();

@@ -167,10 +167,15 @@ window.Negocio = (function () {
       nube: true,
       seguimiento: p.seguimiento || "",
       fecha: Date.parse(p.creado) || Date.now(),
-      items: (p.items || []).map((x) => ({ nombre: x.nombre, precio: x.precio, cantidad: x.cantidad })),
+      items: (p.items || []).map((x) => ({
+        nombre: x.nombre, precio: x.precio, cantidad: x.cantidad,
+        lista: x.precio_lista != null ? Number(x.precio_lista) : undefined,
+        descuento: Number(x.descuento) || 0
+      })),
       subtotal: Number(p.subtotal) || 0,
       envio: Number(p.envio) || 0,
       total: Number(p.total) || 0,
+      ahorro: Number(p.ahorro) || 0,
       entrega: p.entrega === "delivery" ? "delivery" : "retiro",
       direccion: p.direccion || "",
       cliente: { nombre: p.cliente || "", telefono: p.telefono || "" },
@@ -340,8 +345,21 @@ window.Negocio = (function () {
     sku: ["sku", "codigo", "code", "barcode", "ean"],
     stock: ["stock", "cantidad", "qty", "existencias", "inventario"],
     categoria: ["categoria", "category", "rubro", "tipo", "familia"],
-    unidad: ["unidad", "unit", "medida", "formato"]
+    unidad: ["unidad", "unit", "medida", "formato"],
+    // El descuento es un porcentaje entero 0–90. Se aceptan los nombres que
+    // usan las planillas chilenas; la fecha de fin es opcional.
+    descuento: ["descuento", "dcto", "desc", "rebaja", "off", "promo"],
+    oferta_hasta: ["oferta_hasta", "hasta", "vence", "vencimiento", "vigencia", "termina"]
   };
+
+  /** ¿La fila trae esta columna? Sirve para no borrar una oferta existente
+   *  cuando se importa una lista de stock que no habla de descuentos. */
+  function tieneCampo(obj, claves) {
+    return Object.keys(obj || {}).some((e) => {
+      const k = normClave(e);
+      return claves.some((c) => k === c || k.startsWith(c + "_") || k.endsWith("_" + c));
+    });
+  }
 
   function normClave(s) {
     return String(s || "").trim().toLowerCase()
@@ -437,7 +455,7 @@ window.Negocio = (function () {
     if (!nombre || precio <= 0) return null;
     const stockCrudo = campo(o, SINONIMOS.stock);
     const stock = stockCrudo === "" ? null : Math.max(0, Math.round(aNumero(stockCrudo)));
-    return {
+    const producto = {
       sku: String(campo(o, SINONIMOS.sku) || "").trim().slice(0, 60),
       nombre,
       precio,
@@ -445,6 +463,37 @@ window.Negocio = (function () {
       categoria: String(campo(o, SINONIMOS.categoria) || "").trim().slice(0, 40),
       unidad: String(campo(o, SINONIMOS.unidad) || "").trim().slice(0, 30)
     };
+    // El descuento sólo viaja si la fuente lo trae: una planilla de stock sin
+    // esa columna no debe apagar la oferta que ya está en la nube.
+    if (tieneCampo(o, SINONIMOS.descuento)) {
+      producto.descuento = Math.max(0, Math.min(90, Math.round(aNumero(campo(o, SINONIMOS.descuento)))));
+    }
+    if (tieneCampo(o, SINONIMOS.oferta_hasta)) {
+      producto.oferta_hasta = String(campo(o, SINONIMOS.oferta_hasta)).trim().slice(0, 40);
+    }
+    return producto;
+  }
+
+  /** Precio de lista, descuento vigente y precio que se cobra. El servidor
+   *  manda los tres; si una versión vieja no los trae, se calculan acá con el
+   *  mismo redondeo (a peso) para que la pantalla nunca invente otra oferta. */
+  function ofertaDe(p) {
+    const lista = Math.max(0, Math.round(Number(p && p.precio) || 0));
+    const crudo = p && p.descuento_vigente != null ? p.descuento_vigente : (p && p.descuento);
+    const descuento = Math.max(0, Math.min(90, Math.round(Number(crudo) || 0)));
+    const efectivo = p && p.precio_efectivo != null
+      ? Math.max(0, Math.round(Number(p.precio_efectivo) || 0))
+      : (descuento ? Math.max(1, Math.round(lista * (100 - descuento) / 100)) : lista);
+    return { lista, descuento, efectivo };
+  }
+
+  /** Unix en segundos → `YYYY-MM-DD` para el <input type="date">. */
+  function fechaInput(seg) {
+    const n = Number(seg) || 0;
+    if (!n) return "";
+    const d = new Date(n * 1000);
+    const dos = (x) => String(x).padStart(2, "0");
+    return d.getFullYear() + "-" + dos(d.getMonth() + 1) + "-" + dos(d.getDate());
   }
 
   /** Texto pegado o archivo CSV/JSON → productos listos para `productos_subir`. */
@@ -784,7 +833,11 @@ window.Negocio = (function () {
       pend.textContent = cuenta.abiertos + (cuenta.abiertos === 1 ? " por atender" : " por atender");
       pend.className = "badge " + (cuenta.nuevos ? "acc" : "warn");
     }
-    if (prt) prt.textContent = prods.length;
+    if (prt) {
+      const enOferta = prods.filter((p) => ofertaDe(p).descuento).length;
+      prt.textContent = prods.length + (enOferta ? " · " + enOferta + " en oferta" : "");
+      prt.className = "badge " + (enOferta ? "acc" : "");
+    }
 
     pintarTabs();
     pintarEstadoVivo();
@@ -836,6 +889,8 @@ window.Negocio = (function () {
     const v = (s && s.visitas) || null;
     const dias = EST.rango;
     const periodo = dias + " días";
+    const catalogo = (EST.sel && EST.sel.catalogo) || [];
+    const ofertas = catalogo.filter((p) => ofertaDe(p).descuento).length;
 
     kpis.innerHTML =
       tarjeta("Ventas · " + periodo, s ? clp(t.ventas) : "—",
@@ -848,13 +903,15 @@ window.Negocio = (function () {
         v ? "de todos los locales" : "sin datos", "") +
       tarjeta("Conversión", (s && s.conversion != null)
         ? String(s.conversion).replace(".", ",") + " %" : "—", "pedidos ÷ visitas de la app", "") +
-      tarjeta("Productos", String((EST.sel && EST.sel.catalogo || []).length),
-        "en tu catálogo", "");
+      tarjeta("Productos", String(catalogo.length),
+        ofertas ? ofertas + " en oferta" : "en tu catálogo",
+        ofertas ? "oro" : "");
 
     const sub = $("negSerieSub");
     if (sub) {
       sub.textContent = s
-        ? "Últimos " + dias + " días · " + clp(t.ventas) + " en total"
+        ? "Últimos " + dias + " días · " + clp(t.ventas) + " en total" +
+          (Number(t.descuento) ? " · " + clp(t.descuento) + " en descuentos" : "")
         : EST.cargandoSerie ? "Cargando el periodo…" : "Sin datos del periodo";
     }
     const chip = $("negSerieChip");
@@ -1056,10 +1113,14 @@ window.Negocio = (function () {
               " · " + (p.entrega === "delivery" ? "delivery" : "retiro") +
               (p.direccion ? " · " + esc(p.direccion) : "") + "</p>" +
             '<div class="neg-ped-items">' +
-              (p.items || []).map((x) => "<span>" + x.cantidad + "× " + esc(x.nombre) + "</span>").join("") +
+              (p.items || []).map((x) => "<span>" + x.cantidad + "× " + esc(x.nombre) +
+                (Number(x.descuento) ? ' <em class="neg-item-off">−' + Number(x.descuento) + "%</em>" : "") +
+                "</span>").join("") +
             "</div>" +
             '<div class="neg-ped-pie">' +
-              "<b>" + clp(p.total) + "</b>" +
+              '<div class="neg-ped-tot"><b>' + clp(p.total) + "</b>" +
+                (p.ahorro ? "<small>ahorró " + clp(p.ahorro) + " con ofertas</small>" : "") +
+              "</div>" +
               '<div class="neg-ped-acc">' +
                 (hecho || cancel ? "" : (p.nube
                   ? '<select class="neg-ped-estado" data-estado="' + esc(p.pedido_id) + '" aria-label="Estado del pedido ' + esc(p.codigo) + '">' +
@@ -1128,18 +1189,28 @@ window.Negocio = (function () {
     }
 
     caja.innerHTML = prods.length
-      ? prods.slice(0, MAX_CATALOGO).map((p) =>
-          '<div class="neg-prod' + (EST.editandoSku && EST.editandoSku === p.sku ? " on" : "") + '">' +
+      ? prods.slice(0, MAX_CATALOGO).map((p) => {
+          const o = ofertaDe(p);
+          const conStock = p.stock !== null && p.stock !== undefined;
+          const stockTxt = !conStock ? ""
+            : p.stock <= 0 ? ' · <em class="neg-stock-err">agotado</em>'
+            : p.stock <= 5 ? ' · <em class="neg-stock-warn">quedan ' + p.stock + "</em>"
+            : " · stock " + p.stock;
+          return '<div class="neg-prod' + (EST.editandoSku && EST.editandoSku === p.sku ? " on" : "") + '">' +
             "<b>" + esc(p.nombre || "Producto") + "</b>" +
             "<small>" + esc(p.sku || "sin SKU") +
-              (p.categoria ? " · " + esc(p.categoria) : "") +
-              (p.stock === null || p.stock === undefined ? "" : " · stock " + p.stock) + "</small>" +
-            "<span>" + clp(p.precio) + "</span>" +
+              (p.categoria ? " · " + esc(p.categoria) : "") + stockTxt + "</small>" +
+            '<span class="neg-prod-precio">' +
+              (o.descuento ? "<s>" + clp(o.lista) + "</s>" : "") +
+              clp(o.efectivo) +
+              (o.descuento ? '<em class="neg-prod-off">−' + o.descuento + "%</em>" : "") +
+            "</span>" +
             '<div class="neg-prod-acc">' +
               '<button type="button" data-editar="' + esc(p.sku) + '">Editar</button>' +
               '<button type="button" class="borrar" data-quitar="' + esc(p.sku) + '" aria-label="Borrar producto">✕</button>' +
             "</div>" +
-          "</div>").join("")
+          "</div>";
+        }).join("")
       : '<div class="mp-vacio"><b>Sin productos cargados</b><p>Agrega el primero abajo, importa un CSV/JSON o trae los de tu Stock.</p></div>';
   }
 
@@ -1542,6 +1613,8 @@ window.Negocio = (function () {
     const precio = Math.round(Number(String($("negProdPrecio").value || "").replace(/[^\d]/g, "")) || 0);
     if (!nombre || precio <= 0) { toast("Falta el nombre o el precio"); return; }
     const stockCrudo = ($("negProdStock").value || "").trim();
+    const dctoCrudo = ($("negProdDescuento").value || "").trim();
+    const hastaCrudo = ($("negProdOfertaHasta").value || "").trim();
     const sku = ($("negProdSku").value || "").trim() ||
       (EST.editandoSku || "LOCAL-" + Date.now().toString(36).slice(-6).toUpperCase());
     const producto = {
@@ -1550,11 +1623,16 @@ window.Negocio = (function () {
       precio: precio,
       stock: stockCrudo === "" ? null : Math.max(0, Math.round(Number(stockCrudo) || 0)),
       categoria: ($("negProdCategoria").value || "").trim(),
-      unidad: "u"
+      unidad: "u",
+      descuento: dctoCrudo === "" ? 0 : Math.max(0, Math.min(90, Math.round(Number(dctoCrudo) || 0))),
+      // El servidor guarda el fin de la oferta como unix; una fecha sin hora
+      // vale hasta el final de ese día en Chile.
+      oferta_hasta: hastaCrudo || 0
     };
     await subirProductos([producto], EST.editandoSku ? "Producto actualizado" : "Producto agregado");
     EST.editandoSku = "";
-    ["negProdNombre", "negProdPrecio", "negProdStock", "negProdSku", "negProdCategoria"]
+    ["negProdNombre", "negProdPrecio", "negProdStock", "negProdSku", "negProdCategoria",
+      "negProdDescuento", "negProdOfertaHasta"]
       .forEach((id) => { const el = $(id); if (el) el.value = ""; });
     const b = $("negFormProd") && $("negFormProd").querySelector('button[type="submit"]');
     if (b) b.textContent = "Agregar al catálogo";
@@ -1583,6 +1661,8 @@ window.Negocio = (function () {
     poner("negProdStock", p.stock == null ? "" : p.stock);
     poner("negProdSku", p.sku);
     poner("negProdCategoria", p.categoria);
+    poner("negProdDescuento", p.descuento ? p.descuento : "");
+    poner("negProdOfertaHasta", fechaInput(p.oferta_hasta));
     const b = $("negFormProd") && $("negFormProd").querySelector('button[type="submit"]');
     if (b) b.textContent = "Guardar cambios";
     pintarCatalogo();
@@ -1895,6 +1975,7 @@ window.Negocio = (function () {
     refrescar,
     /** Sólo para pruebas: parsers puros, sin DOM ni red. */
     _test: { parseCSV, parseProductos, aProducto, normClave, filtrarPedidos, csvPedidos, barrasSerie,
-      enlaceSeguimiento, numeroWa, fraseEstado, mensajePedido, enlaceWa }
+      enlaceSeguimiento, numeroWa, fraseEstado, mensajePedido, enlaceWa,
+      ofertaDe, fechaInput, tieneCampo }
   };
 })();

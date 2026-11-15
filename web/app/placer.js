@@ -285,40 +285,48 @@ window.Placer = (function () {
   }
 
   function productos(m) {
-    // Local del piloto con catálogo real: se usa tal cual lo cargó el negocio.
+    // Local con catálogo real: se usa tal cual lo cargó el negocio. El precio
+    // y el descuento vienen calculados del servidor (`precio_efectivo`,
+    // `descuento_vigente`): acá no se inventa ninguna oferta.
     if (m && Array.isArray(m.catalogo) && m.catalogo.length) {
       return m.catalogo.map(function (it, i) {
         const nombre = String(it.nombre || it.n || "Producto");
-        const precio = Math.max(0, Math.round(Number(it.precio) || 0));
-        const descuento = Math.max(0, Math.min(90, Math.round(Number(it.descuento) || 0)));
+        const lista = Math.max(0, Math.round(Number(it.precio) || 0));
+        const crudo = it.descuento_vigente != null ? it.descuento_vigente : it.descuento;
+        const descuento = Math.max(0, Math.min(90, Math.round(Number(crudo) || 0)));
+        const efectivo = it.precio_efectivo != null
+          ? Math.max(0, Math.round(Number(it.precio_efectivo) || 0))
+          : (descuento ? Math.max(1, Math.round(lista * (100 - descuento) / 100)) : lista);
         return {
           id: m.id + "#" + i,
+          sku: it.sku || "",
           nombre: nombre,
           categoria: it.categoria || categoriaDe(nombre),
           unidad: it.unidad || unidadDe(nombre),
-          lista: descuento ? Math.round(precio / (1 - descuento / 100) / 10) * 10 : precio,
-          precio: precio,
+          lista: descuento ? lista : efectivo,
+          precio: efectivo,
           descuento: descuento,
           stock: it.stock == null ? null : Number(it.stock)   // null = sin dato
         };
       });
     }
+    // Local sin catálogo cargado (viene de OpenStreetMap): la lista es
+    // referencial. No se le inventa un descuento: eso era lo que hacía que el
+    // comprador viera una oferta que el local nunca dio.
     const base = BASE[m.ico] || BASE.tienda;
     const semilla = m.id.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
     return base.map(function (par, i) {
       const variacion = 0.92 + azar(semilla + i * 7.7) * 0.24;       // ±12 %
       const lista = Math.round((par[1] * variacion) / 10) * 10;
-      const conOferta = azar(semilla + i * 5.3) > 0.8;                // ~20 %
-      const descuento = conOferta ? [10, 15, 20, 25][Math.floor(azar(semilla + i) * 4)] : 0;
-      const precio = descuento ? Math.round((lista * (1 - descuento / 100)) / 10) * 10 : lista;
       return {
         id: m.id + "#" + i,
+        sku: "",
         nombre: par[0],
         categoria: categoriaDe(par[0]),
         unidad: unidadDe(par[0]),
         lista: lista,
-        precio: precio,
-        descuento: descuento,
+        precio: lista,
+        descuento: 0,
         stock: 4 + Math.floor(azar(semilla + i * 3.1) * 36)
       };
     });
@@ -350,9 +358,12 @@ window.Placer = (function () {
       if (typeof it === "number") {
         // Formato viejo (sólo cantidad): se resuelve contra el catálogo.
         const p = productos(m).find((x) => x.id === pid);
-        return p ? { id: pid, nombre: p.nombre, precio: p.precio, cantidad: it } : null;
+        return p ? { id: pid, sku: p.sku, nombre: p.nombre, precio: p.precio, lista: p.lista, descuento: p.descuento, cantidad: it } : null;
       }
-      return { id: pid, nombre: it.n, precio: it.p, cantidad: it.c || 0 };
+      return {
+        id: pid, sku: it.s || "", nombre: it.n, precio: it.p,
+        lista: it.l != null ? it.l : it.p, descuento: it.d || 0, cantidad: it.c || 0
+      };
     }).filter(Boolean);
   }
   function totalDe(m) {
@@ -366,11 +377,30 @@ window.Placer = (function () {
 
     const actual = c.items[pid];
     const cant = cantidadDe(actual) + delta;
-    const base = datos || (actual && typeof actual === "object" ? { id: pid, nombre: actual.n, precio: actual.p } : null);
-    const prod = base || productos(m).find((x) => x.id === pid) || { nombre: "Producto", precio: 0 };
+    const enCatalogo = productos(m).find((x) => x.id === pid) || null;
+    // El stock del catálogo manda también en pantalla: no se puede armar un
+    // carrito que el servidor va a rechazar. `null` = sin límite declarado.
+    const tope = enCatalogo && enCatalogo.stock != null ? enCatalogo.stock : null;
+    if (delta > 0 && tope !== null && cant > tope) {
+      if (window.Fabri && window.Fabri.toast) {
+        window.Fabri.toast(tope > 0
+          ? "Sólo quedan " + tope + " de " + (enCatalogo.nombre || "este producto")
+          : (enCatalogo.nombre || "Este producto") + " está agotado");
+      }
+      return;
+    }
+
+    const base = datos || enCatalogo ||
+      (actual && typeof actual === "object" ? { id: pid, nombre: actual.n, precio: actual.p } : null);
+    const prod = base || { nombre: "Producto", precio: 0 };
 
     if (cant <= 0) delete c.items[pid];
-    else c.items[pid] = { n: prod.nombre, p: prod.precio, c: cant };
+    else {
+      c.items[pid] = {
+        n: prod.nombre, p: prod.precio, c: cant,
+        s: prod.sku || "", l: prod.lista != null ? prod.lista : prod.precio, d: prod.descuento || 0
+      };
+    }
     if (!Object.keys(c.items).length) delete ESTADO.carrito[m.id];
 
     guardarCarrito();
@@ -1734,8 +1764,13 @@ window.Placer = (function () {
     const cerrado = m.forge && m.abierto === false;
     return lista.map((p) => {
       const cant = cantidadDe(carrito.items[p.id]);
-      const stock = p.stock == null ? "disponible" : ("quedan " + p.stock);
-      return '<div class="mp-prod' + (cant ? " en-carrito" : "") + (cerrado ? " cerrado" : "") + '" data-pid="' + esc(p.id) + '">' +
+      const agotado = p.stock != null && p.stock <= 0;
+      const lleno = p.stock != null && p.stock > 0 && cant >= p.stock;
+      const stock = p.stock == null ? "disponible"
+        : agotado ? "agotado"
+        : ("quedan " + p.stock);
+      return '<div class="mp-prod' + (cant ? " en-carrito" : "") +
+          (cerrado || agotado ? " cerrado" : "") + '" data-pid="' + esc(p.id) + '">' +
         '<span class="mp-prod-ico" data-cat="' + esc(p.categoria) + '" aria-hidden="true">' +
           '<b>' + esc(p.nombre.charAt(0)) + "</b></span>" +
         '<div class="mp-prod-txt">' +
@@ -1748,10 +1783,12 @@ window.Placer = (function () {
           "</span>" +
         "</div>" +
         (cerrado ? '<div class="mp-prod-acc mp-prod-off-msg">cerrado</div>'
+         : agotado ? '<div class="mp-prod-acc mp-prod-off-msg">sin stock</div>'
                  : '<div class="mp-prod-acc">' +
                      (cant ? '<button type="button" class="mp-mas" data-p="' + esc(p.id) + '" data-d="-1" aria-label="Quitar uno">−</button>' +
                              '<b class="mp-cant">' + cant + "</b>" : "") +
-                     '<button type="button" class="mp-mas" data-p="' + esc(p.id) + '" data-d="1" aria-label="Agregar uno">+</button>' +
+                     '<button type="button" class="mp-mas" data-p="' + esc(p.id) + '" data-d="1"' +
+                       (lleno ? " disabled" : "") + ' aria-label="Agregar uno">+</button>' +
                    "</div>") +
       "</div>";
     }).join("");
@@ -1871,6 +1908,8 @@ window.Placer = (function () {
         const items = itemsDe(m);
         const total = totalDe(m);
         granTotal += total;
+        const ahorro = items.reduce((a, p) =>
+          a + Math.max(0, (p.lista != null ? p.lista : p.precio) - p.precio) * p.cantidad, 0);
         const min = m.forge ? (m.minimo || 0) : 0;
         const falta = min > 0 && total < min;
         const cerrado = m.forge && m.abierto === false;
@@ -1880,7 +1919,11 @@ window.Placer = (function () {
             "<small>" + (m.dist ? distancia(m.dist) + " · " : "") + items.length + (items.length === 1 ? " producto" : " productos") + "</small></header>" +
           items.map((p) =>
             '<div class="mp-car-item">' +
-              '<div class="mp-car-nom"><b>' + esc(p.nombre) + "</b><small>" + clp(p.precio) + " c/u</small></div>" +
+              '<div class="mp-car-nom"><b>' + esc(p.nombre) + "</b><small>" +
+                (p.descuento ? '<i class="mp-prod-antes">' + clp(p.lista) + "</i> " : "") +
+                clp(p.precio) + " c/u" +
+                (p.descuento ? " · −" + p.descuento + "%" : "") +
+              "</small></div>" +
               '<div class="mp-prod-acc">' +
                 '<button type="button" class="mp-mas" data-t="' + esc(m.id) + '" data-p="' + esc(p.id) + '" data-d="-1">−</button>' +
                 '<b class="mp-cant">' + p.cantidad + "</b>" +
@@ -1889,6 +1932,7 @@ window.Placer = (function () {
               '<b class="mp-car-sub">' + clp(p.precio * p.cantidad) + "</b>" +
             "</div>").join("") +
           '<footer><span>Subtotal</span><b>' + clp(total) + "</b></footer>" +
+          (ahorro ? '<p class="mp-car-ahorro">Ahorras ' + clp(ahorro) + " con las ofertas del local.</p>" : "") +
           (cerrado ? '<p class="mp-aviso-min">Este local está cerrado ahora.</p>' : "") +
           (falta ? '<p class="mp-aviso-min">Faltan ' + clp(min - total) + " para el pedido mínimo de " + clp(min) + ".</p>" : "") +
           '<button type="button" class="btn primary block sm" data-pedir="' + esc(m.id) + '"' +
@@ -2111,6 +2155,8 @@ window.Placer = (function () {
     if (!m) { cerrarPago(); return; }
     const items = ESTADO.pago.items || [];
     const subtotal = ESTADO.pago.subtotal || 0;
+    const ahorro = items.reduce((a, x) =>
+      a + Math.max(0, (x.lista != null ? x.lista : x.precio) - x.precio) * x.cantidad, 0);
     const envio = costoEnvio();
     // Si la nube ajustó el total (precio de catálogo), se muestra ese.
     const total = ESTADO.pago.estado === "listo" && ESTADO.pago.totalServidor
@@ -2159,6 +2205,7 @@ window.Placer = (function () {
         items.map((x) => '<div class="mp-pago-linea"><span>' + x.cantidad + " × " + esc(x.nombre) +
           "</span><b>" + clp(x.precio * x.cantidad) + "</b></div>").join("") +
         '<div class="mp-pago-linea mp-pago-sub"><span>Subtotal</span><b>' + clp(subtotal) + "</b></div>" +
+        (ahorro ? '<div class="mp-pago-linea mp-pago-sub mp-pago-ahorro"><span>Ahorro por ofertas</span><b>' + clp(ahorro) + "</b></div>" : "") +
         (envio ? '<div class="mp-pago-linea mp-pago-sub"><span>Envío</span><b>' + clp(envio) + "</b></div>" : "") +
       "</div>" +
 
@@ -2355,7 +2402,9 @@ window.Placer = (function () {
     if (!m || !m.forge) return; // los locales que vienen de OpenStreetMap no están en la base
     try {
       const items = itemsDe(m).map(function (x) {
-        return { nombre: x.nombre, precio: x.precio, cantidad: x.cantidad };
+        // `sku` va primero para que el servidor encuentre el producto aunque
+        // el nombre haya cambiado; el precio lo ignora y usa el del catálogo.
+        return { sku: x.sku || undefined, nombre: x.nombre, precio: x.precio, cantidad: x.cantidad };
       });
       if (!items.length) return;
       const cuerpo = {

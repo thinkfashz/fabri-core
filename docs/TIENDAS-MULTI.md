@@ -123,11 +123,11 @@ Autorización, en este orden:
 | `local_actualizar` | dueño · admin | edita ficha, marca, logo, descripción, mínimo, envío, entrega |
 | `local_estado` | dueño · admin | abre o cierra el local |
 | `local_borrar` | dueño · admin | borra tienda, catálogo y pedidos |
-| `productos_subir` | dueño · admin | upsert de hasta 500 productos por lote (tope por plan) |
+| `productos_subir` | dueño · admin | upsert de hasta 500 productos por lote (tope por plan); acepta `descuento` 0–90 % y `oferta_hasta` |
 | `producto_borrar` | dueño · admin | borra hasta 200 SKUs |
-| `pedidos_listar` | dueño · admin | pedidos del local |
+| `pedidos_listar` | dueño · admin | pedidos del local, con `ahorro` y el descuento de cada ítem |
 | `pedido_estado` | dueño · admin | avanza el pedido (`nuevo`, `visto`, `listo`, `entregado`, `cancelado`) |
-| `pedido_crear` | público | pedido del comprador (el servidor recalcula totales) y devuelve el `seguimiento` |
+| `pedido_crear` | público | pedido del comprador (el servidor recalcula precio, descuento y totales) y devuelve el `seguimiento` |
 | `resenas_listar` | público | reseñas visibles, promedio y reparto |
 | `resena_crear` | público | califica un pedido entregado (token o código + teléfono) |
 | `resenas_panel` | dueño · clave · admin | todas las reseñas, con las ocultas |
@@ -144,8 +144,8 @@ Autorización, en este orden:
 | Tabla | Para qué |
 |---|---|
 | `mercado_locales` | tiendas, ficha pública, dueño y plan |
-| `mercado_productos` | catálogo por local (SKU, precio, stock) |
-| `mercado_pedidos` | pedidos, estado actual y `seguimiento` (token) |
+| `mercado_productos` | catálogo por local (SKU, precio de lista, stock, `descuento` y `oferta_hasta`) |
+| `mercado_pedidos` | pedidos, estado actual, `seguimiento` (token) y `ahorro` |
 | `mercado_pedido_eventos` | historial de estados (línea de tiempo del comprador) |
 | `mercado_resenas` | calificación por pedido entregado, con `oculta` para moderar |
 | `mercado_push` | suscripciones del comprador para avisar el cambio de estado |
@@ -467,6 +467,133 @@ Decisiones que importan:
 - **Sin `VAPID_PUBLIC`/`VAPID_PRIVATE` el push se apaga solo**: el seguimiento
   responde `push.disponible: false` y no muestra el bloque. La API no falla.
 
+## Descuentos y stock (Fase 9)
+
+Antes el descuento se **inventaba en el navegador**: `placer.js` sorteaba
+`[10, 15, 20, 25] %` con `azar(semilla + i)` para ~20 % de los productos, y el
+servidor cobraba el precio de lista. El comprador veía una oferta que el local
+nunca dio y el pedido no guardaba ni el descuento ni el ahorro. Ahora el
+porcentaje lo fija el vendedor, lo guarda la base y lo cobra el servidor.
+
+### Esquema
+
+```sql
+mercado_productos.descuento    SMALLINT NOT NULL DEFAULT 0   -- 0–90 %
+mercado_productos.oferta_hasta BIGINT   NOT NULL DEFAULT 0   -- unix s; 0 = sin vencimiento
+mercado_pedidos.ahorro         NUMERIC  NOT NULL DEFAULT 0   -- lo que dejó de pagar el comprador
+CHECK (descuento BETWEEN 0 AND 90)                           -- chk_mercado_productos_dcto
+```
+
+### Un solo precio
+
+`dctoVigente()` y `precioEfectivo()` viven en `mercado.ts` y se usan en el
+catálogo público, en `local_mio`, en el panel y en `pedido_crear`:
+
+```sql
+-- descuento vigente: 0 si la oferta venció
+CASE WHEN descuento > 0 AND (oferta_hasta = 0 OR oferta_hasta > extract(epoch from now())::bigint)
+     THEN descuento ELSE 0 END
+
+-- precio que se cobra, redondeado a peso y nunca en $0
+GREATEST(1, round(precio * (100 - dcto) / 100))
+```
+
+`CAMPOS_PRODUCTO` devuelve los cinco números juntos: `precio` (lista),
+`descuento` (el que fijó el dueño), `descuento_vigente` (el que corre hoy),
+`precio_efectivo` (lo que se cobra) y `oferta_hasta`. El navegador sólo pinta;
+no calcula ofertas. Una oferta vencida deja de rebajar sin borrar el porcentaje:
+si el dueño la vuelve a activar, la fecha se actualiza.
+
+### `productos_subir`
+
+Acepta `descuento` y `oferta_hasta` por producto. Reglas:
+
+- `descuento` se redondea y se acota a 0–90 (también en la base).
+- `oferta_hasta` acepta unix (s o ms), ISO completo o `YYYY-MM-DD`. Una fecha
+  sin hora vale hasta el **final de ese día en Chile** (`T23:59:59-04:00`).
+- Si el lote **no trae** ninguna de las dos columnas, la oferta existente se
+  conserva (`tocaOferta = 'descuento' in p || 'oferta_hasta' in p`). Importar
+  una planilla de stock no debe apagar una oferta.
+- Si trae `descuento: 0`, la oferta se apaga y la fecha se limpia.
+- La respuesta devuelve `ofertas`: cuántos productos del local quedaron con
+  descuento vigente.
+
+```json
+POST /api/mercado
+{ "accion": "productos_subir", "local_id": "l-...", "clave": "XXXXXXXX",
+  "productos": [
+    { "sku": "LECHE-1L", "nombre": "Leche 1 L", "precio": 1290, "stock": 24,
+      "descuento": 20, "oferta_hasta": "2026-12-31" }
+  ] }
+```
+
+### `pedido_crear`
+
+El ítem del cliente sólo aporta `sku`/nombre y cantidad. El servidor busca el
+producto, comprueba stock y arma el ítem con:
+
+```json
+{ "sku": "LECHE-1L", "nombre": "Leche 1 L", "precio": 1032,
+  "precio_lista": 1290, "descuento": 20, "cantidad": 2 }
+```
+
+`subtotal` se calcula con `precio` (efectivo), `ahorro` con
+`(precio_lista − precio) × cantidad`, y ambos se guardan. La respuesta y el
+reintento idempotente devuelven `ahorro`. Los estados terminales, la
+idempotencia y el descuento de stock de la Fase 7 no cambian.
+
+### Comprador (`placer.js`)
+
+- Usa `precio_efectivo` y `descuento_vigente` del catálogo. Un local sin
+  catálogo (OpenStreetMap) ya no inventa rebajas: muestra precio referencial
+  sin descuento.
+- El carrito topa con el stock del catálogo: el `+` se apaga al llegar
+  (`lleno`) y un producto agotado muestra «sin stock» y no deja agregar. El
+  servidor sigue siendo la última palabra.
+- Muestra el precio de antes tachado, el `−%`, y el ahorro en el carrito y en
+  la pantalla de pago («Ahorras $…» / «Ahorro por ofertas»).
+- El pedido manda `sku` para que el servidor encuentre el producto aunque el
+  nombre haya cambiado.
+
+### Vendedor (`negocio.js`)
+
+- Formulario de producto con `negProdDescuento` (0–90) y `negProdOfertaHasta`
+  (`type="date"`). Editar un producto devuelve su oferta al formulario.
+- Importación CSV/JSON: sinónimos `descuento`/`dcto`/`desc`/`rebaja`/`off`/
+  `promo` y `oferta_hasta`/`hasta`/`vence`/`vencimiento`/`vigencia`/`termina`.
+  Si la fuente no trae la columna, la oferta no se toca.
+- Catálogo: precio de antes tachado, `−%`, y stock bajo (≤5) o agotado
+  destacado. El contador de la pestaña dice cuántos están en oferta.
+- Pedidos: cada ítem muestra su `−%` y el total dice «ahorró $… con ofertas».
+- Resumen: el subtítulo de ventas suma los descuentos del periodo
+  (`totales.descuento`) y el KPI de productos cuenta las ofertas.
+
+### Admin (`plataforma.js`)
+
+El `resumen` (token admin) ahora devuelve, además de los conteos:
+
+```json
+{ "resumen": { "productos_oferta": 3, "stock_bajo": 2, "stock_agotado": 1,
+               "valor_inventario": 1840000, "descuento_entregado": 12900 },
+  "stock_critico": [ { "local": "Almacén Doña Rosa", "nombre": "Pan", "sku": "PAN-1", "stock": 0 } ],
+  "ofertas": [ { "local": "Almacén Doña Rosa", "nombre": "Leche 1 L", "precio": 1290,
+                 "descuento": 20, "precio_efectivo": 1032, "oferta_hasta": 1798761599 } ] }
+```
+
+El panel muestra dos tarjetas nuevas —**Ofertas vigentes** y **Stock por
+reponer**— y una de **Inventario y descuentos** (valor de bodega a precio de
+lista, descuentos entregados, productos en oferta y agotados). Los KPIs
+«Productos» y «Stock crítico» usan los mismos números. Todo sale del mismo
+`resumen`: no hay llamada extra.
+
+### Pruebas de la fase
+
+`node tests/web/descuentos.js` (61 comprobaciones): cálculo del precio
+efectivo, oferta vencida, piso de $1, sinónimos y CSV, preservación de la
+oferta al importar, esquema y `CHECK`, expresión SQL compartida, pedido con
+`precio_lista`/`descuento`/`ahorro`, resumen ampliado, comprador sin `azar`,
+tope de stock, tarjetas del admin y versión del service worker.
+
 ## Pruebas
 
 ```sh
@@ -475,7 +602,8 @@ node tests/web/plataforma.js  # 57 comprobaciones: puras, ids, seguridad del tok
 node tests/web/seguimiento.js # 70 comprobaciones: código, teléfono, estados, línea de tiempo, contrato API/HTML
 node tests/web/resenas.js     # 83 comprobaciones: contrato de reseñas, estrellas, reparto, privacidad, panel
 node tests/web/push.js        # 92 comprobaciones: cifrado ida y vuelta, VAPID, comprador y dueño, service workers
-node tests/web/pedidos.js     # 36 comprobaciones: precio/stock del servidor, idempotencia, estados, contador e historial
+node tests/web/pedidos.js     # 40 comprobaciones: precio/stock del servidor, descuento y ahorro, idempotencia, estados, contador e historial
+node tests/web/descuentos.js  # 61 comprobaciones: precio efectivo, oferta vencida, importación que conserva la oferta, comprador, vendedor y admin
 node tests/web/auth-nube.js   # incluye CORE_ROOT_EMAIL y promoción a owner
 node tests/web/diseno.js      # shell, sistema visual y offline
 node tests/web/trafico.js     # capa de tráfico del mapa

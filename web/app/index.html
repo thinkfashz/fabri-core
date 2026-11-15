@@ -1259,6 +1259,11 @@
                   <input id="negProdSku" class="field" placeholder="SKU (opcional)" autocomplete="off">
                   <input id="negProdCategoria" class="field" placeholder="Categoría" autocomplete="off" list="negCategorias">
                 </div>
+                <div class="neg-form-fila">
+                  <input id="negProdDescuento" class="field" placeholder="Descuento % (0–90)" inputmode="numeric" autocomplete="off">
+                  <input id="negProdOfertaHasta" class="field" type="date" title="Oferta hasta (opcional)" aria-label="Oferta hasta">
+                </div>
+                <small class="hint">El descuento lo aplica el servidor: el comprador paga el precio rebajado y el pedido guarda el ahorro. Sin fecha, la oferta no vence.</small>
                 <datalist id="negCategorias"></datalist>
                 <button class="btn primary block sm" type="submit">Agregar al catálogo</button>
               </form>
@@ -1266,7 +1271,7 @@
                 <label class="neg-campo"><span>Importar CSV o JSON</span>
                   <input type="file" id="negImportFile" accept=".csv,.json,text/csv,application/json"></label>
                 <button class="btn ghost block sm" type="button" id="negImportStock">Traer de mi Stock</button>
-                <small class="neg-aviso" id="negImportAviso">Columnas: nombre, precio, sku, stock, categoria.</small>
+                <small class="neg-aviso" id="negImportAviso">Columnas: nombre, precio, sku, stock, categoria, descuento (opcional), oferta_hasta (opcional).</small>
               </div>
             </div>
           </div>
@@ -1414,6 +1419,28 @@
               <div class="neg-cab"><div class="eyebrow">Rutas y países</div><span class="badge" id="platRutasChip">—</span></div>
               <div id="platRutas"></div>
             </div>
+          </div>
+
+          <div class="neg-grid">
+            <div class="card">
+              <div class="neg-cab"><div class="eyebrow">Ofertas vigentes</div><span class="badge" id="platOfertasChip">—</span></div>
+              <div id="platOfertas"></div>
+            </div>
+            <div class="card">
+              <div class="neg-cab"><div class="eyebrow">Stock por reponer</div><span class="badge" id="platStockChip">—</span></div>
+              <div id="platStock"></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="neg-cab">
+              <div>
+                <div class="eyebrow">Inventario y descuentos</div>
+                <small class="neg-serie-sub">Valor de bodega a precio de lista y lo regalado en ofertas.</small>
+              </div>
+              <span class="badge" id="platInvChip">—</span>
+            </div>
+            <div class="plat-salud" id="platInventario"></div>
           </div>
 
           <div class="card">

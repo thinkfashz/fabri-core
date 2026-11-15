@@ -26,10 +26,13 @@
 //                                              → baja (DUEÑO · ADMIN)
 //   POST { accion: "productos_subir", local_id, clave?, productos:[...] }
 //                                              → upsert de catálogo (DUEÑO · ADMIN)
+//                                              → `descuento` 0–90 % y `oferta_hasta`
+//                                                (unix s; 0 = sin vencimiento)
 //   POST { accion: "producto_borrar", local_id, clave?, skus:[...] }
 //                                              → borra productos (DUEÑO · ADMIN)
 //   POST { accion: "pedido_crear", local_id, items, cliente... }
 //                                              → pedido del comprador (PÚBLICO)
+//                                              → precio y descuento del servidor
 //                                              → devuelve `seguimiento` (token)
 //   POST { accion: "pedido_seguir", token }     → estado del pedido (PÚBLICO)
 //   POST { accion: "pedido_seguir", codigo, contacto }
@@ -52,7 +55,7 @@
 //                                              → panel del dueño: serie diaria,
 //                                                top de productos, estados y
 //                                                visitas (DUEÑO · ADMIN)
-//   POST { accion: "resumen" }                  → conteos (ADMIN)
+//   POST { accion: "resumen" }                  → conteos, stock y ofertas (ADMIN)
 //
 // Seguridad:
 //   · Tres formas de autorizar, en este orden: el ADMIN (`FABRI_API_TOKEN`,
@@ -96,8 +99,29 @@ const MAX_LOCALES = 5000;
 const TOPE_PLAN: Record<string, number> = { gratis: 300, pro: 3000 };
 const ESTADOS = ['nuevo', 'visto', 'listo', 'entregado', 'cancelado'];
 const ENTREGAS = ['retiro', 'delivery'];
+/** Tope del descuento de un producto, en porcentaje. */
+const DCTO_MAX = 90;
 
 type Fila = Record<string, unknown>;
+
+/**
+ * Descuento que corre AHORA: 0 si la oferta venció. El navegador nunca decide
+ * el precio: `productos_subir` guarda el porcentaje y `pedido_crear` cobra con
+ * esta misma expresión.
+ *
+ * `prefijo` es el alias de la tabla cuando la consulta une varias (`p.`).
+ */
+function dctoVigente(prefijo = ''): string {
+  return `(CASE WHEN ${prefijo}descuento > 0 AND (${prefijo}oferta_hasta = 0
+    OR ${prefijo}oferta_hasta > extract(epoch from now())::bigint)
+    THEN ${prefijo}descuento ELSE 0 END)`;
+}
+
+/** Precio que se cobra, redondeado a peso: lista × (100 − dcto) / 100.
+ *  Se calcula en SQL para que catálogo, pedido y panel usen el mismo número. */
+function precioEfectivo(prefijo = ''): string {
+  return `GREATEST(1, round(${prefijo}precio * (100 - ${dctoVigente(prefijo)}) / 100))`;
+}
 
 /* ── plomería http ──────────────────────────────────────────────────────── */
 
@@ -181,6 +205,23 @@ function entero(v: unknown, tope = 100_000_000): number {
 function booleano(v: unknown, porDefecto = true): boolean {
   if (v === undefined || v === null || v === '') return porDefecto;
   return !(v === false || v === 'false' || v === 0 || v === '0');
+}
+
+/**
+ * Fin de oferta → unix en segundos. 0 = sin vencimiento.
+ * Acepta unix (segundos o milisegundos), ISO completo y `YYYY-MM-DD`; una
+ * fecha sin hora vale hasta el final de ese día en Chile (UTC−4).
+ */
+function fechaSegundos(v: unknown): number {
+  if (v === null || v === undefined || v === '') return 0;
+  const crudo = String(v).trim();
+  if (/^\d{9,13}$/.test(crudo)) {
+    const n = Number(crudo);
+    return Math.max(0, Math.round(n > 99_999_999_999 ? n / 1000 : n));
+  }
+  const soloDia = /^\d{4}-\d{2}-\d{2}$/.test(crudo);
+  const ms = Date.parse(soloDia ? crudo + 'T23:59:59-04:00' : crudo);
+  return Number.isFinite(ms) ? Math.max(0, Math.round(ms / 1000)) : 0;
 }
 
 function lista(v: unknown, permitidos: string[], porDefecto: string[]): string[] {
@@ -380,6 +421,17 @@ async function asegurar(pool: any) {
       actualizado TIMESTAMPTZ NOT NULL DEFAULT now()
     )`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_mercado_productos_local ON ${T_PRODUCTOS} (local_id)`);
+  // Descuento del producto: lo fija el dueño (0–90 %). `oferta_hasta` es un
+  // unix en segundos; 0 = sin vencimiento. El porcentaje que se cobra se
+  // calcula en el servidor (`dctoVigente`), nunca en el navegador.
+  await pool.query(`ALTER TABLE ${T_PRODUCTOS} ADD COLUMN IF NOT EXISTS descuento SMALLINT NOT NULL DEFAULT 0`);
+  await pool.query(`ALTER TABLE ${T_PRODUCTOS} ADD COLUMN IF NOT EXISTS oferta_hasta BIGINT NOT NULL DEFAULT 0`);
+  // El tope también vive en la base: aunque alguien llame la API directo, no
+  // puede dejar guardado un 300 %.
+  try {
+    await pool.query(`ALTER TABLE ${T_PRODUCTOS}
+      ADD CONSTRAINT chk_mercado_productos_dcto CHECK (descuento BETWEEN 0 AND ${DCTO_MAX})`);
+  } catch (e) { /* ya existe: ADD CONSTRAINT no tiene IF NOT EXISTS */ }
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_mercado_pedidos_local ON ${T_PEDIDOS} (local_id, creado DESC)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_mercado_locales_activo ON ${T_LOCALES} (activo)`);
   // Seguimiento del comprador: un token largo y aleatorio abre el pedido sin
@@ -395,6 +447,10 @@ async function asegurar(pool: any) {
   await pool.query(`ALTER TABLE ${T_PEDIDOS} ADD COLUMN IF NOT EXISTS idempotencia TEXT NOT NULL DEFAULT ''`);
   await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_mercado_pedidos_idempotencia
                       ON ${T_PEDIDOS} (local_id, idempotencia) WHERE idempotencia <> ''`);
+  // Lo que el comprador ahorró con las ofertas del catálogo. Se guarda al
+  // crear el pedido para que el panel del dueño y el resumen del admin no
+  // tengan que recalcular el JSON de cada pedido.
+  await pool.query(`ALTER TABLE ${T_PEDIDOS} ADD COLUMN IF NOT EXISTS ahorro NUMERIC NOT NULL DEFAULT 0`);
   // El código corto se usa para buscar el pedido: dos pedidos con el mismo
   // código harían ambigua la búsqueda. En una base vieja puede haber repetidos,
   // así que si el índice no entra no se tumba el arranque (la creación igual
@@ -474,6 +530,34 @@ async function asegurar(pool: any) {
 
 /* ── lecturas ───────────────────────────────────────────────────────────── */
 
+/**
+ * Columnas del catálogo con el descuento ya resuelto.
+ *   · `precio`            → precio de lista (lo que escribió el dueño)
+ *   · `descuento`         → el que fijó el dueño, aunque esté vencido
+ *   · `descuento_vigente` → el que corre hoy (0 si la oferta venció)
+ *   · `precio_efectivo`   → lo que se cobra
+ * El navegador sólo pinta estos números; nunca los inventa.
+ */
+const CAMPOS_PRODUCTO = `local_id,sku,nombre,precio::float8 AS precio,stock,categoria,unidad,
+  descuento::int AS descuento, ${dctoVigente()}::int AS descuento_vigente,
+  ${precioEfectivo()}::float8 AS precio_efectivo, oferta_hasta::float8 AS oferta_hasta`;
+
+/** Fila de `CAMPOS_PRODUCTO` → objeto que viaja al navegador. */
+function productoDeFila(f: any) {
+  return {
+    sku: f.sku,
+    nombre: f.nombre,
+    precio: Number(f.precio) || 0,
+    precio_efectivo: Number(f.precio_efectivo) || 0,
+    descuento: Number(f.descuento) || 0,
+    descuento_vigente: Number(f.descuento_vigente) || 0,
+    oferta_hasta: Number(f.oferta_hasta) || 0,
+    stock: f.stock,
+    categoria: f.categoria || '',
+    unidad: f.unidad || '',
+  };
+}
+
 const CAMPOS_LOCAL = `id,nombre,marca,logo,descripcion,rubro,ico,telefono,direccion,comuna,
   lat::float8 AS lat, lon::float8 AS lon, abierto,horario,minimo,
   entrega,envio,demo,activo,plan,actualizado::float8 AS actualizado`;
@@ -506,19 +590,12 @@ async function traerLocales(pool: any, conCatalogo: boolean) {
     return locales;
   }
   const p = await pool.query(
-    `SELECT local_id,sku,nombre,precio::float8 AS precio,stock,categoria,unidad
+    `SELECT ${CAMPOS_PRODUCTO}
        FROM ${T_PRODUCTOS} ORDER BY local_id, nombre COLLATE "C"`
   );
   const porLocal: Record<string, any[]> = {};
   for (const fila of p.rows) {
-    (porLocal[fila.local_id] = porLocal[fila.local_id] || []).push({
-      sku: fila.sku,
-      nombre: fila.nombre,
-      precio: fila.precio,
-      stock: fila.stock,
-      categoria: fila.categoria || '',
-      unidad: fila.unidad || '',
-    });
+    (porLocal[fila.local_id] = porLocal[fila.local_id] || []).push(productoDeFila(fila));
   }
   for (const l of locales) l.catalogo = porLocal[l.id] || [];
   return locales;
@@ -1016,16 +1093,13 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       const pendientes: Record<string, number> = {};
       if (ids.length) {
         const p = await pool.query(
-          `SELECT local_id,sku,nombre,precio::float8 AS precio,stock,categoria,unidad
+          `SELECT ${CAMPOS_PRODUCTO}
              FROM ${T_PRODUCTOS} WHERE local_id = ANY($1::text[])
             ORDER BY local_id, nombre COLLATE "C"`,
           [ids]
         );
         for (const f of p.rows) {
-          (catalogo[f.local_id] = catalogo[f.local_id] || []).push({
-            sku: f.sku, nombre: f.nombre, precio: f.precio,
-            stock: f.stock, categoria: f.categoria || '', unidad: f.unidad || '',
-          });
+          (catalogo[f.local_id] = catalogo[f.local_id] || []).push(productoDeFila(f));
         }
         const pd = await pool.query(
           `SELECT local_id, COUNT(*)::int AS n FROM ${T_PEDIDOS}
@@ -1144,22 +1218,39 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         const precio = numero(p.precio);
         if (!nombre || precio <= 0) { omitidos.push(nombre || '(sin nombre)'); continue; }
         const sku = texto(p.sku, 60).trim() || ('p' + (i + 1));
+        // Descuento: porcentaje entero 0–90. Si el lote NO trae la columna, se
+        // conserva el que ya estaba: importar stock no debe borrar una oferta.
+        // Si la trae con 0, la oferta se apaga (y su fecha se limpia).
+        const tocaOferta = 'descuento' in p || 'oferta_hasta' in p;
+        const dcto = tocaOferta ? entero(p.descuento, DCTO_MAX) : 0;
+        const hasta = dcto ? fechaSegundos(p.oferta_hasta) : 0;
         await cliente.query(
-          `INSERT INTO ${T_PRODUCTOS} (local_id,sku,nombre,precio,stock,categoria,unidad,actualizado)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+          `INSERT INTO ${T_PRODUCTOS}
+             (local_id,sku,nombre,precio,stock,categoria,unidad,actualizado,descuento,oferta_hasta)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
            ON CONFLICT (local_id,sku) DO UPDATE SET
              nombre = EXCLUDED.nombre, precio = EXCLUDED.precio, stock = EXCLUDED.stock,
              categoria = EXCLUDED.categoria, unidad = EXCLUDED.unidad,
+             descuento = CASE WHEN $11::boolean THEN EXCLUDED.descuento
+                              ELSE ${T_PRODUCTOS}.descuento END,
+             oferta_hasta = CASE WHEN $11::boolean THEN EXCLUDED.oferta_hasta
+                                 ELSE ${T_PRODUCTOS}.oferta_hasta END,
              actualizado = EXCLUDED.actualizado, nube_ts = now()`,
           [localId, sku, nombre, precio,
             p.stock === null || p.stock === undefined || p.stock === '' ? null : entero(p.stock),
-            texto(p.categoria, 40).trim(), texto(p.unidad, 30).trim(), ahora]
+            texto(p.categoria, 40).trim(), texto(p.unidad, 30).trim(), ahora, dcto, hasta,
+            tocaOferta]
         );
         subidos++;
       }
 
-      const c = await cliente.query(`SELECT COUNT(*)::int AS n FROM ${T_PRODUCTOS} WHERE local_id = $1`, [localId]);
+      const c = await cliente.query(
+        `SELECT COUNT(*)::int AS n,
+                COUNT(*) FILTER (WHERE ${dctoVigente()} > 0)::int AS ofertas
+           FROM ${T_PRODUCTOS} WHERE local_id = $1`, [localId]
+      );
       const total = c.rows[0].n;
+      const ofertas = c.rows[0].ofertas;
       if (total > tope) {
         await cliente.query('ROLLBACK');
         return json(res, {
@@ -1172,7 +1263,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         }, 409);
       }
       await cliente.query('COMMIT');
-      return json(res, { ok: true, accion, subidos, omitidos: omitidos.length, detalle_omitidos: omitidos.slice(0, 10), total, tope });
+      return json(res, { ok: true, accion, subidos, omitidos: omitidos.length, detalle_omitidos: omitidos.slice(0, 10), total, ofertas, tope });
     }
 
     if (accion === 'producto_borrar') {
@@ -1208,7 +1299,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       if (idem) {
         const ya = await pool.query(
           `SELECT id,codigo,seguimiento,subtotal::float8 AS subtotal,envio::float8 AS envio,
-                  total::float8 AS total,estado
+                  total::float8 AS total,ahorro::float8 AS ahorro,estado
              FROM ${T_PEDIDOS} WHERE local_id = $1 AND idempotencia = $2 LIMIT 1`,
           [localId, idem]
         );
@@ -1216,8 +1307,8 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
           const p = ya.rows[0];
           return json(res, {
             ok: true, accion, id: p.id, codigo: p.codigo, seguimiento: p.seguimiento,
-            subtotal: p.subtotal, envio: p.envio, total: p.total, estado: p.estado,
-            repetido: true,
+            subtotal: p.subtotal, envio: p.envio, total: p.total, ahorro: p.ahorro,
+            estado: p.estado, repetido: true,
           });
         }
       }
@@ -1230,9 +1321,10 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
 
       // Los precios NO se creen al cliente: se buscan en el catálogo del local.
       // Si un producto no está (o cambió de nombre), se rechaza con claridad en
-      // vez de cobrar un precio inventado.
+      // vez de cobrar un precio inventado. El descuento también sale de acá:
+      // `precio_efectivo` es el único número que se cobra.
       const cat = await pool.query(
-        `SELECT sku,nombre,precio::float8 AS precio,stock FROM ${T_PRODUCTOS} WHERE local_id = $1`,
+        `SELECT ${CAMPOS_PRODUCTO} FROM ${T_PRODUCTOS} WHERE local_id = $1`,
         [localId]
       );
       const porSku = new Map<string, any>();
@@ -1262,10 +1354,15 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
             producto: enCat.nombre, disponible: stock,
           }, 409);
         }
+        const lista = Number(enCat.precio) || 0;
+        const efectivo = Number(enCat.precio_efectivo) || lista;
+        const dcto = Number(enCat.descuento_vigente) || 0;
         items.push({
           sku: enCat.sku,
           nombre: enCat.nombre,
-          precio: Number(enCat.precio) || 0,
+          precio: efectivo,
+          precio_lista: lista,
+          descuento: dcto,
           cantidad: it.cantidad,
           categoria: it.categoria,
           unidad: it.unidad,
@@ -1274,6 +1371,8 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       }
 
       const subtotal = items.reduce((a, it) => a + it.precio * it.cantidad, 0);
+      // Lo que el comprador dejó de pagar gracias a las ofertas vigentes.
+      const ahorro = items.reduce((a, it) => a + (it.precio_lista - it.precio) * it.cantidad, 0);
       if (!subtotal) return json(res, { ok: false, error: 'el pedido suma cero' }, 400);
       if (subtotal > 5_000_000) {
         return json(res, { ok: false, error: 'el pedido supera el máximo permitido' }, 400);
@@ -1337,15 +1436,16 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
           await cliente_pg.query(
             `INSERT INTO ${T_PEDIDOS}
                (id,local_id,codigo,cliente,telefono,items,subtotal,envio,total,entrega,
-                direccion,nota,estado,seguimiento,idempotencia)
-             VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,$12,'nuevo',$13,$14)`,
+                direccion,nota,estado,seguimiento,idempotencia,ahorro)
+             VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,$12,'nuevo',$13,$14,$15)`,
             [id, localId, codigo, nombreCliente, telefono,
               JSON.stringify(items.map((x) => ({
-                sku: x.sku, nombre: x.nombre, precio: x.precio, cantidad: x.cantidad,
-                categoria: x.categoria, unidad: x.unidad,
+                sku: x.sku, nombre: x.nombre, precio: x.precio,
+                precio_lista: x.precio_lista, descuento: x.descuento,
+                cantidad: x.cantidad, categoria: x.categoria, unidad: x.unidad,
               }))),
               subtotal, envio, total, entrega,
-              texto(cuerpo.direccion, 200).trim(), nota, seguimiento, idem]
+              texto(cuerpo.direccion, 200).trim(), nota, seguimiento, idem, ahorro]
           );
           await cliente_pg.query(
             `INSERT INTO ${T_EVENTOS} (pedido_id, estado, actor, nota)
@@ -1360,7 +1460,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
           if (cons === 'idx_mercado_pedidos_idempotencia' && idem) {
             const ya = await pool.query(
               `SELECT id,codigo,seguimiento,subtotal::float8 AS subtotal,envio::float8 AS envio,
-                      total::float8 AS total,estado
+                      total::float8 AS total,ahorro::float8 AS ahorro,estado
                  FROM ${T_PEDIDOS} WHERE local_id = $1 AND idempotencia = $2 LIMIT 1`,
               [localId, idem]
             );
@@ -1368,8 +1468,8 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
               const p = ya.rows[0];
               return json(res, {
                 ok: true, accion, id: p.id, codigo: p.codigo, seguimiento: p.seguimiento,
-                subtotal: p.subtotal, envio: p.envio, total: p.total, estado: p.estado,
-                repetido: true,
+                subtotal: p.subtotal, envio: p.envio, total: p.total, ahorro: p.ahorro,
+                estado: p.estado, repetido: true,
               });
             }
           }
@@ -1385,7 +1485,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         try { await avisarLocal(pool, localId, { codigo, total, cliente: nombreCliente, entrega }); }
         catch (e) { /* el pedido ya está guardado: el aviso es opcional */ }
         return json(res, {
-          ok: true, accion, id, codigo, seguimiento, subtotal, envio, total, estado: 'nuevo',
+          ok: true, accion, id, codigo, seguimiento, subtotal, envio, total, ahorro, estado: 'nuevo',
         });
       }
     }
@@ -1826,6 +1926,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       const r = await pool.query(
         `SELECT p.id,p.codigo,p.seguimiento,p.cliente,p.telefono,p.items,
                 p.subtotal::float8 AS subtotal, p.envio::float8 AS envio, p.total::float8 AS total,
+                p.ahorro::float8 AS ahorro,
                 p.entrega,p.direccion,p.nota,p.estado,p.creado,p.actualizado,
                 COALESCE((
                   SELECT json_agg(json_build_object(
@@ -1963,6 +2064,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       const tot = await pool.query(
         `SELECT COUNT(*)::int AS pedidos,
                 COALESCE(SUM(total), 0)::float8 AS ventas,
+                COALESCE(SUM(ahorro), 0)::float8 AS descuento,
                 COUNT(*) FILTER (WHERE estado IN ('nuevo','visto','listo'))::int AS abiertos
            FROM ${T_PEDIDOS}
           WHERE local_id = $1 AND estado <> 'cancelado'
@@ -2057,6 +2159,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
           pedidos, ventas,
           ticket: pedidos ? Math.round(ventas / pedidos) : 0,
           abiertos: Number(t0.abiertos) || 0,
+          descuento: Number(t0.descuento) || 0,
         },
         top: top.rows,
         estados,
@@ -2073,17 +2176,54 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     if (accion === 'resumen') {
       if (!esAdmin(req)) return json(res, { ok: false, error: 'no autorizado', codigo: 'SIN_TOKEN' }, 401);
       const l = await pool.query(`SELECT COUNT(*)::int AS n FROM ${T_LOCALES} WHERE activo = true`);
-      const p = await pool.query(`SELECT COUNT(*)::int AS n FROM ${T_PRODUCTOS}`);
-      const pd = await pool.query(`SELECT COUNT(*)::int AS n FROM ${T_PEDIDOS}`);
       const abiertos = await pool.query(`SELECT COUNT(*)::int AS n FROM ${T_LOCALES} WHERE activo = true AND abierto = true`);
+      const pd = await pool.query(`SELECT COUNT(*)::int AS n FROM ${T_PEDIDOS}`);
+      // Catálogo y stock en una sola pasada: el admin ve cuánto hay en bodega,
+      // cuánto está en oferta y qué se está por agotar.
+      const p = await pool.query(
+        `SELECT COUNT(*)::int AS n,
+                COUNT(*) FILTER (WHERE ${dctoVigente()} > 0)::int AS ofertas,
+                COUNT(*) FILTER (WHERE stock IS NOT NULL AND stock > 0 AND stock <= 5)::int AS stock_bajo,
+                COUNT(*) FILTER (WHERE stock IS NOT NULL AND stock <= 0)::int AS agotados,
+                COALESCE(SUM(precio * GREATEST(COALESCE(stock, 0), 0)), 0)::float8 AS valor
+           FROM ${T_PRODUCTOS}`
+      );
+      const pr = p.rows[0] || {};
+      // Lo que se ha regalado en descuentos (los cancelados no cuentan).
+      const ad = await pool.query(
+        `SELECT COALESCE(SUM(ahorro), 0)::float8 AS n FROM ${T_PEDIDOS} WHERE estado <> 'cancelado'`
+      );
+      // Los casos concretos, para que el admin sepa DÓNDE mirar.
+      const criticos = await pool.query(
+        `SELECT p.local_id, l.nombre AS local, p.nombre, p.sku, p.stock
+           FROM ${T_PRODUCTOS} p LEFT JOIN ${T_LOCALES} l ON l.id = p.local_id
+          WHERE p.stock IS NOT NULL AND p.stock <= 5
+          ORDER BY p.stock ASC, p.nombre COLLATE "C" LIMIT 8`
+      );
+      const ofertas = await pool.query(
+        `SELECT p.local_id, l.nombre AS local, p.nombre, p.precio::float8 AS precio,
+                ${dctoVigente('p.')}::int AS descuento,
+                ${precioEfectivo('p.')}::float8 AS precio_efectivo,
+                p.oferta_hasta::float8 AS oferta_hasta
+           FROM ${T_PRODUCTOS} p LEFT JOIN ${T_LOCALES} l ON l.id = p.local_id
+          WHERE ${dctoVigente('p.')} > 0
+          ORDER BY descuento DESC, p.nombre COLLATE "C" LIMIT 8`
+      );
       return json(res, {
         ok: true, accion,
         resumen: {
           locales: l.rows[0].n,
           locales_abiertos: abiertos.rows[0].n,
-          productos: p.rows[0].n,
+          productos: Number(pr.n) || 0,
           pedidos: pd.rows[0].n,
+          productos_oferta: Number(pr.ofertas) || 0,
+          stock_bajo: Number(pr.stock_bajo) || 0,
+          stock_agotado: Number(pr.agotados) || 0,
+          valor_inventario: Number(pr.valor) || 0,
+          descuento_entregado: Number(ad.rows[0]?.n) || 0,
         },
+        stock_critico: criticos.rows,
+        ofertas: ofertas.rows,
         tope_plan: TOPE_PLAN,
       });
     }

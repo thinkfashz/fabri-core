@@ -654,6 +654,7 @@
 }
 .mp-mas:hover { background: var(--mp-sunken); border-color: var(--mp-tx4); }
 .mp-mas:active { transform: scale(.92); }
+.mp-mas[disabled] { opacity: .3; pointer-events: none; }
 
 .mp-hoja-pie { position: sticky; bottom: 0; padding-top: 12px; background: linear-gradient(180deg, transparent, #0b0d10 42%); }
 .mp-pedido {
@@ -712,6 +713,11 @@
   font-size: 11.5px; color: var(--mp-tx3);
 }
 .mp-car-grupo footer b { font-size: 15px; color: var(--mp-oro); font-weight: 750; }
+.mp-car-ahorro {
+  margin: 7px 0 0; padding: 6px 9px; border-radius: var(--mp-r-sm);
+  background: rgba(200,245,66,.07); border: 1px solid rgba(200,245,66,.18);
+  font-size: 10.5px; color: var(--mp-lima);
+}
 .mp-car-grupo .btn { margin-top: 10px; }
 .mp-car-total {
   display: flex; justify-content: space-between; align-items: baseline;
@@ -962,6 +968,7 @@ body.mp-abierto .nav { transform: translateY(112%); transition: transform .24s c
 .mp-pago-linea span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mp-pago-linea b { flex: 0 0 auto; color: var(--mp-tx); font-weight: 650; }
 .mp-pago-sub { color: var(--mp-tx3); padding-top: 6px; border-top: 1px solid rgba(255,255,255,.05); }
+.mp-pago-ahorro, .mp-pago-ahorro b { color: var(--mp-lima); }
 .mp-sec { margin-bottom: 16px; }
 .mp-sec h3 { margin: 0 0 9px; font-size: 11px; font-weight: 750; letter-spacing: .1em; text-transform: uppercase; color: var(--mp-tx3); }
 .mp-campo {
