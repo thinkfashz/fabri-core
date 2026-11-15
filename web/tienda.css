@@ -929,3 +929,19 @@ img { max-width: 100%; display: block; }
 .sg-resena .ds-btn { box-sizing: border-box; margin-top: 2px; }
 .sg-resena-nota { margin: 0; font-size: 10.5px; }
 .sg-resena-hecha { border-color: rgba(61,220,132,.3); background: rgba(61,220,132,.06); }
+
+/* ── avisos del pedido (push) ───────────────────────────────────────────── */
+/* El comprador activa las notificaciones desde la página de seguimiento, con
+   el mismo token que ya usa para ver el pedido. Sin permiso del navegador no
+   se muestra nada: no se finge un botón que no puede funcionar. */
+.sg-avisos { display: grid; gap: 8px; }
+.sg-avisos-cab { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.sg-avisos h2 { margin: 0; font-size: 14px; font-weight: 750; letter-spacing: -.01em; }
+.sg-avisos .ds-btn { box-sizing: border-box; }
+.sg-avisos-nota { margin: 0; }
+.sg-avisos-quitar {
+  justify-self: start; padding: 6px 2px; border: 0; background: none; cursor: pointer;
+  font: inherit; font-size: 11.5px; font-weight: 650; color: var(--ds-text-tertiary);
+  text-decoration: underline; text-underline-offset: 3px;
+}
+.sg-avisos-quitar:hover { color: var(--ds-err); }

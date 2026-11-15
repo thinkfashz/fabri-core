@@ -44,6 +44,10 @@ sirve para `usuarios` y `resumen`. No se escribe en la web ni se comparte.
 | `CORE_MAX_CUENTAS` | opcional | tope de cuentas (200 por defecto) |
 | `CORE_ROOT_EMAIL` | opcional | correo que siempre tiene rol `owner` (en producción: `F.eduardomicolta@gmail.com`) |
 | `VISITAS_SAL` | opcional | sal del contador de visitas |
+| `VAPID_PUBLIC` | para avisos push | clave pública P-256 (87 chars) que el navegador usa para suscribirse |
+| `VAPID_PRIVATE` | para avisos push | clave privada (43 chars). Nunca sale del servidor |
+| `VAPID_SUBJECT` | opcional | contacto del emisor (`https://…` o `mailto:…`); por defecto el sitio |
+| `PUBLIC_SITE` | opcional | origen para armar el enlace del aviso; por defecto `https://forge-core-stock.vercel.app` |
 
 ### `forge-core-stock` (web)
 
@@ -128,6 +132,8 @@ Autorización, en este orden:
 | `resena_crear` | público | califica un pedido entregado (token o código + teléfono) |
 | `resenas_panel` | dueño · clave · admin | todas las reseñas, con las ocultas |
 | `resena_moderar` | dueño · clave · admin | oculta o muestra una reseña |
+| `push_suscribir` | público | suscribe un navegador a los avisos de un pedido (token o código + teléfono) |
+| `push_baja` | público | quita ese navegador de los avisos |
 | `pedido_seguir` | público | estado del pedido por `token` o por `codigo` + `contacto` (últimos 4 del teléfono) |
 | `ventas_serie` | dueño · clave · admin | resumen del panel: serie diaria, top de productos, conteo por estado, visitas y conversión (`dias` 1–90, por defecto 7) |
 
@@ -140,6 +146,7 @@ Autorización, en este orden:
 | `mercado_pedidos` | pedidos, estado actual y `seguimiento` (token) |
 | `mercado_pedido_eventos` | historial de estados (línea de tiempo del comprador) |
 | `mercado_resenas` | calificación por pedido entregado, con `oculta` para moderar |
+| `mercado_push` | suscripciones de navegador para avisar el cambio de estado |
 
 ### Esquema nuevo de `mercado_locales`
 
@@ -367,6 +374,49 @@ Detalles que importan:
   sesión de nube tiene `rol === 'owner'`. La pantalla igual queda protegida por el
   token: el rol sólo evita mostrar el botón a quien no lo necesita.
 
+## Avisos push del pedido
+
+El comprador puede pedir que le avisen **sin instalar nada**: desde la página de
+seguimiento, con el mismo enlace del pedido, activa las notificaciones y el
+local le avisa solo cuando el estado cambia.
+
+| Pieza | Dónde |
+|---|---|
+| VAPID (JWT ES256) y cifrado `aes128gcm` (RFC 8291) sin dependencias | `api-telefono/api/_push.js` |
+| Tabla `mercado_push` y acciones `push_suscribir` / `push_baja` | `api-telefono/api/mercado.ts` |
+| Envío al cambiar de estado (`pedido_estado`), en mejor esfuerzo | `api-telefono/api/mercado.ts` |
+| Service worker de avisos, en la raíz y sin caché | `web/sw-push.js` |
+| Bloque «Avisarme cuando cambie» | `web/tienda-seguir.js`, `.sg-avisos` en `web/tienda.css` |
+
+Decisiones que importan:
+
+- **No hay dependencias nuevas.** `node:crypto` firma el JWT de VAPID
+  (`dsaEncoding: 'ieee-p1363'`, que es el formato de JWS) y hace el cifrado del
+  contenido: ECDH con la clave del navegador, HKDF-SHA256 y AES-128-GCM. El
+  servicio de push del navegador nunca ve el texto ni el enlace.
+- **El permiso se pide al tocar el botón**, nunca al cargar la página. Si el
+  navegador no soporta push (o el permiso está bloqueado), el bloque se explica
+  y no se finge un botón que no va a funcionar.
+- **El service worker de avisos va en la raíz** (`/sw-push.js`) porque
+  `seguir.html` está fuera del alcance de `/app/sw.js`. No tiene `fetch`: no
+  cachea ni intercepta nada, así que la app y el sitio siguen igual. El de
+  `/app/` sigue mandando dentro de `/app/`.
+- **La suscripción se ata al pedido**: se identifica con el token del enlace o
+  con el código + últimos 4 del teléfono, igual que el seguimiento. Máximo 5
+  dispositivos por pedido; el mismo navegador se actualiza en vez de duplicarse.
+- **El `endpoint` nunca se devuelve.** Es una URL de capacidad: quien la tiene
+  puede mandar avisos a ese navegador. En la base se guarda su `sha256` para el
+  índice único.
+- **El aviso no lleva datos de más**: título = local, cuerpo corto según el
+  estado, código del pedido y el enlace de seguimiento. Nada de teléfono ni
+  nombre completo.
+- **Si el push falla, el pedido cambia igual.** El envío va después de guardar,
+  con tope de 2 s por dispositivo y 3 dispositivos por aviso; una suscripción
+  muerta (404/410) se borra sola. `pedido_estado` devuelve `avisados` con cuántos
+  salieron.
+- **Sin `VAPID_PUBLIC`/`VAPID_PRIVATE` el push se apaga solo**: el seguimiento
+  responde `push.disponible: false` y no muestra el bloque. La API no falla.
+
 ## Pruebas
 
 ```sh
@@ -374,6 +424,7 @@ node tests/web/negocio.js     # 118 comprobaciones: parsers, filtros, CSV, gráf
 node tests/web/plataforma.js  # 57 comprobaciones: puras, ids, seguridad del token, endpoints, precache
 node tests/web/seguimiento.js # 70 comprobaciones: código, teléfono, estados, línea de tiempo, contrato API/HTML
 node tests/web/resenas.js     # 83 comprobaciones: contrato de reseñas, estrellas, reparto, privacidad, panel
+node tests/web/push.js        # 68 comprobaciones: cifrado ida y vuelta, VAPID, contrato, service worker
 node tests/web/auth-nube.js   # incluye CORE_ROOT_EMAIL y promoción a owner
 node tests/web/diseno.js      # shell, sistema visual y offline
 node tests/web/trafico.js     # capa de tráfico del mapa
@@ -424,8 +475,20 @@ aparece con el pedido entregado, calificar por API publica la reseña, la ficha
 y el `locales` la traen, el panel la ve y el resumen la cuenta, ocultar la saca
 del público.
 
+Los avisos push se probaron primero sin red: el cifrado ida y vuelta (el
+servidor cifra, el "navegador" descifra con su clave), la firma del JWT de VAPID
+verificada con la clave pública y un **envío real a un servidor de push falso**
+que comprueba método, cabeceras `Authorization`/`Content-Encoding`/`TTL` y
+descifra lo recibido (**68 comprobaciones**). Después contra la API real, con
+cuenta y tienda desechables: el seguimiento publica la clave, la suscripción se
+guarda y no duplica, funciona por token y por código, se rechazan endpoint
+`http`, token inexistente y claves basura, el cambio de estado responde
+`avisados: 0` sin romperse aunque el endpoint no exista, la baja borra una y sólo
+una vez, y un pedido entregado ya no acepta suscripciones (**25**).
+
 Visualmente, a 390 px: la ficha con reseñas y sin ellas, el formulario en
-`seguir.html`, y la pestaña Reseñas del panel. Ahí salieron dos bugs reales: el
+`seguir.html`, la pestaña Reseñas del panel y el bloque de avisos en sus dos
+estados (activar / activado). Ahí salieron dos bugs reales: el
 formulario pintaba cinco estrellas **por botón** (25 en total, y eso desbordaba
 la tarjeta), y el encabezado y los autores dependían del color heredado del
 contenedor. Las cinco pestañas del panel tampoco cabían con el contador en

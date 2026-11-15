@@ -35,6 +35,8 @@
 //   POST { accion: "pedido_seguir", codigo, contacto }
 //                                              → igual, con código MP-XXXXX y
 //                                                los últimos 4 del teléfono
+//   POST { accion: "push_suscribir", token, suscripcion } → avisos push del pedido (PÚBLICO)
+//   POST { accion: "push_baja", token, endpoint }         → deja de avisar (PÚBLICO)
 //   POST { accion: "resenas_listar", local_id } → reseñas visibles + promedio (PÚBLICO)
 //   POST { accion: "resena_crear", token, estrellas, texto }
 //                                              → califica un pedido entregado (PÚBLICO)
@@ -72,6 +74,8 @@ import type { IncomingMessage, ServerResponse } from 'http';
 import { createHash, randomBytes } from 'crypto';
 // @ts-ignore: `_auth.js` es JavaScript puro, sin declaraciones de tipos.
 import { sha256hex, huellaDispositivo, iguales, dispositivo as normDispositivo } from './_auth.js';
+// @ts-ignore: `_push.js` es JavaScript puro: VAPID y cifrado Web Push sin dependencias.
+import { enviar as enviarPush } from './_push.js';
 
 export const config = { api: { bodyParser: false } };
 
@@ -80,6 +84,7 @@ const T_PRODUCTOS = 'mercado_productos';
 const T_PEDIDOS = 'mercado_pedidos';
 const T_EVENTOS = 'mercado_pedido_eventos';
 const T_RESENAS = 'mercado_resenas';
+const T_PUSH = 'mercado_push';
 const T_CUENTAS = 'core_usuarios';
 const T_SESIONES = 'core_sesiones';
 
@@ -280,6 +285,28 @@ function ultimos4(v: unknown): string {
   return d.length >= 4 ? d.slice(-4) : '';
 }
 
+/** Pedido a partir del enlace (token) o del código + últimos 4 del teléfono. */
+async function pedidoPorCredencial(pool: any, cuerpo: Fila) {
+  const token = texto(cuerpo.token, 64).trim().toLowerCase();
+  if (token) {
+    const r = await pool.query(
+      `SELECT id, estado, seguimiento FROM ${T_PEDIDOS} WHERE seguimiento = $1 LIMIT 1`, [token]
+    );
+    return r.rows[0] || null;
+  }
+  const codigo = codigoComparable(cuerpo.codigo);
+  const contacto = ultimos4(cuerpo.contacto);
+  if (!codigo || !contacto) return null;
+  const r = await pool.query(
+    `SELECT id, estado, seguimiento FROM ${T_PEDIDOS}
+      WHERE upper(regexp_replace(codigo, '[^A-Za-z0-9]', '', 'g')) = $1
+        AND telefono <> ''
+        AND right(regexp_replace(telefono, '[^0-9]', '', 'g'), 4) = $2
+      ORDER BY creado DESC LIMIT 1`, [codigo, contacto]
+  );
+  return r.rows[0] || null;
+}
+
 /* ── tablas ─────────────────────────────────────────────────────────────── */
 
 /** El esquema se comprueba una vez por instancia: las migraciones
@@ -387,6 +414,25 @@ async function asegurar(pool: any) {
                       ON ${T_RESENAS} (pedido_id)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_mercado_resenas_local
                       ON ${T_RESENAS} (local_id, creado DESC)`);
+  // Avisos push: una fila por dispositivo suscrito a un pedido. El `endpoint`
+  // es una URL de capacidad (quien la tiene puede mandar avisos a ese
+  // navegador), así que nunca se devuelve al cliente. La `huella` permite el
+  // índice único sin acercarse al límite de una clave btree con URLs largas.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ${T_PUSH} (
+      id        TEXT PRIMARY KEY,
+      pedido_id TEXT NOT NULL,
+      huella    TEXT NOT NULL,
+      endpoint  TEXT NOT NULL,
+      p256dh    TEXT NOT NULL,
+      auth      TEXT NOT NULL,
+      creado    TIMESTAMPTZ NOT NULL DEFAULT now(),
+      ultimo_ok TIMESTAMPTZ
+    )`);
+  await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_mercado_push_pedido
+                      ON ${T_PUSH} (pedido_id, huella)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_mercado_push_pedido_id
+                      ON ${T_PUSH} (pedido_id)`);
   esquemaListo = true;
 }
 
@@ -483,6 +529,91 @@ function autorPublico(nombre: unknown): string {
 }
 
 /* ── escrituras ─────────────────────────────────────────────────────────── */
+
+/* ── avisos push ────────────────────────────────────────────────────────── */
+
+/**
+ * VAPID desde el entorno. Si falta alguna de las dos claves el push queda
+ * apagado y la API sigue funcionando: la suscripción responde 503 con un
+ * mensaje claro en vez de romper el pedido o el panel.
+ */
+function vapidConfig() {
+  const publica = String(process.env.VAPID_PUBLIC || '').trim();
+  const privada = String(process.env.VAPID_PRIVATE || '').trim();
+  if (!publica || !privada) return null;
+  return {
+    publica,
+    privada,
+    subject: String(process.env.VAPID_SUBJECT || 'mailto:soporte@fabrick.cl').trim(),
+  };
+}
+
+function sitioPublico(): string {
+  return String(process.env.PUBLIC_SITE || 'https://forge-core-stock.vercel.app').replace(/\/+$/, '');
+}
+
+/** Aviso corto para la notificación: sin teléfono ni nombre completo. */
+function textoAviso(estado: string, pedido: any) {
+  const local = texto(pedido.local_nombre, 80).trim() || 'Tu local';
+  const delivery = pedido.entrega === 'delivery';
+  let cuerpo = 'Recibimos tu pedido.';
+  if (estado === 'visto') cuerpo = 'Están preparando tu pedido.';
+  else if (estado === 'listo') cuerpo = delivery ? 'Tu pedido va en camino.' : 'Tu pedido está listo para retirar.';
+  else if (estado === 'entregado') cuerpo = 'Pedido entregado. Puedes calificarlo.';
+  else if (estado === 'cancelado') cuerpo = 'Tu pedido fue cancelado.';
+  return {
+    titulo: local,
+    cuerpo,
+    codigo: texto(pedido.codigo, 20),
+    url: sitioPublico() + '/seguir.html?t=' + encodeURIComponent(texto(pedido.seguimiento, 64)),
+  };
+}
+
+/**
+ * Manda el aviso a los dispositivos suscritos a ese pedido. Es "mejor
+ * esfuerzo": si el servicio de push falla, el cambio de estado ya quedó
+ * guardado y el panel no se entera. Una suscripción muerta (404/410) se borra.
+ */
+async function avisarCambio(pool: any, pedidoId: string, estado: string): Promise<number> {
+  const cfg = vapidConfig();
+  if (!cfg) return 0;
+  let enviados = 0;
+  try {
+    const p = await pool.query(
+      `SELECT p.codigo,p.seguimiento,p.entrega,l.nombre AS local_nombre
+         FROM ${T_PEDIDOS} p LEFT JOIN ${T_LOCALES} l ON l.id = p.local_id
+        WHERE p.id = $1`, [pedidoId]
+    );
+    const pedido = p.rows[0];
+    if (!pedido || !pedido.seguimiento) return 0;
+
+    // Tres dispositivos por pedido como máximo: el aviso sale rápido y no se
+    // come el tiempo de la función.
+    const subs = await pool.query(
+      `SELECT id,endpoint,p256dh,auth FROM ${T_PUSH} WHERE pedido_id = $1 LIMIT 3`,
+      [pedidoId]
+    );
+    if (!subs.rowCount) return 0;
+
+    const aviso = JSON.stringify(textoAviso(estado, pedido));
+    await Promise.allSettled(subs.rows.map(async (s: any) => {
+      try {
+        const r = await enviarPush(
+          { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
+          aviso,
+          { publica: cfg.publica, privada: cfg.privada, subject: cfg.subject, timeoutMs: 2000 }
+        );
+        if (r.status === 404 || r.status === 410) {
+          await pool.query(`DELETE FROM ${T_PUSH} WHERE id = $1`, [s.id]);
+        } else if (r.ok) {
+          enviados++;
+          await pool.query(`UPDATE ${T_PUSH} SET ultimo_ok = now() WHERE id = $1`, [s.id]);
+        }
+      } catch (e) { /* sin red o servicio caído: se ignora */ }
+    }));
+  } catch (e) { /* base o red: el pedido ya está actualizado */ }
+  return enviados;
+}
 
 function normalizarLocal(crudo: Fila) {
   const lat = Number(crudo.lat), lon = Number(crudo.lon);
@@ -682,7 +813,8 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       acciones: [
         'asegurar', 'locales', 'local_crear', 'local_mio', 'local_actualizar',
         'local_estado', 'local_borrar', 'productos_subir', 'producto_borrar',
-        'pedido_crear', 'pedido_seguir', 'pedidos_listar', 'pedido_estado',
+        'pedido_crear', 'pedido_seguir', 'push_suscribir', 'push_baja',
+        'pedidos_listar', 'pedido_estado',
         'resenas_listar', 'resena_crear', 'resenas_panel', 'resena_moderar',
         'ventas_serie', 'resumen',
       ],
@@ -720,7 +852,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     await asegurar(pool);
 
     if (accion === 'asegurar') {
-      return json(res, { ok: true, accion, tablas: [T_LOCALES, T_PRODUCTOS, T_PEDIDOS, T_EVENTOS, T_RESENAS] });
+      return json(res, { ok: true, accion, tablas: [T_LOCALES, T_PRODUCTOS, T_PEDIDOS, T_EVENTOS, T_RESENAS, T_PUSH] });
     }
 
     /* ── lecturas por POST (mismo contrato para la APK) ── */
@@ -893,6 +1025,11 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       const { local, motivo } = await autorizarLocal(pool, req, localId, texto(cuerpo.clave, 60));
       if (!local) return json(res, { ok: false, error: 'no autorizado', codigo: motivo }, 401);
       await pool.query(`DELETE FROM ${T_PRODUCTOS} WHERE local_id = $1`, [localId]);
+      // Los avisos cuelgan del pedido: se van antes que los pedidos.
+      await pool.query(
+        `DELETE FROM ${T_PUSH}
+          WHERE pedido_id IN (SELECT id FROM ${T_PEDIDOS} WHERE local_id = $1)`, [localId]
+      );
       await pool.query(`DELETE FROM ${T_PEDIDOS} WHERE local_id = $1`, [localId]);
       // Las reseñas cuelgan del local, no del pedido: si no se borran quedan
       // huérfanas y reaparecen si alguien reabre una tienda con el mismo id.
@@ -1026,6 +1163,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
        Nunca devuelve el teléfono completo, el token ni el id interno. */
     if (accion === 'pedido_seguir') {
       const ip = ipDe(req);
+      const pushCfg = vapidConfig();
       if (seguirBloqueado(ip)) {
         return json(res, {
           ok: false, codigo: 'BLOQUEADO',
@@ -1101,6 +1239,11 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
           creado: fila.creado,
           actualizado: fila.actualizado,
           eventos: ev.rows,
+          // La clave pública de VAPID es pública por definición: el navegador
+          // la necesita para suscribirse. Si el push está apagado, no se finge.
+          push: pushCfg
+            ? { disponible: true, clave: pushCfg.publica }
+            : { disponible: false, clave: '' },
           local: {
             nombre: fila.local_nombre || '',
             telefono: fila.local_telefono || '',
@@ -1111,6 +1254,88 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
           },
         },
       });
+    }
+
+    /* ── avisos push del comprador (PÚBLICO, con el token del pedido) ──────
+       El comprador suscribe su navegador desde la página de seguimiento. El
+       pedido se identifica con el mismo token del enlace: no hay cuenta.
+       El `endpoint` es una URL de capacidad y nunca se devuelve. */
+    if (accion === 'push_suscribir') {
+      const cfg = vapidConfig();
+      if (!cfg) {
+        return json(res, {
+          ok: false, codigo: 'SIN_PUSH',
+          error: 'las notificaciones no están configuradas en este servidor',
+        }, 503);
+      }
+      const sus = (cuerpo.suscripcion && typeof cuerpo.suscripcion === 'object' ? cuerpo.suscripcion : {}) as Fila;
+      const claves = (sus.keys && typeof sus.keys === 'object' ? sus.keys : {}) as Fila;
+      const endpoint = texto(sus.endpoint, 1000).trim();
+      const p256dh = texto(claves.p256dh, 200).trim();
+      const auth = texto(claves.auth, 100).trim();
+
+      if (!endpoint || !p256dh || !auth) {
+        return json(res, { ok: false, codigo: 'FALTAN_DATOS', error: 'faltan datos de la suscripción' }, 400);
+      }
+      if (!/^https:\/\//i.test(endpoint)) {
+        return json(res, { ok: false, codigo: 'ENDPOINT', error: 'el endpoint debe ser https' }, 400);
+      }
+      if (p256dh.length < 40 || auth.length < 10) {
+        return json(res, { ok: false, codigo: 'CLAVES', error: 'las claves del navegador no son válidas' }, 400);
+      }
+
+      const pedido = await pedidoPorCredencial(pool, cuerpo);
+      if (!pedido) {
+        return json(res, { ok: false, codigo: 'NO_ENCONTRADO', error: 'no encontramos ese pedido' }, 404);
+      }
+      if (pedido.estado === 'entregado' || pedido.estado === 'cancelado') {
+        return json(res, { ok: false, codigo: 'CERRADO', error: 'ese pedido ya terminó' }, 409);
+      }
+
+      // El endpoint es único por pedido: si el navegador vuelve a suscribirse,
+      // se actualizan sus claves en vez de duplicar el aviso.
+      const huella = sha256hex(endpoint);
+      const ya = await pool.query(
+        `SELECT id FROM ${T_PUSH} WHERE pedido_id = $1 AND huella = $2`, [pedido.id, huella]
+      );
+      if (ya.rowCount) {
+        await pool.query(
+          `UPDATE ${T_PUSH} SET endpoint = $2, p256dh = $3, auth = $4 WHERE id = $1`,
+          [ya.rows[0].id, endpoint, p256dh, auth]
+        );
+        return json(res, { ok: true, accion, avisos: true, actualizado: true });
+      }
+
+      const total = await pool.query(
+        `SELECT COUNT(*)::int AS n FROM ${T_PUSH} WHERE pedido_id = $1`, [pedido.id]
+      );
+      if (Number(total.rows[0]?.n) >= 5) {
+        return json(res, { ok: false, codigo: 'TOPE', error: 'este pedido ya tiene 5 dispositivos' }, 409);
+      }
+
+      await pool.query(
+        `INSERT INTO ${T_PUSH} (id,pedido_id,huella,endpoint,p256dh,auth)
+         VALUES ($1,$2,$3,$4,$5,$6)`,
+        ['push-' + Date.now().toString(36) + randomBytes(4).toString('hex'),
+          pedido.id, huella, endpoint, p256dh, auth]
+      );
+      return json(res, { ok: true, accion, avisos: true });
+    }
+
+    if (accion === 'push_baja') {
+      const endpoint = texto(cuerpo.endpoint, 1000).trim();
+      if (!endpoint) {
+        return json(res, { ok: false, codigo: 'FALTAN_DATOS', error: 'falta el endpoint' }, 400);
+      }
+      const pedido = await pedidoPorCredencial(pool, cuerpo);
+      if (!pedido) {
+        return json(res, { ok: false, codigo: 'NO_ENCONTRADO', error: 'no encontramos ese pedido' }, 404);
+      }
+      const r = await pool.query(
+        `DELETE FROM ${T_PUSH} WHERE pedido_id = $1 AND huella = $2`,
+        [pedido.id, sha256hex(endpoint)]
+      );
+      return json(res, { ok: true, accion, borrados: r.rowCount });
     }
 
     /* ── reseñas (público: leer y escribir) ─────────────────────────────────
@@ -1312,6 +1537,9 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         await pool.query(
           `INSERT INTO ${T_EVENTOS} (pedido_id, estado) VALUES ($1, $2)`, [pedidoId, estado]
         );
+        // El aviso push va después de guardar: si falla, el pedido ya cambió.
+        const avisados = await avisarCambio(pool, pedidoId, estado);
+        return json(res, { ok: true, accion, cambiados: r.rowCount, estado, avisados });
       }
       return json(res, { ok: true, accion, cambiados: r.rowCount, estado });
     }

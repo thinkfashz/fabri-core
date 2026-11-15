@@ -6,7 +6,51 @@
 > `cl.fabrick.core`, crate `fabrick-core`, dominio `forge-core-stock.vercel.app`,
 > repo `thinkfashz/fabri-core`.
 
-Última actualización: 2026-11-14
+Última actualización: 2026-11-15
+
+## Sesión 2026-11-15 · Fase 6: avisos push del pedido
+
+Pedido: «continúa» con la Fase 6: que el comprador reciba el aviso solo, sin
+que el dueño tenga que apretar «Avisar» por WhatsApp.
+
+| Pieza | Dónde |
+|---|---|
+| VAPID (ES256) + cifrado `aes128gcm` sin dependencias | `api-telefono/api/_push.js` |
+| Tabla `mercado_push` + `push_suscribir` / `push_baja` | `api-telefono/api/mercado.ts` |
+| Envío al cambiar estado (`avisarCambio`) | `api-telefono/api/mercado.ts` |
+| Service worker de avisos en la raíz, sin caché | `web/sw-push.js` |
+| Bloque «Avisarme cuando cambie» | `web/tienda-seguir.js`, `web/tienda.css` |
+| Pruebas (68 comprobaciones) | `tests/web/push.js` |
+| Documentación | `docs/TIENDAS-MULTI.md` |
+
+- **Cero dependencias nuevas**: `node:crypto` firma el JWT de VAPID
+  (`dsaEncoding: 'ieee-p1363'`) y hace el cifrado RFC 8291 (ECDH + HKDF-SHA256
+  + AES-128-GCM). `_push.js` queda como dependencia de `mercado.ts`, no como
+  función: `vercel.json` sólo compila `api/*.ts`, así que la API sigue en 12.
+- **El service worker va en la raíz** (`/sw-push.js`) porque `seguir.html` está
+  fuera del alcance de `/app/sw.js`. No tiene `fetch`: no cachea ni intercepta,
+  así que no hay que subir versión del service worker de la app.
+- **Suscripción atada al pedido** con el token del enlace o con código +
+  últimos 4 del teléfono; máximo 5 dispositivos y el mismo navegador se
+  actualiza en vez de duplicarse. El `endpoint` nunca se devuelve: en la base
+  se guarda su `sha256` para el índice único.
+- **El permiso se pide al tocar el botón**, nunca al cargar; si el navegador no
+  soporta push o el permiso está bloqueado, el bloque lo explica.
+- **Mejor esfuerzo**: el aviso sale después de guardar el cambio, con tope de
+  2 s por dispositivo y 3 por pedido; una suscripción muerta (404/410) se borra.
+  `pedido_estado` devuelve `avisados`. Si no hay claves VAPID, el seguimiento
+  publica `push.disponible: false` y no muestra el bloque.
+- **Sin datos de más en el aviso**: local, estado en palabras, código y enlace.
+  Ni teléfono ni nombre completo.
+- **Verificado**: 68 comprobaciones sin red (ida y vuelta del cifrado, JWT
+  verificado, envío real a un servidor falso con descifrado, contrato,
+  service worker y página) y 25 contra la API real (publica la clave, guarda y
+  no duplica, token y código, rechazos, cambio de estado sin romperse, baja
+  única, pedido terminado). Batería completa y arranque en verde. Captura a
+  390 px del bloque en sus dos estados.
+- **Deploy**: API `fabri-i62b71kaz…` READY (con `VAPID_PUBLIC`, `VAPID_PRIVATE`
+  y `VAPID_SUBJECT` cargadas); web `forge-core-stock-hzp8izwvu…` READY.
+  `sw-push.js` se sirve con `max-age=0, must-revalidate`.
 
 ## Sesión 2026-11-14 · Fase 5: reseñas y calificación de la tienda
 

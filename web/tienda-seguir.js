@@ -16,6 +16,8 @@
   var MERCADO = "https://fabri-api.vercel.app/api/mercado";
   var K_ULTIMO = "fcs.seguir.ultimo";   // { codigo, token } del último pedido
   var K_RESENADO = "fcs.seguir.resenado"; // pedidos ya calificados en este equipo
+  var K_AVISOS = "fcs.seguir.avisos";   // { <clave del pedido>: endpoint }
+  var SW_AVISOS = "/sw-push.js";
   var F = window.FCS || {};
   /* Con qué se probó que el pedido es tuyo: el enlace (token) o el código +
      los últimos 4 del teléfono. La reseña viaja con lo mismo. */
@@ -71,6 +73,8 @@
     }
     return e;
   }
+
+  var ULTIMO_PEDIDO = null;
 
   var PASOS = [
     { clave: "nuevo", txt: "Pedido recibido" },
@@ -300,6 +304,198 @@
     });
   }
 
+  /* ── avisos push del pedido ───────────────────────────────────────────── */
+
+  function soportaAvisos() {
+    return typeof window !== "undefined" && "Notification" in window &&
+      "serviceWorker" in navigator && "PushManager" in window;
+  }
+
+  /** endpoint guardado para este pedido ("" si no se activaron los avisos). */
+  function avisosActivos(cred) {
+    var clave = claveCred(cred);
+    if (!clave) return "";
+    try {
+      var d = JSON.parse(localStorage.getItem(K_AVISOS) || "{}") || {};
+      return typeof d[clave] === "string" ? d[clave] : "";
+    } catch (e) { return ""; }
+  }
+
+  function guardarAviso(cred, endpoint) {
+    var clave = claveCred(cred);
+    if (!clave) return;
+    try {
+      var d = JSON.parse(localStorage.getItem(K_AVISOS) || "{}") || {};
+      d[clave] = endpoint;
+      localStorage.setItem(K_AVISOS, JSON.stringify(d));
+    } catch (e) { /* modo privado: los avisos igual quedan activos en el navegador */ }
+  }
+
+  function borrarAviso(cred) {
+    var clave = claveCred(cred);
+    if (!clave) return;
+    try {
+      var d = JSON.parse(localStorage.getItem(K_AVISOS) || "{}") || {};
+      delete d[clave];
+      localStorage.setItem(K_AVISOS, JSON.stringify(d));
+    } catch (e) { /* nada */ }
+  }
+
+  /** base64url → Uint8Array, que es lo que pide `applicationServerKey`. */
+  function claveToUint8(b64) {
+    var s = String(b64 || "").replace(/-/g, "+").replace(/_/g, "/");
+    while (s.length % 4) s += "=";
+    var raw = atob(s);
+    var out = new Uint8Array(raw.length);
+    for (var i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+    return out;
+  }
+
+  function cuerpoAviso(accion, suscripcion) {
+    var cuerpo = { accion: accion };
+    if (CRED.token) cuerpo.token = CRED.token;
+    else { cuerpo.codigo = CRED.codigo; cuerpo.contacto = CRED.contacto; }
+    if (suscripcion) cuerpo.suscripcion = suscripcion;
+    return cuerpo;
+  }
+
+  function bloqueAvisos(pedido) {
+    if (!pedido || !pedido.push || !pedido.push.disponible) return "";
+    if (pedido.estado === "entregado" || pedido.estado === "cancelado") return "";
+    if (!soportaAvisos()) return "";
+    if (!claveCred(CRED)) return "";
+    var activo = avisosActivos(CRED);
+    return '<section class="ds-card sg-avisos" id="sgAvisos" data-clave="' + esc(claveCred(CRED)) + '">' +
+      '<div class="sg-avisos-cab"><h2>Avisarme cuando cambie</h2>' +
+        (activo ? '<span class="ds-badge ds-badge--ok">activado</span>' : "") +
+      "</div>" +
+      '<p class="sg-dato">' + (activo
+        ? "Te avisaremos en este teléfono cuando el local mueva tu pedido."
+        : "Una notificación en este teléfono cuando el local reciba, prepare o entregue tu pedido.") + "</p>" +
+      (activo
+        ? '<button type="button" class="sg-avisos-quitar" id="sgAvisosQuitar">Dejar de avisar</button>'
+        : '<button type="button" class="ds-btn ds-btn--secondary ds-btn--block" id="sgAvisosBtn">Activar avisos</button>') +
+      '<p class="sg-error" id="sgAvisosError" role="alert" hidden></p>' +
+    "</section>";
+  }
+
+  function pintarBotonAvisos(activo) {
+    var caja = document.getElementById("sgAvisos");
+    if (!caja) return;
+    caja.innerHTML =
+      '<div class="sg-avisos-cab"><h2>Avisarme cuando cambie</h2>' +
+        (activo ? '<span class="ds-badge ds-badge--ok">activado</span>' : "") +
+      "</div>" +
+      '<p class="sg-dato">' + (activo
+        ? "Te avisaremos en este teléfono cuando el local mueva tu pedido."
+        : "Una notificación en este teléfono cuando el local reciba, prepare o entregue tu pedido.") + "</p>" +
+      (activo
+        ? '<button type="button" class="sg-avisos-quitar" id="sgAvisosQuitar">Dejar de avisar</button>'
+        : '<button type="button" class="ds-btn ds-btn--secondary ds-btn--block" id="sgAvisosBtn">Activar avisos</button>') +
+      '<p class="sg-error" id="sgAvisosError" role="alert" hidden></p>';
+    engancharAvisos();
+  }
+
+  function errorAvisos(txt) {
+    var el = document.getElementById("sgAvisosError");
+    if (!el) return;
+    if (!txt) { el.hidden = true; el.textContent = ""; return; }
+    el.hidden = false;
+    el.textContent = txt;
+  }
+
+  function activarAvisos(pedido) {
+    var btn = document.getElementById("sgAvisosBtn");
+    if (btn) { btn.disabled = true; btn.textContent = "Activando…"; }
+    errorAvisos("");
+
+    if (Notification.permission === "denied") {
+      if (btn) { btn.disabled = false; btn.textContent = "Activar avisos"; }
+      errorAvisos("El navegador tiene bloqueadas las notificaciones para este sitio. " +
+        "Actívalas en los ajustes del navegador y vuelve a intentar.");
+      return;
+    }
+
+    var pedir = Notification.permission === "granted"
+      ? Promise.resolve("granted")
+      : Notification.requestPermission();
+
+    pedir.then(function (permiso) {
+      if (permiso !== "granted") {
+        throw new Error("permiso");
+      }
+      return navigator.serviceWorker.register(SW_AVISOS);
+    }).then(function (reg) {
+      return reg.pushManager.getSubscription().then(function (actual) {
+        if (actual) return actual;
+        return reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: claveToUint8(pedido.push.clave)
+        });
+      });
+    }).then(function (sub) {
+      var json = sub.toJSON ? sub.toJSON() : null;
+      if (!json || !json.endpoint) throw new Error("suscripcion");
+      return buscar(cuerpoAviso("push_suscribir", json)).then(function (d) {
+        if (!d || !d.ok) throw new Error((d && d.error) || "no se pudo guardar");
+        guardarAviso(CRED, json.endpoint);
+        pintarBotonAvisos(true);
+      });
+    }).catch(function (e) {
+      if (btn) { btn.disabled = false; btn.textContent = "Activar avisos"; }
+      if (e && e.message === "permiso") {
+        errorAvisos("Sin permiso de notificaciones no podemos avisarte. Puedes activarlo desde los ajustes del navegador.");
+      } else if (e && e.message === "no se pudo guardar") {
+        errorAvisos("No pudimos registrar el aviso. Inténtalo de nuevo.");
+      } else {
+        errorAvisos("Este navegador no pudo activar los avisos. Revisa los permisos del sitio.");
+      }
+    });
+  }
+
+  function quitarAvisos() {
+    var btn = document.getElementById("sgAvisosQuitar");
+    if (btn) { btn.disabled = true; btn.textContent = "Quitando…"; }
+    var endpoint = avisosActivos(CRED);
+
+    function darDeBaja(ep) {
+      if (!ep) return Promise.resolve();
+      return fetch(MERCADO, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(Object.assign(cuerpoAviso("push_baja"), { endpoint: ep }))
+      }).catch(function () { /* sin red: igual se borra en el navegador */ });
+    }
+
+    navigator.serviceWorker.getRegistration(SW_AVISOS).then(function (reg) {
+      var sub = reg && reg.pushManager ? reg.pushManager.getSubscription() : null;
+      return Promise.resolve(sub).then(function (s) {
+        if (!s) return darDeBaja(endpoint);
+        var json = s.toJSON ? s.toJSON() : {};
+        return s.unsubscribe().then(function () {
+          return darDeBaja(json.endpoint || endpoint);
+        });
+      });
+    }).then(function () {
+      borrarAviso(CRED);
+      pintarBotonAvisos(false);
+    }).catch(function () {
+      borrarAviso(CRED);
+      pintarBotonAvisos(false);
+    });
+  }
+
+  function engancharAvisos() {
+    var btn = document.getElementById("sgAvisosBtn");
+    if (btn) {
+      btn.onclick = function () {
+        if (ULTIMO_PEDIDO) activarAvisos(ULTIMO_PEDIDO);
+      };
+    }
+    var quitar = document.getElementById("sgAvisosQuitar");
+    if (quitar) quitar.onclick = quitarAvisos;
+  }
+
   /* ── pintado ──────────────────────────────────────────────────────────── */
 
   function error(txt) {
@@ -376,6 +572,7 @@
   function pintar(pedido) {
     var cont = document.getElementById("sgResultado");
     if (!cont) return;
+    ULTIMO_PEDIDO = pedido;
     var est = estadoInfo(pedido.estado, pedido.entrega);
     cont.innerHTML =
       '<div class="sg-estado sg-estado--' + est.clase + '">' +
@@ -388,6 +585,7 @@
       linea(pedido) +
       resumen(pedido) +
       localHtml(pedido) +
+      bloqueAvisos(pedido) +
       bloqueResena(pedido, CRED);
     cont.hidden = false;
     error("");
@@ -400,6 +598,7 @@
     var sub = document.getElementById("sgSub");
     if (sub) sub.textContent = "Este es el estado de tu pedido. El local lo actualiza desde su panel.";
 
+    engancharAvisos();
     engancharResena(CRED);
 
     try {
