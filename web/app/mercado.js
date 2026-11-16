@@ -1014,13 +1014,25 @@ window.Mercado = (function () {
 
     const salir3d = $("t3dSalir");
     if (salir3d) salir3d.onclick = () => {
-      // si se vino del mapa, "atrás" devuelve al mapa (con su hoja de local)
+      /* Atrás vuelve a donde se entró: el panel del dueño, la ficha del local
+         en el mapa, o el escaparate de la casa. */
+      const origen = window.Tienda3D && Tienda3D.origenDe ? Tienda3D.origenDe() : "";
       const alMapa = !!(window.Tienda3D && Tienda3D.fueDelMapa && Tienda3D.fueDelMapa());
       if (window.Tienda3D && Tienda3D.ponerTienda) Tienda3D.ponerTienda(null, null);
-      if (window.Fabri) window.Fabri.go(alMapa ? "panel" : "mercado");
+      if (window.Fabri) window.Fabri.go(origen === "negocio" ? "negocio" : alMapa ? "panel" : "mercado");
     };
     const car3d = $("t3dCarrito");
-    if (car3d) car3d.onclick = () => abrirCarrito();
+    if (car3d) car3d.onclick = () => {
+      /* Con un local abierto, el pedido vive en MercadoPlacer: se sale del
+         visor y se abre SU carrito, no el del escaparate de la casa. */
+      const local = window.Tienda3D && Tienda3D.localActivo ? Tienda3D.localActivo() : null;
+      if (local && window.Placer && window.Placer.abrirCarrito) {
+        if (window.Fabri) window.Fabri.go("panel");
+        setTimeout(() => window.Placer.abrirCarrito(), 80);
+        return;
+      }
+      abrirCarrito();
+    };
 
     const x = $("mercHojaX"), fondo = $("mercHojaFondo");
     if (x) x.onclick = cerrarDetalle;

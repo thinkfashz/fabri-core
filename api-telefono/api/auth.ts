@@ -49,7 +49,7 @@ function cors(res: ServerResponse) {
   // Sin cookies ni credenciales de navegador: la autenticación es un token
   // explícito. `*` deja que la PWA y la APK llamen desde cualquier origen.
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Dispositivo');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
 }
 

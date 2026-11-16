@@ -59,6 +59,13 @@ window.Tienda3D = (function () {
      la escena sólo si el catálogo cambió. `tiendaActiva` marca que el botón
      "atrás" debe volver al mapa y no al marketplace. */
   let catPendiente = null, catUsada = null, tiendaActiva = false;
+  /* Local que se está mirando, cuando el visor se abre desde el mapa o desde
+     el panel del dueño. Manda la identidad (nombre y marca en el rótulo) y el
+     carrito: con local, se compra en el carrito de MercadoPlacer. */
+  let tiendaLocal = null;
+  /* De dónde se abrió el visor: "mapa" (ficha pública) o "negocio" (panel del
+     dueño). Decide a dónde vuelve el botón «atrás». */
+  let origenVisor = "";
   let escenaOk = false, enganchado = false;
   /* Mallas seleccionables (una por nivel de góndola + las de la nevera):
      cada una guarda su propio `userData.mapa` de productos. */
@@ -374,8 +381,9 @@ window.Tienda3D = (function () {
     return t;
   }
 
-  /* Wordmark FORGE en el muro del fondo: el nombre en lima sobre el negro
-     de la escena. Es rótulo de tienda, no el logo (la F no se toca). */
+  /* Wordmark del muro del fondo. Sin local abierto es la marca de la casa;
+     con un local del mapa, el rótulo es SUYO: la marca grande y el nombre del
+     negocio debajo. Se mide y se achica para que un nombre largo no se salga. */
   function texturaMarca() {
     const W = 2048, H = 512;
     const c = document.createElement("canvas");
@@ -383,17 +391,34 @@ window.Tienda3D = (function () {
     const g = c.getContext("2d");
     g.clearRect(0, 0, W, H);
     g.textAlign = "center"; g.textBaseline = "middle";
+
+    const t = tiendaLocal || null;
+    const nombre = String((t && t.nombre) || "").trim();
+    const principal = String((t && (t.marca || t.nombre)) || "FORGE").trim() || "FORGE";
+    const abajo = t
+      ? (nombre && nombre !== principal ? nombre : "MERCADO EN LÍNEA")
+      : "CORE STOCK";
+
+    const fuente = (fs) => "900 " + fs + "px -apple-system, Segoe UI, Roboto, sans-serif";
+    const cabe = (txt, fs, ancho) => {
+      g.font = fuente(fs);
+      return g.measureText(txt).width <= ancho;
+    };
+    let f1 = 300;
+    while (f1 > 84 && !cabe(principal, f1, W - 220)) f1 -= 8;
     g.fillStyle = "#c8ff00";
-    g.font = "900 300px -apple-system, Segoe UI, Roboto, sans-serif";
-    g.fillText("FORGE", W / 2, 172);
+    g.font = fuente(f1);
+    g.fillText(principal, W / 2, 172, W - 180);
     g.fillRect(430, 336, W - 860, 10);
+    let f2 = 86;
+    while (f2 > 46 && !cabe(abajo, f2, W - 260)) f2 -= 4;
     g.fillStyle = "#ffffff";
-    g.font = "800 86px -apple-system, Segoe UI, Roboto, sans-serif";
-    g.fillText("CORE STOCK", W / 2, 428);
-    const t = new T.CanvasTexture(c);
-    t.encoding = T.sRGBEncoding;
-    t.anisotropy = anisoMax();
-    return t;
+    g.font = "800 " + f2 + "px -apple-system, Segoe UI, Roboto, sans-serif";
+    g.fillText(abajo, W / 2, 428, W - 200);
+    const t2 = new T.CanvasTexture(c);
+    t2.encoding = T.sRGBEncoding;
+    t2.anisotropy = anisoMax();
+    return t2;
   }
 
   /* Tira de tablero: el rótulo de precios pegado al filo del estante.
@@ -3978,6 +4003,16 @@ window.Tienda3D = (function () {
   function autoOcultado() { return false; }
 
   function agregar(p) {
+    /* Con un local abierto (mapa o panel del dueño), el carrito es el de
+       MercadoPlacer: el mismo que revisa el comprador y que `pedido_crear`
+       cobra. El carrito viejo queda sólo para el escaparate de la casa. */
+    if (tiendaLocal && window.Placer && window.Placer.agregarDesdeVisor) {
+      try { window.Placer.agregarDesdeVisor(p, tiendaLocal); } catch (e) { /* el aviso sigue */ }
+      actualizarCompra();
+      aviso3d(p);
+      carritoAnim = 1;
+      return;
+    }
     if (!(window.Mercado && window.Mercado.agregar)) return;
     /* El carrito guarda primero y repinta después: si el repintado de la
        vista de Mercado falla (p. ej. la vista aún no cargó), no debe dejar
@@ -4746,15 +4781,24 @@ window.Tienda3D = (function () {
     actualizarContador();
     let prod = 0, unid = 0, tot = 0;
     try {
-      const M = window.Mercado;
-      if (M) {
-        if (M.unidades) unid = M.unidades();
-        if (M.total) tot = M.total();
-        if (M.lineas) prod = Object.keys(M.lineas()).length;
-      }
-      if (!prod) {
-        const c = JSON.parse(localStorage.getItem(CLAVE_CARRITO) || "{}") || {};
-        prod = Object.keys(c).length;
+      if (tiendaLocal && window.Placer && window.Placer.resumenDeLocal) {
+        /* El local del mapa tiene su propio carrito: se cuenta ese, no el de
+           la casa. Así el número del visor es el que se cobra al pagar. */
+        const r = window.Placer.resumenDeLocal(tiendaLocal.id) || {};
+        prod = Number(r.lineas) || 0;
+        unid = Number(r.unidades) || 0;
+        tot = Number(r.total) || 0;
+      } else {
+        const M = window.Mercado;
+        if (M) {
+          if (M.unidades) unid = M.unidades();
+          if (M.total) tot = M.total();
+          if (M.lineas) prod = Object.keys(M.lineas()).length;
+        }
+        if (!prod) {
+          const c = JSON.parse(localStorage.getItem(CLAVE_CARRITO) || "{}") || {};
+          prod = Object.keys(c).length;
+        }
       }
     } catch (e) { /* sin carrito o en modo privado */ }
     if (!unid && cestaItems.length) limpiarCesta();
@@ -5288,9 +5332,16 @@ window.Tienda3D = (function () {
 
   /* Entrega del mapa: el catálogo del local que se va a visitar. Deja todo
      pendiente; `abrir()` reconstruye sólo si el catálogo cambió. */
-  function ponerTienda(catalogo, tienda) {
+  function ponerTienda(catalogo, tienda, origen) {
+    const nuevo = tienda || null;
+    const cambiaLocal = (nuevo && nuevo.id) !== (tiendaLocal && tiendaLocal.id);
     catPendiente = (catalogo && catalogo.length) ? catalogo : null;
+    tiendaLocal = nuevo;
     tiendaActiva = !!tienda;
+    origenVisor = origen || "";
+    /* El rótulo y el carrito dependen del local: si es otro negocio, la escena
+       se rehace aunque el catálogo llegue en el mismo arreglo. */
+    if (cambiaLocal) catUsada = null;
   }
   function fueDelMapa() { return tiendaActiva; }
 
@@ -5653,6 +5704,8 @@ window.Tienda3D = (function () {
 
   return {
     abrir, cerrar, ponerTienda, fueDelMapa,
+    localActivo: () => tiendaLocal,
+    origenDe: () => origenVisor,
     // prueba de la ficha desde la consola: Tienda3D.ficha(0)
     ficha: (i) => {
       const m = mallasProd[Math.max(0, Math.min(mallasProd.length - 1, i || 0))];

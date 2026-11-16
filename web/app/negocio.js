@@ -794,6 +794,16 @@ window.Negocio = (function () {
     if (window.Placer && window.Placer.irATienda) window.Placer.irATienda(tienda);
   }
 
+  /** Abre el visor 3D con el catálogo y la marca de ESTA tienda. Es la misma
+   *  escena que ve el comprador, pero con el rótulo del local y su carrito. */
+  function verTienda3d() {
+    if (!EST.sel) return;
+    if (window.Tienda3D && window.Tienda3D.ponerTienda) {
+      window.Tienda3D.ponerTienda(EST.sel.catalogo || [], EST.sel, "negocio");
+    }
+    if (window.Fabri) window.Fabri.go("tienda");
+  }
+
   function pintarPanel() {
     const panel = $("negPanel");
     if (!panel) return;
@@ -807,6 +817,13 @@ window.Negocio = (function () {
     if (ab) {
       ab.hidden = false;
       ab.textContent = abierto ? "Cerrar el local" : "Abrir el local";
+    }
+    const v3 = $("negVer3d");
+    if (v3) {
+      v3.hidden = false;
+      v3.textContent = (t.catalogo && t.catalogo.length)
+        ? "Ver en 3D"
+        : "Ver en 3D (sin productos)";
     }
     const estado = $("negNubeEstado");
     if (estado) {
@@ -1845,6 +1862,8 @@ window.Negocio = (function () {
 
     const ab = $("negAbiertoBtn");
     if (ab) ab.onclick = alternarAbierto;
+    const v3 = $("negVer3d");
+    if (v3) v3.onclick = verTienda3d;
     const guardarBtn = $("neGuardar");
     if (guardarBtn) guardarBtn.onclick = guardarAjustes;
     const borrarBtn = $("neBorrar");

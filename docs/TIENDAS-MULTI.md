@@ -1,6 +1,6 @@
 # Tiendas multi-negocio · cuenta, catálogo y mapa
 
-> Estado: implementado y probado el 2026-11-11. Aplica a la web
+> Estado: implementado y probado el 2026-11-16. Aplica a la web
 > (`forge-core-stock.vercel.app/app/`) y a la API (`fabri-api.vercel.app`).
 
 ## Qué hace ahora
@@ -14,7 +14,10 @@ Una persona crea su cuenta en **Cuenta**, entra a **Negocio** y desde ahí:
 5. edita la **ficha pública** (marca, logo, descripción, horario, mínimo, envío,
    retiro/delivery) y abre o cierra el local;
 6. la tienda aparece en el **mapa** con su nombre, marca, logo y catálogo por
-   categorías, y el botón **Ver en el mapa** la enfoca.
+   categorías, y el botón **Ver en el mapa** la enfoca;
+7. abre **su tienda en 3D** desde el panel (**Ver en 3D**) o desde la ficha
+   pública (**Entrar al local**): el visor usa su marca y su catálogo, y lo que
+   el comprador toca en el estante cae en el carrito de MercadoPlacer.
 
 El panel viejo por **ID + clave** sigue disponible en «Conectar con ID y clave
 (respaldo para la APK)». No se rompió nada de lo anterior.
@@ -594,6 +597,81 @@ oferta al importar, esquema y `CHECK`, expresión SQL compartida, pedido con
 `precio_lista`/`descuento`/`ahorro`, resumen ampliado, comprador sin `azar`,
 tope de stock, tarjetas del admin y versión del service worker.
 
+## Visor 3D con el local (Fase 10)
+
+Antes el visor 3D era del **escaparate legacy**: leía `window.Mercado`,
+`/api/catalogo` y el carrito `fcore.mercado.carrito`. El marketplace multi-local
+usa `/api/mercado` y `fcore.placer.carrito` por local. Un producto tocado en el
+estante caía en un carrito que el checkout no veía, y el dueño no podía abrir su
+propia tienda desde el panel. La Fase 10 une las dos tiendas sin borrar el
+escaparate de la casa.
+
+### Contrato de `ponerTienda`
+
+```js
+Tienda3D.ponerTienda(catalogo, local, origen)
+// catalogo: productos de `productos(local)` (sku, nombre, precio, stock...)
+// local:    el objeto del local en /api/mercado, o null para la casa
+// origen:   "mapa" (ficha pública) | "negocio" (panel del dueño)
+```
+
+- Guarda `tiendaLocal` y `origenVisor`; si cambia el `id` del local, invalida
+  la escena (`catUsada = null`) aunque el catálogo llegue en el mismo arreglo.
+- `localActivo()` y `origenDe()` son públicos. `fueDelMapa()` sigue diciendo si
+  hay un local abierto.
+- **Rótulo**: sin local, el muro dice FORGE / CORE STOCK. Con local, la marca
+  grande es `marca || nombre` y debajo va el nombre del negocio (o «MERCADO EN
+  LÍNEA» si coincide). El texto se mide y se achica para no salirse del panel.
+- **Carrito**: con local, `agregar()` llama a `Placer.agregarDesdeVisor(p, m)`;
+  sin local, sigue llamando a `Mercado.agregar(p)`. El contador del visor usa
+  `Placer.resumenDeLocal(id)` cuando hay local.
+- **Salidas**: `atrás` vuelve a `negocio` si el origen es el panel del dueño, a
+  `panel` si vino de la ficha, o a `mercado` si es la casa. El botón del
+  carrito, con local, sale del visor y abre la hoja de MercadoPlacer.
+
+### `agregarDesdeVisor(p, m)`
+
+Resuelve el producto del estante contra el catálogo real en este orden:
+`sku` → `id` → `nombre`. Guarda el ítem con el `sku`, el precio efectivo, la
+lista y el descuento **del servidor**; el precio que pinte la escena se ignora.
+Llama a `cambiar(m, pid, +1, datos)`, que aplica el tope de stock y repinta.
+Un producto que ya no está en el catálogo no se pierde: se agrega con su nombre
+y precio para que el servidor decida en `pedido_crear`.
+
+### Panel del dueño
+
+`negocio.js` agrega **Ver en 3D** en la cabecera del panel. Abre la escena a
+pantalla completa con `ponerTienda(EST.sel.catalogo || [], EST.sel, "negocio")`
+y `Fabri.go("tienda")`. Si el catálogo está vacío, el botón dice «Ver en 3D
+(sin productos)». No se embebe en el panel: el visor es pesado y el teléfono
+puede matar la pestaña.
+
+### CORS del panel
+
+El panel manda `X-Dispositivo` en cada llamada para atar la sesión al equipo.
+La API sólo declaraba `Content-Type, Authorization`, así que el navegador
+bloqueaba el preflight y el panel no conectaba por clave ni por cuenta. Desde
+la Fase 10, `mercado.ts` y `auth.ts` declaran:
+
+```
+Access-Control-Allow-Headers: Content-Type, Authorization, X-Dispositivo
+```
+
+### Pruebas de la fase
+
+`node tests/web/visor.js` (67 comprobaciones): sintaxis de los cuatro archivos,
+contrato de `ponerTienda` con local y origen, rótulo dinámico, carrito
+compartido, resolución por SKU/nombre, precio efectivo y tope de stock,
+`resumenDeLocal`, botón del panel, salidas y fallback legacy.
+
+Prueba funcional en producción con una tienda desechable: panel conectado por
+clave → **Ver en 3D** → ficha del estante → añadir → el carrito de
+MercadoPlacer muestra el mismo producto → `pedido_crear` responde `MP-87A4D`
+con total $5.990 → el pedido aparece en **Negocio → Pedidos** → la tienda se
+borra y la base queda con las 2 tiendas demo. El canvas 3D del navegador
+headless salió negro por SwiftShader; la escena y el flujo lógico se
+verificaron, la validación visual queda para un teléfono real.
+
 ## Pruebas
 
 ```sh
@@ -604,6 +682,7 @@ node tests/web/resenas.js     # 83 comprobaciones: contrato de reseñas, estrell
 node tests/web/push.js        # 92 comprobaciones: cifrado ida y vuelta, VAPID, comprador y dueño, service workers
 node tests/web/pedidos.js     # 40 comprobaciones: precio/stock del servidor, descuento y ahorro, idempotencia, estados, contador e historial
 node tests/web/descuentos.js  # 61 comprobaciones: precio efectivo, oferta vencida, importación que conserva la oferta, comprador, vendedor y admin
+node tests/web/visor.js       # 67 comprobaciones: visor con el local, marca, carrito compartido, salidas y fallback legacy
 node tests/web/auth-nube.js   # incluye CORE_ROOT_EMAIL y promoción a owner
 node tests/web/diseno.js      # shell, sistema visual y offline
 node tests/web/trafico.js     # capa de tráfico del mapa

@@ -130,7 +130,7 @@ function cors(res: ServerResponse) {
   // token explícito que el atacante no tiene, así que `*` no debilita nada y
   // deja que la PWA, la APK y el panel lean desde cualquier origen.
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Dispositivo');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
 }
 

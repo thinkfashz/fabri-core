@@ -6,7 +6,93 @@
 > `cl.fabrick.core`, crate `fabrick-core`, dominio `forge-core-stock.vercel.app`,
 > repo `thinkfashz/fabri-core`.
 
-Última actualización: 2026-11-15
+Última actualización: 2026-11-16
+
+## Sesión 2026-11-16 · Fase 10: el visor 3D es del local y compra en su carrito
+
+Pedido: que cada dueño tenga su panel, publique su local en el mapa con
+catálogo, y que el comprador pueda recorrer **su** tienda en 3D y comprar desde
+el estante o el catálogo, para cerrar por WhatsApp.
+
+**La brecha real**: había dos tiendas en paralelo. El visor 3D
+(`tienda3d.js`) usaba el escaparate legacy (`window.Mercado`,
+`/api/catalogo`, carrito `fcore.mercado.carrito`), mientras MercadoPlacer
+(`placer.js`) usaba `/api/mercado` y el carrito `fcore.placer.carrito` por
+local. Si el comprador tocaba un producto en el estante, caía en un carrito que
+el checkout de MercadoPlacer no veía. Además el dueño no podía abrir su propia
+tienda en 3D desde el panel.
+
+| Pieza | Dónde |
+|---|---|
+| `ponerTienda(catalogo, local, origen)` guarda el local y de dónde se abrió | `web/app/tienda3d.js` |
+| Rótulo del muro con la marca y el nombre del local (se achica si es largo) | `web/app/tienda3d.js` |
+| `agregar()` delega en `Placer.agregarDesdeVisor` cuando hay local | `web/app/tienda3d.js` |
+| Contador del visor con `Placer.resumenDeLocal(id)` | `web/app/tienda3d.js` |
+| `agregarDesdeVisor(p, m)` resuelve sku → id → nombre y cobra el catálogo | `web/app/placer.js` |
+| `resumenDeLocal(id)` y `abrirCarrito` exportados | `web/app/placer.js` |
+| La ficha pública entra con `ponerTienda(productos(m), m, "mapa")` | `web/app/placer.js` |
+| Botón **Ver en 3D** en la cabecera del panel del dueño | `web/app/negocio.js`, `web/app/index.html` |
+| Atrás vuelve al panel del dueño, a la ficha o al escaparate según el origen | `web/app/mercado.js` |
+| El carrito del visor con local abre el de MercadoPlacer | `web/app/mercado.js` |
+| CORS: `X-Dispositivo` declarado en `Access-Control-Allow-Headers` | `api-telefono/api/mercado.ts`, `api-telefono/api/auth.ts` |
+| Pruebas (67 comprobaciones nuevas) | `tests/web/visor.js` |
+
+- **Un solo carrito con local**: el producto tocado en el estante se resuelve
+  contra `productos(m)` por `sku`, luego por `id`, luego por nombre; se guarda
+  con el `sku`, el precio efectivo y el descuento **del servidor**, y el tope
+  de stock del catálogo. Sin local abierto, el visor sigue usando el carrito
+  del escaparate de la casa: no se rompió el recorrido público de FORGE.
+- **La marca manda**: con local, el wordmark del muro dice su `marca` (o su
+  `nombre`) y debajo el nombre del negocio; sin local sigue diciendo FORGE
+  CORE STOCK. El rótulo mide el texto y baja el cuerpo para que un nombre largo
+  no se salga.
+- **El dueño lo abre desde su panel**: **Ver en 3D** aparece en la cabecera
+  del panel cuando hay una tienda seleccionada; avisa «sin productos» si el
+  catálogo está vacío. La escena se abre a pantalla completa, nunca embebida.
+- **Atrás y carrito saben de dónde vinieron**: `origenDe()` devuelve `mapa` o
+  `negocio`; `localActivo()` devuelve el local. Con local, el botón del carrito
+  sale del visor y abre la hoja de MercadoPlacer (el pedido real).
+- **Fallo de producción encontrado y corregido**: el panel del dueño manda
+  `X-Dispositivo` en cada llamada, pero la API sólo declaraba
+  `Content-Type, Authorization` en CORS. El navegador bloqueaba el preflight y
+  el panel no podía conectar por clave ni por cuenta. Se agregó el encabezado
+  en `mercado.ts` y `auth.ts`; la API se redesplegó.
+
+**Verificado de verdad**:
+
+- `node tests/web/visor.js` → **67 comprobaciones OK** (contrato de
+  `ponerTienda` con local y origen, rótulo dinámico, carrito compartido,
+  resolución por SKU/nombre, tope de stock, `resumenDeLocal`, botón del panel,
+  salidas y fallback legacy). Batería completa en verde: `descuentos` 61,
+  `pedidos` 40, `negocio` 118, `plataforma` 57, `push` 92, `resenas` 83,
+  `seguimiento` 70, más `auth-nube`, `boleta`, `diseno`, `escaneo`, `trafico`.
+- **Web**: `dpl_36mopHcrywFvDYNDvd3ffNNDd6R2` READY; los seis archivos
+  publicados (`tienda3d.js`, `placer.js`, `negocio.js`, `mercado.js`, `sw.js`,
+  `index.html`) son byte a byte idénticos al repo; `sw.js` en `fcore-v85`;
+  `forge-core-stock.vercel.app` y `fabri-core-web.vercel.app` en 200.
+- **API**: `dpl_EyF1aDkjUkND9yxzaNv3heVkKcv9` READY; el preflight de
+  `/api/mercado` y `/api/auth` ya devuelve `X-Dispositivo`; el catálogo
+  público sigue en 200.
+- **Prueba funcional en producción** (tienda desechable `t-f10-visor`,
+  navegador headless): panel del dueño conectado por clave → **Ver en 3D** →
+  visor con `localActivo().id = t-f10-visor`, marca `F10`, origen `negocio` y
+  escena construida → ficha del estante («Café de grano 250 g», $5.990, 8
+  disp.) → añadir → el carrito `fcore.placer.carrito` queda con `VIS-001` a
+  $5.990 y el carrito legacy intacto → la hoja de MercadoPlacer muestra el
+  mismo producto y total → `pedido_crear` devuelve **MP-87A4D**, total $5.990,
+  con seguimiento → el pedido aparece en **Negocio → Pedidos** con sus
+  acciones. La tienda se borró al final: la base quedó con las 2 tiendas demo
+  y el pedido de prueba ya no existe.
+- **Límite honesto de la prueba**: el navegador headless usa SwiftShader y el
+  canvas 3D salió negro por errores de shader del entorno; la escena, la ficha
+  y todo el flujo lógico sí se construyeron y verificaron. La validación
+  visual del render 3D queda para un teléfono real.
+
+**Lo que sigue (punto 4, fuera de esta fase)**: «Cobrar por WhatsApp» en el
+pedido del dueño (monto + código + enlace de seguimiento y evento
+`pago_avisado`). El cobro real con link de pago exigiría Mercado Pago o
+Transbank, fuera de las 12 funciones actuales.
+
 
 ## Sesión 2026-11-15 · Fase 9: el descuento lo cobra el servidor y el admin lo ve
 

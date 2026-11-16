@@ -411,6 +411,44 @@ window.Placer = (function () {
     marcarActivo();
   }
 
+  /* El visor 3D compra en ESTE carrito. Recibe el producto que el comprador
+     tocó en el estante y el local abierto, y lo resuelve contra el catálogo
+     real (sku → id → nombre) para que el pedido lleve el SKU y el precio del
+     servidor, no lo que pinte la escena. */
+  function agregarDesdeVisor(p, m) {
+    if (!p || !m || !m.id) return false;
+    const lista = productos(m);
+    const enCat = (p.sku ? lista.find((x) => x.sku && x.sku === p.sku) : null) ||
+      lista.find((x) => p.id && x.id === p.id) ||
+      lista.find((x) => x.nombre === p.nombre) || null;
+    const pid = enCat ? enCat.id : (p.id || m.id + "#" + String(p.nombre || "producto"));
+    const datos = {
+      id: pid,
+      sku: (enCat && enCat.sku) || p.sku || "",
+      nombre: (enCat && enCat.nombre) || p.nombre || "Producto",
+      precio: enCat && enCat.precio != null ? enCat.precio : (Number(p.precio) || 0),
+      lista: enCat && enCat.lista != null ? enCat.lista : (p.lista != null ? p.lista : p.precio),
+      descuento: (enCat && enCat.descuento) || 0,
+      stock: enCat && enCat.stock != null ? enCat.stock : (p.stock == null ? null : Number(p.stock))
+    };
+    cambiar(m, pid, 1, datos);
+    return true;
+  }
+
+  /** Lo que muestra la barra del visor 3D: líneas, unidades y total del
+   *  carrito de ESE local (no el de la casa). */
+  function resumenDeLocal(id) {
+    const c = ESTADO.carrito[id];
+    const items = c ? Object.values(c.items) : [];
+    let unidades = 0, total = 0;
+    items.forEach((it) => {
+      const n = cantidadDe(it);
+      unidades += n;
+      if (typeof it !== "number") total += (Number(it.p) || 0) * n;
+    });
+    return { lineas: items.length, unidades: unidades, total: total };
+  }
+
   /* ── ubicación ─────────────────────────────────────────────────────────── */
   function textoUbicacion() {
     if (ESTADO.manual && ESTADO.pos) return "Buscando en " + ESTADO.pos.nombre;
@@ -1748,7 +1786,7 @@ window.Placer = (function () {
     // Ver el local caminable: el visor 3D recibe el catálogo de este negocio
     const verTienda = $("mpVerTienda");
     if (verTienda) verTienda.onclick = () => {
-      if (window.Tienda3D && Tienda3D.ponerTienda) Tienda3D.ponerTienda(productos(m), m);
+      if (window.Tienda3D && Tienda3D.ponerTienda) Tienda3D.ponerTienda(productos(m), m, "mapa");
       if (window.Fabri) window.Fabri.go("tienda");
     };
     engancharProductos(m);
@@ -2769,8 +2807,11 @@ window.Placer = (function () {
   return {
     render,
     irATienda,
+    agregarDesdeVisor,
+    resumenDeLocal,
+    abrirCarrito,
     cerrarTodo: () => { cerrarHoja(); cerrarCarrito(); cerrarPago(); },
     // Puras de la ficha: se prueban sin mapa ni red (tests/web/resenas.js).
-    _test: { estrellas, resumenCalificacion, bloqueResenas, haceDias }
+    _test: { estrellas, resumenCalificacion, bloqueResenas, haceDias, productos }
   };
 })();
