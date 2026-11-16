@@ -798,8 +798,14 @@ window.Negocio = (function () {
    *  escena que ve el comprador, pero con el rótulo del local y su carrito. */
   function verTienda3d() {
     if (!EST.sel) return;
+    /* El carrito necesita el local completo (mínimo, envío, entrega) aunque
+       el mapa no lo haya cargado en esta visita. */
+    if (window.Placer && window.Placer.registrarLocal) window.Placer.registrarLocal(EST.sel);
     if (window.Tienda3D && window.Tienda3D.ponerTienda) {
-      window.Tienda3D.ponerTienda(EST.sel.catalogo || [], EST.sel, "negocio");
+      const cat = window.Placer && window.Placer.productosDe
+        ? window.Placer.productosDe(EST.sel)
+        : (EST.sel.catalogo || []);
+      window.Tienda3D.ponerTienda(cat, EST.sel, "negocio");
     }
     if (window.Fabri) window.Fabri.go("tienda");
   }
@@ -863,6 +869,7 @@ window.Negocio = (function () {
     pintarCatalogo();
     pintarResenas();
     pintarAjustes();
+    pintarMarca();
   }
 
   /* ── pestañas ───────────────────────────────────────────────────────────── */
@@ -1103,6 +1110,115 @@ window.Negocio = (function () {
     } else {
       window.prompt("Copia el enlace", url);
     }
+  }
+
+  /* ── link público de la marca ──────────────────────────────────────────── */
+  /**
+   * URL estable del visor de esta marca. No arrastra `lat`, `lon` ni `demo`
+   * de una visita anterior: el link sólo lleva la identidad del local.
+   */
+  function enlaceMarca(local) {
+    const id = typeof local === "string" ? local : (local && local.id);
+    if (!id) return "";
+    const loc = (typeof location !== "undefined" ? location
+      : (window.location || {}));
+    const base = (loc.origin || "") + (loc.pathname || "/");
+    try {
+      const u = new URL(base);
+      u.searchParams.set("marca", id);
+      u.hash = "tienda";
+      return u.toString();
+    } catch (e) {
+      return base + "?marca=" + encodeURIComponent(id) + "#tienda";
+    }
+  }
+
+  function copiarUrl(url, boton) {
+    if (!url) return;
+    const marcar = () => {
+      if (!boton) { toast("Enlace copiado"); return; }
+      const antes = boton.textContent;
+      boton.textContent = "Copiado";
+      setTimeout(() => { boton.textContent = antes; }, 1400);
+    };
+    if (typeof navigator !== "undefined" && navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(marcar, () => window.prompt("Copia el enlace", url));
+    } else {
+      window.prompt("Copia el enlace", url);
+    }
+  }
+
+  /** Comparte el link con la hoja nativa del teléfono; si no hay, lo copia. */
+  function compartirMarca(boton) {
+    if (!EST.sel) return;
+    const url = enlaceMarca(EST.sel);
+    if (!url) return;
+    const titulo = "Mi tienda " + (EST.sel.marca || EST.sel.nombre);
+    if (typeof navigator !== "undefined" && navigator.share) {
+      navigator.share({ title: titulo, text: "Mira mi catálogo y compra en 3D", url })
+        .catch((e) => { if (!e || e.name !== "AbortError") copiarUrl(url, boton); });
+      return;
+    }
+    copiarUrl(url, boton);
+  }
+
+  function pintarMarca() {
+    const t = EST.sel;
+    const url = t ? enlaceMarca(t) : "";
+    const input = $("negLinkMarca");
+    if (input) input.value = url;
+    const chip = $("negLinkChip");
+    if (chip) {
+      chip.textContent = t ? (t.marca || t.nombre) : "sin marca";
+      chip.className = "badge " + (t ? "acc" : "");
+    }
+    const wa = $("negLinkWa");
+    if (wa) {
+      wa.hidden = !url;
+      wa.href = url
+        ? "https://wa.me/?text=" + encodeURIComponent(
+            "Mira mi tienda " + (t.marca || t.nombre) + ": " + url)
+        : "#";
+    }
+    const abrir = $("negLinkAbrir");
+    if (abrir) abrir.disabled = !url;
+    pintarSeguridad();
+  }
+
+  /** Cuenta y seguridad: qué se guarda, qué se publica y qué no. */
+  function pintarSeguridad() {
+    const caja = $("negSeguridad");
+    if (!caja) return;
+    const u = EST.cuenta || (function () {
+      try {
+        const d = window.CoreNube && window.CoreNube.leer();
+        if (d && d.usuario) return d.usuario;
+      } catch (e) { /* sin nube */ }
+      /* Cuenta creada sólo en este dispositivo (sin nube): el nombre y el
+         correo viven en la sesión local, no en InsForge. */
+      return (window.Fabri && window.Fabri.user) || null;
+    })() || {};
+    const t = EST.sel;
+    const fila = (k, v) => "<div><dt>" + esc(k) + "</dt><dd>" + esc(v || "—") + "</dd></div>";
+    const conNube = !!tokenNube();
+    caja.innerHTML =
+      '<dl class="neg-seg">' +
+        fila("Nombre", u.nombre || u.name || "") +
+        fila("Correo", u.email || u.correo || "") +
+        fila("Rol", u.rol || u.role || "") +
+        fila("Marca", t ? (t.marca || t.nombre) : "") +
+        fila("Sesión", conNube
+          ? "token de 256 bits · atada a este dispositivo"
+          : (u.email ? "cuenta de este dispositivo · sin nube" : "sin sesión")) +
+      "</dl>" +
+      '<p class="hint">La contraseña se guarda como hash PBKDF2-SHA256 (120.000 iteraciones), nunca en claro. ' +
+        (conNube
+          ? "En InsForge sólo queda el SHA-256 del token de sesión, atado a este dispositivo."
+          : "Esta cuenta no tiene sesión en la nube: todo queda en este dispositivo.") + "</p>" +
+      '<p class="hint">Público en tu link de marca: nombre, marca, logo, descripción, catálogo, precios y stock. Privado: tu correo, tus pedidos y tus ajustes.</p>' +
+      '<button class="btn ghost sm" type="button" id="negSegIr">Mi cuenta y sesiones</button>';
+    const ir = $("negSegIr");
+    if (ir) ir.onclick = () => { if (window.Fabri) window.Fabri.go("cuenta"); };
   }
 
   function pintarPedidos() {
@@ -1864,6 +1980,25 @@ window.Negocio = (function () {
     if (ab) ab.onclick = alternarAbierto;
     const v3 = $("negVer3d");
     if (v3) v3.onclick = verTienda3d;
+
+    // Link público de la marca.
+    const compartir = $("negCompartir");
+    if (compartir) compartir.onclick = () => compartirMarca(compartir);
+    const copiarLink = $("negLinkCopiar");
+    if (copiarLink) copiarLink.onclick = () => {
+      const campo = $("negLinkMarca");
+      copiarUrl((campo && campo.value) || "", copiarLink);
+    };
+    const abrirLink = $("negLinkAbrir");
+    if (abrirLink) abrirLink.onclick = () => {
+      const campo = $("negLinkMarca");
+      const url = (campo && campo.value) || "";
+      if (!url) return;
+      try {
+        const v = window.open(url, "_blank", "noopener");
+        if (!v) window.location.href = url;
+      } catch (e) { window.location.href = url; }
+    };
     const guardarBtn = $("neGuardar");
     if (guardarBtn) guardarBtn.onclick = guardarAjustes;
     const borrarBtn = $("neBorrar");
@@ -1995,6 +2130,6 @@ window.Negocio = (function () {
     /** Sólo para pruebas: parsers puros, sin DOM ni red. */
     _test: { parseCSV, parseProductos, aProducto, normClave, filtrarPedidos, csvPedidos, barrasSerie,
       enlaceSeguimiento, numeroWa, fraseEstado, mensajePedido, enlaceWa,
-      ofertaDe, fechaInput, tieneCampo }
+      enlaceMarca, ofertaDe, fechaInput, tieneCampo }
   };
 })();

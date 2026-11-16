@@ -59,6 +59,9 @@ window.Tienda3D = (function () {
      la escena sólo si el catálogo cambió. `tiendaActiva` marca que el botón
      "atrás" debe volver al mapa y no al marketplace. */
   let catPendiente = null, catUsada = null, tiendaActiva = false;
+  /* Catálogo vacío estable: una marca sin productos muestra sus estantes
+     vacíos, nunca los productos del escaparate legacy. */
+  const SIN_PRODUCTOS = [];
   /* Local que se está mirando, cuando el visor se abre desde el mapa o desde
      el panel del dueño. Manda la identidad (nombre y marca en el rótulo) y el
      carrito: con local, se compra en el carrito de MercadoPlacer. */
@@ -5335,7 +5338,10 @@ window.Tienda3D = (function () {
   function ponerTienda(catalogo, tienda, origen) {
     const nuevo = tienda || null;
     const cambiaLocal = (nuevo && nuevo.id) !== (tiendaLocal && tiendaLocal.id);
-    catPendiente = (catalogo && catalogo.length) ? catalogo : null;
+    /* Con local, un catálogo vacío es un catálogo vacío: no se rellena con el
+       escaparate de la casa. Sin local, `null` deja el catálogo legacy. */
+    catPendiente = (catalogo && catalogo.length) ? catalogo
+      : (tienda ? SIN_PRODUCTOS : null);
     tiendaLocal = nuevo;
     tiendaActiva = !!tienda;
     origenVisor = origen || "";

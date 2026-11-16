@@ -374,6 +374,17 @@ window.Placer = (function () {
     c.nombre = m.nombre || c.nombre;
     c.ico = m.ico || c.ico;
     c.rubro = m.rubro || c.rubro;
+    /* La marca viaja con el carrito. Si el comprador llegó por el link directo
+       (sin que el mapa cargara el local), el pago igual conoce el mínimo, el
+       envío, la entrega y si el local está cerrado. */
+    if (m.forge != null) c.forge = !!m.forge;
+    if (m.minimo != null) c.minimo = Math.max(0, Math.round(Number(m.minimo) || 0));
+    if (m.envio != null) c.envio = Math.max(0, Math.round(Number(m.envio) || 0));
+    if (Array.isArray(m.entrega)) c.entrega = m.entrega.slice();
+    if (m.telefono) c.telefono = m.telefono;
+    if (m.abierto != null) c.abierto = m.abierto !== false;
+    if (m.lat != null) c.lat = Number(m.lat);
+    if (m.lon != null) c.lon = Number(m.lon);
 
     const actual = c.items[pid];
     const cant = cantidadDe(actual) + delta;
@@ -411,12 +422,26 @@ window.Placer = (function () {
     marcarActivo();
   }
 
+  /** Deja un local disponible para la ficha, el carrito y el pago aunque no
+   *  haya venido del mapa: link público de marca o panel del dueño. */
+  function registrarLocal(m) {
+    if (!m || !m.id) return null;
+    const i = ESTADO.mercados.findIndex((x) => x.id === m.id);
+    const previo = i >= 0 ? ESTADO.mercados[i] : null;
+    const nuevo = Object.assign({}, previo || {}, m);
+    if (!nuevo.dist) nuevo.dist = (previo && previo.dist) || 0;
+    if (i >= 0) ESTADO.mercados[i] = nuevo;
+    else ESTADO.mercados.push(nuevo);
+    return nuevo;
+  }
+
   /* El visor 3D compra en ESTE carrito. Recibe el producto que el comprador
      tocó en el estante y el local abierto, y lo resuelve contra el catálogo
      real (sku → id → nombre) para que el pedido lleve el SKU y el precio del
      servidor, no lo que pinte la escena. */
   function agregarDesdeVisor(p, m) {
     if (!p || !m || !m.id) return false;
+    registrarLocal(m);
     const lista = productos(m);
     const enCat = (p.sku ? lista.find((x) => x.sku && x.sku === p.sku) : null) ||
       lista.find((x) => p.id && x.id === p.id) ||
@@ -1908,7 +1933,13 @@ window.Placer = (function () {
       const vivo = ESTADO.mercados.find((m) => m.id === id);
       return vivo || {
         id: id, nombre: guardado.nombre || "Local del pedido",
-        ico: guardado.ico || "tienda", rubro: guardado.rubro || "", dist: 0
+        ico: guardado.ico || "tienda", rubro: guardado.rubro || "", dist: 0,
+        /* Metadatos que el carrito guarda desde Fase 11: sin ellos, un pedido
+           armado por link directo no respetaría mínimo, envío ni cierre. */
+        forge: guardado.forge, minimo: guardado.minimo || 0,
+        envio: guardado.envio || 0, entrega: guardado.entrega,
+        telefono: guardado.telefono || "", abierto: guardado.abierto !== false,
+        lat: guardado.lat, lon: guardado.lon
       };
     }).filter((m) => ESTADO.carrito[m.id] && Object.keys(ESTADO.carrito[m.id].items).length);
   }
@@ -2808,6 +2839,10 @@ window.Placer = (function () {
     render,
     irATienda,
     agregarDesdeVisor,
+    registrarLocal,
+    /* Catálogo normalizado (precio efectivo, descuento vigente y stock) para
+       el visor cuando se abre desde el panel o desde un link de marca. */
+    productosDe: (m) => (m ? productos(m) : []),
     resumenDeLocal,
     abrirCarrito,
     cerrarTodo: () => { cerrarHoja(); cerrarCarrito(); cerrarPago(); },

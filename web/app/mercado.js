@@ -1012,20 +1012,43 @@ window.Mercado = (function () {
       if (window.Fabri) window.Fabri.go("tienda");
     };
 
+    /* El link de marca agrega `?marca=` a la URL. Al salir del visor se quita
+       para que recargar no vuelva a abrir esa marca: el mapa es el destino
+       global y desde ahí se elige cualquier local. */
+    const limpiarMarcaUrl = () => {
+      try {
+        const u = new URL(location.href);
+        if (!u.searchParams.has("marca")) return;
+        u.searchParams.delete("marca");
+        history.replaceState(null, "", u.pathname + u.search + u.hash);
+      } catch (e) { /* URL vieja o navegador sin URL */ }
+    };
+
     const salir3d = $("t3dSalir");
     if (salir3d) salir3d.onclick = () => {
-      /* Atrás vuelve a donde se entró: el panel del dueño, la ficha del local
-         en el mapa, o el escaparate de la casa. */
+      /* Atrás vuelve a donde se entró: el panel del dueño, el mapa (link de
+         marca o ficha del local) o el escaparate de la casa. */
       const origen = window.Tienda3D && Tienda3D.origenDe ? Tienda3D.origenDe() : "";
       const alMapa = !!(window.Tienda3D && Tienda3D.fueDelMapa && Tienda3D.fueDelMapa());
+      const local = window.Tienda3D && Tienda3D.localActivo ? Tienda3D.localActivo() : null;
+      if (origen === "marca") limpiarMarcaUrl();
       if (window.Tienda3D && Tienda3D.ponerTienda) Tienda3D.ponerTienda(null, null);
-      if (window.Fabri) window.Fabri.go(origen === "negocio" ? "negocio" : alMapa ? "panel" : "mercado");
+      if (window.Fabri) {
+        window.Fabri.go(origen === "negocio" ? "negocio"
+          : origen === "marca" ? "panel"
+          : alMapa ? "panel" : "mercado");
+      }
+      if (origen === "marca" && local && window.Placer && window.Placer.irATienda) {
+        setTimeout(() => window.Placer.irATienda(local.id), 260);
+      }
     };
     const car3d = $("t3dCarrito");
     if (car3d) car3d.onclick = () => {
       /* Con un local abierto, el pedido vive en MercadoPlacer: se sale del
          visor y se abre SU carrito, no el del escaparate de la casa. */
+      const origen = window.Tienda3D && Tienda3D.origenDe ? Tienda3D.origenDe() : "";
       const local = window.Tienda3D && Tienda3D.localActivo ? Tienda3D.localActivo() : null;
+      if (origen === "marca") limpiarMarcaUrl();
       if (local && window.Placer && window.Placer.abrirCarrito) {
         if (window.Fabri) window.Fabri.go("panel");
         setTimeout(() => window.Placer.abrirCarrito(), 80);

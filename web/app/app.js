@@ -538,6 +538,25 @@
   }
 
   /* ── arranque ─────────────────────────────────────────────────────────── */
+  /** Lee una marca pública desde su link (`?marca=<id>`). No lanza: si la
+   *  nube no responde o la marca no existe, el arranque sigue por el mapa. */
+  async function cargarMarca(id) {
+    if (!id) return null;
+    const ctrl = new AbortController();
+    const reloj = setTimeout(() => ctrl.abort(), 12000);
+    try {
+      const r = await fetch("https://fabri-api.vercel.app/api/mercado?accion=local_ver&id=" +
+        encodeURIComponent(id), { signal: ctrl.signal, cache: "no-store" });
+      const d = await r.json();
+      if (!d || !d.ok || !d.tienda) return null;
+      return d.tienda;
+    } catch (e) {
+      return null;
+    } finally {
+      clearTimeout(reloj);
+    }
+  }
+
   async function boot() {
     const paso = (n, t) => { const e = document.getElementById('bootTxt'); if (e) e.textContent = t + ' · ' + n + ' %'; };
     paso(12, 'LOADING CORE SYSTEM');
@@ -557,7 +576,6 @@
 
     // nav
     $$('.nav button').forEach(b => b.onclick = () => go(b.dataset.go));
-    const hash = location.hash.replace('#', '');
 
     // eventos UI
     $('#btnSend').onclick = sendChat;
@@ -689,13 +707,33 @@
       await IDB.open();
       paso(52, 'OPENING LOCAL DATABASE');
       await initDb();
+
+      /* Link público de marca: /app/?marca=<id>#tienda abre el visor de ESA
+         marca con su catálogo, sin cuenta. El mapa sigue siendo global; este
+         link sólo lleva la identidad del local. Se lee antes de retirar el
+         cargador para que el comprador no vea una pantalla vacía. */
+      const marcaId = (new URLSearchParams(location.search).get("marca") || "").trim();
+      let marcaTienda = null;
+      if (marcaId) {
+        paso(64, 'OPENING BRAND STORE');
+        marcaTienda = await cargarMarca(marcaId);
+        if (!marcaTienda) {
+          /* Marca borrada o inexistente: se limpia el link y se va al mapa
+             global. Nunca se cae en el escaparate legacy de la casa. */
+          const u = new URL(location.href);
+          u.searchParams.delete("marca");
+          u.hash = "panel";
+          history.replaceState(null, "", u.pathname + u.search + u.hash);
+        }
+      }
+
       // El cargador se retira ANTES de abrir el login: si sigue encima
       // (z-index 100 > 90) el usuario ve los campos pero ningún toque llega.
       quitarBoot();
       CoreAuth.init();
       /* Acceso libre al visor y al mapa. Con #tienda o #mercado se entra
          directo, sin cuenta; el resto de la consola sigue pidiendo sesión. */
-      const pedida = String(location.hash || "").replace("#", "");
+      const pedida = marcaTienda ? "tienda" : String(location.hash || "").replace("#", "");
       const libre = !!PUBLICAS[pedida];
       let user = await CoreAuth.current();
       if (!user && !libre) user = await Pro.gate();
@@ -724,8 +762,26 @@
       // un fallo de una vista no debe tumbar el arranque
       const safe = fn => { try { fn(); } catch (e) { console.error(e); ev('error', String(e.message).slice(0, 40)); } };
       safe(renderPanel); safe(renderMem);
-      const destino = hash && document.getElementById('s-' + hash)
-        ? hash : (S.visitante ? 'publico' : 'panel');
+      const destino = marcaTienda ? "tienda"
+        : (function () {
+            /* Se relee el hash: si el link de marca era inválido, arriba se
+               cambió a #panel y el hash viejo ya no sirve. */
+            const h = String(location.hash || "").replace("#", "");
+            return h && document.getElementById("s-" + h)
+              ? h : (S.visitante ? "publico" : "panel");
+          })();
+      if (marcaTienda) {
+        /* El local queda disponible para la ficha, el carrito y el pago,
+           aunque esta visita no haya cargado el mapa. */
+        if (window.Placer && window.Placer.registrarLocal) window.Placer.registrarLocal(marcaTienda);
+        if (window.Tienda3D && window.Tienda3D.ponerTienda) {
+          const cat = window.Placer && window.Placer.productosDe
+            ? window.Placer.productosDe(marcaTienda)
+            : (marcaTienda.catalogo || []);
+          window.Tienda3D.ponerTienda(cat, marcaTienda, "marca");
+        }
+        toast("Abriendo " + (marcaTienda.marca || marcaTienda.nombre) + "…");
+      }
       go(destino);
       if (!S.visitante) {
         pushMsg('assistant', 'Listo. Esta consola corre entera en tu navegador: la base es SQLite real y sobrevive a las recargas. Pregúntame algo, abre la consola SQL o revisa los gráficos del panel.');

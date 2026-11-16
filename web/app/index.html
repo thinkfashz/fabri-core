@@ -1163,6 +1163,14 @@
             <span class="neg-live" id="negLive"><i></i><b>en vivo</b></span>
             <small id="negNubeEstado">Conectado a tu tienda.</small>
             <button id="negVer3d" class="btn sm ghost" type="button" hidden>Ver en 3D</button>
+            <button id="negCompartir" class="btn sm ghost neg-share" type="button"
+                    title="Compartir mi tienda" aria-label="Compartir mi tienda">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+                <path d="M8.6 10.5 15.4 6.5M8.6 13.5l6.8 4"/>
+              </svg>
+            </button>
             <button id="negAbiertoBtn" class="btn sm ghost" type="button" hidden></button>
           </div>
 
@@ -1301,6 +1309,33 @@
               <button class="btn primary block sm" type="button" id="negAvisosBtn">Activar avisos</button>
               <button class="btn ghost block sm" type="button" id="negAvisosQuitar" hidden>Dejar de avisar</button>
               <small class="neg-aviso" id="negAvisosNota"></small>
+            </div>
+
+            <div class="card neg-link-card" id="negLinkCard">
+              <div class="neg-cab">
+                <div class="eyebrow">Link público de tu marca</div>
+                <span class="badge" id="negLinkChip">—</span>
+              </div>
+              <p class="hint">Este es el enlace que compartes con tus clientes: abre tu visor 3D
+                con tu catálogo, sin que tengan cuenta. El mapa sigue siendo global; tu marca,
+                tus precios y tus pedidos son tuyos.</p>
+              <div class="neg-link-fila">
+                <input id="negLinkMarca" class="field mono" type="text" readonly
+                       aria-label="Link público de la marca" placeholder="Publica tu tienda para tener link">
+                <button class="btn primary sm" type="button" id="negLinkCopiar">Copiar</button>
+              </div>
+              <div class="neg-link-acciones">
+                <a class="btn ghost sm" id="negLinkWa" href="#" target="_blank" rel="noopener">Compartir por WhatsApp</a>
+                <button class="btn ghost sm" type="button" id="negLinkAbrir">Abrir mi visor</button>
+              </div>
+            </div>
+
+            <div class="card neg-seg-card" id="negSegCard">
+              <div class="neg-cab">
+                <div class="eyebrow">Cuenta y seguridad</div>
+                <span class="badge" id="negSegChip">protegida</span>
+              </div>
+              <div id="negSeguridad"></div>
             </div>
 
             <div class="card neg-ajustes">

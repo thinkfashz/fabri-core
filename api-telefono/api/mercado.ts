@@ -13,6 +13,9 @@
 //   GET  /api/mercado                          → estado del puente (público)
 //   GET  /api/mercado?accion=locales[&con_catalogo=1]
 //                                              → locales activos (público)
+//   GET  /api/mercado?accion=local_ver&id=<id>  → una tienda activa con su
+//                                                catálogo y calificación (público)
+//                                                → link de marca, sin cuenta
 //   POST { accion: "asegurar" }                 → crea las tablas (público)
 //   POST { accion: "locales", con_catalogo }    → igual que el GET (público)
 //   POST { accion: "local_crear", local }       → alta (CUENTA · ADMIN)
@@ -562,6 +565,39 @@ const CAMPOS_LOCAL = `id,nombre,marca,logo,descripcion,rubro,ico,telefono,direcc
   lat::float8 AS lat, lon::float8 AS lon, abierto,horario,minimo,
   entrega,envio,demo,activo,plan,actualizado::float8 AS actualizado`;
 
+/**
+ * Un local con su catálogo y su calificación. Es lo que sirve el link público
+ * de marca (`?accion=local_ver`): el comprador puede abrir el visor 3D de una
+ * marca concreta sin pasar por el mapa y sin tener cuenta.
+ */
+async function traerLocal(pool: any, localId: string) {
+  const r = await pool.query(
+    `SELECT ${CAMPOS_LOCAL} FROM ${T_LOCALES}
+      WHERE id = $1 AND activo = true LIMIT 1`,
+    [localId]
+  );
+  const l = r.rows[0];
+  if (!l) return null;
+
+  const cal = await pool.query(
+    `SELECT COUNT(*)::int AS n, AVG(estrellas)::float8 AS promedio
+       FROM ${T_RESENAS} WHERE local_id = $1 AND oculta = false`,
+    [localId]
+  );
+  l.calificacion = {
+    n: Number(cal.rows[0] && cal.rows[0].n) || 0,
+    promedio: Math.round((Number(cal.rows[0] && cal.rows[0].promedio) || 0) * 10) / 10,
+  };
+
+  const p = await pool.query(
+    `SELECT ${CAMPOS_PRODUCTO} FROM ${T_PRODUCTOS}
+      WHERE local_id = $1 ORDER BY nombre COLLATE "C"`,
+    [localId]
+  );
+  l.catalogo = p.rows.map(productoDeFila);
+  return l;
+}
+
 async function traerLocales(pool: any, conCatalogo: boolean) {
   const r = await pool.query(
     `SELECT ${CAMPOS_LOCAL} FROM ${T_LOCALES} WHERE activo = true ORDER BY nombre COLLATE "C"`
@@ -623,6 +659,10 @@ function aTienda(l: any) {
     entrega: Array.isArray(l.entrega) ? l.entrega : ['retiro'],
     envio: Number(l.envio) || 0,
     demo: Boolean(l.demo),
+    /* Todo local que sale de la base es un negocio registrado: tiene ficha y
+       catálogo reales. El mapa lo usaba para pintar el pin; el visor y el
+       carrito también lo necesitan para respetar mínimo, envío y cierre. */
+    forge: true,
     catalogo: Array.isArray(l.catalogo) ? l.catalogo : [],
     calificacion: {
       n: Number(l.calificacion && l.calificacion.n) || 0,
@@ -930,6 +970,41 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       }
     }
 
+    /* Link público de marca: una sola tienda, con su catálogo. No pide cuenta
+       ni clave; sólo devuelve locales activos. */
+    if (url.searchParams.get('accion') === 'local_ver' || url.searchParams.get('accion') === 'local') {
+      if (!process.env.INSFORGE_DATABASE_URL) {
+        return json(res, { ok: false, error: 'base no configurada', codigo: 'SIN_BASE' }, 503);
+      }
+      const localId = idLocal(url.searchParams.get('id') || url.searchParams.get('local_id'));
+      if (!localId) {
+        return json(res, { ok: false, error: 'falta el id de la marca', codigo: 'SIN_ID' }, 400);
+      }
+      let pool: any = null;
+      try {
+        const { Pool } = await import('pg');
+        pool = new Pool({
+          connectionString: process.env.INSFORGE_DATABASE_URL,
+          ssl: { rejectUnauthorized: false },
+          connectionTimeoutMillis: 15000,
+          max: 2,
+        });
+        await asegurar(pool);
+        const l = await traerLocal(pool, localId);
+        if (!l) {
+          return json(res, {
+            ok: false, error: 'esa marca no existe o ya no está publicada',
+            codigo: 'NO_ENCONTRADO',
+          }, 404);
+        }
+        return json(res, { ok: true, v: 2, origen: 'insforge', tienda: aTienda(l) });
+      } catch (e: any) {
+        return json(res, { ok: false, error: e?.message || String(e), codigo: 'ERROR_BASE' }, 500);
+      } finally {
+        if (pool) { try { await pool.end(); } catch (e) { /* ya cerrada */ } }
+      }
+    }
+
     if (url.searchParams.get('accion') === 'locales' || url.searchParams.get('tiendas') === '1') {
       if (!process.env.INSFORGE_DATABASE_URL) {
         return json(res, { ok: false, error: 'base no configurada', codigo: 'SIN_BASE' }, 503);
@@ -969,7 +1044,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       tablas,
       base_detalle: detalle,
       acciones: [
-        'asegurar', 'locales', 'local_crear', 'local_mio', 'local_actualizar',
+        'asegurar', 'locales', 'local_ver', 'local_crear', 'local_mio', 'local_actualizar',
         'local_estado', 'local_borrar', 'productos_subir', 'producto_borrar',
         'pedido_crear', 'pedido_seguir', 'push_suscribir', 'push_baja',
         'push_local_suscribir', 'push_local_baja',
@@ -1012,6 +1087,22 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
 
     if (accion === 'asegurar') {
       return json(res, { ok: true, accion, tablas: [T_LOCALES, T_PRODUCTOS, T_PEDIDOS, T_EVENTOS, T_RESENAS, T_PUSH, T_PUSH_LOCAL] });
+    }
+
+    /* Misma lectura pública del link de marca, por POST para la APK. */
+    if (accion === 'local_ver' || accion === 'local') {
+      const localId = idLocal(cuerpo.local_id || cuerpo.id);
+      if (!localId) {
+        return json(res, { ok: false, error: 'falta el id de la marca', codigo: 'SIN_ID' }, 400);
+      }
+      const l = await traerLocal(pool, localId);
+      if (!l) {
+        return json(res, {
+          ok: false, error: 'esa marca no existe o ya no está publicada',
+          codigo: 'NO_ENCONTRADO',
+        }, 404);
+      }
+      return json(res, { ok: true, accion: 'local_ver', v: 2, origen: 'insforge', tienda: aTienda(l) });
     }
 
     /* ── lecturas por POST (mismo contrato para la APK) ── */

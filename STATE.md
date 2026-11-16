@@ -94,6 +94,107 @@ pedido del dueño (monto + código + enlace de seguimiento y evento
 Transbank, fuera de las 12 funciones actuales.
 
 
+## Sesión 2026-11-16 · Fase 11: cada marca tiene su link y su visor
+
+Pedido: un marketplace donde cada vendedor tenga login real, catálogo
+independiente y **un link único de marca** para mostrar su visor 3D; el
+comprador agrega desde el mapa o el catálogo al carrito de esa marca y compra
+en ella.
+
+**La brecha real**: el visor 3D ya era del local (Fase 10), pero sólo se abría
+desde el mapa o desde el panel del dueño. No existía un enlace estable para
+compartir una marca, y un comprador que llegara directo no tenía el local en
+`ESTADO.mercados`: el carrito guardaba nombre y precio, pero el pago no conocía
+mínimo, envío, entrega ni cierre. La cuenta del vendedor tampoco tenía una
+tarjeta que dijera qué está protegido y qué es público.
+
+| Pieza | Dónde |
+|---|---|
+| `GET/POST /api/mercado?accion=local_ver&id=<local_id>` (público, sólo activos) | `api-telefono/api/mercado.ts` |
+| `traerLocal()` con catálogo + calificación; inexistente → 404 `NO_ENCONTRADO` | `api-telefono/api/mercado.ts` |
+| `aTienda()` devuelve `forge: true` para todo local de la base | `api-telefono/api/mercado.ts` |
+| `cargarMarca(id)` y arranque con `?marca=<id>#tienda` sin cuenta | `web/app/app.js` |
+| `Placer.registrarLocal(m)` deja el local disponible aunque no venga del mapa | `web/app/placer.js` |
+| El carrito guarda `forge`, `minimo`, `envio`, `entrega`, `telefono`, `abierto`, `lat`, `lon` | `web/app/placer.js` |
+| `Placer.productosDe(m)` normaliza precio efectivo y descuento vigente | `web/app/placer.js` |
+| Link de marca en el panel (cabecera + Ajustes con copiar/WhatsApp/abrir) | `web/app/negocio.js`, `web/app/index.html` |
+| Tarjeta «Cuenta y seguridad» con nombre, correo, rol y marca | `web/app/negocio.js`, `web/app/index.html` |
+| Salida del visor: limpia `?marca`, vuelve al mapa y abre la ficha del local | `web/app/mercado.js` |
+| Marca sin catálogo → estantes vacíos, nunca el escaparate legacy | `web/app/tienda3d.js` |
+| Pruebas (61 comprobaciones) | `tests/web/marca.js` |
+
+- **El link**: `https://forge-core-stock.vercel.app/app/?marca=<local_id>#tienda`.
+  No arrastra `lat`, `lon` ni `demo` de una visita anterior. Se lee antes de
+  retirar el cargador, pide `local_ver`, registra el local y abre el visor con
+  origen `marca`. Sin cuenta. Si la marca no existe, limpia el parámetro y
+  sigue por el mapa; nunca deja al comprador en una pantalla muerta.
+- **La marca manda en el carrito**: `registrarLocal()` deja el local en
+  `ESTADO.mercados` y `cambiar()` copia sus reglas al carrito. Así el pago
+  respeta mínimo, envío, entrega y cierre aunque el comprador nunca haya
+  abierto el mapa. El pedido se arma y se cobra contra ese local.
+- **Precio honesto**: el visor recibe `Placer.productosDe(m)`, no el catálogo
+  crudo; muestra el precio efectivo y el descuento vigente que calcula el
+  servidor. Una marca sin productos usa `SIN_PRODUCTOS` y muestra estantes
+  vacíos: no cae en los productos del escaparate de la casa.
+- **Salida**: «atrás» limpia `?marca`, cierra el visor y vuelve al mapa global
+  con la ficha del local abierta. Recargar ya no reabre la marca. El carrito
+  del visor sigue abriendo el de MercadoPlacer.
+- **Cuenta y seguridad**: la tarjeta muestra nombre, correo, rol y marca. Con
+  sesión de nube dice «token de 256 bits · atada a este dispositivo»; con una
+  cuenta sólo local dice «cuenta de este dispositivo · sin nube». Copy honesto:
+  contraseña PBKDF2-SHA256 120k, token SHA-256 en InsForge; no promete cifrado
+  de datos que no existe. También se lee `Fabri.user`, así el nombre y el correo
+  aparecen aunque la cuenta no tenga nube.
+- **Compatibilidad**: el escaparate legacy sigue igual sin local; el mapa
+  global no cambió; el catálogo de la ficha suma al carrito de esa marca.
+
+**Verificado de verdad**:
+
+- `node tests/web/marca.js` → **61 comprobaciones OK**. Batería completa en
+  verde: `visor` 67, `negocio` 118, `descuentos` 61, `pedidos` 40,
+  `plataforma` 57, `push` 92, `resenas` 83, `seguimiento` 70, más `auth-nube`,
+  `boleta`, `diseno`, `escaneo`, `trafico`.
+- **API**: `dpl_87zR1dEg9b5sFJgcBH8xeqXadXn7` READY con `local_ver`; el
+  comentario del contrato subió a `dpl_2GHgX4NwVnZrjLWvvPeMrG4KwHoy` READY,
+  alias `https://fabri-api.vercel.app`. Preflight de `/api/auth` y
+  `/api/mercado` devuelve 204 con `Access-Control-Allow-Headers: Content-Type,
+  Authorization, X-Dispositivo`. El build compiló las 12 funciones con
+  TypeScript 5.9.3.
+- **Web**: `dpl_BBXgm4tQvQaGHKaRdeg9SfNBN4aj` READY con `fcore-v86`; el
+  arreglo de la tarjeta de cuenta subió a `v87`, el copy honesto para cuentas
+  sin nube a `v88`, `productosDe(null)` defensivo a `v89`, el link muerto al
+  mapa a `v90` y la relectura del hash limpio a `v91` →
+  `dpl_54z3yNdh5XNsXHMyEz1Wsd4MHKoR` READY. Los ocho archivos publicados
+  (`app.js`, `negocio.js`, `placer.js`, `mercado.js`, `tienda3d.js`,
+  `styles.css`, `index.html`, `sw.js`) son byte a byte idénticos al repo;
+  `forge-core-stock.vercel.app/app/` y `fabri-core-web.vercel.app/app/` en 200.
+- **`local_ver` real**: tienda desechable `t-f11-marca` con `MAR-001` $5.990 y
+  `MAR-002` $3.490 con 20 % → $2.792. Devuelve 200 con `forge: true`, mínimo
+  $3.000, envío $1.500, retiro + delivery; inexistente → 404 `NO_ENCONTRADO`.
+- **Prueba funcional en producción** (navegador headless, sin cuenta):
+  `?marca=t-f11-marca#tienda` → visor con `localActivo().id = t-f11-marca`,
+  marca `F11`, origen `marca`, catálogo con precio efectivo $2.792 → dos
+  unidades al carrito con `forge`, mínimo, envío, entrega, teléfono, cierre y
+  coordenadas → hoja «Mi pedido» con «Almacén Fase 11» y total $5.584 → pago
+  «Pagar pedido Almacén Fase 11» con retiro/delivery y total $5.584 → atrás
+  limpia `?marca`, vuelve a `#panel` y abre la ficha del local («F11 · Almacén ·
+  Abierto») → panel conectado por ID y clave muestra el link exacto, chip
+  `F11`, WhatsApp y la tarjeta de cuenta. El canvas 3D del headless sigue
+  saliendo negro por SwiftShader; la escena y el flujo lógico se verificaron.
+- **Limpieza**: `t-f11-marca` se borra con `local_borrar` al cerrar la fase y
+  `local_ver` vuelve a 404.
+- **Link muerto en el deploy final**: `?marca=t-f11-marca#tienda` con la tienda
+  ya borrada → limpia `?marca`, termina en `#panel`, `enTienda: false`,
+  `marcaEnUrl: false` y sin visor. El 404 de `local_ver` queda como error de
+  consola esperado.
+
+**Límite honesto**: no hay recuperación de contraseña, verificación de correo
+ni página pública `/vender`. La primera cuenta real de `core_usuarios` debe ser
+`F.eduardomicolta@gmail.com` (queda `owner` por `CORE_ROOT_EMAIL`); hasta que
+esa cuenta se registre una vez, el login real contra producción no se puede
+probar y no se crean cuentas de prueba en la nube.
+
+
 ## Sesión 2026-11-15 · Fase 9: el descuento lo cobra el servidor y el admin lo ve
 
 Pedido: «continúa y robustece más la lógica del descuento de productos y stock,

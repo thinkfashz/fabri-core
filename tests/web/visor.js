@@ -191,7 +191,8 @@ ok('el panel tiene el botón', /id="negVer3d"/.test(HTML));
 ok('el botón está en la cabecera del panel',
   /id="negNubeEstado"[\s\S]{0,220}id="negVer3d"/.test(HTML));
 ok('abre con el catálogo y el local del dueño',
-  /ponerTienda\(EST\.sel\.catalogo \|\| \[\], EST\.sel, "negocio"\)/.test(NEG));
+  /ponerTienda\(cat, EST\.sel, "negocio"\)/.test(NEG) &&
+  /productosDe\(EST\.sel\)/.test(NEG));
 ok('el botón se conecta al abrir el panel', /if \(v3\) v3\.onclick = verTienda3d;/.test(NEG));
 ok('el botón se muestra con el panel', /const v3 = \$\("negVer3d"\);\n    if \(v3\) \{\n      v3\.hidden = false;/.test(NEG));
 ok('avisa cuando la tienda no tiene productos', /Ver en 3D \(sin productos\)/.test(NEG));

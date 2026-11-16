@@ -121,6 +121,7 @@ Autorización, en este orden:
 | Acción | Quién | Qué hace |
 |---|---|---|
 | `locales` (GET/POST) | público | lista activa con `marca`, `logo`, `descripcion` y catálogo |
+| `local_ver` (GET/POST) | público | **una** tienda activa por `id`, con catálogo y calificación (link de marca) |
 | `local_crear` | cuenta · admin | crea la tienda, guarda `dueno_id` y devuelve la clave de respaldo |
 | `local_mio` | cuenta | devuelve mis tiendas con catálogo y pedidos pendientes |
 | `local_actualizar` | dueño · admin | edita ficha, marca, logo, descripción, mínimo, envío, entrega |
@@ -672,6 +673,112 @@ borra y la base queda con las 2 tiendas demo. El canvas 3D del navegador
 headless salió negro por SwiftShader; la escena y el flujo lógico se
 verificaron, la validación visual queda para un teléfono real.
 
+## Link público de marca (Fase 11)
+
+Cada tienda tiene un enlace estable para compartir su visor 3D sin que el
+comprador tenga cuenta:
+
+```
+https://forge-core-stock.vercel.app/app/?marca=<local_id>#tienda
+```
+
+El link sólo lleva la identidad del local: **no** arrastra `lat`, `lon` ni
+`demo` de una visita anterior. El mapa sigue siendo global; desde el link se
+entra a la marca y al salir se vuelve al mapa.
+
+### `local_ver`
+
+Acción pública de `/api/mercado`, por GET o POST:
+
+```
+GET  /api/mercado?accion=local_ver&id=<local_id>
+POST { accion: "local_ver", local_id: "<local_id>" }
+```
+
+- Sólo devuelve locales con `activo = true`; si no existe, responde
+  **404 `NO_ENCONTRADO`**.
+- Devuelve `tienda` con la ficha completa (`forge: true`), su `catalogo` con
+  `precio`, `precio_efectivo`, `descuento`, `descuento_vigente`, `oferta_hasta`
+  y `stock`, más `calificacion` (`n`, `promedio`).
+- No pide clave, token ni `X-Dispositivo`: es el mismo nivel de exposición que
+  `locales`, pero de una sola marca.
+
+### Arranque del visor
+
+`app.js` lee `?marca=` antes de retirar el cargador, llama a `cargarMarca(id)`
+y, si la marca existe:
+
+1. `Placer.registrarLocal(marca)` deja el local en `ESTADO.mercados` aunque el
+   mapa no se haya cargado.
+2. `Tienda3D.ponerTienda(Placer.productosDe(marca), marca, "marca")` abre el
+   visor con el catálogo normalizado (precio efectivo y descuento vigente).
+3. El destino es `#tienda`; no se pide login.
+
+Si la marca no existe o la nube no responde, se quita `?marca` de la URL, se
+fuerza `#panel` y el arranque sigue por el mapa. Nunca se queda en una pantalla
+vacía ni cae en el escaparate legacy de la casa.
+
+### Carrito y pago con la marca
+
+`Placer.registrarLocal(m)` y `cambiar()` copian al carrito:
+
+```js
+{ nombre, ico, rubro, items, forge, minimo, envio, entrega,
+  telefono, abierto, lat, lon }
+```
+
+Así el pago respeta mínimo, envío, retiro/delivery y cierre aunque el comprador
+haya llegado por el link y nunca haya abierto el mapa. El pedido se arma y se
+cobra contra **esa** marca; `pedido_crear` sigue recalculando precios y stock en
+el servidor.
+
+Una marca **sin catálogo** usa `SIN_PRODUCTOS` y muestra estantes vacíos. No
+cae en los productos del escaparate legacy: el escaparate de la casa sólo se
+usa cuando el visor se abre sin local.
+
+### Salida
+
+«Atrás» en el visor con origen `marca`:
+
+1. limpia `?marca` con `history.replaceState` (recargar ya no reabre la marca);
+2. cierra el visor;
+3. va al mapa global (`#panel`) y abre la ficha del local con
+   `Placer.irATienda(local.id)`.
+
+El botón del carrito sale del visor y abre la hoja de MercadoPlacer de esa
+marca.
+
+### Panel del dueño: link y cuenta
+
+En **Negocio**:
+
+- botón de compartir en la cabecera (hoja nativa del teléfono o copiar);
+- tarjeta **Link público de tu marca** en Ajustes, con el campo de sólo
+  lectura, **Copiar**, **Compartir por WhatsApp** y **Abrir mi visor**;
+- tarjeta **Cuenta y seguridad** con nombre, correo, rol y marca.
+
+La tarjeta es honesta: la contraseña se guarda como hash PBKDF2-SHA256
+(120.000 iteraciones), nunca en claro; en InsForge sólo queda el SHA-256 del
+token de sesión, atado al dispositivo. Con una cuenta sólo local dice «cuenta
+de este dispositivo · sin nube» y lee `Fabri.user`, así el nombre y el correo
+aparecen aunque no haya sesión de nube. No promete cifrado de datos que no
+existe.
+
+Público en el link: nombre, marca, logo, descripción, catálogo, precios y
+stock. Privado: correo, pedidos y ajustes.
+
+### Pruebas de la fase
+
+`node tests/web/marca.js` (61 comprobaciones): link estable sin `lat/lon/demo`,
+arranque con `?marca`, `local_ver` en GET y POST, `registrarLocal`, metadatos
+del carrito, precio efectivo en el visor, estantes vacíos sin fallback legacy,
+salida al mapa, tarjeta de cuenta y versión del service worker.
+
+Prueba funcional en producción con `t-f11-marca`: link sin cuenta → visor con
+la marca y precio $2.792 → carrito con mínimo/envío/entrega → pago de esa marca
+por $5.584 → atrás al mapa con la ficha abierta → panel por ID y clave con el
+link exacto. La tienda se borra al terminar.
+
 ## Pruebas
 
 ```sh
@@ -683,6 +790,7 @@ node tests/web/push.js        # 92 comprobaciones: cifrado ida y vuelta, VAPID, 
 node tests/web/pedidos.js     # 40 comprobaciones: precio/stock del servidor, descuento y ahorro, idempotencia, estados, contador e historial
 node tests/web/descuentos.js  # 61 comprobaciones: precio efectivo, oferta vencida, importación que conserva la oferta, comprador, vendedor y admin
 node tests/web/visor.js       # 67 comprobaciones: visor con el local, marca, carrito compartido, salidas y fallback legacy
+node tests/web/marca.js       # 61 comprobaciones: link de marca, local_ver, carrito con metadatos, cuenta y seguridad
 node tests/web/auth-nube.js   # incluye CORE_ROOT_EMAIL y promoción a owner
 node tests/web/diseno.js      # shell, sistema visual y offline
 node tests/web/trafico.js     # capa de tráfico del mapa
