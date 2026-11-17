@@ -390,7 +390,10 @@ window.Negocio = (function () {
   const SINONIMOS = {
     nombre: ["nombre", "name", "producto", "descripcion", "detalle"],
     precio: ["precio", "price", "valor", "pvp", "venta"],
-    sku: ["sku", "codigo", "code", "barcode", "ean"],
+    // El código de barras va ANTES de sku: «codigo_barras» empieza con
+    // «codigo» y, si sku fuera primero, se lo quedaría como SKU.
+    codigo: ["codigo_barras", "codigo_de_barras", "barcode", "ean", "ean13", "upc", "gtin", "barra"],
+    sku: ["sku", "codigo", "code"],
     stock: ["stock", "cantidad", "qty", "existencias", "inventario"],
     categoria: ["categoria", "category", "rubro", "tipo", "familia"],
     unidad: ["unidad", "unit", "medida", "formato"],
@@ -442,7 +445,13 @@ window.Negocio = (function () {
     const canon = (h) => {
       const n = normClave(h);
       for (const k of Object.keys(SINONIMOS)) {
-        if (SINONIMOS[k].some((s) => n === s || n.startsWith(s + "_") || n.endsWith("_" + s))) return k;
+        if (SINONIMOS[k].some((s) => n === s || n.startsWith(s + "_") || n.endsWith("_" + s))) {
+          // El grupo `codigo` es el código de barras, no el SKU: se devuelve
+          // con un nombre propio para que una planilla con encabezado
+          // «Código» (que sigue siendo SKU) no se confunda con «Código de
+          // barras» / «EAN» / «Barcode».
+          return k === "codigo" ? "codigo_barras" : k;
+        }
       }
       return n;
     };
@@ -518,6 +527,11 @@ window.Negocio = (function () {
     }
     if (tieneCampo(o, SINONIMOS.oferta_hasta)) {
       producto.oferta_hasta = String(campo(o, SINONIMOS.oferta_hasta)).trim().slice(0, 40);
+    }
+    // Igual con el código de barras: si la planilla no lo trae, se conserva el
+    // que ya estaba guardado en el producto.
+    if (tieneCampo(o, SINONIMOS.codigo)) {
+      producto.codigo = String(campo(o, SINONIMOS.codigo)).trim().slice(0, 48);
     }
     return producto;
   }
@@ -1410,7 +1424,10 @@ window.Negocio = (function () {
             "</span>" +
             "<b>" + esc(p.nombre || "Producto") + "</b>" +
             "<small>" + esc(p.sku || "sin SKU") +
-              (p.categoria ? " · " + esc(p.categoria) : "") + stockTxt + "</small>" +
+              (p.categoria ? " · " + esc(p.categoria) : "") + stockTxt +
+              (p.codigo ? ' · <span class="neg-prod-cod" title="Código de barras">' +
+                esc(p.codigo) + "</span>" : "") +
+            "</small>" +
             '<span class="neg-prod-precio">' +
               (o.descuento ? "<s>" + clp(o.lista) + "</s>" : "") +
               clp(o.efectivo) +
@@ -1793,7 +1810,8 @@ window.Negocio = (function () {
       return;
     }
     const LOTE = 400;   // el servidor acepta hasta 500 por petición
-    let subidos = 0, omitidos = 0, total = 0, tope = 0;
+    let subidos = 0, omitidos = 0, total = 0, tope = 0, codigosMalos = 0;
+    let ejemploCodigo = "";
     aviso(av, "Subiendo " + lista.length + " producto(s)…");
     for (let i = 0; i < lista.length; i += LOTE) {
       const lote = lista.slice(i, i + LOTE);
@@ -1810,9 +1828,19 @@ window.Negocio = (function () {
       omitidos += Number(d.omitidos) || 0;
       total = Number(d.total) || total;
       tope = Number(d.tope) || tope;
+      codigosMalos += Number(d.codigos_invalidos) || 0;
+      if (!ejemploCodigo && Array.isArray(d.detalle_codigos_invalidos) && d.detalle_codigos_invalidos[0]) {
+        ejemploCodigo = String(d.detalle_codigos_invalidos[0].codigo || "");
+      }
     }
     aviso(av, (etiqueta || "Catálogo") + ": " + subidos + " guardados" +
-      (omitidos ? " · " + omitidos + " omitidos" : "") + " · total " + total + "/" + tope + ".", "bueno");
+      (omitidos ? " · " + omitidos + " omitidos" : "") +
+      (codigosMalos
+        ? " · " + codigosMalos + " con código inválido" +
+          (ejemploCodigo ? " («" + ejemploCodigo + "»)" : "") + ", quedaron sin código"
+        : "") +
+      " · total " + total + "/" + tope + ".",
+      codigosMalos ? "malo" : "bueno");
     toast(subidos + " producto(s) en el catálogo");
     await refrescar({ silencioso: true });
   }
@@ -1826,6 +1854,15 @@ window.Negocio = (function () {
     const stockCrudo = ($("negProdStock").value || "").trim();
     const dctoCrudo = ($("negProdDescuento").value || "").trim();
     const hastaCrudo = ($("negProdOfertaHasta").value || "").trim();
+    const codigoCrudo = ($("negProdCodigo").value || "").trim();
+    const codigo = window.Scan ? window.Scan.normalizarCodigo(codigoCrudo) : codigoCrudo;
+    if (codigo && window.Scan && !window.Scan.pareceCodigo(codigo)) {
+      aviso($("negProdCodigoAviso"), "Ese código no es válido: revisa el dígito verificador.", "malo");
+      toast("Código de barras inválido");
+      const el = $("negProdCodigo");
+      if (el) el.focus();
+      return;
+    }
     const sku = ($("negProdSku").value || "").trim() ||
       (EST.editandoSku || "LOCAL-" + Date.now().toString(36).slice(-6).toUpperCase());
     const producto = {
@@ -1838,7 +1875,9 @@ window.Negocio = (function () {
       descuento: dctoCrudo === "" ? 0 : Math.max(0, Math.min(90, Math.round(Number(dctoCrudo) || 0))),
       // El servidor guarda el fin de la oferta como unix; una fecha sin hora
       // vale hasta el final de ese día en Chile.
-      oferta_hasta: hastaCrudo || 0
+      oferta_hasta: hastaCrudo || 0,
+      // El campo muestra el código guardado: vacío significa «sin código».
+      codigo: codigo
     };
     // Sólo se manda `imagen` si el vendedor la tocó: si no, el servidor
     // conserva la foto que ya tenía el producto.
@@ -1847,12 +1886,13 @@ window.Negocio = (function () {
     EST.editandoSku = "";
     EST.prodImagen = undefined;
     ["negProdNombre", "negProdPrecio", "negProdStock", "negProdSku", "negProdCategoria",
-      "negProdDescuento", "negProdOfertaHasta"]
+      "negProdDescuento", "negProdOfertaHasta", "negProdCodigo"]
       .forEach((id) => { const el = $(id); if (el) el.value = ""; });
     const foto = $("negProdFotoFile");
     if (foto) foto.value = "";
     pintarFotoProducto();
     aviso($("negProdFotoAviso"), "JPG, PNG o WebP. Se achica a 640 px.", "");
+    aviso($("negProdCodigoAviso"), "", "");
     const b = $("negFormProd") && $("negFormProd").querySelector('button[type="submit"]');
     if (b) b.textContent = "Agregar al catálogo";
     render();
@@ -1890,6 +1930,8 @@ window.Negocio = (function () {
     poner("negProdCategoria", p.categoria);
     poner("negProdDescuento", p.descuento ? p.descuento : "");
     poner("negProdOfertaHasta", fechaInput(p.oferta_hasta));
+    poner("negProdCodigo", p.codigo);
+    aviso($("negProdCodigoAviso"), "", "");
     const b = $("negFormProd") && $("negFormProd").querySelector('button[type="submit"]');
     if (b) b.textContent = "Guardar cambios";
     pintarCatalogo();
@@ -2162,6 +2204,32 @@ window.Negocio = (function () {
     if (form && !form.dataset.listo) {
       form.dataset.listo = "1";
       form.addEventListener("submit", agregarProducto);
+    }
+    const scanCodigo = $("negProdCodigoScan");
+    if (scanCodigo && !scanCodigo.dataset.listo) {
+      scanCodigo.dataset.listo = "1";
+      scanCodigo.addEventListener("click", async () => {
+        const av = $("negProdCodigoAviso");
+        if (!window.Scan) {
+          aviso(av, "Este navegador no tiene escáner de códigos.", "malo");
+          return;
+        }
+        let leido = null;
+        try {
+          leido = await window.Scan.abrir({ subtitulo: "apunta al código del producto" });
+        } catch (e) {
+          aviso(av, "No pude abrir la cámara.", "malo");
+          return;
+        }
+        if (!leido) return;
+        const codigo = window.Scan.normalizarCodigo(leido);
+        const el = $("negProdCodigo");
+        if (el) el.value = codigo;
+        const vale = window.Scan.pareceCodigo(codigo);
+        aviso(av, vale ? "Código leído: " + codigo
+          : "El código leído no es válido: revisa el dígito verificador.",
+          vale ? "bueno" : "malo");
+      });
     }
     const fotoProd = $("negProdFotoFile");
     if (fotoProd && !fotoProd.dataset.listo) {

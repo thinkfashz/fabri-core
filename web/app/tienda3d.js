@@ -4081,12 +4081,17 @@ window.Tienda3D = (function () {
 
     const barra = $("t3dFichaBarra");
     if (barra) {
+      // Código REAL del producto, no uno inventado: un EAN-13 se dibuja con
+      // sus barras; un EAN-8, UPC, Code 128 o un SKU se muestran como texto.
+      const codigo = String(p.codigo || "").trim();
       let html = "";
-      if (window.Mercado && window.Mercado.codigoDe && window.Mercado.ean13Svg) {
-        try { html = window.Mercado.ean13Svg(window.Mercado.codigoDe(p)); }
-        catch (e) { html = ""; }
+      if (window.Mercado && window.Mercado.ean13Svg && /^\d{13}$/.test(codigo)) {
+        try { html = window.Mercado.ean13Svg(codigo); } catch (e) { html = ""; }
       }
-      if (!html) html = "<span>" + String(p.id || "FABRI").toUpperCase() + "</span>";
+      if (!html) {
+        const texto = codigo || String(p.sku || p.id || "FABRI").toUpperCase();
+        html = '<span class="t3d-ficha-cod">' + escHTML(texto) + "</span>";
+      }
       barra.innerHTML = html;
     }
     const add = $("t3dFichaAdd");

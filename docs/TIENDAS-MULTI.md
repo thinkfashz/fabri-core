@@ -122,6 +122,7 @@ Autorización, en este orden:
 |---|---|---|
 | `locales` (GET/POST) | público | lista activa con `marca`, `logo`, `descripcion` y catálogo |
 | `local_ver` (GET/POST) | público | **una** tienda activa por `id`, con catálogo y calificación (link de marca) |
+| `codigo_buscar` (GET/POST) | público | todas las marcas activas que tienen un código de barras (`codigo`), ordenadas por precio efectivo |
 | `local_crear` | cuenta · admin | crea la tienda, guarda `dueno_id` y devuelve la clave de respaldo |
 | `local_mio` | cuenta | devuelve mis tiendas con catálogo y pedidos pendientes |
 | `local_actualizar` | dueño · admin | edita ficha, marca, logo, descripción, mínimo, envío, entrega |
@@ -148,7 +149,7 @@ Autorización, en este orden:
 | Tabla | Para qué |
 |---|---|
 | `mercado_locales` | tiendas, ficha pública, dueño y plan |
-| `mercado_productos` | catálogo por local (SKU, precio de lista, stock, `descuento` y `oferta_hasta`) |
+| `mercado_productos` | catálogo por local (SKU, `codigo` de barras, precio de lista, stock, `descuento` y `oferta_hasta`) |
 | `mercado_pedidos` | pedidos, estado actual, `seguimiento` (token) y `ahorro` |
 | `mercado_pedido_eventos` | historial de estados (línea de tiempo del comprador) |
 | `mercado_resenas` | calificación por pedido entregado, con `oculta` para moderar |
@@ -183,10 +184,15 @@ sinónimos en español/inglés:
 |---|---|
 | nombre | `nombre`, `name`, `producto`, `descripcion`, `detalle` (y sufijos como `Nombre del producto`) |
 | precio | `precio`, `price`, `valor`, `pvp`, `venta` (y `Precio CLP`) |
-| sku | `sku`, `codigo`, `code`, `barcode`, `ean` |
+| sku | `sku`, `codigo`, `code` |
+| código de barras | `codigo_barras`, `barcode`, `ean`, `ean13`, `upc`, `gtin`, `barra` |
 | stock | `stock`, `cantidad`, `qty`, `existencias`, `inventario` |
 | categoría | `categoria`, `category`, `rubro`, `tipo`, `familia` |
 | unidad | `unidad`, `unit`, `medida`, `formato` |
+
+> **Ojo con «Código»**: una planilla con encabezado `codigo` sigue siendo el
+> **SKU** (compatibilidad con las planillas viejas). Para el código de barras
+> hay que usar `codigo_barras`, `barcode`, `ean`, `upc` o `gtin`.
 
 Precios tolerantes al formato chileno: `$1.690` → 1690 y `1690,5` → 1691.
 Los lotes se envían de 400 en 400 (el servidor acepta hasta 500).
@@ -850,6 +856,110 @@ en Chrome headless: la hoja de la marca pinta 2 fotos y deja la letra al
 producto sin foto. La compresión del panel convirtió 1200×1200 (84.696 bytes)
 en 640×640 (20.376 bytes).
 
+## Código de barras real (Marketplace · Fase 2)
+
+El código de barras es del producto, no del local: el mismo EAN puede estar en
+varias marcas y el comprador lo escanea una vez para comparar. Se guarda en la
+fila del catálogo y se busca en todos los locales activos.
+
+### Esquema y validación
+
+| Columna | Tipo | Uso |
+|---|---|---|
+| `codigo` | `TEXT NOT NULL DEFAULT ''` | EAN-8/UPC-A/EAN-13/GTIN-14 o Code 128/39 normalizado |
+
+```sql
+ALTER TABLE mercado_productos ADD COLUMN IF NOT EXISTS codigo TEXT NOT NULL DEFAULT '';
+CREATE INDEX IF NOT EXISTS idx_mercado_productos_codigo
+  ON mercado_productos (codigo) WHERE codigo <> '';
+```
+
+- `MAX_CODIGO = 48`. Se quitan espacios, guiones, puntos y guiones bajos, y se
+  pasa a mayúsculas antes de validar.
+- **GS1** (8, 12, 13 y 14 dígitos): se comprueba el dígito verificador con pesos
+  3 y 1 alternados. Un EAN-13 con un dígito cambiado se rechaza.
+- **Code 128 / Code 39**: alfanumérico de 6 a 48 caracteres y al menos un
+  dígito. El navegador (`core-scan.js`) usa las mismas reglas que el servidor.
+
+### `productos_subir`
+
+El lote sólo toca el código si el producto trae la clave `codigo`:
+
+| Payload | Efecto |
+|---|---|
+| sin `codigo` | conserva el código que ya tenía |
+| `codigo: "4006381333931"` | valida y guarda normalizado |
+| `codigo: ""` | borra el código |
+| código inválido | guarda vacío en `EXCLUDED`, **no borra el anterior**, lo informa |
+
+La respuesta agrega `codigos_invalidos` (cuántos) y
+`detalle_codigos_invalidos` (`[{ sku, codigo }]`). El panel muestra el aviso y
+el ejemplo; el producto conserva su código bueno. En SQL el flag es `cod.ok`:
+un código inválido entra como vacío pero el `CASE` conserva
+`${T_PRODUCTOS}.codigo`.
+
+### `codigo_buscar`
+
+```
+GET  /api/mercado?accion=codigo_buscar&codigo=4006381333931
+POST { accion: "codigo_buscar", codigo: "4006381333931" }
+```
+
+- Público: no pide cuenta ni clave (igual que `locales` y `local_ver`).
+- Sólo locales `activo = true`; un local dado de baja desaparece de la búsqueda.
+- Ordena por **precio efectivo** ascendente (el precio que se cobra, con la
+  oferta vigente aplicada). Tope de **50** resultados.
+- Devuelve `resultados: [{ tienda, producto }]`, `total` y `codigo`
+  normalizado. `tienda.catalogo` viaja vacío: el comprador pide `local_ver` al
+  abrir una marca, para no inflar la respuesta.
+- 400 `CODIGO_INVALIDO` si el checksum o la longitud no cuadran.
+- El GET **no ejecuta DDL** (`asegurar`): una lectura pública no crea tablas.
+  La columna la asegura el panel al subir catálogo. La consulta de reseñas está
+  protegida por si `mercado_resenas` todavía no existe.
+
+### Comprador (`placer.js`)
+
+| Paso | Qué pasa |
+|---|---|
+| Escanear | `Scan.abrir()` → `normalizarCodigo` → `pareceCodigo` |
+| Buscar | `buscarCodigo()` contra `codigo_buscar` |
+| 1 marca | abre directo la hoja de esa marca con el catálogo filtrado por el código |
+| varias marcas | hoja `mpCodigos` con logo, nombre, comuna, stock, precio y −% |
+| Ver marca | pide `local_ver` si falta el catálogo y abre la hoja filtrada |
+| Sin red | si `local_ver` falla, usa la marca y el producto que ya trajo la búsqueda |
+
+El buscador del catálogo (`productosFiltrados`) entiende **nombre, SKU y
+código**, así que al volver de los resultados el código sigue filtrando. La
+hoja `mpCodigos` cierra con ✕, tocando el fondo o con Escape; `cerrarTodo` la
+incluye. El menú del comprador dice **Escanear código** (antes «Escanear QR»).
+
+### Visor 3D
+
+La ficha usa `p.codigo` real. Si es un EAN-13 de 13 dígitos dibuja las barras
+con `Mercado.ean13Svg`; un EAN-8, UPC, Code 128 o el SKU se muestran como texto
+(`.t3d-ficha-cod`). `Mercado.codigoDe` queda sólo para el catálogo legacy.
+
+### Pedido
+
+`pedido_crear` re-resuelve el código desde el catálogo y lo guarda en dos
+lugares: el ítem normalizado y el snapshot JSONB del pedido (`items`). Así el
+seguimiento y el panel muestran el mismo código que se escaneó, aunque el
+comprador haya mandado un SKU viejo.
+
+### Pruebas de la fase
+
+`node tests/web/codigos.js` (67 comprobaciones): columna, `ALTER`, índice
+parcial, validación GS1, conservación/borrado, `codigo_buscar` GET/POST, orden
+por precio, tope, panel (escaneo, aviso, CSV) y comprador (búsqueda real, hoja
+multi-marca, filtro del catálogo), ficha 3D y versión del service worker.
+
+Prueba real en producción con `t-f2-marca-a` y `t-f2-marca-b`: el mismo EAN en
+dos marcas, orden por precio efectivo, EAN-8 en una sola, código libre en 0,
+checksum roto y código corto en 400, lote sin columna que conserva, código
+inválido que no borra e informa, código vacío que borra, restaurar, pedido con
+el código en el snapshot y baja de marca que la saca de la búsqueda. 32
+comprobaciones.
+
 ## Pruebas
 
 ```sh
@@ -863,6 +973,7 @@ node tests/web/descuentos.js  # 61 comprobaciones: precio efectivo, oferta venci
 node tests/web/visor.js       # 67 comprobaciones: visor con el local, marca, carrito compartido, salidas y fallback legacy
 node tests/web/marca.js       # 61 comprobaciones: link de marca, local_ver, carrito con metadatos, cuenta y seguridad
 node tests/web/fotos.js       # 61 comprobaciones: foto de producto, compresión, URL versionada, imagen_ver, catálogo/carrito/pedido/visor
+node tests/web/codigos.js     # 67 comprobaciones: código de barras, GS1, codigo_buscar, panel, comprador, CSV, visor y pedido
 node tests/web/auth-nube.js   # incluye CORE_ROOT_EMAIL y promoción a owner
 node tests/web/diseno.js      # shell, sistema visual y offline
 node tests/web/trafico.js     # capa de tráfico del mapa

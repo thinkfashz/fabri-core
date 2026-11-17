@@ -19,6 +19,9 @@
 //   GET  /api/mercado?accion=imagen_ver&local_id=<id>&sku=<sku>&v=<hash>
 //                                              → foto del producto (público)
 //                                                → URL versionada e inmutable
+//   GET  /api/mercado?accion=codigo_buscar&codigo=<ean>
+//                                              → qué marcas tienen ese código
+//                                                → cruza todos los locales (público)
 //   POST { accion: "asegurar" }                 → crea las tablas (público)
 //   POST { accion: "locales", con_catalogo }    → igual que el GET (público)
 //   POST { accion: "local_crear", local }       → alta (CUENTA · ADMIN)
@@ -113,6 +116,8 @@ const MAX_IMAGEN = 220_000;
 const MAX_IMAGEN_BYTES = 160_000;
 /** Host canónico de la API: las fotos se sirven desde acá, no desde la web. */
 const API_PUBLICA = 'https://fabri-api.vercel.app';
+/** Código de barras: mismo largo que acepta el escáner (EAN, UPC, Code 128). */
+const MAX_CODIGO = 48;
 
 type Fila = Record<string, unknown>;
 
@@ -410,6 +415,7 @@ async function asegurar(pool: any) {
       stock       INTEGER,
       categoria   TEXT NOT NULL DEFAULT '',
       unidad      TEXT NOT NULL DEFAULT '',
+      codigo      TEXT NOT NULL DEFAULT '',
       imagen      TEXT NOT NULL DEFAULT '',
       imagen_hash TEXT NOT NULL DEFAULT '',
       actualizado BIGINT NOT NULL DEFAULT 0,
@@ -445,6 +451,11 @@ async function asegurar(pool: any) {
   // cuando cambia la imagen y así el navegador no muestra la vieja.
   await pool.query(`ALTER TABLE ${T_PRODUCTOS} ADD COLUMN IF NOT EXISTS imagen TEXT NOT NULL DEFAULT ''`);
   await pool.query(`ALTER TABLE ${T_PRODUCTOS} ADD COLUMN IF NOT EXISTS imagen_hash TEXT NOT NULL DEFAULT ''`);
+  // Código de barras real (EAN-8/UPC-A/EAN-13/GTIN-14 o Code 128/39). Es el
+  // puente entre una marca y otra: el comprador escanea y ve quién lo tiene.
+  await pool.query(`ALTER TABLE ${T_PRODUCTOS} ADD COLUMN IF NOT EXISTS codigo TEXT NOT NULL DEFAULT ''`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_mercado_productos_codigo
+                      ON ${T_PRODUCTOS} (codigo) WHERE codigo <> ''`);
   // El tope también vive en la base: aunque alguien llame la API directo, no
   // puede dejar guardado un 300 %.
   try {
@@ -560,7 +571,7 @@ async function asegurar(pool: any) {
 const CAMPOS_PRODUCTO = `local_id,sku,nombre,precio::float8 AS precio,stock,categoria,unidad,
   descuento::int AS descuento, ${dctoVigente()}::int AS descuento_vigente,
   ${precioEfectivo()}::float8 AS precio_efectivo, oferta_hasta::float8 AS oferta_hasta,
-  imagen_hash`;
+  codigo,imagen_hash`;
 
 /** Fila de `CAMPOS_PRODUCTO` → objeto que viaja al navegador. */
 function productoDeFila(f: any) {
@@ -583,6 +594,7 @@ function productoDeFila(f: any) {
     stock: f.stock,
     categoria: f.categoria || '',
     unidad: f.unidad || '',
+    codigo: f.codigo || '',
     imagen,
   };
 }
@@ -603,6 +615,38 @@ function normalizarImagen(v: unknown): { ok: boolean; valor: string } {
     return { ok: false, valor: '' };
   }
   return { ok: true, valor: s };
+}
+
+/**
+ * Dígito verificador GS1 (EAN-8, UPC-A, EAN-13 y GTIN-14). Mismo cálculo que
+ * `core-scan.js`: el servidor no confía en que el navegador ya lo validó.
+ */
+function digitoGS1Ok(codigo: string): boolean {
+  const d = codigo.split('').map(Number);
+  if (d.some((n) => Number.isNaN(n))) return false;
+  const control = d.pop() as number;
+  let suma = 0;
+  for (let i = d.length - 1, k = 0; i >= 0; i--, k++) suma += d[i] * (k % 2 === 0 ? 3 : 1);
+  return (10 - (suma % 10)) % 10 === control;
+}
+
+/**
+ * Código de barras de un producto. Acepta EAN-8/UPC-A/EAN-13/GTIN-14 con
+ * checksum válido y Code 128/39 alfanumérico (6–48, con al menos un dígito).
+ * Devuelve `ok: false` cuando el valor no sirve; el lote lo guarda sin código
+ * y avisa, en vez de inventar uno.
+ */
+function normalizarCodigoBarras(v: unknown): { ok: boolean; valor: string } {
+  const c = texto(v, 60).replace(/[\s\-_.]/g, '').toUpperCase();
+  if (!c) return { ok: true, valor: '' };
+  if (c.length < 6 || c.length > MAX_CODIGO) return { ok: false, valor: '' };
+  if (!/^[A-Z0-9]+$/.test(c)) return { ok: false, valor: '' };
+  // Un EAN/UPC con checksum roto sería un producto inventado: se rechaza.
+  if (/^\d+$/.test(c) && [8, 12, 13, 14].includes(c.length)) {
+    return digitoGS1Ok(c) ? { ok: true, valor: c } : { ok: false, valor: '' };
+  }
+  // Code 128/39 de tienda: alfanumérico y con algún dígito.
+  return /\d/.test(c) ? { ok: true, valor: c } : { ok: false, valor: '' };
 }
 
 const CAMPOS_LOCAL = `id,nombre,marca,logo,descripcion,rubro,ico,telefono,direccion,comuna,
@@ -713,6 +757,57 @@ function aTienda(l: any) {
       promedio: Number(l.calificacion && l.calificacion.promedio) || 0,
     },
   };
+}
+
+/**
+ * Cruza un código de barras con TODOS los locales activos: es la búsqueda
+ * entre marcas. Devuelve el producto y la ficha de cada marca que lo tiene,
+ * ordenado por precio efectivo (el más barato primero).
+ */
+async function buscarPorCodigo(pool: any, codigo: string) {
+  const p = await pool.query(
+    `SELECT ${CAMPOS_PRODUCTO} FROM ${T_PRODUCTOS}
+      WHERE codigo = $1
+      ORDER BY ${precioEfectivo()} ASC, nombre COLLATE "C"
+      LIMIT 50`,
+    [codigo]
+  );
+  if (!p.rows.length) return [];
+  const ids = [...new Set(p.rows.map((f: any) => String(f.local_id)))];
+
+  const l = await pool.query(
+    `SELECT ${CAMPOS_LOCAL} FROM ${T_LOCALES}
+      WHERE id = ANY($1::text[]) AND activo = true`,
+    [ids]
+  );
+  // La tabla de reseñas puede no existir todavía en una base recién creada:
+  // la búsqueda por código no debe caerse por eso.
+  let cal: any = { rows: [] };
+  try {
+    cal = await pool.query(
+      `SELECT local_id, COUNT(*)::int AS n, AVG(estrellas)::float8 AS promedio
+         FROM ${T_RESENAS} WHERE oculta = false AND local_id = ANY($1::text[])
+        GROUP BY local_id`,
+      [ids]
+    );
+  } catch (e) { /* sin reseñas */ }
+  const calDe: Record<string, any> = {};
+  for (const f of cal.rows) {
+    calDe[f.local_id] = { n: f.n, promedio: Math.round((Number(f.promedio) || 0) * 10) / 10 };
+  }
+  const locales = new Map<string, any>();
+  for (const fila of l.rows) {
+    fila.calificacion = calDe[fila.id] || { n: 0, promedio: 0 };
+    locales.set(String(fila.id), fila);
+  }
+
+  const resultados: any[] = [];
+  for (const fila of p.rows) {
+    const local = locales.get(String(fila.local_id));
+    if (!local) continue;   // local dado de baja: no se publica
+    resultados.push({ tienda: aTienda(local), producto: productoDeFila(fila) });
+  }
+  return resultados;
 }
 
 /** Nombre público de quien opina: «Ana P.». Nunca el nombre ni el teléfono
@@ -965,6 +1060,7 @@ function normalizarItems(crudo: unknown) {
     if (!nombre || precio <= 0) continue;
     items.push({
       sku: texto(f.sku, 60).trim(),
+      codigo: texto(f.codigo, MAX_CODIGO).trim(),
       nombre,
       precio,
       cantidad,
@@ -1075,6 +1171,39 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       return;
     }
 
+    /* Búsqueda entre marcas: un mismo código de barras puede estar en varias
+       tiendas. Devuelve cada marca con su producto, ordenado por precio. */
+    if (url.searchParams.get('accion') === 'codigo_buscar') {
+      const cod = normalizarCodigoBarras(url.searchParams.get('codigo') || '');
+      if (!cod.ok || !cod.valor) {
+        return json(res, { ok: false, error: 'código de barras inválido', codigo: 'CODIGO_INVALIDO' }, 400);
+      }
+      if (!process.env.INSFORGE_DATABASE_URL) {
+        return json(res, { ok: false, error: 'base no configurada', codigo: 'SIN_BASE' }, 503);
+      }
+      let pool: any = null;
+      try {
+        const { Pool } = await import('pg');
+        pool = new Pool({
+          connectionString: process.env.INSFORGE_DATABASE_URL,
+          ssl: { rejectUnauthorized: false },
+          connectionTimeoutMillis: 15000,
+          max: 2,
+        });
+        // Sin DDL en una lectura pública: el esquema lo asegura el panel al
+        // publicar el catálogo. La búsqueda tiene que ser rápida.
+        const resultados = await buscarPorCodigo(pool, cod.valor);
+        return json(res, {
+          ok: true, accion: 'codigo_buscar', codigo: cod.valor,
+          total: resultados.length, resultados,
+        });
+      } catch (e: any) {
+        return json(res, { ok: false, error: e?.message || String(e), codigo: 'ERROR_BASE' }, 500);
+      } finally {
+        if (pool) { try { await pool.end(); } catch (e) { /* ya cerrada */ } }
+      }
+    }
+
     /* Link público de marca: una sola tienda, con su catálogo. No pide cuenta
        ni clave; sólo devuelve locales activos. */
     if (url.searchParams.get('accion') === 'local_ver' || url.searchParams.get('accion') === 'local') {
@@ -1151,7 +1280,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       acciones: [
         'asegurar', 'locales', 'local_ver', 'local_crear', 'local_mio', 'local_actualizar',
         'local_estado', 'local_borrar', 'productos_subir', 'producto_borrar',
-        'imagen_ver',
+        'imagen_ver', 'codigo_buscar',
         'pedido_crear', 'pedido_seguir', 'push_suscribir', 'push_baja',
         'push_local_suscribir', 'push_local_baja',
         'pedidos_listar', 'pedido_estado',
@@ -1212,6 +1341,18 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     }
 
     /* ── lecturas por POST (mismo contrato para la APK) ── */
+    if (accion === 'codigo_buscar') {
+      const cod = normalizarCodigoBarras(cuerpo.codigo);
+      if (!cod.ok || !cod.valor) {
+        return json(res, { ok: false, error: 'código de barras inválido', codigo: 'CODIGO_INVALIDO' }, 400);
+      }
+      const resultados = await buscarPorCodigo(pool, cod.valor);
+      return json(res, {
+        ok: true, accion, codigo: cod.valor,
+        total: resultados.length, resultados,
+      });
+    }
+
     if (accion === 'locales') {
       const conCatalogo = cuerpo.con_catalogo !== false && cuerpo.con_catalogo !== 0 && cuerpo.con_catalogo !== '0';
       const locales = await traerLocales(pool, conCatalogo);
@@ -1407,6 +1548,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       await cliente.query('BEGIN');
       let subidos = 0;
       const omitidos: string[] = [];
+      const codigosInvalidos: Array<{ sku: string; codigo: string }> = [];
       for (let i = 0; i < crudos.length; i++) {
         const f = crudos[i];
         if (!f || typeof f !== 'object') continue;
@@ -1430,26 +1572,37 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         const imagenHash = imagen
           ? createHash('sha256').update(imagen).digest('hex').slice(0, 12)
           : '';
+        /* Código de barras real. Si el lote no trae la columna, se conserva el
+           que ya estaba (importar stock no debe borrar códigos). Un valor
+           inválido se guarda como vacío y se informa: nunca se inventa uno. */
+        const tocaCodigo = 'codigo' in p;
+        const cod = tocaCodigo ? normalizarCodigoBarras(p.codigo) : { ok: false, valor: '' };
+        const codigo = cod.ok ? cod.valor : '';
+        if (tocaCodigo && String(p.codigo == null ? '' : p.codigo).trim() && !cod.ok) {
+          codigosInvalidos.push({ sku, codigo: texto(p.codigo, 60).trim() });
+        }
         await cliente.query(
           `INSERT INTO ${T_PRODUCTOS}
-             (local_id,sku,nombre,precio,stock,categoria,unidad,actualizado,descuento,oferta_hasta,imagen,imagen_hash)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+             (local_id,sku,nombre,precio,stock,categoria,unidad,actualizado,descuento,oferta_hasta,imagen,imagen_hash,codigo)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
            ON CONFLICT (local_id,sku) DO UPDATE SET
              nombre = EXCLUDED.nombre, precio = EXCLUDED.precio, stock = EXCLUDED.stock,
              categoria = EXCLUDED.categoria, unidad = EXCLUDED.unidad,
-             descuento = CASE WHEN $13::boolean THEN EXCLUDED.descuento
+             descuento = CASE WHEN $14::boolean THEN EXCLUDED.descuento
                               ELSE ${T_PRODUCTOS}.descuento END,
-             oferta_hasta = CASE WHEN $13::boolean THEN EXCLUDED.oferta_hasta
+             oferta_hasta = CASE WHEN $14::boolean THEN EXCLUDED.oferta_hasta
                                  ELSE ${T_PRODUCTOS}.oferta_hasta END,
-             imagen = CASE WHEN $14::boolean THEN EXCLUDED.imagen
+             imagen = CASE WHEN $15::boolean THEN EXCLUDED.imagen
                            ELSE ${T_PRODUCTOS}.imagen END,
-             imagen_hash = CASE WHEN $14::boolean THEN EXCLUDED.imagen_hash
+             imagen_hash = CASE WHEN $15::boolean THEN EXCLUDED.imagen_hash
                                 ELSE ${T_PRODUCTOS}.imagen_hash END,
+             codigo = CASE WHEN $16::boolean THEN EXCLUDED.codigo
+                           ELSE ${T_PRODUCTOS}.codigo END,
              actualizado = EXCLUDED.actualizado, nube_ts = now()`,
           [localId, sku, nombre, precio,
             p.stock === null || p.stock === undefined || p.stock === '' ? null : entero(p.stock),
             texto(p.categoria, 40).trim(), texto(p.unidad, 30).trim(), ahora, dcto, hasta,
-            imagen, imagenHash, tocaOferta, foto.ok]
+            imagen, imagenHash, codigo, tocaOferta, foto.ok, cod.ok]
         );
         subidos++;
       }
@@ -1473,7 +1626,13 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         }, 409);
       }
       await cliente.query('COMMIT');
-      return json(res, { ok: true, accion, subidos, omitidos: omitidos.length, detalle_omitidos: omitidos.slice(0, 10), total, ofertas, tope });
+      return json(res, {
+        ok: true, accion, subidos, omitidos: omitidos.length,
+        detalle_omitidos: omitidos.slice(0, 10),
+        codigos_invalidos: codigosInvalidos.length,
+        detalle_codigos_invalidos: codigosInvalidos.slice(0, 10),
+        total, ofertas, tope,
+      });
     }
 
     if (accion === 'producto_borrar') {
@@ -1569,6 +1728,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         const dcto = Number(enCat.descuento_vigente) || 0;
         items.push({
           sku: enCat.sku,
+          codigo: enCat.codigo || '',
           nombre: enCat.nombre,
           precio: efectivo,
           precio_lista: lista,
@@ -1651,7 +1811,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
              VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,$12,'nuevo',$13,$14,$15)`,
             [id, localId, codigo, nombreCliente, telefono,
               JSON.stringify(items.map((x) => ({
-                sku: x.sku, nombre: x.nombre, precio: x.precio,
+                sku: x.sku, codigo: x.codigo || '', nombre: x.nombre, precio: x.precio,
                 precio_lista: x.precio_lista, descuento: x.descuento,
                 cantidad: x.cantidad, categoria: x.categoria, unidad: x.unidad,
                 imagen: x.imagen || '',

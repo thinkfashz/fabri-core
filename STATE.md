@@ -52,6 +52,79 @@ no el data URL, para no inflar el JSON del mapa.
 «Solución» (la app ya está lista); después Fase 2 (código de barras real +
 buscar entre marcas) y Fase 3 (dirección + efectivo + verificación).
 
+## Sesión 2026-11-17 · Marketplace Fase 2: código de barras real
+
+Pedido: que cada producto tenga su código de barras de verdad (no uno
+inventado) y que el comprador pueda escanearlo una vez para encontrar el mismo
+producto en todas las marcas, comparando precio y stock. Sin salir del límite
+de 12 funciones: todo va dentro de `mercado.ts`.
+
+**Decisión**: el código vive en `mercado_productos.codigo` (`TEXT NOT NULL
+DEFAULT ''`, índice parcial `WHERE codigo <> ''`) y se valida en el servidor
+con GS1 (EAN-8/UPC-A/EAN-13/GTIN-14) o Code 128/39 alfanumérico. La búsqueda
+entre marcas es una acción pública más de `mercado.ts`, no una función nueva.
+
+| Pieza | Dónde |
+|---|---|
+| Columna `codigo`, `ALTER`, índice parcial y `digitoGS1Ok` | `api-telefono/api/mercado.ts` |
+| `productos_subir` conserva/borra e informa `codigos_invalidos` | `api-telefono/api/mercado.ts` |
+| `codigo_buscar` público GET/POST (activos, precio efectivo, tope 50) | `api-telefono/api/mercado.ts` |
+| `codigo` en el ítem normalizado y en el snapshot JSONB del pedido | `api-telefono/api/mercado.ts` |
+| Campo, escaneo, validación y miniatura del código | `web/app/index.html`, `negocio.js`, `styles.css` |
+| CSV: `codigo_barras`/`barcode`/`ean`/`upc`/`gtin`/`barra` ≠ `codigo` (SKU) | `web/app/negocio.js` |
+| Búsqueda real, hoja `mpCodigos` y apertura de marca filtrada | `web/app/placer.js`, `index.html`, `placer.css` |
+| Ficha 3D con `p.codigo` real; EAN-13 dibujado, el resto textual | `web/app/tienda3d.js`, `styles.css` |
+| `sw.js` v94 | `web/app/sw.js` |
+| Pruebas (67 comprobaciones nuevas) | `tests/web/codigos.js` |
+
+- **Conservar no es borrar**: si el lote no trae `codigo`, se conserva el
+  anterior; `codigo: ""` lo borra. Un código inválido guarda vacío en
+  `EXCLUDED` pero el `CASE` conserva el bueno (`cod.ok`) y se informa en
+  `codigos_invalidos` + `detalle_codigos_invalidos`: el panel lo muestra con
+  el ejemplo y el producto no pierde su código.
+- **Buscar no crea tablas**: el GET de `codigo_buscar` no llama `asegurar`
+  (una lectura pública no ejecuta DDL) y tolera que `mercado_resenas` no
+  exista. Devuelve `resultados: [{ tienda, producto }]` con
+  `tienda.catalogo: []`; el comprador pide `local_ver` al abrir una marca.
+- **Una marca o varias**: si el código está en una sola, se abre directo su
+  ficha con el catálogo filtrado; si está en varias, se muestra la hoja
+  `mpCodigos` (logo, comuna, stock, precio y −%) ordenada por precio. El
+  buscador del catálogo también entiende nombre, SKU y código.
+- **El código no se inventa**: la ficha 3D usa `p.codigo`; sólo dibuja barras
+  EAN-13 si tiene 13 dígitos. Un EAN-8, UPC, Code 128 o SKU se muestran como
+  texto. `Mercado.codigoDe` queda para el catálogo legacy.
+- **Bug real encontrado y corregido**: `items.push` llevaba `codigo`, pero el
+  `JSON.stringify` del snapshot en `pedido_crear` lo omitía. La prueba real lo
+  detectó (el pedido se creaba y cobraba, pero el seguimiento no mostraba el
+  código). Se agregó al `map`, se sumó una comprobación a `codigos.js` y se
+  redesplegó la API.
+
+**Pruebas ejecutadas**:
+
+- `node tests/web/codigos.js` → **67 OK** (nuevo).
+- Batería completa verde: **16/16** archivos (`auth-nube`, `boleta`,
+  `codigos`, `descuentos`, `diseno`, `escaneo`, `fotos`, `marca`, `negocio`,
+  `pedidos`, `plataforma`, `push`, `resenas`, `seguimiento`, `trafico`,
+  `visor`).
+- TypeScript limpio con el `tsc` de Vercel:
+  `node …/vercel/node_modules/typescript/bin/tsc --noEmit --skipLibCheck
+  --target es2022 --module esnext --moduleResolution bundler api/mercado.ts`.
+- API real con `t-f2-marca-a` y `t-f2-marca-b`: mismo EAN en dos marcas,
+  orden por precio efectivo, EAN-8 en una sola, código libre en 0, checksum
+  roto y código corto en 400, lote sin columna que conserva, inválido que no
+  borra e informa, vacío que borra, restaurar, pedido con el código en el
+  snapshot y baja de marca que la saca de la búsqueda. **32/32**; las dos
+  marcas quedaron borradas.
+- Deploy API final `dpl_GcrNw2SpWoHPAzEqpzYYiNA4foNi` (12 funciones `.ts`) y
+  web `dpl_GRcF44AknsMcA7oP8ecvhs4umrNm` (`sw` v94); alias
+  `fabri-api.vercel.app`, `forge-core-stock.vercel.app` y
+  `fabri-core-web.vercel.app` en 200; `/api/mercado?diag=1` lista
+  `codigo_buscar`.
+
+**Pendiente**: que el vendedor cargue fotos y códigos reales en «Solución»
+(hoy la tienda está publicada pero sin productos); después Fase 3 (dirección
++ efectivo + verificación).
+
 ## Sesión 2026-11-16 · Fase 10: el visor 3D es del local y compra en su carrito
 
 Pedido: que cada dueño tenga su panel, publique su local en el mapa con

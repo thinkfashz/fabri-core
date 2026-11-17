@@ -300,6 +300,7 @@ window.Placer = (function () {
         return {
           id: m.id + "#" + i,
           sku: it.sku || "",
+          codigo: it.codigo || "",
           nombre: nombre,
           categoria: it.categoria || categoriaDe(nombre),
           unidad: it.unidad || unidadDe(nombre),
@@ -322,6 +323,7 @@ window.Placer = (function () {
       return {
         id: m.id + "#" + i,
         sku: "",
+        codigo: "",
         nombre: par[0],
         categoria: categoriaDe(par[0]),
         unidad: unidadDe(par[0]),
@@ -1626,7 +1628,12 @@ window.Placer = (function () {
     const q = ESTADO.cat.q.trim().toLowerCase();
     let lista = productos(m);
     if (ESTADO.cat.categoria) lista = lista.filter((p) => p.categoria === ESTADO.cat.categoria);
-    if (q) lista = lista.filter((p) => p.nombre.toLowerCase().includes(q));
+    // El buscador del catálogo entiende nombre, SKU y código de barras: si el
+    // comprador vuelve de la hoja de resultados, el código sigue filtrando.
+    if (q) lista = lista.filter((p) =>
+      p.nombre.toLowerCase().includes(q) ||
+      (p.sku && String(p.sku).toLowerCase().includes(q)) ||
+      (p.codigo && String(p.codigo).toLowerCase().includes(q)));
     if (ESTADO.cat.orden === "precio") lista = lista.slice().sort((a, b) => a.precio - b.precio);
     if (ESTADO.cat.orden === "precio-desc") lista = lista.slice().sort((a, b) => b.precio - a.precio);
     return lista;
@@ -2088,43 +2095,147 @@ window.Placer = (function () {
     if (c) c.textContent = n + (n === 1 ? " producto" : " productos");
   }
 
-  /* ── escáner ───────────────────────────────────────────────────────────── */
+  /* ── escáner · código de barras: búsqueda entre marcas ───────────────────
+     El código real vive en `mercado_productos.codigo`. Un mismo EAN puede
+     estar en varias marcas: se consulta la API pública y se muestran todas,
+     con su precio efectivo y su stock. Nada de inventar una «referencia». */
+  async function buscarCodigo(codigo) {
+    const r = await fetch(API_MERCADO + "?accion=codigo_buscar&codigo=" +
+      encodeURIComponent(codigo), { cache: "no-store" });
+    const d = await r.json();
+    if (!d || !d.ok) throw new Error((d && d.error) || "sin respuesta");
+    return Array.isArray(d.resultados) ? d.resultados : [];
+  }
+
+  function cerrarCodigos() {
+    const h = $("mpCodigos");
+    if (h) h.hidden = true;
+    const abierta = $("mpHoja") && !$("mpHoja").hidden;
+    if (!abierta) document.body.classList.remove("mp-abierto");
+  }
+
+  function abrirResultadosCodigo(codigo, resultados) {
+    const hoja = $("mpCodigos");
+    if (!hoja) return;
+    cerrarHoja();
+    cerrarCarrito();
+    cerrarPago();
+
+    $("mpCodigosTit").textContent = resultados.length === 1
+      ? "1 marca tiene este producto"
+      : resultados.length + " marcas tienen este producto";
+    $("mpCodigosSub").textContent = "Código " + codigo;
+    $("mpCodigosCuerpo").innerHTML =
+      '<p class="mp-cod-nota">El mismo código puede estar en varias marcas. ' +
+        "Van ordenadas por precio, con el stock que cargó cada negocio.</p>" +
+      '<div class="mp-cod-lista">' +
+        resultados.map(function (r, i) {
+          const t = r.tienda || {};
+          const p = r.producto || {};
+          const desc = Math.max(0, Math.min(90, Math.round(Number(p.descuento_vigente) || 0)));
+          const precio = p.precio_efectivo != null
+            ? Math.max(0, Math.round(Number(p.precio_efectivo) || 0))
+            : Math.max(0, Math.round(Number(p.precio) || 0));
+          const stock = p.stock == null ? "disponible"
+            : Number(p.stock) <= 0 ? "agotado"
+            : "quedan " + p.stock;
+          return '<article class="mp-cod-res">' +
+            '<span class="mp-cod-logo">' + iconoDe(t, 20) + "</span>" +
+            '<div class="mp-cod-txt">' +
+              "<b>" + esc(p.nombre || "Producto") + "</b>" +
+              "<small>" + esc(t.nombre || "Marca") +
+                (t.comuna ? " · " + esc(t.comuna) : "") + "</small>" +
+              '<span class="mp-cod-meta">' + esc(stock) +
+                (desc ? ' · <em>−' + desc + "%</em>" : "") + "</span>" +
+            "</div>" +
+            '<div class="mp-cod-precio">' +
+              (desc ? "<s>" + clp(p.precio) + "</s>" : "") +
+              "<b>" + clp(precio) + "</b>" +
+              '<button type="button" class="mp-cod-ver" data-i="' + i + '">Ver marca</button>' +
+            "</div>" +
+          "</article>";
+        }).join("") +
+      "</div>";
+
+    $("mpCodigosX").onclick = cerrarCodigos;
+    $("mpCodigosFondo").onclick = cerrarCodigos;
+    hoja.querySelectorAll(".mp-cod-ver").forEach(function (b) {
+      b.onclick = function () {
+        abrirMarcaDeResultado(resultados[Number(b.dataset.i)], codigo);
+      };
+    });
+
+    hoja.hidden = false;
+    document.body.classList.add("mp-abierto");
+    const panel = hoja.querySelector(".mp-hoja-panel");
+    if (panel) panel.scrollTop = 0;
+  }
+
+  /** Abre la ficha de la marca del resultado con su catálogo filtrado por el
+   *  código escaneado. Si la marca no estaba cargada, pide `local_ver`. */
+  async function abrirMarcaDeResultado(r, codigo) {
+    const t = r && r.tienda;
+    if (!t || !t.id) { avisar("Ese resultado ya no está disponible."); return; }
+    let m = ESTADO.mercados.find(function (x) { return x.id === t.id; });
+    if (!m || !Array.isArray(m.catalogo) || !m.catalogo.length) {
+      try {
+        const resp = await fetch(API_MERCADO + "?accion=local_ver&id=" +
+          encodeURIComponent(t.id), { cache: "no-store" });
+        const d = await resp.json();
+        if (d && d.ok && d.tienda) m = registrarLocal(d.tienda);
+      } catch (e) { /* se usa lo que ya vino en el resultado */ }
+    }
+    if (!m || !Array.isArray(m.catalogo) || !m.catalogo.length) {
+      // La ficha pública puede fallar por red; el resultado ya trae la marca
+      // y su producto, así que la hoja igual se puede abrir con eso.
+      m = registrarLocal(Object.assign({}, m || t, { catalogo: [r.producto] }));
+    }
+    if (!m) { avisar("No pude abrir esa marca. Revisa la conexión."); return; }
+
+    cerrarCodigos();
+    cerrarCarrito();
+    cerrarPago();
+    abrirHoja(m);
+    ESTADO.cat.q = String(codigo || "");
+    pintarHoja();
+    const caja = $("mpProductos");
+    if (caja && caja.scrollIntoView) {
+      caja.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }
+
   async function escanear() {
     if (!window.Scan) { avisar("El escáner no está disponible en este navegador."); return; }
     let codigo = null;
     try {
       codigo = await window.Scan.abrir({ subtitulo: "apunta al código del producto" });
     } catch (e) { avisar("No pude abrir la cámara."); return; }
-    if (codigo) agregarPorCodigo(codigo);
-  }
+    if (!codigo) return;
 
-  function agregarPorCodigo(codigo) {
-    const m = ESTADO.viendo || filtrados()[0] || ESTADO.mercados[0];
-    if (!m) { avisar("Primero elige un mercado."); return; }
-
-    // 1) Inventario propio (tabla products): es el único dato real de precios.
-    let fila = null;
-    try {
-      if (window.Fabri && window.Fabri.one) {
-        fila = window.Fabri.one("SELECT name, price FROM products WHERE sku = ? COLLATE NOCASE", [codigo]);
-      }
-    } catch (e) { /* sin base todavía */ }
-
-    let prod, nota;
-    if (fila && fila.name) {
-      prod = { id: m.id + "#sku:" + codigo, nombre: fila.name, precio: Number(fila.price) || 0 };
-      nota = "de tu inventario";
-    } else {
-      // 2) Referencia del local: elegido por el código, siempre el mismo.
-      const bolsa = productos(m);
-      const idx = String(codigo).split("").reduce((a, ch) => a + ch.charCodeAt(0), 0) % bolsa.length;
-      const p = bolsa[idx];
-      prod = { id: p.id, nombre: p.nombre, precio: p.precio };
-      nota = "código no registrado · referencia";
+    const limpio = window.Scan.normalizarCodigo(codigo);
+    if (!window.Scan.pareceCodigo(limpio)) {
+      avisar("El código " + limpio + " no es válido: revisa el dígito verificador.");
+      return;
     }
-
-    cambiar(m, prod.id, 1, prod);
-    avisar("Agregado: " + prod.nombre + " · " + clp(prod.precio) + " (" + nota + ")");
+    avisar("Buscando " + limpio + " en todas las marcas…");
+    let resultados = [];
+    try {
+      resultados = await buscarCodigo(limpio);
+    } catch (e) {
+      avisar("No pude buscar el código. Revisa la conexión.");
+      return;
+    }
+    if (!resultados.length) {
+      avisar("Ninguna marca tiene el código " + limpio + " todavía.");
+      return;
+    }
+    if (resultados.length === 1) {
+      const tienda = resultados[0].tienda || {};
+      abrirMarcaDeResultado(resultados[0], limpio);
+      avisar("Está en " + (tienda.nombre || "una marca") + ".");
+      return;
+    }
+    abrirResultadosCodigo(limpio, resultados);
   }
 
   function luhn(numero) {
@@ -2636,6 +2747,9 @@ window.Placer = (function () {
     if (refrescar) refrescar.onclick = () => cargar();
     $("mpHojaX").onclick = cerrarHoja;
     $("mpHojaFondo").onclick = cerrarHoja;
+    const codX = $("mpCodigosX"), codFondo = $("mpCodigosFondo");
+    if (codX) codX.onclick = cerrarCodigos;
+    if (codFondo) codFondo.onclick = cerrarCodigos;
     const carBtn = $("mpCarritoBtn");
     if (carBtn) carBtn.onclick = () => { if (ESTADO.viendo) cerrarHoja(); abrirCarrito(); };
     const irCarrito = $("mpIrCarrito");
@@ -2719,6 +2833,8 @@ window.Placer = (function () {
 
     document.addEventListener("keydown", (e) => {
       if (e.key !== "Escape") return;
+      const cod = $("mpCodigos");
+      if (cod && !cod.hidden) { cerrarCodigos(); return; }
       const car = $("mpCarrito");
       if (car && !car.hidden) { cerrarCarrito(); return; }
       if (ESTADO.viendo) cerrarHoja();
@@ -2857,7 +2973,7 @@ window.Placer = (function () {
     productosDe: (m) => (m ? productos(m) : []),
     resumenDeLocal,
     abrirCarrito,
-    cerrarTodo: () => { cerrarHoja(); cerrarCarrito(); cerrarPago(); },
+    cerrarTodo: () => { cerrarCodigos(); cerrarHoja(); cerrarCarrito(); cerrarPago(); },
     // Puras de la ficha: se prueban sin mapa ni red (tests/web/resenas.js).
     _test: { estrellas, resumenCalificacion, bloqueResenas, haceDias, productos }
   };

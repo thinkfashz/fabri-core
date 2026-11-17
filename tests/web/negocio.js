@@ -93,6 +93,11 @@ igual('sinónimos: existencias → stock', p3.stock, 8);
 igual('sinónimos: rubro → categoría', p3.categoria, 'Lácteos');
 igual('sinónimos: medida → unidad', p3.unidad, '1 L');
 
+const csvBarras = 'Producto;Precio;Codigo de barras;Codigo\nLeche 1 L;1290;4006381333931;L-2\n';
+const pBarras = N._test.parseProductos(csvBarras)[0];
+igual('sinónimos: código de barras → codigo', pBarras.codigo, '4006381333931');
+igual('sinónimos: codigo sigue siendo sku', pBarras.sku, 'L-2');
+
 const csvMalo = 'nombre,precio\nSin precio,\n,1234\nBien,999\n';
 igual('descarta filas sin nombre o precio', N._test.parseProductos(csvMalo).length, 1);
 
