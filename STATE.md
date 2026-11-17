@@ -120,6 +120,8 @@ entre marcas es una acción pública más de `mercado.ts`, no una función nueva
   `fabri-api.vercel.app`, `forge-core-stock.vercel.app` y
   `fabri-core-web.vercel.app` en 200; `/api/mercado?diag=1` lista
   `codigo_buscar`.
+- Commit `875490b` (`feat(marketplace): código de barras real y búsqueda
+  entre marcas`), empujado a `origin/master`.
 
 **Pendiente**: que el vendedor cargue fotos y códigos reales en «Solución»
 (hoy la tienda está publicada pero sin productos); después Fase 3 (dirección
