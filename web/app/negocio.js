@@ -30,6 +30,8 @@ window.Negocio = (function () {
   const CLAVE_SEL = "fcore.negocio.sel";         // tienda elegida
   const MAX_LOGO = 120 * 1024;                   // 120 KB de data URI
   const LOGO_PX = 192;                           // lado máximo del logo
+  const MAX_FOTO = 200 * 1024;                   // 200 KB de data URI (tope API: 220.000)
+  const FOTO_PX = 640;                           // lado máximo de la foto de producto
   const MAX_CATALOGO = 3000;
 
   const $ = (id) => document.getElementById(id);
@@ -93,6 +95,11 @@ window.Negocio = (function () {
     logoNueva: "",       // data URI del formulario de alta
     logoEditar: "",      // data URI del formulario de ficha
     editandoSku: "",     // producto que se está editando
+    /* Foto del producto en el formulario:
+       · undefined → no se tocó (si edita, se conserva la que ya tenía)
+       · ""        → se quitó (el servidor la borra al guardar)
+       · data URL  → foto nueva comprimida por el navegador */
+    prodImagen: undefined,
     pendienteSel: "",    // tienda a seleccionar tras refrescar
     avisosConsultados: false, // ya se preguntó al navegador si hay suscripción
     /* panel de administración */
@@ -328,6 +335,47 @@ window.Negocio = (function () {
           if (uri.length > MAX_LOGO) uri = c.toDataURL("image/jpeg", 0.52);
           if (uri.length > MAX_LOGO) {
             reject(new Error("El logo queda muy pesado: usa una imagen más simple."));
+            return;
+          }
+          resolve(uri);
+        };
+        img.src = String(fr.result);
+      };
+      fr.readAsDataURL(file);
+    });
+  }
+
+  /* Achica la foto del producto en el navegador (640 px de lado, JPEG 0.7)
+     antes de mandarla. La API guarda el data URL y publica una URL corta;
+     así el catálogo no viaja con la imagen adentro. */
+  function achicarFoto(file) {
+    return new Promise((resolve, reject) => {
+      if (!file || !/^image\//.test(file.type || "")) {
+        reject(new Error("Elige una foto (JPG, PNG o WebP)."));
+        return;
+      }
+      const fr = new FileReader();
+      fr.onerror = () => reject(new Error("No pude leer la foto."));
+      fr.onload = () => {
+        const img = new Image();
+        img.onerror = () => reject(new Error("La foto no se pudo abrir."));
+        img.onload = () => {
+          const lado = Math.max(img.width || 1, img.height || 1);
+          const k = Math.min(1, FOTO_PX / lado);
+          const w = Math.max(1, Math.round((img.width || 1) * k));
+          const h = Math.max(1, Math.round((img.height || 1) * k));
+          const c = document.createElement("canvas");
+          c.width = w; c.height = h;
+          const ctx = c.getContext("2d");
+          if (!ctx) { reject(new Error("Este navegador no puede procesar la foto.")); return; }
+          // Fondo blanco: una foto PNG con transparencia no queda negra.
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(0, 0, w, h);
+          ctx.drawImage(img, 0, 0, w, h);
+          let uri = c.toDataURL("image/jpeg", 0.7);
+          if (uri.length > MAX_FOTO) uri = c.toDataURL("image/jpeg", 0.5);
+          if (uri.length > MAX_FOTO) {
+            reject(new Error("La foto queda muy pesada: usa una imagen más simple."));
             return;
           }
           resolve(uri);
@@ -666,6 +714,8 @@ window.Negocio = (function () {
     EST.serieTs = 0;
     EST.logoEditar = "";
     EST.editandoSku = "";
+    EST.prodImagen = undefined;
+    pintarFotoProducto();
     guardarJSON(CLAVE_SEL, id);
     await cargarPedidos();
     await cargarSerie();
@@ -1246,7 +1296,9 @@ window.Negocio = (function () {
               " · " + (p.entrega === "delivery" ? "delivery" : "retiro") +
               (p.direccion ? " · " + esc(p.direccion) : "") + "</p>" +
             '<div class="neg-ped-items">' +
-              (p.items || []).map((x) => "<span>" + x.cantidad + "× " + esc(x.nombre) +
+              (p.items || []).map((x) => "<span>" +
+                (x.imagen ? '<img class="neg-ped-foto" src="' + esc(x.imagen) + '" alt="" loading="lazy">' : "") +
+                x.cantidad + "× " + esc(x.nombre) +
                 (Number(x.descuento) ? ' <em class="neg-item-off">−' + Number(x.descuento) + "%</em>" : "") +
                 "</span>").join("") +
             "</div>" +
@@ -1309,6 +1361,27 @@ window.Negocio = (function () {
       "</details>";
   }
 
+  /* Pinta la miniatura del formulario. `prodImagen` manda:
+     · undefined → la foto guardada del producto que se edita (si hay)
+     · ""        → sin foto (se borrará al guardar)
+     · data URL  → foto nueva elegida en este formulario */
+  function pintarFotoProducto() {
+    const caja = $("negProdFotoPrev");
+    if (!caja) return;
+    let src = "";
+    if (EST.prodImagen === undefined) {
+      const p = (EST.sel && EST.sel.catalogo || []).find((x) => x.sku === EST.editandoSku);
+      src = (p && p.imagen) || "";
+    } else {
+      src = EST.prodImagen;
+    }
+    caja.innerHTML = src
+      ? '<img src="' + esc(src) + '" alt="Foto del producto">'
+      : '<span class="neg-foto-vacio">Sin foto</span>';
+    const quitar = $("negProdFotoQuitar");
+    if (quitar) quitar.hidden = !src;
+  }
+
   function pintarCatalogo() {
     const caja = $("negProductos");
     if (!caja || !EST.sel) return;
@@ -1330,6 +1403,11 @@ window.Negocio = (function () {
             : p.stock <= 5 ? ' · <em class="neg-stock-warn">quedan ' + p.stock + "</em>"
             : " · stock " + p.stock;
           return '<div class="neg-prod' + (EST.editandoSku && EST.editandoSku === p.sku ? " on" : "") + '">' +
+            '<span class="neg-prod-foto" aria-hidden="true">' +
+              (p.imagen
+                ? '<img src="' + esc(p.imagen) + '" alt="" loading="lazy">'
+                : '<b>' + esc(String(p.nombre || "P").charAt(0)) + "</b>") +
+            "</span>" +
             "<b>" + esc(p.nombre || "Producto") + "</b>" +
             "<small>" + esc(p.sku || "sin SKU") +
               (p.categoria ? " · " + esc(p.categoria) : "") + stockTxt + "</small>" +
@@ -1762,11 +1840,19 @@ window.Negocio = (function () {
       // vale hasta el final de ese día en Chile.
       oferta_hasta: hastaCrudo || 0
     };
+    // Sólo se manda `imagen` si el vendedor la tocó: si no, el servidor
+    // conserva la foto que ya tenía el producto.
+    if (EST.prodImagen !== undefined) producto.imagen = EST.prodImagen;
     await subirProductos([producto], EST.editandoSku ? "Producto actualizado" : "Producto agregado");
     EST.editandoSku = "";
+    EST.prodImagen = undefined;
     ["negProdNombre", "negProdPrecio", "negProdStock", "negProdSku", "negProdCategoria",
       "negProdDescuento", "negProdOfertaHasta"]
       .forEach((id) => { const el = $(id); if (el) el.value = ""; });
+    const foto = $("negProdFotoFile");
+    if (foto) foto.value = "";
+    pintarFotoProducto();
+    aviso($("negProdFotoAviso"), "JPG, PNG o WebP. Se achica a 640 px.", "");
     const b = $("negFormProd") && $("negFormProd").querySelector('button[type="submit"]');
     if (b) b.textContent = "Agregar al catálogo";
     render();
@@ -1780,7 +1866,11 @@ window.Negocio = (function () {
     });
     if (!d || !d.ok) { toast((d && d.error) || "No pude borrar el producto"); return; }
     EST.sel.catalogo = (EST.sel.catalogo || []).filter((p) => p.sku !== sku);
-    if (EST.editandoSku === sku) EST.editandoSku = "";
+    if (EST.editandoSku === sku) {
+      EST.editandoSku = "";
+      EST.prodImagen = undefined;
+      pintarFotoProducto();
+    }
     render();
   }
 
@@ -1788,6 +1878,10 @@ window.Negocio = (function () {
     const p = (EST.sel && EST.sel.catalogo || []).find((x) => x.sku === sku);
     if (!p) return;
     EST.editandoSku = sku;
+    EST.prodImagen = undefined;   // conserva la foto guardada hasta que la toquen
+    const foto = $("negProdFotoFile");
+    if (foto) foto.value = "";
+    pintarFotoProducto();
     const poner = (id, v) => { const el = $(id); if (el) el.value = v == null ? "" : v; };
     poner("negProdNombre", p.nombre);
     poner("negProdPrecio", p.precio);
@@ -2069,6 +2163,33 @@ window.Negocio = (function () {
       form.dataset.listo = "1";
       form.addEventListener("submit", agregarProducto);
     }
+    const fotoProd = $("negProdFotoFile");
+    if (fotoProd && !fotoProd.dataset.listo) {
+      fotoProd.dataset.listo = "1";
+      fotoProd.addEventListener("change", async () => {
+        const f = fotoProd.files && fotoProd.files[0];
+        if (!f) return;
+        const av = $("negProdFotoAviso");
+        aviso(av, "Achicando la foto…");
+        try {
+          EST.prodImagen = await achicarFoto(f);
+          pintarFotoProducto();
+          aviso(av, "Foto lista (" + Math.round(EST.prodImagen.length / 1024) + " KB).", "bueno");
+        } catch (e) {
+          aviso(av, e.message, "malo");
+        }
+        fotoProd.value = "";
+      });
+    }
+    const quitarFoto = $("negProdFotoQuitar");
+    if (quitarFoto && !quitarFoto.dataset.listo) {
+      quitarFoto.dataset.listo = "1";
+      quitarFoto.addEventListener("click", () => {
+        EST.prodImagen = "";
+        pintarFotoProducto();
+        aviso($("negProdFotoAviso"), "La foto se borrará al guardar.", "bueno");
+      });
+    }
     const ft = $("negFormTienda");
     if (ft && !ft.dataset.listo) {
       ft.dataset.listo = "1";
@@ -2130,6 +2251,6 @@ window.Negocio = (function () {
     /** Sólo para pruebas: parsers puros, sin DOM ni red. */
     _test: { parseCSV, parseProductos, aProducto, normClave, filtrarPedidos, csvPedidos, barrasSerie,
       enlaceSeguimiento, numeroWa, fraseEstado, mensajePedido, enlaceWa,
-      enlaceMarca, ofertaDe, fechaInput, tieneCampo }
+      enlaceMarca, ofertaDe, fechaInput, tieneCampo, achicarFoto }
   };
 })();

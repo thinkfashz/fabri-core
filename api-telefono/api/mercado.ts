@@ -16,6 +16,9 @@
 //   GET  /api/mercado?accion=local_ver&id=<id>  → una tienda activa con su
 //                                                catálogo y calificación (público)
 //                                                → link de marca, sin cuenta
+//   GET  /api/mercado?accion=imagen_ver&local_id=<id>&sku=<sku>&v=<hash>
+//                                              → foto del producto (público)
+//                                                → URL versionada e inmutable
 //   POST { accion: "asegurar" }                 → crea las tablas (público)
 //   POST { accion: "locales", con_catalogo }    → igual que el GET (público)
 //   POST { accion: "local_crear", local }       → alta (CUENTA · ADMIN)
@@ -104,6 +107,12 @@ const ESTADOS = ['nuevo', 'visto', 'listo', 'entregado', 'cancelado'];
 const ENTREGAS = ['retiro', 'delivery'];
 /** Tope del descuento de un producto, en porcentaje. */
 const DCTO_MAX = 90;
+/** Foto de producto: el navegador la achica y la manda como data URL.
+ *  220.000 caracteres ≈ 160 KB de imagen, suficiente para una tarjeta. */
+const MAX_IMAGEN = 220_000;
+const MAX_IMAGEN_BYTES = 160_000;
+/** Host canónico de la API: las fotos se sirven desde acá, no desde la web. */
+const API_PUBLICA = 'https://fabri-api.vercel.app';
 
 type Fila = Record<string, unknown>;
 
@@ -401,6 +410,8 @@ async function asegurar(pool: any) {
       stock       INTEGER,
       categoria   TEXT NOT NULL DEFAULT '',
       unidad      TEXT NOT NULL DEFAULT '',
+      imagen      TEXT NOT NULL DEFAULT '',
+      imagen_hash TEXT NOT NULL DEFAULT '',
       actualizado BIGINT NOT NULL DEFAULT 0,
       nube_ts     TIMESTAMPTZ NOT NULL DEFAULT now(),
       PRIMARY KEY (local_id, sku)
@@ -429,6 +440,11 @@ async function asegurar(pool: any) {
   // calcula en el servidor (`dctoVigente`), nunca en el navegador.
   await pool.query(`ALTER TABLE ${T_PRODUCTOS} ADD COLUMN IF NOT EXISTS descuento SMALLINT NOT NULL DEFAULT 0`);
   await pool.query(`ALTER TABLE ${T_PRODUCTOS} ADD COLUMN IF NOT EXISTS oferta_hasta BIGINT NOT NULL DEFAULT 0`);
+  // Foto del producto: se guarda como data URL comprimida por el navegador.
+  // `imagen_hash` es la versión corta que viaja en la URL de la foto; cambia
+  // cuando cambia la imagen y así el navegador no muestra la vieja.
+  await pool.query(`ALTER TABLE ${T_PRODUCTOS} ADD COLUMN IF NOT EXISTS imagen TEXT NOT NULL DEFAULT ''`);
+  await pool.query(`ALTER TABLE ${T_PRODUCTOS} ADD COLUMN IF NOT EXISTS imagen_hash TEXT NOT NULL DEFAULT ''`);
   // El tope también vive en la base: aunque alguien llame la API directo, no
   // puede dejar guardado un 300 %.
   try {
@@ -543,10 +559,19 @@ async function asegurar(pool: any) {
  */
 const CAMPOS_PRODUCTO = `local_id,sku,nombre,precio::float8 AS precio,stock,categoria,unidad,
   descuento::int AS descuento, ${dctoVigente()}::int AS descuento_vigente,
-  ${precioEfectivo()}::float8 AS precio_efectivo, oferta_hasta::float8 AS oferta_hasta`;
+  ${precioEfectivo()}::float8 AS precio_efectivo, oferta_hasta::float8 AS oferta_hasta,
+  imagen_hash`;
 
 /** Fila de `CAMPOS_PRODUCTO` → objeto que viaja al navegador. */
 function productoDeFila(f: any) {
+  /* La foto no viaja como data URL en el catálogo: sería un JSON enorme. Se
+     publica una URL corta y versionada; `imagen_ver` devuelve los bytes. */
+  const imagen = f.imagen_hash
+    ? API_PUBLICA + '/api/mercado?accion=imagen_ver&local_id=' +
+      encodeURIComponent(String(f.local_id || '')) + '&sku=' +
+      encodeURIComponent(String(f.sku || '')) + '&v=' +
+      encodeURIComponent(String(f.imagen_hash))
+    : '';
   return {
     sku: f.sku,
     nombre: f.nombre,
@@ -558,7 +583,26 @@ function productoDeFila(f: any) {
     stock: f.stock,
     categoria: f.categoria || '',
     unidad: f.unidad || '',
+    imagen,
   };
+}
+
+/** Valida la foto que manda el panel: data URL de JPEG/PNG/WebP, ya achicada.
+ *  Si el valor no sirve se conserva la foto anterior en vez de borrarla. */
+function normalizarImagen(v: unknown): { ok: boolean; valor: string } {
+  if (typeof v !== 'string') return { ok: false, valor: '' };
+  const s = v.trim();
+  if (!s) return { ok: true, valor: '' };
+  if (s.length > MAX_IMAGEN) return { ok: false, valor: '' };
+  if (!/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(s)) {
+    return { ok: false, valor: '' };
+  }
+  // El data URL no debe decodificar a más bytes de los que `imagen_ver` sirve.
+  const b64 = s.slice(s.indexOf(',') + 1);
+  if (Math.floor((b64.length * 3) / 4) > MAX_IMAGEN_BYTES) {
+    return { ok: false, valor: '' };
+  }
+  return { ok: true, valor: s };
 }
 
 const CAMPOS_LOCAL = `id,nombre,marca,logo,descripcion,rubro,ico,telefono,direccion,comuna,
@@ -970,6 +1014,67 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       }
     }
 
+    /* Foto de producto: bytes desde la base, con URL versionada e inmutable.
+       Público: la foto se muestra en el catálogo, el carrito y el link de
+       marca. No pide cuenta ni clave. */
+    if (url.searchParams.get('accion') === 'imagen_ver') {
+      if (!process.env.INSFORGE_DATABASE_URL) {
+        res.writeHead(503, { 'Cache-Control': 'no-store' });
+        res.end();
+        return;
+      }
+      const localId = idLocal(url.searchParams.get('local_id') || '');
+      const sku = texto(url.searchParams.get('sku') || '', 60).trim();
+      if (!localId || !sku) {
+        res.writeHead(400, { 'Cache-Control': 'no-store' });
+        res.end();
+        return;
+      }
+      let pool: any = null;
+      try {
+        const { Pool } = await import('pg');
+        pool = new Pool({
+          connectionString: process.env.INSFORGE_DATABASE_URL,
+          ssl: { rejectUnauthorized: false },
+          connectionTimeoutMillis: 15000,
+          max: 1,
+        });
+        const r = await pool.query(
+          `SELECT imagen FROM ${T_PRODUCTOS} WHERE local_id = $1 AND sku = $2 LIMIT 1`,
+          [localId, sku]
+        );
+        const data = r.rows[0] && r.rows[0].imagen;
+        const m = typeof data === 'string'
+          ? /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/.exec(data)
+          : null;
+        if (!m) {
+          res.writeHead(404, { 'Cache-Control': 'no-store' });
+          res.end();
+          return;
+        }
+        const bytes = Buffer.from(m[2], 'base64');
+        if (!bytes.length || bytes.length > MAX_IMAGEN_BYTES) {
+          res.writeHead(404, { 'Cache-Control': 'no-store' });
+          res.end();
+          return;
+        }
+        res.writeHead(200, {
+          'Content-Type': m[1],
+          'Content-Length': String(bytes.length),
+          'Cache-Control': 'public, max-age=31536000, immutable',
+          'X-Content-Type-Options': 'nosniff',
+          'Access-Control-Allow-Origin': '*',
+        });
+        res.end(bytes);
+      } catch (e) {
+        res.writeHead(500, { 'Cache-Control': 'no-store' });
+        res.end();
+      } finally {
+        if (pool) { try { await pool.end(); } catch (e) { /* ya cerrada */ } }
+      }
+      return;
+    }
+
     /* Link público de marca: una sola tienda, con su catálogo. No pide cuenta
        ni clave; sólo devuelve locales activos. */
     if (url.searchParams.get('accion') === 'local_ver' || url.searchParams.get('accion') === 'local') {
@@ -1046,6 +1151,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       acciones: [
         'asegurar', 'locales', 'local_ver', 'local_crear', 'local_mio', 'local_actualizar',
         'local_estado', 'local_borrar', 'productos_subir', 'producto_borrar',
+        'imagen_ver',
         'pedido_crear', 'pedido_seguir', 'push_suscribir', 'push_baja',
         'push_local_suscribir', 'push_local_baja',
         'pedidos_listar', 'pedido_estado',
@@ -1315,22 +1421,35 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         const tocaOferta = 'descuento' in p || 'oferta_hasta' in p;
         const dcto = tocaOferta ? entero(p.descuento, DCTO_MAX) : 0;
         const hasta = dcto ? fechaSegundos(p.oferta_hasta) : 0;
+        /* La foto se guarda como data URL y se publica por `imagen_ver`. Si el
+           lote no trae `imagen`, se conserva la que ya estaba: importar stock
+           no debe borrar las fotos. */
+        const tocaImagen = 'imagen' in p;
+        const foto = tocaImagen ? normalizarImagen(p.imagen) : { ok: false, valor: '' };
+        const imagen = foto.ok ? foto.valor : '';
+        const imagenHash = imagen
+          ? createHash('sha256').update(imagen).digest('hex').slice(0, 12)
+          : '';
         await cliente.query(
           `INSERT INTO ${T_PRODUCTOS}
-             (local_id,sku,nombre,precio,stock,categoria,unidad,actualizado,descuento,oferta_hasta)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+             (local_id,sku,nombre,precio,stock,categoria,unidad,actualizado,descuento,oferta_hasta,imagen,imagen_hash)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
            ON CONFLICT (local_id,sku) DO UPDATE SET
              nombre = EXCLUDED.nombre, precio = EXCLUDED.precio, stock = EXCLUDED.stock,
              categoria = EXCLUDED.categoria, unidad = EXCLUDED.unidad,
-             descuento = CASE WHEN $11::boolean THEN EXCLUDED.descuento
+             descuento = CASE WHEN $13::boolean THEN EXCLUDED.descuento
                               ELSE ${T_PRODUCTOS}.descuento END,
-             oferta_hasta = CASE WHEN $11::boolean THEN EXCLUDED.oferta_hasta
+             oferta_hasta = CASE WHEN $13::boolean THEN EXCLUDED.oferta_hasta
                                  ELSE ${T_PRODUCTOS}.oferta_hasta END,
+             imagen = CASE WHEN $14::boolean THEN EXCLUDED.imagen
+                           ELSE ${T_PRODUCTOS}.imagen END,
+             imagen_hash = CASE WHEN $14::boolean THEN EXCLUDED.imagen_hash
+                                ELSE ${T_PRODUCTOS}.imagen_hash END,
              actualizado = EXCLUDED.actualizado, nube_ts = now()`,
           [localId, sku, nombre, precio,
             p.stock === null || p.stock === undefined || p.stock === '' ? null : entero(p.stock),
             texto(p.categoria, 40).trim(), texto(p.unidad, 30).trim(), ahora, dcto, hasta,
-            tocaOferta]
+            imagen, imagenHash, tocaOferta, foto.ok]
         );
         subidos++;
       }
@@ -1457,6 +1576,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
           cantidad: it.cantidad,
           categoria: it.categoria,
           unidad: it.unidad,
+          imagen: enCat.imagen || '',
           stock,
         });
       }
@@ -1534,6 +1654,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
                 sku: x.sku, nombre: x.nombre, precio: x.precio,
                 precio_lista: x.precio_lista, descuento: x.descuento,
                 cantidad: x.cantidad, categoria: x.categoria, unidad: x.unidad,
+                imagen: x.imagen || '',
               }))),
               subtotal, envio, total, entrega,
               texto(cuerpo.direccion, 200).trim(), nota, seguimiento, idem, ahorro]

@@ -4047,8 +4047,23 @@ window.Tienda3D = (function () {
     const s = $("t3dFichaStock");
     if (s) s.textContent = p.stock != null ? p.stock + " disp." : "referencial";
 
+    /* Foto real del producto: si existe, manda sobre la etiqueta dibujada.
+       La etiqueta queda como respaldo para los productos sin foto. */
+    const foto = $("t3dFichaFoto");
     const img = $("t3dFichaImg");
-    if (img && img.getContext) {
+    if (foto) {
+      if (p.imagen) {
+        foto.src = p.imagen;
+        foto.hidden = false;
+        if (img) img.hidden = true;
+      } else {
+        foto.hidden = true;
+        foto.removeAttribute("src");
+        if (img) img.hidden = false;
+      }
+    }
+
+    if (img && img.getContext && !p.imagen) {
       const g = img.getContext("2d");
       g.clearRect(0, 0, img.width, img.height);
       /* La ficha muestra la MISMA etiqueta que el envase del pasillo: marca,

@@ -630,6 +630,10 @@
 .mp-prod-ico[data-cat="Limpieza"] { background: linear-gradient(160deg,#8a6fc4,#4b3a75); }
 .mp-prod-ico[data-cat="Pescados"] { background: linear-gradient(160deg,#4a90a4,#24505e); }
 .mp-prod-ico[data-cat="Otros"] { background: linear-gradient(160deg,#7a8499,#3f4757); }
+/* Con foto real se apaga el degradado: la imagen manda. */
+.mp-prod-ico.con-foto { background: #0d0f10; }
+.mp-prod-ico.con-foto::after { display: none; }
+.mp-prod-foto { width: 100%; height: 100%; object-fit: cover; display: block; }
 
 .mp-prod-txt { flex: 1; min-width: 0; display: grid; gap: 3px; }
 .mp-prod-txt b { font-size: 13px; line-height: 1.25; font-weight: 620; }
@@ -703,6 +707,11 @@
   background: var(--mp-lima-soft); color: var(--mp-lima);
 }
 .mp-car-item { display: flex; align-items: center; gap: 9px; padding: 8px 0; border-top: 1px solid rgba(255,255,255,.05); }
+.mp-car-foto {
+  flex: 0 0 auto; width: 34px; height: 34px; border-radius: 9px; overflow: hidden;
+  border: 1px solid rgba(255,255,255,.12); background: #0d0f10;
+}
+.mp-car-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .mp-car-nom { flex: 1; min-width: 0; display: grid; }
 .mp-car-nom b { font-size: 12px; font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mp-car-nom small { font-size: 10px; color: var(--mp-tx4); }

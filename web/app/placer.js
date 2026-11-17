@@ -306,6 +306,7 @@ window.Placer = (function () {
           lista: descuento ? lista : efectivo,
           precio: efectivo,
           descuento: descuento,
+          imagen: it.imagen || "",
           stock: it.stock == null ? null : Number(it.stock)   // null = sin dato
         };
       });
@@ -327,6 +328,7 @@ window.Placer = (function () {
         lista: lista,
         precio: lista,
         descuento: 0,
+        imagen: "",
         stock: 4 + Math.floor(azar(semilla + i * 3.1) * 36)
       };
     });
@@ -358,11 +360,14 @@ window.Placer = (function () {
       if (typeof it === "number") {
         // Formato viejo (sólo cantidad): se resuelve contra el catálogo.
         const p = productos(m).find((x) => x.id === pid);
-        return p ? { id: pid, sku: p.sku, nombre: p.nombre, precio: p.precio, lista: p.lista, descuento: p.descuento, cantidad: it } : null;
+        return p ? { id: pid, sku: p.sku, nombre: p.nombre, precio: p.precio, lista: p.lista, descuento: p.descuento, imagen: p.imagen || "", cantidad: it } : null;
       }
+      // Carritos viejos sin foto: se completa con la del catálogo actual.
+      const enCat = it.i ? null : productos(m).find((x) => x.id === pid);
       return {
         id: pid, sku: it.s || "", nombre: it.n, precio: it.p,
-        lista: it.l != null ? it.l : it.p, descuento: it.d || 0, cantidad: it.c || 0
+        lista: it.l != null ? it.l : it.p, descuento: it.d || 0,
+        imagen: it.i || (enCat && enCat.imagen) || "", cantidad: it.c || 0
       };
     }).filter(Boolean);
   }
@@ -409,7 +414,8 @@ window.Placer = (function () {
     else {
       c.items[pid] = {
         n: prod.nombre, p: prod.precio, c: cant,
-        s: prod.sku || "", l: prod.lista != null ? prod.lista : prod.precio, d: prod.descuento || 0
+        s: prod.sku || "", l: prod.lista != null ? prod.lista : prod.precio, d: prod.descuento || 0,
+        i: prod.imagen || (enCatalogo && enCatalogo.imagen) || ""
       };
     }
     if (!Object.keys(c.items).length) delete ESTADO.carrito[m.id];
@@ -454,6 +460,7 @@ window.Placer = (function () {
       precio: enCat && enCat.precio != null ? enCat.precio : (Number(p.precio) || 0),
       lista: enCat && enCat.lista != null ? enCat.lista : (p.lista != null ? p.lista : p.precio),
       descuento: (enCat && enCat.descuento) || 0,
+      imagen: (enCat && enCat.imagen) || p.imagen || "",
       stock: enCat && enCat.stock != null ? enCat.stock : (p.stock == null ? null : Number(p.stock))
     };
     cambiar(m, pid, 1, datos);
@@ -1834,8 +1841,10 @@ window.Placer = (function () {
         : ("quedan " + p.stock);
       return '<div class="mp-prod' + (cant ? " en-carrito" : "") +
           (cerrado || agotado ? " cerrado" : "") + '" data-pid="' + esc(p.id) + '">' +
-        '<span class="mp-prod-ico" data-cat="' + esc(p.categoria) + '" aria-hidden="true">' +
-          '<b>' + esc(p.nombre.charAt(0)) + "</b></span>" +
+        '<span class="mp-prod-ico' + (p.imagen ? " con-foto" : "") + '" data-cat="' + esc(p.categoria) + '" aria-hidden="true">' +
+          (p.imagen
+            ? '<img class="mp-prod-foto" src="' + esc(p.imagen) + '" alt="" loading="lazy">'
+            : '<b>' + esc(p.nombre.charAt(0)) + "</b>") + "</span>" +
         '<div class="mp-prod-txt">' +
           "<b>" + esc(p.nombre) + "</b>" +
           '<small><em>' + esc(p.categoria) + "</em> · " + esc(p.unidad) + " · " + esc(stock) + "</small>" +
@@ -1988,6 +1997,9 @@ window.Placer = (function () {
             "<small>" + (m.dist ? distancia(m.dist) + " · " : "") + items.length + (items.length === 1 ? " producto" : " productos") + "</small></header>" +
           items.map((p) =>
             '<div class="mp-car-item">' +
+              (p.imagen
+                ? '<span class="mp-car-foto" aria-hidden="true"><img src="' + esc(p.imagen) + '" alt="" loading="lazy"></span>'
+                : "") +
               '<div class="mp-car-nom"><b>' + esc(p.nombre) + "</b><small>" +
                 (p.descuento ? '<i class="mp-prod-antes">' + clp(p.lista) + "</i> " : "") +
                 clp(p.precio) + " c/u" +

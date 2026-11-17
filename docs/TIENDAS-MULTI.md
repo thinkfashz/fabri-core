@@ -779,6 +779,77 @@ la marca y precio $2.792 → carrito con mínimo/envío/entrega → pago de esa 
 por $5.584 → atrás al mapa con la ficha abierta → panel por ID y clave con el
 link exacto. La tienda se borra al terminar.
 
+## Fotos de producto (Marketplace · Fase 1)
+
+La foto es del producto, no del local. Se guarda en la misma fila del catálogo
+(`mercado_productos`) y se publica por una URL corta y versionada; el catálogo
+nunca viaja con el data URL adentro.
+
+### Esquema y límites
+
+| Columna | Tipo | Uso |
+|---|---|---|
+| `imagen` | `TEXT NOT NULL DEFAULT ''` | data URL JPEG/PNG/WebP ya comprimido |
+| `imagen_hash` | `TEXT NOT NULL DEFAULT ''` | SHA-256 corto (12 hex) que versiona la URL |
+
+- El navegador achica a **640 px de lado máximo**, JPEG calidad 0.7 (0.5 de
+  respaldo) y corta en **200 KB de data URI**.
+- La API acepta hasta `MAX_IMAGEN = 220.000` caracteres y rechaza lo que
+  decodifique a más de `MAX_IMAGEN_BYTES = 160.000` bytes.
+- Formatos: `image/jpeg`, `image/png`, `image/webp`. Cualquier otra cosa se
+  ignora (se conserva la foto anterior).
+
+### `productos_subir`
+
+El lote sólo toca la foto si el producto trae la clave `imagen`:
+
+| Payload | Efecto |
+|---|---|
+| sin `imagen` | conserva la foto y el hash que ya tenía |
+| `imagen: "data:image/..."` | reemplaza la foto y recalcula el hash |
+| `imagen: ""` | borra la foto y el hash |
+
+Así importar stock o editar precio/stock **no borra** las fotos.
+
+### `imagen_ver`
+
+```
+GET /api/mercado?accion=imagen_ver&local_id=<id>&sku=<sku>&v=<hash>
+```
+
+- Público, sin cuenta ni clave (igual que el catálogo y el link de marca).
+- Devuelve los bytes con el `Content-Type` real, `Cache-Control: public,
+  max-age=31536000, immutable`, `X-Content-Type-Options: nosniff` y CORS `*`.
+- 400 si falta `local_id`/`sku`; 404 si el producto no tiene foto.
+- La URL que arma el catálogo es
+  `https://fabri-api.vercel.app/api/mercado?accion=imagen_ver&local_id=…&sku=…&v=<hash>`.
+  Cambiar la foto cambia el hash y el navegador pide la nueva; no se sirve una
+  foto vieja.
+
+### Dónde se ve
+
+| Pantalla | Qué muestra |
+|---|---|
+| Panel → Catálogo | miniatura en la lista, vista previa al editar, botón Quitar |
+| Pedido del panel | miniatura de 18 px por ítem |
+| Catálogo del comprador | foto en la tarjeta (`.mp-prod-foto`), letra si no hay |
+| Carrito | miniatura de 34 px por ítem (`.mp-car-foto`) |
+| Ficha 3D | `<img>` en `t3dFichaFoto`; si no hay foto, la etiqueta dibujada |
+
+### Pruebas de la fase
+
+`node tests/web/fotos.js` (61 comprobaciones): columnas, límites,
+`normalizarImagen`, URL versionada, `productos_subir` que conserva/borra,
+`imagen_ver`, compresión, catálogo/carrito/pedido/visor y versión del service
+worker.
+
+Prueba real en producción con `t-f1-fotos`: alta de local, producto con JPEG,
+`Content-Type` y bytes idénticos, re-subida sin `imagen` con la misma URL y el
+stock cambiado, `imagen: ""` con 404 sin caché, y baja del local. Prueba visual
+en Chrome headless: la hoja de la marca pinta 2 fotos y deja la letra al
+producto sin foto. La compresión del panel convirtió 1200×1200 (84.696 bytes)
+en 640×640 (20.376 bytes).
+
 ## Pruebas
 
 ```sh
@@ -791,6 +862,7 @@ node tests/web/pedidos.js     # 40 comprobaciones: precio/stock del servidor, de
 node tests/web/descuentos.js  # 61 comprobaciones: precio efectivo, oferta vencida, importación que conserva la oferta, comprador, vendedor y admin
 node tests/web/visor.js       # 67 comprobaciones: visor con el local, marca, carrito compartido, salidas y fallback legacy
 node tests/web/marca.js       # 61 comprobaciones: link de marca, local_ver, carrito con metadatos, cuenta y seguridad
+node tests/web/fotos.js       # 61 comprobaciones: foto de producto, compresión, URL versionada, imagen_ver, catálogo/carrito/pedido/visor
 node tests/web/auth-nube.js   # incluye CORE_ROOT_EMAIL y promoción a owner
 node tests/web/diseno.js      # shell, sistema visual y offline
 node tests/web/trafico.js     # capa de tráfico del mapa

@@ -6,7 +6,49 @@
 > `cl.fabrick.core`, crate `fabrick-core`, dominio `forge-core-stock.vercel.app`,
 > repo `thinkfashz/fabri-core`.
 
-Última actualización: 2026-11-16
+Última actualización: 2026-11-17
+
+## Sesión 2026-11-17 · Marketplace Fase 1: fotos de producto
+
+Pedido: que el catálogo deje de verse como demo (gradientes y letras) y que
+cada producto tenga su foto real, sin salir del límite Hobby de 12 funciones.
+
+**Decisión**: la foto se guarda como data URL comprimida en `mercado_productos`
+(`imagen`, `imagen_hash`) y se publica por `imagen_ver`; no se usa Cloudinary
+ni se crea una función nueva. El catálogo devuelve una URL corta y versionada,
+no el data URL, para no inflar el JSON del mapa.
+
+| Pieza | Dónde |
+|---|---|
+| Columnas `imagen` / `imagen_hash` + `normalizarImagen` | `api-telefono/api/mercado.ts` |
+| `GET ?accion=imagen_ver` (binario, inmutable, CORS) | `api-telefono/api/mercado.ts` |
+| `productos_subir` conserva/borra según `imagen` | `api-telefono/api/mercado.ts` |
+| `pedido_crear` guarda la foto en el snapshot | `api-telefono/api/mercado.ts` |
+| `achicarFoto` 640 px JPEG 0.7, preview y quitar | `web/app/negocio.js` + `index.html` + `styles.css` |
+| Miniatura en catálogo, carrito y pedido del panel | `negocio.js`, `placer.js`, `styles.css`, `placer.css` |
+| Foto en la ficha 3D con respaldo de etiqueta | `tienda3d.js` + `index.html` |
+| `sw.js` v93 | `web/app/sw.js` |
+
+**Pruebas ejecutadas**:
+
+- `node tests/web/fotos.js` → **61 OK** (nuevo).
+- Batería completa verde: `auth-nube`, `boleta`, `descuentos`, `diseno`,
+  `escaneo`, `fotos`, `marca`, `negocio`, `pedidos`, `plataforma`, `push`,
+  `resenas`, `seguimiento`, `trafico`, `visor`.
+- API real con `t-f1-fotos`: alta → foto → `Content-Type image/jpeg` y bytes
+  idénticos → re-subida sin `imagen` conserva URL y cambia stock → `imagen: ""`
+  borra y 404 sin caché → baja. 21 comprobaciones.
+- Navegador real (Chrome headless 390×844): la hoja de marca pinta 2 fotos y
+  deja la letra al producto sin foto; la compresión convirtió 1200×1200
+  (84.696 B) en 640×640 (20.376 B).
+- Deploy API `dpl_FixPUD6FaSJkCgDt6XMqkHYPdDrB` (12 funciones `.ts`) y web
+  `dpl_4T3fgWyWSKQzF4jyYwzXt6abzEiE` (`sw` v93); alias
+  `fabri-api.vercel.app`, `forge-core-stock.vercel.app` y
+  `fabri-core-web.vercel.app` en 200.
+
+**Pendiente**: que el vendedor cargue las fotos de sus 6 productos de
+«Solución» (la app ya está lista); después Fase 2 (código de barras real +
+buscar entre marcas) y Fase 3 (dirección + efectivo + verificación).
 
 ## Sesión 2026-11-16 · Fase 10: el visor 3D es del local y compra en su carrito
 
