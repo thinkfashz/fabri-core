@@ -8,6 +8,87 @@
 
 Última actualización: 2026-11-17
 
+## Sesión 2026-11-17 · Marketplace Fase 3: dirección, efectivo con vuelto y código de entrega
+
+Pedido: que el pedido se pueda pagar **de verdad en efectivo** (con vuelto),
+que el delivery lleve dirección completa y que la entrega se confirme con un
+código que sólo tiene el comprador. Sin salir del límite de 12 funciones: todo
+dentro de `mercado.ts`.
+
+**Decisión**: el vuelto y el código de entrega los manda el servidor. El
+navegador sólo muestra una vista previa; al crear el pedido, la API recalcula
+el total con el catálogo, el vuelto con `efectivoDe(total, con)` y genera un
+PIN de 4 dígitos (`clave_entrega`) para todo pedido nuevo. El local no recibe
+el PIN en el listado: sólo `requiere_clave`, y al marcar «entregado» debe
+escribir el código que le dicta el comprador.
+
+| Pieza | Dónde |
+|---|---|
+| Columnas `comuna_entrega`, `referencia_entrega`, `metodo_pago`, `pago_con`, `vuelto`, `clave_entrega` + `ALTER` idempotente | `api-telefono/api/mercado.ts` |
+| `PAGOS`, `claveDeEntrega()` y `efectivoDe()` | `api-telefono/api/mercado.ts` |
+| `SIN_DIRECCION`, `SIN_COMUNA` y `PAGO_CORTO` (400 con `faltan` y `total`) | `api-telefono/api/mercado.ts` |
+| `pedido_crear` guarda y devuelve pago, vuelto y PIN en sus tres salidas | `api-telefono/api/mercado.ts` |
+| `pedido_seguir` devuelve pago, dirección completa y PIN | `api-telefono/api/mercado.ts` |
+| `pedidos_listar` devuelve pago y dirección, más `requiere_clave` (nunca el PIN) | `api-telefono/api/mercado.ts` |
+| `pedido_estado` a `entregado` exige el PIN; 409 `CLAVE_ENTREGA` | `api-telefono/api/mercado.ts` |
+| Checkout: efectivo por defecto, `mpPagoCon`, atajos de monto, vuelto vivo, comuna, referencia y teléfono obligatorio | `web/app/placer.js` + `index.html` + `placer.css` |
+| Pantalla de éxito con vuelto del servidor y bloque `mp-clave` con el PIN | `web/app/placer.js` + `placer.css` |
+| Panel: línea de pago, dirección completa y caja `neg-verif` para el código | `web/app/negocio.js` + `styles.css` |
+| Seguimiento: `pagoTexto()`, comuna, referencia y bloque `sg-clave` | `web/tienda-seguir.js` + `tienda.css` |
+| `sw.js` v95 | `web/app/sw.js` |
+
+**Reglas que quedaron**:
+
+- Delivery: calle y número ≥ 5 (`SIN_DIRECCION`) y comuna ≥ 2 (`SIN_COMUNA`).
+- `metodo_pago` acepta `efectivo`, `transferencia` y `tarjeta`; ausente o
+  desconocido queda `''` (los clientes viejos siguen funcionando). La tarjeta
+  sigue simulada.
+- `pago_con = 0` significa monto justo; `vuelto` siempre lo calcula el servidor.
+- Todo pedido nuevo nace con PIN; los pedidos viejos con `clave_entrega = ''`
+  se pueden entregar sin código.
+- `pedidos_listar` expone `requiere_clave` (booleano) y nunca el PIN;
+  `pedido_seguir` sí lo expone porque el enlace es del comprador.
+- El evento de la entrega verificado anota «código de entrega verificado».
+
+**Bugs reales corregidos en el camino**:
+
+- `pagar()` usaba `total` sin declararlo: `ReferenceError` a los 1,6 s, justo
+  cuando se cerraba el pago. Ahora hay una sola `totalPago()` y un guard
+  `if (!ESTADO.pago) return` si la hoja se cerró mientras confirmaba.
+- El mensaje de WhatsApp se armaba con `itemsDe(m)` después de vaciar el
+  carrito: salía sin productos. Ahora usa `ESTADO.pago.items`, guardados al
+  abrir la hoja.
+- `enganchar()` corría después de `pintarPanel()` y pisaba el `onchange` del
+  selector de estado, saltándose la verificación. Los handlers de pedidos
+  quedaron en `engancharPedidos()`, única fuente para lista y panel.
+
+**Pruebas ejecutadas**:
+
+- `node tests/web/efectivo.js` → **51 OK** (nuevo: esquema, reglas, quién ve
+  el PIN, checkout, panel y seguimiento).
+- `node tests/web/pedidos.js` → **40 OK** (contrato del INSERT de 21 columnas).
+- Batería completa verde: **17/17** archivos.
+- TypeScript limpio con el `tsc` de Vercel:
+  `node …/vercel/node_modules/typescript/bin/tsc --noEmit --skipLibCheck
+  --target es2022 --module esnext --moduleResolution bundler api/mercado.ts`.
+- API real con el local desechable `f3-<sello>` (creado y borrado):
+  `SIN_DIRECCION`, `SIN_COMUNA`, `PAGO_CORTO`, vuelto real, PIN de 4 dígitos,
+  comuna y referencia, idempotencia con el mismo PIN y vuelto, seguimiento con
+  PIN, listado sin PIN y con `requiere_clave`, entrega sin PIN y con PIN malo
+  → 409, con PIN bueno → entregado y evento verificado, cliente viejo sin
+  `metodo_pago`, cancelación sin PIN y limpieza. **34/34**.
+- Deploy API `dpl_7hhjNkwekTVzkuJB2rmxZptSypMZ` (12 funciones `.ts`) y web
+  `dpl_Ea7KfWdAkZpdKTcmzDDXVWfRj3rV` (`sw` v95); alias
+  `fabri-api.vercel.app`, `forge-core-stock.vercel.app` y
+  `fabri-core-web.vercel.app` en 200, con el JS desplegado que trae efectivo,
+  PIN y `requiere_clave`.
+- Commit `1728741` (`feat(marketplace): dirección completa, efectivo con
+  vuelto y código de entrega`), empujado a `origin/master`.
+
+**Pendiente**: la cuenta root sigue en 0 (`F.eduardomicolta@gmail.com` debe
+registrarse una vez en `/app/` y queda `owner`); el pago con tarjeta sigue
+simulado; la tienda «Solución» sigue sin productos cargados.
+
 ## Sesión 2026-11-17 · Marketplace Fase 1: fotos de producto
 
 Pedido: que el catálogo deje de verse como demo (gradientes y letras) y que

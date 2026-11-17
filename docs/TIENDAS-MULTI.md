@@ -960,6 +960,101 @@ inválido que no borra e informa, código vacío que borra, restaurar, pedido co
 el código en el snapshot y baja de marca que la saca de la búsqueda. 32
 comprobaciones.
 
+## Dirección, efectivo y verificación (Marketplace · Fase 3)
+
+El pedido deja de ser una simulación de pago: se paga en efectivo al recibir,
+con vuelto calculado por el servidor, y la entrega se confirma con un código de
+4 dígitos que sólo ve el comprador. Todo sigue dentro de `mercado.ts`, sin
+funciones nuevas.
+
+### Esquema
+
+| Columna | Tipo | Uso |
+|---|---|---|
+| `comuna_entrega` | `TEXT NOT NULL DEFAULT ''` | comuna del delivery |
+| `referencia_entrega` | `TEXT NOT NULL DEFAULT ''` | depto, portón, color |
+| `metodo_pago` | `TEXT NOT NULL DEFAULT ''` | `efectivo`, `transferencia`, `tarjeta` o `''` |
+| `pago_con` | `BIGINT NOT NULL DEFAULT 0` | billete con que paga el comprador; 0 = justo |
+| `vuelto` | `BIGINT NOT NULL DEFAULT 0` | lo calcula el servidor, nunca el navegador |
+| `clave_entrega` | `TEXT NOT NULL DEFAULT ''` | PIN de 4 dígitos del pedido |
+
+`asegurar()` crea las columnas en `CREATE TABLE` y las agrega con
+`ALTER TABLE … ADD COLUMN IF NOT EXISTS`, así que una base vieja queda al día
+sin migración manual.
+
+### Reglas del servidor
+
+- Delivery: `direccion` ≥ 5 caracteres o **400 `SIN_DIRECCION`**; `comuna_entrega`
+  ≥ 2 o **400 `SIN_COMUNA`**.
+- `PAGOS = ['efectivo', 'transferencia', 'tarjeta']`. Un valor ausente o
+  desconocido queda `''`: los clientes viejos siguen creando pedidos.
+- `efectivoDe(total, con)` normaliza el monto y devuelve `dado`, `vuelto`
+  (`dado > total ? dado - total : 0`) y `faltan`. Si `faltan > 0`, responde
+  **400 `PAGO_CORTO`** con `faltan` y `total` (el total real del catálogo).
+- `claveDeEntrega()` genera 4 dígitos para **todo pedido nuevo**. Los pedidos
+  viejos con `''` se pueden entregar sin código.
+- `pedido_crear` devuelve `metodo_pago`, `pago_con`, `vuelto`, `clave_entrega`,
+  `comuna_entrega` y `referencia_entrega` en sus tres salidas: éxito,
+  idempotencia y carrera de dos envíos.
+- `pedido_seguir` (público con el token) devuelve el pago, la dirección
+  completa y el PIN.
+- `pedidos_listar` devuelve pago y dirección, y el booleano `requiere_clave`;
+  **nunca** `clave_entrega`.
+- `pedido_estado` a `entregado` exige `clave_entrega` cuando el pedido tiene
+  PIN: sin código o con uno distinto responde **409 `CLAVE_ENTREGA`** y no
+  cambia nada. El evento del historial anota «código de entrega verificado».
+
+### Comprador (`placer.js`)
+
+| Pieza | Qué hace |
+|---|---|
+| `mpMetodos` | Efectivo (por defecto), transferencia y tarjeta |
+| `mpPagoCon` | monto con que paga; vacío = justo |
+| `.mp-montos` | atajos: justo y redondeos a 1.000, 5.000 y 10.000 |
+| `mpVuelto` | vista previa del vuelto o de lo que falta |
+| `mpPagoDir` / `mpPagoComuna` / `mpPagoRef` | calle y número, comuna y referencia |
+| `mp-clave` | PIN en la pantalla de éxito, con la instrucción de dárselo al repartidor |
+| `PAGO_CORTO` | vuelve al formulario con el campo marcado |
+
+El teléfono pasa a ser obligatorio en la UI (la API ya lo exigía). El método,
+la dirección, la comuna y la referencia se recuerdan en
+`fcore.placer.cliente`. El total que se muestra y el vuelto que se manda por
+WhatsApp salen del servidor cuando ya respondió (`totalServidor`,
+`vueltoServidor`). El mensaje se arma con `ESTADO.pago.items`, no con el
+carrito —que a esa altura ya está vacío— y lleva método, efectivo, vuelto,
+dirección completa y PIN.
+
+### Vendedor (`negocio.js`)
+
+- `aLocal` conserva `comuna`, `referencia`, `metodo`, `pagoCon`, `vuelto` y
+  `requiereClave`.
+- Cada pedido muestra una línea de pago («Efectivo · paga con $10.000 · vuelto
+  $2.030») y la dirección con comuna y referencia.
+- Al elegir «Entregado» en un pedido con `requiereClave`, se abre la caja
+  `neg-verif`: input de 4 dígitos, «Confirmar entrega» y «Cancelar». Un 409 deja
+  la caja abierta con el error para volver a pedir el código.
+- `engancharPedidos()` es la única fuente de handlers de la lista (la usa
+  también `enganchar()`), porque `enganchar()` corre después de
+  `pintarPanel()` y antes pisaba la verificación.
+
+### Seguimiento (`tienda-seguir.js`)
+
+`pagoTexto()` arma «Efectivo · pagas con $10.000 · vuelto $2.030» (o «monto
+justo»), se muestran comuna y referencia, y el bloque `.sg-clave` muestra el PIN
+mientras el pedido no esté entregado ni cancelado.
+
+### Pruebas de la fase
+
+`node tests/web/efectivo.js` (51 comprobaciones): columnas y `ALTER`, `PAGOS`,
+PIN de 4 dígitos, `efectivoDe`, `PAGO_CORTO`, `SIN_DIRECCION`, `SIN_COMUNA`,
+las tres salidas de `pedido_crear`, seguimiento con PIN, listado sin PIN y con
+`requiere_clave`, entrega con y sin código, checkout, panel, seguimiento y
+`sw` v95. `pedidos.js` pasó a 40 (INSERT de 21 columnas).
+
+Prueba real en producción con el local desechable `f3-<sello>`: 34
+comprobaciones, desde `SIN_DIRECCION` hasta la entrega verificada, con el local
+borrado al final.
+
 ## Pruebas
 
 ```sh
@@ -974,6 +1069,7 @@ node tests/web/visor.js       # 67 comprobaciones: visor con el local, marca, ca
 node tests/web/marca.js       # 61 comprobaciones: link de marca, local_ver, carrito con metadatos, cuenta y seguridad
 node tests/web/fotos.js       # 61 comprobaciones: foto de producto, compresión, URL versionada, imagen_ver, catálogo/carrito/pedido/visor
 node tests/web/codigos.js     # 67 comprobaciones: código de barras, GS1, codigo_buscar, panel, comprador, CSV, visor y pedido
+node tests/web/efectivo.js    # 51 comprobaciones: dirección completa, efectivo con vuelto, código de entrega y verificación
 node tests/web/auth-nube.js   # incluye CORE_ROOT_EMAIL y promoción a owner
 node tests/web/diseno.js      # shell, sistema visual y offline
 node tests/web/trafico.js     # capa de tráfico del mapa
