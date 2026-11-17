@@ -82,6 +82,8 @@ precio. Las tiendas cerradas existen y se muestran, pero al final y marcadas:
   `fabri-api.vercel.app`, `forge-core-stock.vercel.app` y
   `fabri-core-web.vercel.app` en 200, con `placer.js` que trae
   `productos_buscar`, la hoja y la marca «cerrada».
+- Commit `a2f168f` (`feat(marketplace): búsqueda global de productos entre
+  tiendas`), empujado a `origin/master`.
 
 **Pendiente**: la cuenta root sigue en 0 (`F.eduardomicolta@gmail.com` debe
 registrarse una vez en `/app/` y queda `owner`); el pago con tarjeta sigue
