@@ -895,6 +895,17 @@ img { max-width: 100%; display: block; }
 .sg-dato { margin: 8px 0 0; font-size: 12px; line-height: 1.55; color: var(--ds-text-secondary); }
 .sg-dato b { color: var(--ds-text-primary); font-weight: 600; }
 
+/* Código de entrega: el comprador lo muestra y el local lo pide al entregar. */
+.sg-clave {
+  display: grid; justify-items: center; gap: 2px;
+  margin: 12px 0 2px; padding: 12px;
+  border: 1px solid rgba(200, 255, 0, .36); border-radius: 12px;
+  background: rgba(200, 255, 0, .07);
+}
+.sg-clave span { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--ds-text-secondary); }
+.sg-clave b { font-size: 28px; letter-spacing: .22em; line-height: 1.1; color: var(--ds-accent, #c8ff00); font-variant-numeric: tabular-nums; }
+.sg-clave small { max-width: 260px; text-align: center; font-size: 10.5px; line-height: 1.45; color: var(--ds-text-secondary); }
+
 /* el local */
 .sg-local { display: grid; gap: 2px; }
 .sg-local-cab { display: flex; align-items: center; justify-content: space-between; gap: 10px; }

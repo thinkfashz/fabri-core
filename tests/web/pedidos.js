@@ -60,7 +60,8 @@ ok('el descuento y el ahorro salen del mismo catálogo',
   /const ahorro = items\.reduce/.test(api));
 ok('el pedido guarda el ahorro',
   /ADD COLUMN IF NOT EXISTS ahorro NUMERIC NOT NULL DEFAULT 0/.test(api) &&
-  /idempotencia,ahorro\)/.test(api));
+  /idempotencia,ahorro,/.test(api) &&
+  /\$15,\s*\$16,\$17,\$18,\$19,\$20,\$21/.test(api));
 ok('el comparador de nombres está definido', /function nombreClave\(v: unknown\)/.test(api));
 ok('busca por SKU y, si no, por nombre comparable',
   /porSku\.get\(it\.sku\)\) \|\| porNombre\.get\(nombreClave\(it\.nombre\)\)/.test(api) &&

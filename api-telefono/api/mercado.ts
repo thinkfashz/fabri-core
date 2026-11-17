@@ -118,6 +118,8 @@ const MAX_IMAGEN_BYTES = 160_000;
 const API_PUBLICA = 'https://fabri-api.vercel.app';
 /** Código de barras: mismo largo que acepta el escáner (EAN, UPC, Code 128). */
 const MAX_CODIGO = 48;
+/** Formas de pago que entiende el pedido. La tarjeta sigue siendo simulada. */
+const PAGOS = ['efectivo', 'transferencia', 'tarjeta'];
 
 type Fila = Record<string, unknown>;
 
@@ -435,6 +437,12 @@ async function asegurar(pool: any) {
       total       NUMERIC NOT NULL DEFAULT 0,
       entrega     TEXT NOT NULL DEFAULT 'retiro',
       direccion   TEXT NOT NULL DEFAULT '',
+      comuna_entrega TEXT NOT NULL DEFAULT '',
+      referencia_entrega TEXT NOT NULL DEFAULT '',
+      metodo_pago TEXT NOT NULL DEFAULT '',
+      pago_con    BIGINT NOT NULL DEFAULT 0,
+      vuelto      BIGINT NOT NULL DEFAULT 0,
+      clave_entrega TEXT NOT NULL DEFAULT '',
       nota        TEXT NOT NULL DEFAULT '',
       estado      TEXT NOT NULL DEFAULT 'nuevo',
       creado      TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -481,6 +489,16 @@ async function asegurar(pool: any) {
   // crear el pedido para que el panel del dueño y el resumen del admin no
   // tengan que recalcular el JSON de cada pedido.
   await pool.query(`ALTER TABLE ${T_PEDIDOS} ADD COLUMN IF NOT EXISTS ahorro NUMERIC NOT NULL DEFAULT 0`);
+  // Fase 3: dirección completa, efectivo con vuelto y código de entrega.
+  // `metodo_pago` es '' en pedidos viejos (no se inventa uno); `pago_con` es
+  // lo que entrega el comprador y `vuelto` lo que se le devuelve. El código de
+  // 4 dígitos lo muestra el comprador y lo pide el local al entregar.
+  await pool.query(`ALTER TABLE ${T_PEDIDOS} ADD COLUMN IF NOT EXISTS comuna_entrega TEXT NOT NULL DEFAULT ''`);
+  await pool.query(`ALTER TABLE ${T_PEDIDOS} ADD COLUMN IF NOT EXISTS referencia_entrega TEXT NOT NULL DEFAULT ''`);
+  await pool.query(`ALTER TABLE ${T_PEDIDOS} ADD COLUMN IF NOT EXISTS metodo_pago TEXT NOT NULL DEFAULT ''`);
+  await pool.query(`ALTER TABLE ${T_PEDIDOS} ADD COLUMN IF NOT EXISTS pago_con BIGINT NOT NULL DEFAULT 0`);
+  await pool.query(`ALTER TABLE ${T_PEDIDOS} ADD COLUMN IF NOT EXISTS vuelto BIGINT NOT NULL DEFAULT 0`);
+  await pool.query(`ALTER TABLE ${T_PEDIDOS} ADD COLUMN IF NOT EXISTS clave_entrega TEXT NOT NULL DEFAULT ''`);
   // El código corto se usa para buscar el pedido: dos pedidos con el mismo
   // código harían ambigua la búsqueda. En una base vieja puede haber repetidos,
   // así que si el índice no entra no se tumba el arranque (la creación igual
@@ -647,6 +665,23 @@ function normalizarCodigoBarras(v: unknown): { ok: boolean; valor: string } {
   }
   // Code 128/39 de tienda: alfanumérico y con algún dígito.
   return /\d/.test(c) ? { ok: true, valor: c } : { ok: false, valor: '' };
+}
+
+/** Código de entrega de 4 dígitos: lo ve el comprador y lo pide el local al
+ *  entregar. Es la verificación de que el pedido llegó a sus manos. */
+function claveDeEntrega(): string {
+  return String(randomBytes(4).readUInt32BE(0) % 10000).padStart(4, '0');
+}
+
+/** Efectivo: cuánto entrega el comprador, cuánto se le devuelve y si falta.
+ *  El servidor recalcula el vuelto con el total real; no confía en el cliente. */
+function efectivoDe(total: number, con: unknown) {
+  const dado = Math.max(0, Math.min(100_000_000, Math.round(Number(con) || 0)));
+  return {
+    dado,
+    vuelto: dado > total ? dado - total : 0,
+    faltan: dado > 0 && dado < total ? total - dado : 0,
+  };
 }
 
 const CAMPOS_LOCAL = `id,nombre,marca,logo,descripcion,rubro,ico,telefono,direccion,comuna,
@@ -1668,7 +1703,8 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       if (idem) {
         const ya = await pool.query(
           `SELECT id,codigo,seguimiento,subtotal::float8 AS subtotal,envio::float8 AS envio,
-                  total::float8 AS total,ahorro::float8 AS ahorro,estado
+                  total::float8 AS total,ahorro::float8 AS ahorro,estado,
+                  metodo_pago,pago_con::float8 AS pago_con,vuelto::float8 AS vuelto,clave_entrega
              FROM ${T_PEDIDOS} WHERE local_id = $1 AND idempotencia = $2 LIMIT 1`,
           [localId, idem]
         );
@@ -1678,6 +1714,8 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
             ok: true, accion, id: p.id, codigo: p.codigo, seguimiento: p.seguimiento,
             subtotal: p.subtotal, envio: p.envio, total: p.total, ahorro: p.ahorro,
             estado: p.estado, repetido: true,
+            metodo_pago: p.metodo_pago, pago_con: p.pago_con, vuelto: p.vuelto,
+            clave_entrega: p.clave_entrega,
           });
         }
       }
@@ -1773,6 +1811,36 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       const envio = entrega === 'delivery' ? Number(local.envio) || 0 : 0;
       const total = subtotal + envio;
 
+      /* Fase 3: forma de pago, efectivo y dirección completa. El total ya está
+         calculado con el catálogo, así que el vuelto se recalcula acá y no se
+         confía en el número que mande el navegador. */
+      const metodoPago = texto(cuerpo.metodo_pago, 20).trim().toLowerCase();
+      const pago = PAGOS.includes(metodoPago) ? metodoPago : '';
+      const efectivo = pago === 'efectivo'
+        ? efectivoDe(total, cuerpo.pago_con)
+        : { dado: 0, vuelto: 0, faltan: 0 };
+      if (efectivo.faltan) {
+        return json(res, {
+          ok: false, codigo: 'PAGO_CORTO',
+          error: `el efectivo no alcanza: faltan ${efectivo.faltan}`,
+          faltan: efectivo.faltan, total,
+        }, 400);
+      }
+      const direccion = texto(cuerpo.direccion, 200).trim();
+      const comunaEntrega = texto(cuerpo.comuna_entrega, 80).trim();
+      const referenciaEntrega = texto(cuerpo.referencia_entrega, 160).trim();
+      if (entrega === 'delivery') {
+        if (direccion.length < 5) {
+          return json(res, { ok: false, codigo: 'SIN_DIRECCION', error: 'falta la calle y el número para el delivery' }, 400);
+        }
+        if (comunaEntrega.length < 2) {
+          return json(res, { ok: false, codigo: 'SIN_COMUNA', error: 'falta la comuna para el delivery' }, 400);
+        }
+      }
+      // Lo muestra el comprador y lo pide el local al entregar. Los pedidos
+      // viejos tienen '' y se pueden cerrar como antes.
+      const claveEntrega = claveDeEntrega();
+
       const id = 'ped-' + Date.now().toString(36) + randomBytes(3).toString('hex');
       // El token de seguimiento no se deriva del id ni del código.
       const seguimiento = randomBytes(10).toString('hex');
@@ -1807,8 +1875,10 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
           await cliente_pg.query(
             `INSERT INTO ${T_PEDIDOS}
                (id,local_id,codigo,cliente,telefono,items,subtotal,envio,total,entrega,
-                direccion,nota,estado,seguimiento,idempotencia,ahorro)
-             VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,$12,'nuevo',$13,$14,$15)`,
+                direccion,nota,estado,seguimiento,idempotencia,ahorro,
+                comuna_entrega,referencia_entrega,metodo_pago,pago_con,vuelto,clave_entrega)
+             VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,$12,'nuevo',$13,$14,$15,
+                     $16,$17,$18,$19,$20,$21)`,
             [id, localId, codigo, nombreCliente, telefono,
               JSON.stringify(items.map((x) => ({
                 sku: x.sku, codigo: x.codigo || '', nombre: x.nombre, precio: x.precio,
@@ -1817,7 +1887,8 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
                 imagen: x.imagen || '',
               }))),
               subtotal, envio, total, entrega,
-              texto(cuerpo.direccion, 200).trim(), nota, seguimiento, idem, ahorro]
+              direccion, nota, seguimiento, idem, ahorro,
+              comunaEntrega, referenciaEntrega, pago, efectivo.dado, efectivo.vuelto, claveEntrega]
           );
           await cliente_pg.query(
             `INSERT INTO ${T_EVENTOS} (pedido_id, estado, actor, nota)
@@ -1832,7 +1903,8 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
           if (cons === 'idx_mercado_pedidos_idempotencia' && idem) {
             const ya = await pool.query(
               `SELECT id,codigo,seguimiento,subtotal::float8 AS subtotal,envio::float8 AS envio,
-                      total::float8 AS total,ahorro::float8 AS ahorro,estado
+                      total::float8 AS total,ahorro::float8 AS ahorro,estado,
+                      metodo_pago,pago_con::float8 AS pago_con,vuelto::float8 AS vuelto,clave_entrega
                  FROM ${T_PEDIDOS} WHERE local_id = $1 AND idempotencia = $2 LIMIT 1`,
               [localId, idem]
             );
@@ -1842,6 +1914,8 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
                 ok: true, accion, id: p.id, codigo: p.codigo, seguimiento: p.seguimiento,
                 subtotal: p.subtotal, envio: p.envio, total: p.total, ahorro: p.ahorro,
                 estado: p.estado, repetido: true,
+                metodo_pago: p.metodo_pago, pago_con: p.pago_con, vuelto: p.vuelto,
+                clave_entrega: p.clave_entrega,
               });
             }
           }
@@ -1858,6 +1932,11 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         catch (e) { /* el pedido ya está guardado: el aviso es opcional */ }
         return json(res, {
           ok: true, accion, id, codigo, seguimiento, subtotal, envio, total, ahorro, estado: 'nuevo',
+          // Fase 3: el comprador necesita ver el vuelto y el código de entrega
+          // en el momento; el local recibe el pago y el resumen, sin el código.
+          metodo_pago: pago, pago_con: efectivo.dado, vuelto: efectivo.vuelto,
+          clave_entrega: claveEntrega,
+          comuna_entrega: comunaEntrega, referencia_entrega: referenciaEntrega,
         });
       }
     }
@@ -1893,7 +1972,9 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
 
       const columnas = `p.id, p.codigo, p.cliente, p.items,
               p.subtotal::float8 AS subtotal, p.envio::float8 AS envio, p.total::float8 AS total,
-              p.entrega, p.direccion, p.nota, p.estado, p.creado, p.actualizado,
+              p.entrega, p.direccion, p.comuna_entrega, p.referencia_entrega,
+              p.metodo_pago, p.pago_con::float8 AS pago_con, p.vuelto::float8 AS vuelto,
+              p.clave_entrega, p.nota, p.estado, p.creado, p.actualizado,
               l.nombre AS local_nombre, l.telefono AS local_telefono,
               l.direccion AS local_direccion, l.comuna AS local_comuna,
               l.horario AS local_horario, l.abierto AS local_abierto`;
@@ -1941,6 +2022,14 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
           total: fila.total,
           entrega: fila.entrega,
           direccion: fila.direccion,
+          comuna_entrega: fila.comuna_entrega || '',
+          referencia_entrega: fila.referencia_entrega || '',
+          // El comprador es el dueño de este código: lo muestra para que el
+          // repartidor o el local lo pidan al entregar.
+          metodo_pago: fila.metodo_pago || '',
+          pago_con: fila.pago_con || 0,
+          vuelto: fila.vuelto || 0,
+          clave_entrega: fila.clave_entrega || '',
           nota: fila.nota,
           estado: fila.estado,
           creado: fila.creado,
@@ -2299,7 +2388,10 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         `SELECT p.id,p.codigo,p.seguimiento,p.cliente,p.telefono,p.items,
                 p.subtotal::float8 AS subtotal, p.envio::float8 AS envio, p.total::float8 AS total,
                 p.ahorro::float8 AS ahorro,
-                p.entrega,p.direccion,p.nota,p.estado,p.creado,p.actualizado,
+                p.entrega,p.direccion,p.comuna_entrega,p.referencia_entrega,
+                p.metodo_pago,p.pago_con::float8 AS pago_con,p.vuelto::float8 AS vuelto,
+                (p.clave_entrega <> '') AS requiere_clave,
+                p.nota,p.estado,p.creado,p.actualizado,
                 COALESCE((
                   SELECT json_agg(json_build_object(
                            'estado', e.estado, 'ts', e.ts, 'actor', e.actor, 'nota', e.nota
@@ -2334,7 +2426,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       cliente = await pool.connect();
       await cliente.query('BEGIN');
       const cur = await cliente.query(
-        `SELECT estado, items FROM ${T_PEDIDOS} WHERE id = $1 AND local_id = $2 FOR UPDATE`,
+        `SELECT estado, items, clave_entrega FROM ${T_PEDIDOS} WHERE id = $1 AND local_id = $2 FOR UPDATE`,
         [pedidoId, localId]
       );
       const fila = cur.rows[0];
@@ -2357,6 +2449,27 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         return json(res, { ok: true, accion, cambiados: 0, estado });
       }
 
+      // Verificación de entrega: si el pedido tiene código, el local debe
+      // pedírselo al comprador y escribirlo. Es lo que impide cerrar un pedido
+      // que nunca llegó a sus manos.
+      const clavePedida = texto(cuerpo.clave_entrega, 8).replace(/\D/g, '');
+      if (estado === 'entregado' && String(fila.clave_entrega || '') !== '') {
+        if (!clavePedida) {
+          await cliente.query('ROLLBACK');
+          return json(res, {
+            ok: false, codigo: 'CLAVE_ENTREGA',
+            error: 'pide el código de entrega de 4 dígitos al comprador',
+          }, 409);
+        }
+        if (clavePedida !== String(fila.clave_entrega)) {
+          await cliente.query('ROLLBACK');
+          return json(res, {
+            ok: false, codigo: 'CLAVE_ENTREGA',
+            error: 'el código de entrega no coincide: pídelo de nuevo al comprador',
+          }, 409);
+        }
+      }
+
       await cliente.query(
         `UPDATE ${T_PEDIDOS} SET estado = $1, actualizado = now() WHERE id = $2`,
         [estado, pedidoId]
@@ -2369,6 +2482,10 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         entregado: 'entregado', cancelado: 'cancelado',
       };
       const nota = texto(cuerpo.nota, 120).trim() || ('marcado como ' + (ETIQUETA[estado] || estado));
+      // El rastro de la entrega verificado queda en el historial del pedido.
+      const notaEvento = estado === 'entregado' && clavePedida && String(fila.clave_entrega || '') !== ''
+        ? nota + ' · código de entrega verificado'
+        : nota;
 
       // Cancelar devuelve al catálogo lo que el pedido había descontado.
       let devueltos = 0;
@@ -2386,7 +2503,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
 
       await cliente.query(
         `INSERT INTO ${T_EVENTOS} (pedido_id, estado, actor, nota) VALUES ($1, $2, $3, $4)`,
-        [pedidoId, estado, actor, devueltos ? nota + ' · stock devuelto' : nota]
+        [pedidoId, estado, actor, devueltos ? notaEvento + ' · stock devuelto' : notaEvento]
       );
       await cliente.query('COMMIT');
 

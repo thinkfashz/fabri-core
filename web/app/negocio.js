@@ -111,6 +111,8 @@ window.Negocio = (function () {
     cargandoSerie: false,
     buscar: "",          // filtro de la lista de pedidos
     filtro: "",          // "" | "abiertos" | estado
+    verificando: "",     // pedido al que se le está pidiendo el código de entrega
+    errorVerif: "",      // el servidor rechazó el código: se muestra en la caja
     resenas: null,       // { calificacion, resenas } de resenas_panel
     resenasError: "",
     cargandoResenas: false
@@ -185,10 +187,24 @@ window.Negocio = (function () {
       ahorro: Number(p.ahorro) || 0,
       entrega: p.entrega === "delivery" ? "delivery" : "retiro",
       direccion: p.direccion || "",
+      comuna: p.comuna_entrega || "",
+      referencia: p.referencia_entrega || "",
+      metodo: p.metodo_pago || "",
+      pagoCon: Number(p.pago_con) || 0,
+      vuelto: Number(p.vuelto) || 0,
+      requiereClave: p.requiere_clave === true,
       cliente: { nombre: p.cliente || "", telefono: p.telefono || "" },
       estado: p.estado || "nuevo",
       eventos: Array.isArray(p.eventos) ? p.eventos : []
     };
+  }
+
+  /** Nombre legible del pago para el panel del local. */
+  function etiquetaPagoLocal(m) {
+    return m === "efectivo" ? "Efectivo"
+      : m === "transferencia" ? "Transferencia"
+      : m === "tarjeta" ? "Tarjeta (simulada)"
+      : "Pago por confirmar";
   }
 
   /**
@@ -1308,7 +1324,16 @@ window.Negocio = (function () {
             "</div>" +
             '<p class="neg-ped-cli">' + esc((p.cliente && p.cliente.nombre) || "Cliente") +
               " · " + (p.entrega === "delivery" ? "delivery" : "retiro") +
-              (p.direccion ? " · " + esc(p.direccion) : "") + "</p>" +
+              (p.direccion ? " · " + esc(p.direccion) : "") +
+              (p.comuna ? ", " + esc(p.comuna) : "") +
+              (p.referencia ? " · " + esc(p.referencia) : "") + "</p>" +
+            (p.metodo
+              ? '<p class="neg-ped-pago">' + esc(etiquetaPagoLocal(p.metodo)) +
+                (p.metodo === "efectivo" && p.pagoCon
+                  ? " · paga con " + clp(p.pagoCon) +
+                    (p.vuelto ? " · vuelto " + clp(p.vuelto) : " · monto justo")
+                  : "") + "</p>"
+              : "") +
             '<div class="neg-ped-items">' +
               (p.items || []).map((x) => "<span>" +
                 (x.imagen ? '<img class="neg-ped-foto" src="' + esc(x.imagen) + '" alt="" loading="lazy">' : "") +
@@ -1332,6 +1357,17 @@ window.Negocio = (function () {
                 (p.nube ? "" : '<button type="button" class="borrar" data-borrar="' + esc(p.codigo) + '" aria-label="Borrar pedido">✕</button>') +
               "</div>" +
             "</div>" +
+            (EST.verificando === p.pedido_id
+              ? '<div class="neg-verif">' +
+                  "<p>Pide al comprador el <b>código de entrega</b> de 4 dígitos.</p>" +
+                  '<input class="neg-verif-clave" data-clave="' + esc(p.pedido_id) + '" inputmode="numeric" maxlength="4" placeholder="0000" aria-label="Código de entrega">' +
+                  (EST.errorVerif ? '<small class="neg-verif-err">' + esc(EST.errorVerif) + "</small>" : "") +
+                  '<div class="neg-verif-acc">' +
+                    '<button type="button" class="ok" data-verificar="' + esc(p.pedido_id) + '">Confirmar entrega</button>' +
+                    '<button type="button" data-cancelar-verif="1">Cancelar</button>' +
+                  "</div>" +
+                "</div>"
+              : "") +
             historialPedido(p) +
           "</article>";
         }).join("")
@@ -1342,21 +1378,66 @@ window.Negocio = (function () {
           "<p>Cuando alguien pague en MercadoPlacer, aparece acá.</p></div>");
 
     // La lista se repinta con cada filtro: los botones se vuelven a enganchar.
-    caja.querySelectorAll("[data-hecho]").forEach((b) => {
+    engancharPedidos(caja);
+  }
+
+  /** Handlers de la lista de pedidos. Se usa al pintar la lista y también en
+   *  `enganchar`, que corre después del panel: si no, pisaría la verificación
+   *  del código de entrega con el cambio de estado directo. */
+  function engancharPedidos(raiz) {
+    raiz.querySelectorAll("[data-hecho]").forEach((b) => {
       b.onclick = () => cambiarEstado(b.dataset.hecho, "entregado", false);
     });
-    caja.querySelectorAll("[data-estado]").forEach((s) => {
-      s.onchange = () => { cambiarEstado(s.dataset.estado, s.value, true); };
+    raiz.querySelectorAll("[data-estado]").forEach((s) => {
+      s.onchange = () => {
+        const p = EST.pedidos.find((x) => x.pedido_id === s.dataset.estado);
+        // Entregar un pedido con código exige pedírselo al comprador.
+        if (s.value === "entregado" && p && p.requiereClave) {
+          EST.verificando = s.dataset.estado;
+          EST.errorVerif = "";
+          render();
+          return;
+        }
+        cambiarEstado(s.dataset.estado, s.value, true);
+      };
     });
-    caja.querySelectorAll("[data-borrar]").forEach((b) => {
+    raiz.querySelectorAll("[data-verificar]").forEach((b) => {
+      b.onclick = () => verificarEntrega(b.dataset.verificar);
+    });
+    raiz.querySelectorAll("[data-cancelar-verif]").forEach((b) => {
+      b.onclick = () => { EST.verificando = ""; EST.errorVerif = ""; render(); };
+    });
+    const campoClave = raiz.querySelector(".neg-verif-clave");
+    if (campoClave) {
+      campoClave.oninput = () => {
+        campoClave.value = campoClave.value.replace(/\D/g, "").slice(0, 4);
+      };
+      campoClave.onkeydown = (ev) => {
+        if (ev.key === "Enter") verificarEntrega(campoClave.dataset.clave);
+      };
+    }
+    raiz.querySelectorAll("[data-borrar]").forEach((b) => {
       b.onclick = () => { guardar(leer().filter((p) => p.codigo !== b.dataset.borrar)); render(); };
     });
-    caja.querySelectorAll("[data-enlace]").forEach((b) => {
+    raiz.querySelectorAll("[data-enlace]").forEach((b) => {
       b.onclick = () => copiarEnlace(b.dataset.enlace, b);
     });
-    caja.querySelectorAll("[data-wa]").forEach((b) => {
+    raiz.querySelectorAll("[data-wa]").forEach((b) => {
       b.onclick = () => abrirWa(b.dataset.wa);
     });
+  }
+
+  /** Confirma la entrega con el código que dictó el comprador. */
+  function verificarEntrega(id) {
+    if (!id) return;
+    const inp = document.querySelector('.neg-verif-clave[data-clave="' + id + '"]');
+    const clave = ((inp && inp.value) || "").replace(/\D/g, "");
+    if (clave.length !== 4) {
+      EST.errorVerif = "El código tiene 4 dígitos.";
+      render();
+      return;
+    }
+    cambiarEstado(id, "entregado", true, clave);
   }
 
   /** Historial del pedido: quién lo movió, cuándo y con qué nota. */
@@ -1979,18 +2060,26 @@ window.Negocio = (function () {
   ];
 
   /** Avanza el pedido a `estado`. En la nube lo deja el historial de eventos. */
-  async function cambiarEstado(id, estado, esNube) {
+  async function cambiarEstado(id, estado, esNube, claveEntrega) {
     if (esNube) {
       if (!EST.sel) return;
       const d = await api({
         accion: "pedido_estado", local_id: EST.sel.id,
-        clave: EST.sel.clave || "", pedido_id: id, estado
+        clave: EST.sel.clave || "", pedido_id: id, estado,
+        clave_entrega: claveEntrega || ""
       });
       if (d && d.ok) {
+        EST.verificando = "";
+        EST.errorVerif = "";
         await cargarPedidos();
         const txt = (ESTADOS_PEDIDO.find((e) => e.clave === estado) || {}).txt;
         toast("Pedido en «" + String(txt || estado).toLowerCase() + "»");
       } else {
+        // El código de entrega no coincide: la caja sigue abierta para
+        // volver a pedírselo al comprador.
+        if (d && d.codigo === "CLAVE_ENTREGA") {
+          EST.errorVerif = d.error || "El código de entrega no coincide.";
+        }
         toast((d && d.error) || "No se pudo cambiar el estado");
       }
       render();
@@ -2002,19 +2091,9 @@ window.Negocio = (function () {
 
   /* ── enlaces ────────────────────────────────────────────────────────────── */
   function enganchar() {
-    // Pedidos locales / de la nube.
-    document.querySelectorAll("[data-hecho]").forEach((b) => {
-      b.onclick = () => cambiarEstado(b.dataset.hecho, "entregado", false);
-    });
-    document.querySelectorAll("[data-estado]").forEach((s) => {
-      s.onchange = () => { cambiarEstado(s.dataset.estado, s.value, true); };
-    });
-    document.querySelectorAll("[data-wa]").forEach((b) => {
-      b.onclick = () => abrirWa(b.dataset.wa);
-    });
-    document.querySelectorAll("[data-borrar]").forEach((b) => {
-      b.onclick = () => { guardar(leer().filter((p) => p.codigo !== b.dataset.borrar)); render(); };
-    });
+    // Pedidos: la misma función que usa la lista, para no pisar el código
+    // de entrega con un cambio de estado directo.
+    engancharPedidos(document);
 
     // Pestañas del panel.
     const tabs = $("negTabs");

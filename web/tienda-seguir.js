@@ -534,6 +534,7 @@
         "</span><b>" + clp(precio * n) + "</b></div>";
     }).join("");
     var envio = Number(pedido.envio) || 0;
+    var comuna = pedido.comuna_entrega ? ", " + pedido.comuna_entrega : "";
     return '<div class="ds-card sg-resumen">' +
       '<div class="sg-resumen-cab"><h2>Tu pedido</h2>' +
         '<span class="ds-badge">' + items.length + (items.length === 1 ? " producto" : " productos") + "</span></div>" +
@@ -541,9 +542,35 @@
       (envio ? '<div class="sg-linea sg-linea--sub"><span>Envío</span><b>' + clp(envio) + "</b></div>" : "") +
       '<div class="sg-linea sg-linea--total"><span>Total</span><b>' + clp(pedido.total) + "</b></div>" +
       '<p class="sg-dato"><b>Entrega:</b> ' + esc(pedido.entrega === "delivery"
-        ? "Delivery" + (pedido.direccion ? " a " + pedido.direccion : "") : "Retiro en el local") + "</p>" +
+        ? "Delivery" + (pedido.direccion ? " a " + pedido.direccion + comuna : "") : "Retiro en el local") + "</p>" +
+      (pedido.referencia_entrega
+        ? '<p class="sg-dato"><b>Referencia:</b> ' + esc(pedido.referencia_entrega) + "</p>" : "") +
+      (pagoTexto(pedido)
+        ? '<p class="sg-dato"><b>Pago:</b> ' + esc(pagoTexto(pedido)) + "</p>" : "") +
+      (pedido.clave_entrega && pedido.estado !== "entregado" && pedido.estado !== "cancelado"
+        ? '<div class="sg-clave">' +
+            "<span>Código de entrega</span>" +
+            "<b>" + esc(pedido.clave_entrega) + "</b>" +
+            "<small>Dáselo al repartidor o al local sólo cuando recibas tu pedido.</small>" +
+          "</div>"
+        : "") +
       (pedido.nota ? '<p class="sg-dato"><b>Nota:</b> ' + esc(pedido.nota) + "</p>" : "") +
     "</div>";
+  }
+
+  /** Cómo se paga: el efectivo con vuelto se lee de un vistazo. */
+  function pagoTexto(p) {
+    var m = p.metodo_pago || "";
+    if (m === "efectivo") {
+      var con = Number(p.pago_con) || 0;
+      var vuelto = Number(p.vuelto) || 0;
+      return "Efectivo" + (con
+        ? " · pagas con " + clp(con) + (vuelto ? " · vuelto " + clp(vuelto) : " · monto justo")
+        : " al recibir");
+    }
+    if (m === "transferencia") return "Transferencia";
+    if (m === "tarjeta") return "Tarjeta (simulada)";
+    return "";
   }
 
   function localHtml(pedido) {

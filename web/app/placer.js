@@ -100,7 +100,12 @@ window.Placer = (function () {
     try { return JSON.parse(localStorage.getItem(k) || "null") || porDefecto; } catch (e) { return porDefecto; }
   }
   function leerCarrito() { return leer(CLAVE_CARRITO, {}); }
-  function leerCliente() { return leer(CLAVE_CLIENTE, { nombre: "", telefono: "", modo: "retiro", nota: "" }); }
+  function leerCliente() {
+    return leer(CLAVE_CLIENTE, {
+      nombre: "", telefono: "", modo: "retiro", nota: "",
+      direccion: "", comuna: "", referencia: "", pago: "efectivo"
+    });
+  }
   function guardarCarrito() { guardar(CLAVE_CARRITO, ESTADO.carrito); }
 
   /* ── iconos ─────────────────────────────────────────────────────────────── */
@@ -2272,7 +2277,14 @@ window.Placer = (function () {
       id: id, tienda: m,
       items: itemsDe(m), subtotal: totalDe(m),
       numero: "", exp: "", cvv: "", titular: "",
-      metodo: "tarjeta", entrega: entrega,
+      metodo: ESTADO.pedido.pago || "efectivo", entrega: entrega,
+      // Dirección y efectivo: se recuerdan entre pedidos, pero el vuelto real
+      // lo calcula el servidor cuando recibe el total del catálogo.
+      direccion: ESTADO.pedido.direccion || "",
+      comuna: ESTADO.pedido.comuna || "",
+      referencia: ESTADO.pedido.referencia || "",
+      pagoCon: 0,
+      claveEntrega: "", pagoConfirmado: 0, vueltoServidor: 0,
       estado: "form",
       nube: "", seguimiento: "",
       // Un pedido, una clave: si el teléfono reintenta el envío (red que se
@@ -2307,6 +2319,39 @@ window.Placer = (function () {
     return (t && t.envio) ? t.envio : 1990;      // el envío lo fija cada local
   }
 
+  /** Total que se cobra: el del servidor si ya respondió, si no el del carrito. */
+  function totalPago() {
+    if (!ESTADO.pago) return 0;
+    const local = (ESTADO.pago.subtotal || 0) + costoEnvio();
+    return ESTADO.pago.estado === "listo" && ESTADO.pago.totalServidor
+      ? ESTADO.pago.totalServidor
+      : local;
+  }
+
+  /** Efectivo: lo que entrega el comprador y el vuelto que se le devuelve.
+   *  Es sólo la vista previa; el servidor recalcula con el total real. */
+  function efectivoPago(total) {
+    const con = Math.max(0, Math.round(Number(ESTADO.pago.pagoCon) || 0));
+    return {
+      con: con,
+      vuelto: con > total ? con - total : 0,
+      faltan: con > 0 && con < total ? total - con : 0
+    };
+  }
+
+  function etiquetaPago(metodo) {
+    return metodo === "efectivo" ? "Efectivo"
+      : metodo === "transferencia" ? "Transferencia"
+      : metodo === "tarjeta" ? "Tarjeta de crédito/débito"
+      : "Por confirmar";
+  }
+
+  function textoVuelto(v) {
+    return v.faltan ? "Faltan <b>" + clp(v.faltan) + "</b>"
+      : v.vuelto ? "Vuelto <b>" + clp(v.vuelto) + "</b>"
+      : "Pagas con el monto justo";
+  }
+
   function marcaTarjeta(numero) {
     const n = String(numero).replace(/\D/g, "");
     if (/^4/.test(n)) return { nombre: "Visa", largo: [13, 16, 19], cvv: 3 };
@@ -2320,11 +2365,21 @@ window.Placer = (function () {
     const e = {};
     const p = ESTADO.pedido;
     if (!p.nombre || p.nombre.trim().length < 2) e.nombre = "Escribe tu nombre para el pedido.";
-    if (p.telefono && p.telefono.replace(/\D/g, "").length < 8 && p.telefono.trim()) {
-      e.telefono = "El teléfono debe tener al menos 8 dígitos.";
+    // La API ya lo exige: sin teléfono el local no puede coordinar la entrega.
+    if ((p.telefono || "").replace(/\D/g, "").length < 8) {
+      e.telefono = "Escribe tu teléfono (al menos 8 dígitos).";
     }
-    if (ESTADO.pago.entrega === "delivery" && !(ESTADO.pago.direccion || "").trim()) {
-      e.direccion = "Falta la dirección para el delivery.";
+    if (ESTADO.pago.entrega === "delivery") {
+      if ((ESTADO.pago.direccion || "").trim().length < 5) {
+        e.direccion = "Escribe la calle y el número.";
+      }
+      if ((ESTADO.pago.comuna || "").trim().length < 2) {
+        e.comuna = "Escribe la comuna de entrega.";
+      }
+    }
+    if (ESTADO.pago.metodo === "efectivo") {
+      const v = efectivoPago(totalPago());
+      if (v.faltan > 0) e.pagoCon = "Con " + clp(v.con) + " faltan " + clp(v.faltan) + " para el total.";
     }
     if (ESTADO.pago.metodo === "tarjeta") {
       const num = String(ESTADO.pago.numero || "").replace(/\D/g, "");
@@ -2351,9 +2406,7 @@ window.Placer = (function () {
       a + Math.max(0, (x.lista != null ? x.lista : x.precio) - x.precio) * x.cantidad, 0);
     const envio = costoEnvio();
     // Si la nube ajustó el total (precio de catálogo), se muestra ese.
-    const total = ESTADO.pago.estado === "listo" && ESTADO.pago.totalServidor
-      ? ESTADO.pago.totalServidor
-      : subtotal + envio;
+    const total = totalPago();
     const p = ESTADO.pedido;
     const minimo = m.minimo || 0;
     const faltaMin = minimo > 0 && subtotal < minimo;
@@ -2364,21 +2417,45 @@ window.Placer = (function () {
       (items.length === 1 ? " producto" : " productos");
 
     if (ESTADO.pago.estado === "listo") {
+      const metodo = ESTADO.pago.metodo;
+      const efectivo = efectivoPago(total);
+      // El vuelto que manda el servidor es el definitivo (recalculado con el
+      // total del catálogo); el local sirve sólo si la nube no respondió.
+      const pagado = ESTADO.pago.pagoConfirmado || efectivo.con;
+      const vuelto = ESTADO.pago.vueltoServidor || efectivo.vuelto;
+      const direccion = [ESTADO.pago.direccion, ESTADO.pago.comuna]
+        .filter((x) => (x || "").trim()).join(", ");
       $("mpPagoCuerpo").innerHTML =
         '<div class="mp-exito">' +
           '<div class="mp-exito-marca"><svg viewBox="0 0 24 24"><path d="m4 12.5 5 5L20 6.5"/></svg></div>' +
-          "<h3>Pago simulado aprobado</h3>" +
+          "<h3>" + (metodo === "efectivo" ? "Pedido confirmado" : "Pedido pagado") + "</h3>" +
           '<p class="mp-exito-sub">Pedido ' + esc(ESTADO.pago.codigo) + " · " + clp(total) + "</p>" +
           '<div class="mp-meta">' +
             fila("Local", esc(m.nombre)) +
-            fila("Entrega", ESTADO.pago.entrega === "delivery" ? "Delivery" : "Retiro en el local") +
-            fila("Pago", ESTADO.pago.metodo === "tarjeta" ? "Tarjeta de crédito/débito" : "Transferencia") +
+            fila("Entrega", ESTADO.pago.entrega === "delivery"
+              ? "Delivery" + (direccion ? " a " + esc(direccion) : "")
+              : "Retiro en el local") +
+            fila("Pago", esc(etiquetaPago(metodo))) +
+            (metodo === "efectivo" && pagado
+              ? fila("Pagas con", clp(pagado) + (vuelto ? " · vuelto " + clp(vuelto) : " · monto justo"))
+              : "") +
             (envio ? fila("Envío", clp(envio)) : "") +
             fila("Total", "<b>" + clp(total) + "</b>") +
           "</div>" +
+          (ESTADO.pago.claveEntrega
+            ? '<div class="mp-clave">' +
+                '<span>Código de entrega</span>' +
+                "<b>" + esc(ESTADO.pago.claveEntrega) + "</b>" +
+                "<small>Dáselo al repartidor o al local sólo cuando recibas tu pedido.</small>" +
+              "</div>"
+            : "") +
           '<div class="mp-seguir" id="mpSeguir"></div>' +
-          '<p class="mp-pago-nota">Esto es una simulación: no se cobró ni se enviaron datos de la tarjeta. ' +
-            "El local confirma el pedido por WhatsApp.</p>" +
+          '<p class="mp-pago-nota">' + (metodo === "tarjeta"
+            ? "La tarjeta es una simulación: no se cobró ni se enviaron datos reales. "
+            : metodo === "efectivo"
+              ? "Pagas en efectivo al recibir. El local te pedirá el código de entrega. "
+              : "El local confirma la transferencia y coordina la entrega. ") +
+            "También puedes avisar por WhatsApp.</p>" +
         "</div>";
       pintarSeguir();
       $("mpPagoPie").innerHTML =
@@ -2389,8 +2466,17 @@ window.Placer = (function () {
       return;
     }
 
+    const efectivo = ESTADO.pago.metodo === "efectivo";
+    const transferencia = ESTADO.pago.metodo === "transferencia";
     const tarjeta = ESTADO.pago.metodo === "tarjeta";
     const marca = marcaTarjeta(ESTADO.pago.numero);
+    const efectivoV = efectivoPago(total);
+    // Atajos de efectivo: el monto justo y los redondeos de billete típicos.
+    const montos = [total];
+    [1000, 5000, 10000].forEach((paso) => {
+      const v = Math.ceil(total / paso) * paso;
+      if (v > total && montos.indexOf(v) < 0) montos.push(v);
+    });
 
     $("mpPagoCuerpo").innerHTML =
       '<div class="mp-pago-resumen">' +
@@ -2404,7 +2490,7 @@ window.Placer = (function () {
       '<div class="mp-sec"><h3>Tus datos</h3>' +
         '<input id="mpCliNombre" class="mp-campo' + (err("nombre") ? " mal" : "") + '" autocomplete="name" placeholder="Nombre y apellido" value="' + esc(p.nombre) + '">' +
         err("nombre") +
-        '<input id="mpCliTel" class="mp-campo' + (err("telefono") ? " mal" : "") + '" type="tel" inputmode="tel" autocomplete="tel" placeholder="Teléfono (opcional)" value="' + esc(p.telefono) + '">' +
+        '<input id="mpCliTel" class="mp-campo' + (err("telefono") ? " mal" : "") + '" type="tel" inputmode="tel" autocomplete="tel" placeholder="Teléfono (obligatorio)" value="' + esc(p.telefono) + '">' +
         err("telefono") +
       "</div>" +
 
@@ -2420,18 +2506,34 @@ window.Placer = (function () {
         (permite.length === 1 ? '<p class="mp-cat-nota">Este local solo ofrece <b>' +
           (permite[0] === "delivery" ? "delivery" : "retiro en el local") + "</b>.</p>" : "") +
         (ESTADO.pago.entrega === "delivery"
-          ? '<input id="mpPagoDir" class="mp-campo' + (err("direccion") ? " mal" : "") + '" autocomplete="street-address" placeholder="Calle y número" value="' + esc(ESTADO.pago.direccion || "") + '">' + err("direccion")
+          ? '<input id="mpPagoDir" class="mp-campo' + (err("direccion") ? " mal" : "") + '" autocomplete="street-address" placeholder="Calle y número" value="' + esc(ESTADO.pago.direccion || "") + '">' + err("direccion") +
+            '<input id="mpPagoComuna" class="mp-campo' + (err("comuna") ? " mal" : "") + '" autocomplete="address-level2" placeholder="Comuna" value="' + esc(ESTADO.pago.comuna || "") + '">' + err("comuna") +
+            '<input id="mpPagoRef" class="mp-campo" autocomplete="address-line2" maxlength="160" placeholder="Referencia: depto, portón, color (opcional)" value="' + esc(ESTADO.pago.referencia || "") + '">'
           : "") +
       "</div>" +
 
       '<div class="mp-sec"><h3>Pago</h3>' +
         '<div class="mp-metodos" id="mpMetodos">' +
+          '<button type="button" data-m="efectivo" class="' + (efectivo ? "on" : "") + '">' +
+            '<svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.6"/><path d="M6 12h.01M18 12h.01"/></svg>Efectivo</button>' +
+          '<button type="button" data-m="transferencia" class="' + (transferencia ? "on" : "") + '">' +
+            '<svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h10M4 17h7"/><path d="m16 15 3 3 3-3"/><path d="M19 10v8"/></svg>Transferencia</button>' +
           '<button type="button" data-m="tarjeta" class="' + (tarjeta ? "on" : "") + '">' +
             '<svg viewBox="0 0 24 24"><rect x="2.5" y="5" width="19" height="14" rx="3"/><path d="M2.5 10h19"/></svg>Tarjeta</button>' +
-          '<button type="button" data-m="transferencia" class="' + (!tarjeta ? "on" : "") + '">' +
-            '<svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h10M4 17h7"/><path d="m16 15 3 3 3-3"/><path d="M19 10v8"/></svg>Transferencia</button>' +
         "</div>" +
-        (tarjeta
+        (efectivo
+          ? '<div class="mp-efectivo">' +
+              '<p class="mp-efectivo-tot">Pagas al recibir <b>' + clp(total) + "</b></p>" +
+              '<input id="mpPagoCon" class="mp-campo' + (err("pagoCon") ? " mal" : "") + '" inputmode="numeric" autocomplete="off" maxlength="9" placeholder="¿Con cuánto pagas? (vacío = monto justo)" value="' + (ESTADO.pago.pagoCon ? String(ESTADO.pago.pagoCon) : "") + '">' +
+              err("pagoCon") +
+              '<div class="mp-montos">' +
+                montos.map((v, i) => '<button type="button" data-con="' + v + '">' +
+                  (i === 0 ? "Justo" : clp(v)) + "</button>").join("") +
+              "</div>" +
+              '<div class="mp-vuelto' + (efectivoV.faltan ? " falta" : "") + '" id="mpVuelto">' + textoVuelto(efectivoV) + "</div>" +
+              '<p class="mp-pago-nota">El vuelto lo calcula el servidor con el total real del catálogo.</p>' +
+            "</div>"
+          : tarjeta
           ? '<div class="mp-tarjeta">' +
               '<div class="mp-tar-cab"><input id="mpTarNum" class="mp-campo' + (err("numero") ? " mal" : "") + '" inputmode="numeric" autocomplete="cc-number" placeholder="Número de tarjeta" maxlength="23" value="' + esc(ESTADO.pago.numero || "") + '">' +
                 '<span class="mp-tar-marca" id="mpTarMarca">' + esc(marca.nombre) + "</span></div>" +
@@ -2457,20 +2559,67 @@ window.Placer = (function () {
               '<p class="mp-pago-nota">Después de transferir, toca «Ya transferí». El local confirma la recepción.</p>' +
             "</div>") +
       "</div>" +
-      '<p class="mp-pago-nota">Pago simulado con fines de demostración.</p>';
+      (tarjeta
+        ? '<p class="mp-pago-nota">Pago con tarjeta simulado: no se cobra ni se envían datos reales.</p>'
+        : efectivo
+          ? '<p class="mp-pago-nota">Pago real en efectivo al recibir. El local te pedirá un código de 4 dígitos.</p>'
+          : "");
 
     const cuerpo = $("mpPagoCuerpo");
     cuerpo.querySelectorAll("#mpEntrega button").forEach((b) => {
-      b.onclick = () => { ESTADO.pago.entrega = b.dataset.e; ESTADO.pago.errores = {}; pintarPago(); };
+      b.onclick = () => {
+        ESTADO.pago.entrega = b.dataset.e;
+        ESTADO.pago.pagoCon = 0;       // el envío cambia el total: vuelve a «justo»
+        ESTADO.pago.errores = {};
+        pintarPago();
+      };
     });
     cuerpo.querySelectorAll("#mpMetodos button").forEach((b) => {
-      b.onclick = () => { ESTADO.pago.metodo = b.dataset.m; ESTADO.pago.errores = {}; pintarPago(); };
+      b.onclick = () => {
+        ESTADO.pago.metodo = b.dataset.m;
+        ESTADO.pedido.pago = b.dataset.m;
+        guardar(CLAVE_CLIENTE, ESTADO.pedido);
+        ESTADO.pago.errores = {};
+        pintarPago();
+      };
     });
 
-    const nom = $("mpCliNombre"), tel = $("mpCliTel"), dir = $("mpPagoDir");
+    const nom = $("mpCliNombre"), tel = $("mpCliTel");
     if (nom) nom.oninput = () => { ESTADO.pedido.nombre = nom.value; guardar(CLAVE_CLIENTE, ESTADO.pedido); };
     if (tel) tel.oninput = () => { ESTADO.pedido.telefono = tel.value; guardar(CLAVE_CLIENTE, ESTADO.pedido); };
-    if (dir) dir.oninput = () => { ESTADO.pago.direccion = dir.value; };
+    const dir = $("mpPagoDir"), comuna = $("mpPagoComuna"), ref = $("mpPagoRef");
+    if (dir) dir.oninput = () => {
+      ESTADO.pago.direccion = dir.value; ESTADO.pedido.direccion = dir.value;
+      guardar(CLAVE_CLIENTE, ESTADO.pedido);
+    };
+    if (comuna) comuna.oninput = () => {
+      ESTADO.pago.comuna = comuna.value; ESTADO.pedido.comuna = comuna.value;
+      guardar(CLAVE_CLIENTE, ESTADO.pedido);
+    };
+    if (ref) ref.oninput = () => {
+      ESTADO.pago.referencia = ref.value; ESTADO.pedido.referencia = ref.value;
+      guardar(CLAVE_CLIENTE, ESTADO.pedido);
+    };
+    const con = $("mpPagoCon");
+    if (con) con.oninput = () => {
+      const d = con.value.replace(/\D/g, "").slice(0, 9);
+      con.value = d;
+      ESTADO.pago.pagoCon = Number(d) || 0;
+      con.classList.remove("mal");
+      const v = efectivoPago(total);
+      const caja = $("mpVuelto");
+      if (caja) {
+        caja.className = "mp-vuelto" + (v.faltan ? " falta" : "");
+        caja.innerHTML = textoVuelto(v);
+      }
+    };
+    cuerpo.querySelectorAll(".mp-montos button").forEach((b) => {
+      b.onclick = () => {
+        ESTADO.pago.pagoCon = Number(b.dataset.con) || 0;
+        ESTADO.pago.errores = {};
+        pintarPago();
+      };
+    });
 
     ["mpTarNum", "mpTarExp", "mpTarCvv", "mpTarNom"].forEach((id) => {
       const el = $(id);
@@ -2498,10 +2647,12 @@ window.Placer = (function () {
     });
 
     $("mpPagoPie").innerHTML =
-      '<div class="mp-car-total"><span>Total a pagar</span><b>' + clp(total) + "</b></div>" +
+      '<div class="mp-car-total"><span>' + (efectivo ? "Total a pagar al recibir" : "Total a pagar") +
+        "</span><b>" + clp(total) + "</b></div>" +
       '<button type="button" class="btn primary block" id="mpPagar"' + (faltaMin ? " disabled" : "") + ">" +
         (faltaMin ? "Falta " + clp(minimo - subtotal) + " para el mínimo"
-                  : (tarjeta ? "Pagar " + clp(total) : "Ya transferí " + clp(total))) + "</button>";
+                  : efectivo ? "Confirmar pedido · " + clp(total)
+                  : tarjeta ? "Pagar " + clp(total) : "Ya transferí " + clp(total)) + "</button>";
     $("mpPagar").onclick = () => pagar(m);
   }
 
@@ -2520,15 +2671,19 @@ window.Placer = (function () {
     }
     ESTADO.pago.errores = {};
 
+    const total = totalPago();
     ESTADO.pago.estado = "procesando";
     const pie = $("mpPagoPie");
     const cuerpo = $("mpPagoCuerpo");
     if (pie) pie.innerHTML = "";
     if (cuerpo) {
       cuerpo.innerHTML = '<div class="mp-procesando"><span class="mp-spin"></span>' +
-        "<p>" + (ESTADO.pago.metodo === "tarjeta" ? "Autorizando el pago…" : "Confirmando la transferencia…") + "</p></div>";
+        "<p>" + (ESTADO.pago.metodo === "tarjeta" ? "Autorizando el pago…"
+          : ESTADO.pago.metodo === "efectivo" ? "Confirmando tu pedido…"
+          : "Confirmando la transferencia…") + "</p></div>";
     }
     setTimeout(() => {
+      if (!ESTADO.pago) return;          // cerró la hoja mientras confirmaba
       ESTADO.pago.estado = "listo";
       ESTADO.pago.codigo = "MP-" + String(Date.now()).slice(-6);
       guardarPedido(m, total);
@@ -2556,8 +2711,12 @@ window.Placer = (function () {
         envio: costoEnvio(),
         total: total,
         metodo: ESTADO.pago.metodo,
+        pago_con: ESTADO.pago.pagoCon || 0,
+        vuelto: ESTADO.pago.pagoCon > total ? ESTADO.pago.pagoCon - total : 0,
         entrega: ESTADO.pago.entrega,
         direccion: ESTADO.pago.direccion || "",
+        comuna: ESTADO.pago.comuna || "",
+        referencia: ESTADO.pago.referencia || "",
         cliente: { nombre: ESTADO.pedido.nombre || "", telefono: ESTADO.pedido.telefono || "" },
         estado: "pagado"
       });
@@ -2593,7 +2752,7 @@ window.Placer = (function () {
   function enviarPedidoNube(m) {
     if (!m || !m.forge) return; // los locales que vienen de OpenStreetMap no están en la base
     try {
-      const items = itemsDe(m).map(function (x) {
+      const items = (ESTADO.pago.items || []).map(function (x) {
         // `sku` va primero para que el servidor encuentre el producto aunque
         // el nombre haya cambiado; el precio lo ignora y usa el del catálogo.
         return { sku: x.sku || undefined, nombre: x.nombre, precio: x.precio, cantidad: x.cantidad };
@@ -2605,6 +2764,10 @@ window.Placer = (function () {
         items: items,
         entrega: ESTADO.pago.entrega,
         direccion: ESTADO.pago.direccion || "",
+        comuna_entrega: ESTADO.pago.comuna || "",
+        referencia_entrega: ESTADO.pago.referencia || "",
+        metodo_pago: ESTADO.pago.metodo || "efectivo",
+        pago_con: ESTADO.pago.metodo === "efectivo" ? (ESTADO.pago.pagoCon || 0) : 0,
         nota: ESTADO.pedido.nota || "",
         cliente: ESTADO.pedido.nombre || "",
         telefono: ESTADO.pedido.telefono || "",
@@ -2629,10 +2792,16 @@ window.Placer = (function () {
       };
 
       enviar(1).then(function (d) {
-        if (!d) return;
+        if (!d || !ESTADO.pago) return;
         if (!d.ok) {
-          // El servidor dijo por qué: stock, catálogo, local cerrado. Se avisa
-          // sin romper la pantalla de pago ya hecha.
+          // El servidor dijo por qué: stock, catálogo, local cerrado, efectivo
+          // insuficiente. Se avisa sin romper la pantalla de pago.
+          if (d.codigo === "PAGO_CORTO") {
+            ESTADO.pago.estado = "form";
+            ESTADO.pago.errores = { pagoCon: d.error || "El efectivo no alcanza para el total." };
+            try { pintarPago(); } catch (e) { /* hoja cerrada */ }
+            return;
+          }
           if (window.Fabri && window.Fabri.toast) {
             window.Fabri.toast(d.error || "El local no pudo recibir el pedido");
           }
@@ -2640,6 +2809,11 @@ window.Placer = (function () {
         }
         ESTADO.pago.nube = d.codigo;
         ESTADO.pago.seguimiento = d.seguimiento || "";
+        // El código de entrega y el vuelto definitivo vienen del servidor.
+        ESTADO.pago.claveEntrega = d.clave_entrega || "";
+        ESTADO.pago.pagoConfirmado = Number(d.pago_con) || 0;
+        ESTADO.pago.vueltoServidor = Number(d.vuelto) || 0;
+        if (d.metodo_pago) ESTADO.pago.metodo = d.metodo_pago;
         // El precio lo fija el catálogo del local: si cambió mientras el
         // comprador pagaba, se muestra el total real del servidor.
         const local = (ESTADO.pago.subtotal || 0) + costoEnvio();
@@ -2648,8 +2822,9 @@ window.Placer = (function () {
           if (window.Fabri && window.Fabri.toast) {
             window.Fabri.toast("El total se ajustó a " + clp(Number(d.total)));
           }
-          try { pintarPago(); } catch (e) { /* pantalla ya cerrada */ }
         }
+        // La pantalla de éxito se repinta para mostrar el PIN y el vuelto.
+        try { pintarPago(); } catch (e) { /* hoja cerrada */ }
         pintarSeguir();
       }).catch(function () { /* sin red: el pedido quedó en el historial local */ });
     } catch (e) { /* nunca romper el pago por la nube */ }
@@ -2657,14 +2832,27 @@ window.Placer = (function () {
 
   function textoPedido(m, total, envio) {
     const p = ESTADO.pedido;
-    const items = itemsDe(m);
+    // El carrito se vacía al confirmar: el mensaje se arma con los ítems que
+    // quedaron guardados en el pago, no con `itemsDe(m)` (ya vacío).
+    const items = ESTADO.pago.items || [];
     const lineas = items.map((x) => "• " + x.cantidad + " × " + x.nombre + " — " + clp(x.precio * x.cantidad));
+    const metodo = ESTADO.pago.metodo;
+    const con = ESTADO.pago.pagoConfirmado || ESTADO.pago.pagoCon || 0;
+    const vuelto = ESTADO.pago.vueltoServidor || (con > total ? con - total : 0);
+    const direccion = [ESTADO.pago.direccion, ESTADO.pago.comuna]
+      .filter((x) => (x || "").trim()).join(", ");
     return "Pedido " + ESTADO.pago.codigo + " a " + m.nombre + "\n" +
       (p.nombre ? "Cliente: " + p.nombre + "\n" : "") +
       (p.telefono ? "Teléfono: " + p.telefono + "\n" : "") +
       "Entrega: " + (ESTADO.pago.entrega === "delivery"
-        ? "Delivery a " + (ESTADO.pago.direccion || "—") : "Retiro en el local") + "\n" +
-      "Pago: " + (ESTADO.pago.metodo === "tarjeta" ? "Tarjeta (simulado)" : "Transferencia") + "\n" +
+        ? "Delivery a " + (direccion || "—") +
+          (ESTADO.pago.referencia ? " (" + ESTADO.pago.referencia + ")" : "")
+        : "Retiro en el local") + "\n" +
+      "Pago: " + etiquetaPago(metodo) + (metodo === "tarjeta" ? " (simulado)" : "") + "\n" +
+      (metodo === "efectivo" && con
+        ? "Efectivo: paga con " + clp(con) + (vuelto ? " · vuelto " + clp(vuelto) : " · monto justo") + "\n"
+        : "") +
+      (ESTADO.pago.claveEntrega ? "Código de entrega: " + ESTADO.pago.claveEntrega + "\n" : "") +
       (p.nota ? "Nota: " + p.nota + "\n" : "") +
       "\n" + lineas.join("\n") +
       "\nSubtotal: " + clp(total - (envio || 0)) +
