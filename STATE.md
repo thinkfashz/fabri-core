@@ -45,6 +45,8 @@ no el data URL, para no inflar el JSON del mapa.
   `dpl_4T3fgWyWSKQzF4jyYwzXt6abzEiE` (`sw` v93); alias
   `fabri-api.vercel.app`, `forge-core-stock.vercel.app` y
   `fabri-core-web.vercel.app` en 200.
+- Commit `b358e07` (`feat(marketplace): fotos de producto en catálogo,
+  carrito y pedido`), empujado a `origin/master`.
 
 **Pendiente**: que el vendedor cargue las fotos de sus 6 productos de
 «Solución» (la app ya está lista); después Fase 2 (código de barras real +
