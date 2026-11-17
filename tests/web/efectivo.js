@@ -167,7 +167,7 @@ ok('la página muestra el código mientras no se entrega',
   /class="sg-clave"/.test(seguir) && /pedido\.estado !== "entregado"/.test(seguir));
 ok('el código tiene estilos propios', /\.sg-clave \{/.test(tiendaCss));
 ok('el service worker subió de versión para limpiar la caché',
-  /fcore-v95/.test(sw));
+  Number((sw.match(/fcore-v(\d+)/) || [])[1] || 0) >= 95);
 
 console.log(fallos
   ? '\n\x1b[1;31m✖ ' + fallos + ' fallo(s) de ' + pasos + '\x1b[0m\n'

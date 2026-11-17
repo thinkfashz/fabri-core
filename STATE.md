@@ -8,6 +8,85 @@
 
 Última actualización: 2026-11-17
 
+## Sesión 2026-11-17 · Marketplace Fase 4: búsqueda global de productos
+
+Pedido: buscar **en todas las tiendas a la vez**, no dentro de una sola. Texto,
+categoría y precio máximo; ordenar por cercanía, precio o nombre; y saltar a la
+ficha de la tienda que tiene el producto. Sin salir del límite de 12 funciones:
+una acción pública más de `mercado.ts`, sin tablas ni columnas nuevas.
+
+**Decisión**: el servidor filtra y ordena; la web sólo pinta. La tienda viaja
+liviana (sin catálogo ni teléfono) y la distancia se calcula en SQL
+(haversine, km con un decimal). Los chips de categoría se calculan **antes** del
+filtro de categoría, para poder cambiar de rubro sin perder el texto ni el
+precio. Las tiendas cerradas existen y se muestran, pero al final y marcadas:
+`pedido_crear` no acepta pedidos a un local cerrado.
+
+| Pieza | Dónde |
+|---|---|
+| `type Busqueda`, `plano()`, `SQL_PLANO`, `coordenada()`, `leerBusqueda()`, `buscarProductos()` | `api-telefono/api/mercado.ts` |
+| `productos_buscar` público por GET y por POST (mismo contrato para la APK) | `api-telefono/api/mercado.ts` |
+| GET con `lat`/`lon` ausentes ya no cae en `0,0` | `api-telefono/api/mercado.ts` |
+| Chips de categoría ordenados por `p.categoria` (no `nombre`, ambiguo) | `api-telefono/api/mercado.ts` |
+| Las cerradas van al final en los cuatro órdenes | `api-telefono/api/mercado.ts` |
+| Botón «Buscar productos» en el menú del mapa (`mpBuscarProdBtn`) | `web/app/index.html` |
+| Hoja `mpBuscarProd` con `mpBusForm`, `mpBusQ`, `mpBusPrecio`, orden, chips y resultados | `web/app/index.html` |
+| Estado `ESTADO.bus`, debounce 420 ms, sello anti-respuestas-viejas, salto a la tienda | `web/app/placer.js` |
+| Catálogo vacío ofrece «Buscar en todas las tiendas» con el texto ya escrito | `web/app/placer.js` |
+| Estilos `.mp-bus-*`, `.mp-chips`, `.mp-vacio-btn` y marca «cerrada» | `web/app/placer.css` |
+| `sw.js` v97 | `web/app/sw.js` |
+| Prueba estática nueva | `tests/web/busqueda.js` |
+
+**Contrato**:
+
+- `GET /api/mercado?accion=productos_buscar` (y POST). Público, sin cuenta.
+- `q` (o `buscar`) 2–60; `categoria`; `precio_max` (o `precio`); `lat` + `lon`;
+  `orden` (`cercania`, `precio`, `precio-desc`, `nombre`); `limite` 1–60.
+- Sin texto, categoría ni precio → **400 `BUSQUEDA_CORTA`**.
+- `total` y `tiendas` se cuentan antes del `LIMIT`; `resultados` lleva
+  `{ tienda, producto, dist }` y `categorias:[{nombre,n}]`.
+- El texto busca nombre, categoría, SKU, código de barras, tienda y marca;
+  ignora mayúsculas y acentos y escapa `%`, `_` y `\`.
+- Sin coordenadas no hay distancia ni orden por cercanía: cae a `precio`.
+
+**Bugs reales corregidos en el camino**:
+
+- `ORDER BY nombre COLLATE "C"` era ambiguo entre producto y local:
+  PostgreSQL devolvía «column reference "nombre" is ambiguous» y la búsqueda
+  entera fallaba. Ahora ordena por `p.categoria COLLATE "C"`.
+- En GET, `lat`/`lon` ausentes llegan como `null` y `Number(null)` es `0`: el
+  servidor creía que el comprador estaba en el Golfo de Guinea. `coordenada()`
+  distingue «sin ubicación» (`null`, `''`, fuera de rango) de una coordenada
+  real.
+- Las tiendas cerradas podían tapar a las abiertas en el orden por cercanía o
+  precio, aunque no pueden recibir pedidos. Ahora van al final y la tarjeta las
+  marca «cerrada».
+
+**Pruebas ejecutadas**:
+
+- `node tests/web/busqueda.js` → **83 OK** (nuevo: contrato, filtros, precio
+  efectivo, comodines, chips, haversine, órdenes, cerradas al final, tienda
+  liviana, hoja, estado, debounce, sello, salto, catálogo vacío, estilos, `sw`).
+- Batería completa verde: **18/18** archivos (`codigos.js` se adaptó a
+  `camposProducto(k)`; `efectivo.js` tolera `sw` ≥ 95).
+- TypeScript limpio con el `tsc` de Vercel (mismo comando que la fase 3).
+- API real en producción con **dos** locales desechables (`f4-alfa-<sello>` y
+  `f4-beta-<sello>`) y 8 productos: texto entre tiendas sin cuenta,
+  mayúsculas/acentos, tienda/SKU/código, `%%` y `__` → 0, `100%` → jugo,
+  categoría con chips de otros rubros, precio efectivo con descuento, órdenes
+  cercanía/precio/precio-desc/nombre, caída a precio sin GPS, límite con total
+  completo, `BUSQUEDA_CORTA`, cerrada al final y marcada, `local_ver` y
+  `codigo_buscar` intactos, y borrado de ambos locales. **39/39**.
+- Deploy API `dpl_4UbMVBeUtjnwjUjBkBmLgiUDegiL` (12 funciones `.ts`) y web
+  `dpl_EgDeoCA3W341ZRiAqZj3RgPxq5cx` (`sw` v97); alias
+  `fabri-api.vercel.app`, `forge-core-stock.vercel.app` y
+  `fabri-core-web.vercel.app` en 200, con `placer.js` que trae
+  `productos_buscar`, la hoja y la marca «cerrada».
+
+**Pendiente**: la cuenta root sigue en 0 (`F.eduardomicolta@gmail.com` debe
+registrarse una vez en `/app/` y queda `owner`); el pago con tarjeta sigue
+simulado; la tienda «Solución» sigue sin productos cargados.
+
 ## Sesión 2026-11-17 · Marketplace Fase 3: dirección, efectivo con vuelto y código de entrega
 
 Pedido: que el pedido se pueda pagar **de verdad en efectivo** (con vuelto),

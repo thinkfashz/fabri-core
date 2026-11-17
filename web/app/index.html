@@ -353,6 +353,7 @@
               </button>
               <div class="mp-menu" id="mpMenu" hidden>
                 <button type="button" id="mpScan"><span class="mp-menu-ico"><svg viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M3 12h18"/></svg></span>Escanear código</button>
+                <button type="button" id="mpBuscarProdBtn"><span class="mp-menu-ico"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.2-3.2"/></svg></span>Buscar productos</button>
                 <button type="button" id="mpCatalogo"><span class="mp-menu-ico"><svg viewBox="0 0 24 24"><path d="M4 7h16l-1.4 12.2a2 2 0 0 1-2 1.8H7.4a2 2 0 0 1-2-1.8L4 7Z"/><path d="M9 10V6a3 3 0 0 1 6 0v4"/></svg></span>Catálogo completo</button>
                 <button type="button" id="mpMapaBtn"><span class="mp-menu-ico"><svg viewBox="0 0 24 24"><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3z"/><path d="M9 3v15M15 6v15"/></svg></span>Calles / satélite</button>
                 <button type="button" id="mpTraficoBtn" aria-pressed="true"><span class="mp-menu-ico"><svg viewBox="0 0 24 24"><path d="M5 17h14M5 17l1.6-5.2A2 2 0 0 1 8.5 10h7a2 2 0 0 1 1.9 1.8L19 17"/><path d="M7 17v2M17 17v2"/><circle cx="7.5" cy="13.5" r=".9"/><circle cx="16.5" cy="13.5" r=".9"/></svg></span>Tráfico en vivo</button>
@@ -1619,6 +1620,42 @@
             </header>
             <div id="mpCodigosCuerpo"></div>
             <footer class="mp-hoja-pie" id="mpCodigosPie"></footer>
+          </div>
+        </div>
+
+        <!-- Búsqueda global: texto, categoría, precio y cercanía en todas las
+             tiendas activas del mapa. El servidor filtra y ordena. -->
+        <div class="mp-hoja" id="mpBuscarProd" hidden>
+          <div class="mp-hoja-fondo" id="mpBuscarProdFondo"></div>
+          <div class="mp-hoja-panel" role="dialog" aria-modal="true" aria-labelledby="mpBuscarProdTit">
+            <div class="mp-hoja-asa"></div>
+            <header class="mp-hoja-cab">
+              <div class="mp-hoja-ico">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.2-3.2"/></svg>
+              </div>
+              <div class="mp-hoja-tit">
+                <h2 id="mpBuscarProdTit">Buscar productos</h2>
+                <p id="mpBuscarProdSub">En todas las tiendas del mapa</p>
+              </div>
+              <button class="mp-ubi" id="mpBuscarProdX" type="button" aria-label="Cerrar">✕</button>
+            </header>
+
+            <form class="mp-bus-form" id="mpBusForm" role="search">
+              <input class="mp-bus-q" id="mpBusQ" type="search"
+                     placeholder="Producto, marca o código…" autocomplete="off"
+                     enterkeyhint="search" aria-label="Buscar producto en todas las tiendas">
+              <input class="mp-bus-precio" id="mpBusPrecio" type="number" inputmode="numeric"
+                     min="0" step="100" placeholder="Precio máx." aria-label="Precio máximo en pesos">
+              <button class="mp-bus-go" type="submit">Buscar</button>
+            </form>
+
+            <div class="mp-bus-orden" id="mpBusOrden" role="group" aria-label="Ordenar resultados">
+              <button type="button" class="mp-chip" data-orden="cercania">Cerca</button>
+              <button type="button" class="mp-chip" data-orden="precio">Precio</button>
+              <button type="button" class="mp-chip" data-orden="nombre">Nombre</button>
+            </div>
+            <div class="mp-chips mp-bus-cats" id="mpBusCats"></div>
+            <div class="mp-bus-res" id="mpBusRes" aria-live="polite"></div>
           </div>
         </div>
 

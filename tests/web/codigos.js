@@ -88,7 +88,10 @@ ok('acepta EAN-8, UPC-A, EAN-13 y GTIN-14',
 ok('exige al menos un dígito en Code 128/39', /\\d\/\.test\(c\)/.test(API));
 
 console.log('\nAPI · catálogo y alta');
-ok('CAMPOS_PRODUCTO trae el código', /codigo,imagen_hash`/.test(API));
+ok('CAMPOS_PRODUCTO trae el código',
+  /const camposProducto = \(k = ''\)/.test(API) &&
+  /\$\{k\}codigo,\$\{k\}imagen_hash/.test(API) &&
+  /const CAMPOS_PRODUCTO = camposProducto\(\)/.test(API));
 ok('productoDeFila expone el código', /codigo: f\.codigo \|\| ''/.test(API));
 ok('el INSERT guarda el código',
   /\(local_id,sku,nombre,precio,stock,categoria,unidad,actualizado,descuento,oferta_hasta,imagen,imagen_hash,codigo\)/.test(API));

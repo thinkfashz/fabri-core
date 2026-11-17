@@ -17,7 +17,10 @@ Una persona crea su cuenta en **Cuenta**, entra a **Negocio** y desde ahí:
    categorías, y el botón **Ver en el mapa** la enfoca;
 7. abre **su tienda en 3D** desde el panel (**Ver en 3D**) o desde la ficha
    pública (**Entrar al local**): el visor usa su marca y su catálogo, y lo que
-   el comprador toca en el estante cae en el carrito de MercadoPlacer.
+   el comprador toca en el estante cae en el carrito de MercadoPlacer;
+8. busca **en todas las tiendas a la vez** por producto, marca, categoría,
+   código o precio, ordena por cercanía o precio y salta a la ficha de la
+   tienda que lo tiene.
 
 El panel viejo por **ID + clave** sigue disponible en «Conectar con ID y clave
 (respaldo para la APK)». No se rompió nada de lo anterior.
@@ -123,6 +126,7 @@ Autorización, en este orden:
 | `locales` (GET/POST) | público | lista activa con `marca`, `logo`, `descripcion` y catálogo |
 | `local_ver` (GET/POST) | público | **una** tienda activa por `id`, con catálogo y calificación (link de marca) |
 | `codigo_buscar` (GET/POST) | público | todas las marcas activas que tienen un código de barras (`codigo`), ordenadas por precio efectivo |
+| `productos_buscar` (GET/POST) | público | busca en todas las tiendas activas por texto, categoría y precio efectivo; ordena por cercanía, precio o nombre; devuelve la tienda liviana y la distancia |
 | `local_crear` | cuenta · admin | crea la tienda, guarda `dueno_id` y devuelve la clave de respaldo |
 | `local_mio` | cuenta | devuelve mis tiendas con catálogo y pedidos pendientes |
 | `local_actualizar` | dueño · admin | edita ficha, marca, logo, descripción, mínimo, envío, entrega |
@@ -1055,6 +1059,131 @@ Prueba real en producción con el local desechable `f3-<sello>`: 34
 comprobaciones, desde `SIN_DIRECCION` hasta la entrega verificada, con el local
 borrado al final.
 
+## Búsqueda global de productos (Marketplace · Fase 4)
+
+El comprador deja de buscar dentro de una sola tienda: desde el mapa cruza
+**todas las tiendas activas** por texto, categoría y precio, ordena por cercanía
+o precio y salta a la ficha de la tienda que tiene el producto. Sigue siendo una
+acción pública de `mercado.ts`: no crea funciones, tablas ni columnas nuevas.
+
+### Contrato
+
+`GET /api/mercado?accion=productos_buscar` (y el mismo `accion` por `POST` para
+la APK). Es público: no pide cuenta, token ni clave.
+
+| Parámetro | Qué hace |
+|---|---|
+| `q` (o `buscar`) | texto de 2–60 caracteres; busca en producto, categoría, SKU, código de barras, nombre de la tienda y marca |
+| `categoria` | filtra por categoría exacta; la comparación ignora mayúsculas y acentos |
+| `precio_max` (o `precio`) | tope sobre el **precio efectivo**, no sobre el precio de lista |
+| `lat` + `lon` | ubicación del comprador; sin ambos no se calcula distancia |
+| `orden` | `cercania` (por defecto con ubicación), `precio` (por defecto sin ubicación), `precio-desc` o `nombre` |
+| `limite` | 1–60 resultados; por defecto 30 |
+
+Sin texto, categoría ni precio responde **400 `BUSQUEDA_CORTA`** con el mensaje
+«escribe al menos 2 letras, una categoría o un precio máximo». Si falta la base,
+**503 `SIN_BASE`**.
+
+### Reglas del servidor
+
+- Sólo entran productos de locales con `activo = true`; la consulta une
+  `mercado_productos` con `mercado_locales`.
+- Las tiendas con `abierto = false` sí aparecen (existen y tienen el producto)
+  pero **al final del orden**, con `abierto: false` en el resultado; la tarjeta
+  las marca «cerrada». El pedido a una tienda cerrada lo rechaza `pedido_crear`,
+  así que no se esconden ni se ofrece algo que no se puede comprar ahora.
+- El texto se compara con `translate(lower(columna), …)`: «CAFÉ», «café» y
+  «cafe» encuentran lo mismo. Antes de armar el `LIKE` se escapan `%`, `_` y
+  `\`: buscar `%%` o `__` busca esos caracteres, no cualquier cosa.
+- El tope de precio usa `precioEfectivo('p.')` (lista × descuento vigente), así
+  que una oferta de $2.000 con 10 % entra en un tope de $1.850.
+- Los chips de categoría se calculan **antes** de aplicar el filtro de
+  categoría. Así se puede cambiar de rubro sin perder el texto ni el precio; el
+  tope son las 8 categorías más frecuentes.
+- `coordenada()` trata `null`, `''` y valores fuera de rango como «sin
+  ubicación». Sin las dos coordenadas no se inventa una distancia ni se ordena
+  por cercanía: se cae a `precio`.
+- La distancia es haversine en kilómetros, redondeada a un decimal; el orden por
+  cercanía deja al final los locales sin GPS (`NULLS LAST`).
+- `total` y `tiendas` se cuentan antes del `LIMIT`; `resultados` trae como máximo
+  el límite pedido. La web avisa cuando muestra sólo una parte.
+- La tienda viaja **liviana**: id, nombre, marca, logo, comuna, dirección,
+  coordenadas, abierto, formas de entrega, envío y mínimo. Sin catálogo ni
+  teléfono, para no repetir el catálogo completo en cada resultado.
+
+Respuesta:
+
+```json
+{
+  "ok": true,
+  "accion": "productos_buscar",
+  "q": "arroz",
+  "categoria": "",
+  "precio_max": 0,
+  "orden": "cercania",
+  "total": 24,
+  "tiendas": 6,
+  "categorias": [{ "nombre": "Abarrotes", "n": 18 }],
+  "resultados": [{
+    "tienda": { "id": "local-1", "nombre": "Almacén", "comuna": "Ñuñoa", "abierto": true },
+    "producto": { "sku": "A-1", "nombre": "Arroz 1 kg", "precio_efectivo": 1800, "descuento_vigente": 10, "stock": 12 },
+    "dist": 0.8
+  }]
+}
+```
+
+### Comprador (`placer.js`)
+
+| Pieza | Qué hace |
+|---|---|
+| `mpBuscarProdBtn` | botón «Buscar productos» en el menú del mapa |
+| `mpBuscarProd` | hoja propia, cerrable con ✕, fondo o Escape |
+| `mpBusForm` / `mpBusQ` / `mpBusPrecio` | texto y precio máximo; envía con el botón o con Enter |
+| `mpBusOrden` | chips Cerca · Precio · Nombre; «Cerca» se desactiva sin ubicación |
+| `mpBusCats` | chips de categoría que llegan del servidor y conservan texto y precio |
+| `mpBusRes` | resumen (`N productos en M tiendas`), tarjetas y aviso de tope |
+
+- La búsqueda se dispara sola a los **420 ms** de dejar de escribir; cada
+  respuesta lleva un sello y una respuesta vieja ya no pisa a la nueva.
+- El formulario no inventa precios: pinta `precio_efectivo`,
+  `descuento_vigente`, `stock`, `dist` y `abierto` tal como llegaron.
+- Tocar una tarjeta abre la ficha de esa tienda. Si no estaba cargada en el
+  mapa, se pide `local_ver`; si la red falla, se abre con el producto que ya vino
+  en el resultado y se filtra el catálogo por su nombre.
+- El catálogo vacío (o sin coincidencias) muestra «Buscar en todas las tiendas»
+  y arrastra el texto que la persona ya había escrito.
+- `sw.js` subió a **v97** para que la PWA tome el JS y el CSS nuevos.
+
+### Bugs reales corregidos en la fase
+
+- Los chips de categoría ordenaban por `nombre COLLATE "C"`, pero `nombre`
+  existía tanto en producto como en local: PostgreSQL respondía **«column
+  reference "nombre" is ambiguous»** y la búsqueda entera fallaba. Ahora ordena
+  por `p.categoria COLLATE "C"`.
+- En GET, `lat` y `lon` ausentes llegan como `null`; `Number(null)` es `0`, así
+  que el servidor creía que el comprador estaba en el Golfo de Guinea y ordenaba
+  por cercanía. `coordenada()` ahora distingue «sin ubicación» de una coordenada
+  real.
+- Las tiendas cerradas podían tapar a las abiertas en el orden por cercanía o
+  precio, aunque `pedido_crear` no acepta pedidos. Ahora van al final y la
+  tarjeta las marca «cerrada».
+
+### Pruebas de la fase
+
+`node tests/web/busqueda.js` (83 comprobaciones): contrato público, filtros,
+precio efectivo, escape de comodines, chips sin el filtro de categoría,
+haversine, órdenes, tiendas cerradas al final, tienda liviana, hoja, estado,
+debounce, sello de respuestas, salto a la tienda, catálogo vacío, estilos y
+`sw` v97.
+
+Prueba real en producción con **dos** locales desechables (`f4-alfa-<sello>` y
+`f4-beta-<sello>`) y 8 productos entre ambos: búsqueda sin cuenta entre las dos
+tiendas, mayúsculas y acentos, tienda, SKU y código de barras, comodines
+escapados, categoría con chips de los otros rubros, precio efectivo con
+descuento, orden por cercanía/precio/nombre, caída a precio sin GPS, límite con
+total completo, validaciones, tienda cerrada al final, `local_ver` y
+`codigo_buscar` intactos, y borrado de ambos locales al final.
+
 ## Pruebas
 
 ```sh
@@ -1070,6 +1199,7 @@ node tests/web/marca.js       # 61 comprobaciones: link de marca, local_ver, car
 node tests/web/fotos.js       # 61 comprobaciones: foto de producto, compresión, URL versionada, imagen_ver, catálogo/carrito/pedido/visor
 node tests/web/codigos.js     # 67 comprobaciones: código de barras, GS1, codigo_buscar, panel, comprador, CSV, visor y pedido
 node tests/web/efectivo.js    # 51 comprobaciones: dirección completa, efectivo con vuelto, código de entrega y verificación
+node tests/web/busqueda.js    # 83 comprobaciones: búsqueda global entre tiendas, filtros, órdenes, tienda liviana y hoja
 node tests/web/auth-nube.js   # incluye CORE_ROOT_EMAIL y promoción a owner
 node tests/web/diseno.js      # shell, sistema visual y offline
 node tests/web/trafico.js     # capa de tráfico del mapa

@@ -22,6 +22,10 @@
 //   GET  /api/mercado?accion=codigo_buscar&codigo=<ean>
 //                                              → qué marcas tienen ese código
 //                                                → cruza todos los locales (público)
+//   GET  /api/mercado?accion=productos_buscar&q=<texto>&categoria=<c>&precio_max=<n>
+//                                              → busca en todas las tiendas, con
+//                                                lat/lon para ordenar por cercanía
+//                                                (público; también por POST)
 //   POST { accion: "asegurar" }                 → crea las tablas (público)
 //   POST { accion: "locales", con_catalogo }    → igual que el GET (público)
 //   POST { accion: "local_crear", local }       → alta (CUENTA · ADMIN)
@@ -586,10 +590,12 @@ async function asegurar(pool: any) {
  *   · `precio_efectivo`   → lo que se cobra
  * El navegador sólo pinta estos números; nunca los inventa.
  */
-const CAMPOS_PRODUCTO = `local_id,sku,nombre,precio::float8 AS precio,stock,categoria,unidad,
-  descuento::int AS descuento, ${dctoVigente()}::int AS descuento_vigente,
-  ${precioEfectivo()}::float8 AS precio_efectivo, oferta_hasta::float8 AS oferta_hasta,
-  codigo,imagen_hash`;
+const camposProducto = (k = '') => `${k}local_id,${k}sku,${k}nombre,${k}precio::float8 AS precio,${k}stock,${k}categoria,${k}unidad,
+  ${k}descuento::int AS descuento, ${dctoVigente(k)}::int AS descuento_vigente,
+  ${precioEfectivo(k)}::float8 AS precio_efectivo, ${k}oferta_hasta::float8 AS oferta_hasta,
+  ${k}codigo,${k}imagen_hash`;
+
+const CAMPOS_PRODUCTO = camposProducto();
 
 /** Fila de `CAMPOS_PRODUCTO` → objeto que viaja al navegador. */
 function productoDeFila(f: any) {
@@ -843,6 +849,184 @@ async function buscarPorCodigo(pool: any, codigo: string) {
     resultados.push({ tienda: aTienda(local), producto: productoDeFila(fila) });
   }
   return resultados;
+}
+
+/**
+ * Búsqueda global de productos: texto, categoría, precio y cercanía. Es una
+ * lectura pública más de `mercado.ts`; no pide cuenta ni clave y no crea
+ * tablas. Devuelve el producto, la tienda en forma liviana (sin catálogo) y
+ * la distancia cuando el comprador mandó su ubicación.
+ */
+type Busqueda = {
+  q: string;
+  categoria: string;
+  precioMax: number;
+  lat: number | null;
+  lon: number | null;
+  orden: string;
+  limite: number;
+};
+
+/** Texto comparable: minúsculas y sin acentos. El SQL hace lo mismo con
+ *  `translate()` sobre la columna; acá se normaliza lo que escribe la gente. */
+function plano(s: string): string {
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+
+const SQL_PLANO = (col: string) =>
+  `translate(lower(${col}), 'áàäâãéèëêíìïîóòöôõúùüûñç', 'aaaaaeeeeiiiiooooouuuunc')`;
+
+/** Coordenada desde GET o POST. `null` y `''` son «sin ubicación»: no se
+ *  pueden convertir a 0, porque el comprador no está en el Golfo de Guinea. */
+function coordenada(v: unknown, tope: number): number | null {
+  if (typeof v !== 'number' && typeof v !== 'string') return null;
+  const s = String(v).trim();
+  if (!s) return null;
+  const n = Number(s);
+  return Number.isFinite(n) && Math.abs(n) <= tope ? n : null;
+}
+
+/** Lee y valida la búsqueda desde GET o POST. Devuelve null si no hay nada
+ *  que buscar; la acción responde 400 `BUSQUEDA_CORTA`. */
+function leerBusqueda(c: Record<string, unknown>): Busqueda | null {
+  const q = texto(c.q || c.buscar, 60).trim();
+  const categoria = texto(c.categoria, 60).trim();
+  const precioMax = entero(c.precio_max || c.precio, 100_000_000) || 0;
+  if (q && q.length < 2) return null;
+  if (!q && !categoria && !precioMax) return null;
+
+  const lat = coordenada(c.lat, 90), lon = coordenada(c.lon, 180);
+  const conCoords = lat !== null && lon !== null;
+
+  let orden = texto(c.orden, 16).trim();
+  if (!['cercania', 'precio', 'precio-desc', 'nombre'].includes(orden)) {
+    orden = conCoords ? 'cercania' : 'precio';
+  }
+  if (orden === 'cercania' && !conCoords) orden = 'precio';
+
+  return {
+    q, categoria, precioMax,
+    lat: conCoords ? lat : null,
+    lon: conCoords ? lon : null,
+    orden,
+    limite: Math.min(60, Math.max(1, entero(c.limite, 60) || 30)),
+  };
+}
+
+async function buscarProductos(pool: any, op: Busqueda) {
+  const base: string[] = ['l.activo = true'];
+  const args: unknown[] = [];
+
+  // `%` y `_` se escapan: buscar «100%» no debe comportarse como comodín.
+  const qn = plano(op.q).replace(/[\\%_]/g, '\\$&');
+  if (qn) {
+    args.push(qn);
+    const n = '$' + args.length;
+    base.push(`(${SQL_PLANO('p.nombre')} LIKE '%' || ${n} || '%'
+      OR ${SQL_PLANO('p.categoria')} LIKE '%' || ${n} || '%'
+      OR ${SQL_PLANO('p.sku')} LIKE '%' || ${n} || '%'
+      OR ${SQL_PLANO('p.codigo')} LIKE '%' || ${n} || '%'
+      OR ${SQL_PLANO('l.nombre')} LIKE '%' || ${n} || '%'
+      OR ${SQL_PLANO('l.marca')} LIKE '%' || ${n} || '%')`);
+  }
+  if (op.precioMax > 0) {
+    args.push(op.precioMax);
+    base.push(`${precioEfectivo('p.')} <= $${args.length}`);
+  }
+
+  // Los chips de categoría se calculan sin el filtro de categoría: así se
+  // puede cambiar de rubro sin perder el texto ni el precio máximo.
+  const cats = await pool.query(
+    `SELECT p.categoria AS nombre, COUNT(*)::int AS n
+       FROM ${T_PRODUCTOS} p JOIN ${T_LOCALES} l ON l.id = p.local_id
+      WHERE ${base.join(' AND ')} AND p.categoria <> ''
+      GROUP BY p.categoria ORDER BY n DESC, p.categoria COLLATE "C" LIMIT 8`,
+    args
+  );
+
+  const where = base.slice();
+  const argsFiltro = args.slice();
+  if (op.categoria) {
+    argsFiltro.push(plano(op.categoria));
+    where.push(`${SQL_PLANO('p.categoria')} = $${argsFiltro.length}`);
+  }
+
+  const cuenta = await pool.query(
+    `SELECT COUNT(*)::int AS n, COUNT(DISTINCT l.id)::int AS tiendas
+       FROM ${T_PRODUCTOS} p JOIN ${T_LOCALES} l ON l.id = p.local_id
+      WHERE ${where.join(' AND ')}`,
+    argsFiltro
+  );
+
+  const argsFinal = argsFiltro.slice();
+  let dist = 'NULL::float8';
+  if (op.lat !== null && op.lon !== null) {
+    argsFinal.push(op.lat, op.lon);
+    const i = argsFinal.length - 1;
+    // Distancia haversine en km, con el dominio de acos acotado a [-1, 1].
+    dist = `ROUND((6371 * acos(least(1, greatest(-1, sin(radians($${i}::float8)) * sin(radians(l.lat)) + cos(radians($${i}::float8)) * cos(radians(l.lat)) * cos(radians(l.lon - $${i + 1}::float8))))))::numeric, 1)::float8`;
+  }
+
+  // Una tienda cerrada no puede recibir pedidos (`pedido_crear` la rechaza),
+  // así que se muestra al final para no tapar a las que sí están atendiendo.
+  // La tarjeta del comprador la marca «cerrada».
+  const abiertasPrimero = '(l.abierto = false) ASC';
+  let ordenSql: string;
+  if (op.orden === 'precio') {
+    ordenSql = `${abiertasPrimero}, ${precioEfectivo('p.')} ASC, p.nombre COLLATE "C"`;
+  } else if (op.orden === 'precio-desc') {
+    ordenSql = `${abiertasPrimero}, ${precioEfectivo('p.')} DESC, p.nombre COLLATE "C"`;
+  } else if (op.orden === 'nombre') {
+    ordenSql = `${abiertasPrimero}, p.nombre COLLATE "C"`;
+  } else {
+    ordenSql = `${abiertasPrimero}, dist_km ASC NULLS LAST, ${precioEfectivo('p.')} ASC, p.nombre COLLATE "C"`;
+  }
+
+  const r = await pool.query(
+    `SELECT ${camposProducto('p.')},
+            l.nombre AS local_nombre, l.marca AS local_marca, l.logo AS local_logo,
+            l.comuna AS local_comuna, l.direccion AS local_direccion,
+            l.lat::float8 AS local_lat, l.lon::float8 AS local_lon,
+            l.abierto AS local_abierto, l.entrega AS local_entrega,
+            l.envio::float8 AS local_envio, l.minimo::float8 AS local_minimo,
+            ${dist} AS dist_km
+       FROM ${T_PRODUCTOS} p JOIN ${T_LOCALES} l ON l.id = p.local_id
+      WHERE ${where.join(' AND ')}
+      ORDER BY ${ordenSql}
+      LIMIT ${op.limite}`,
+    argsFinal
+  );
+
+  const tiendaDe = (f: any) => ({
+    id: String(f.local_id || ''),
+    nombre: f.local_nombre || '',
+    marca: f.local_marca || '',
+    logo: f.local_logo || '',
+    comuna: f.local_comuna || '',
+    direccion: f.local_direccion || '',
+    lat: Number(f.local_lat) || 0,
+    lon: Number(f.local_lon) || 0,
+    abierto: f.local_abierto !== false,
+    entrega: Array.isArray(f.local_entrega) ? f.local_entrega : ['retiro'],
+    envio: Number(f.local_envio) || 0,
+    minimo: Number(f.local_minimo) || 0,
+  });
+
+  return {
+    total: Number(cuenta.rows[0] && cuenta.rows[0].n) || 0,
+    tiendas: Number(cuenta.rows[0] && cuenta.rows[0].tiendas) || 0,
+    categorias: cats.rows.map((f: any) => ({
+      nombre: f.nombre || '',
+      n: Number(f.n) || 0,
+    })),
+    resultados: r.rows.map((f: any) => ({
+      tienda: tiendaDe(f),
+      producto: productoDeFila(f),
+      dist: f.dist_km === null || f.dist_km === undefined
+        ? null
+        : Math.round(Number(f.dist_km) * 10) / 10,
+    })),
+  };
 }
 
 /** Nombre público de quien opina: «Ana P.». Nunca el nombre ni el teléfono
@@ -1239,6 +1423,50 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       }
     }
 
+    /* Búsqueda global de productos: texto, categoría, precio y cercanía.
+       Es pública y no crea tablas: sólo lee el catálogo de los locales
+       activos. Devuelve la tienda liviana, sin su catálogo completo. */
+    if (url.searchParams.get('accion') === 'productos_buscar') {
+      const op = leerBusqueda({
+        q: url.searchParams.get('q') || url.searchParams.get('buscar') || '',
+        categoria: url.searchParams.get('categoria') || '',
+        precio_max: url.searchParams.get('precio_max') || url.searchParams.get('precio') || '',
+        lat: url.searchParams.get('lat'),
+        lon: url.searchParams.get('lon'),
+        orden: url.searchParams.get('orden') || '',
+        limite: url.searchParams.get('limite') || '',
+      });
+      if (!op) {
+        return json(res, {
+          ok: false, codigo: 'BUSQUEDA_CORTA',
+          error: 'escribe al menos 2 letras, una categoría o un precio máximo',
+        }, 400);
+      }
+      if (!process.env.INSFORGE_DATABASE_URL) {
+        return json(res, { ok: false, error: 'base no configurada', codigo: 'SIN_BASE' }, 503);
+      }
+      let pool: any = null;
+      try {
+        const { Pool } = await import('pg');
+        pool = new Pool({
+          connectionString: process.env.INSFORGE_DATABASE_URL,
+          ssl: { rejectUnauthorized: false },
+          connectionTimeoutMillis: 15000,
+          max: 2,
+        });
+        const d = await buscarProductos(pool, op);
+        return json(res, {
+          ok: true, accion: 'productos_buscar',
+          q: op.q, categoria: op.categoria, precio_max: op.precioMax, orden: op.orden,
+          ...d,
+        });
+      } catch (e: any) {
+        return json(res, { ok: false, error: e?.message || String(e), codigo: 'ERROR_BASE' }, 500);
+      } finally {
+        if (pool) { try { await pool.end(); } catch (e) { /* ya cerrada */ } }
+      }
+    }
+
     /* Link público de marca: una sola tienda, con su catálogo. No pide cuenta
        ni clave; sólo devuelve locales activos. */
     if (url.searchParams.get('accion') === 'local_ver' || url.searchParams.get('accion') === 'local') {
@@ -1315,7 +1543,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       acciones: [
         'asegurar', 'locales', 'local_ver', 'local_crear', 'local_mio', 'local_actualizar',
         'local_estado', 'local_borrar', 'productos_subir', 'producto_borrar',
-        'imagen_ver', 'codigo_buscar',
+        'imagen_ver', 'codigo_buscar', 'productos_buscar',
         'pedido_crear', 'pedido_seguir', 'push_suscribir', 'push_baja',
         'push_local_suscribir', 'push_local_baja',
         'pedidos_listar', 'pedido_estado',
@@ -1385,6 +1613,23 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       return json(res, {
         ok: true, accion, codigo: cod.valor,
         total: resultados.length, resultados,
+      });
+    }
+
+    /* Búsqueda global por POST: el mismo contrato para la APK. */
+    if (accion === 'productos_buscar') {
+      const op = leerBusqueda(cuerpo);
+      if (!op) {
+        return json(res, {
+          ok: false, codigo: 'BUSQUEDA_CORTA',
+          error: 'escribe al menos 2 letras, una categoría o un precio máximo',
+        }, 400);
+      }
+      const d = await buscarProductos(pool, op);
+      return json(res, {
+        ok: true, accion,
+        q: op.q, categoria: op.categoria, precio_max: op.precioMax, orden: op.orden,
+        ...d,
       });
     }
 

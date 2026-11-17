@@ -65,6 +65,9 @@ window.Placer = (function () {
     clima: null,
     pedido: leerCliente(),
     cat: { q: "", categoria: "", orden: "relevancia" },
+    // Búsqueda global de productos (todas las tiendas). El orden vacío deja
+    // que el servidor elija: cercanía si hay ubicación, precio si no.
+    bus: { q: "", categoria: "", precio: "", orden: "", cargando: false, sello: 0, reloj: null, datos: null, error: "" },
     teselasOk: 0,
     teselasError: 0,
     capaIndice: 0,
@@ -1840,7 +1843,8 @@ window.Placer = (function () {
 
   function pintarProductos(m, lista) {
     if (!lista.length) {
-      return '<div class="mp-vacio"><b>Nada con ese filtro</b><p>Prueba con otra palabra o quita la categoría.</p></div>';
+      return '<div class="mp-vacio"><b>Nada con ese filtro</b><p>Prueba con otra palabra o quita la categoría.</p>' +
+        '<button type="button" class="mp-vacio-btn" data-buscar-global>Buscar en todas las tiendas</button></div>';
     }
     const carrito = ESTADO.carrito[m.id] || { items: {} };
     const cerrado = m.forge && m.abierto === false;
@@ -1904,6 +1908,10 @@ window.Placer = (function () {
         if (delta > 0) volarAlCarrito(b);
       };
     });
+    // Desde un catálogo sin resultados (o vacío) se salta a la búsqueda
+    // global, arrastrando lo que la persona ya había escrito.
+    const global = document.querySelector("#mpHojaCuerpo [data-buscar-global]");
+    if (global) global.onclick = () => abrirBusquedaGlobal(ESTADO.cat.q);
   }
 
   function pintarPieHoja(m) {
@@ -2202,6 +2210,304 @@ window.Placer = (function () {
     cerrarPago();
     abrirHoja(m);
     ESTADO.cat.q = String(codigo || "");
+    pintarHoja();
+    const caja = $("mpProductos");
+    if (caja && caja.scrollIntoView) {
+      caja.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }
+
+  /* ── búsqueda global de productos ────────────────────────────────────────
+     Cruza TODAS las tiendas activas por texto, categoría y precio máximo. El
+     servidor filtra y ordena; acá sólo se lee su respuesta, se pintan los
+     chips y se salta a la ficha de la tienda elegida. */
+
+  function kmTxt(km) {
+    if (km == null) return "";
+    const n = Number(km);
+    if (!Number.isFinite(n)) return "";
+    if (n < 1) return Math.max(10, Math.round(n * 1000 / 10) * 10) + " m";
+    return n.toFixed(1).replace(".", ",") + " km";
+  }
+
+  function abrirBusquedaGlobal(texto) {
+    const hoja = $("mpBuscarProd");
+    if (!hoja) return;
+    cerrarHoja();
+    cerrarCodigos();
+    cerrarCarrito();
+    cerrarPago();
+    if (ESTADO.bus.reloj) { clearTimeout(ESTADO.bus.reloj); ESTADO.bus.reloj = null; }
+
+    if (typeof texto === "string" && texto.trim()) {
+      const nuevo = texto.trim();
+      if (nuevo !== ESTADO.bus.q) { ESTADO.bus.q = nuevo; ESTADO.bus.datos = null; }
+    }
+    const q = $("mpBusQ"), pr = $("mpBusPrecio");
+    if (q) q.value = ESTADO.bus.q;
+    if (pr) pr.value = ESTADO.bus.precio || "";
+
+    hoja.hidden = false;
+    document.body.classList.add("mp-abierto");
+    const panel = hoja.querySelector(".mp-hoja-panel");
+    if (panel) panel.scrollTop = 0;
+    pintarBusquedaGlobal();
+    if (q) setTimeout(() => { try { q.focus(); } catch (e) { /* sin foco */ } }, 120);
+    if (ESTADO.bus.q || ESTADO.bus.categoria || ESTADO.bus.precio) consultarBusquedaGlobal();
+  }
+
+  function cerrarBusquedaGlobal() {
+    const h = $("mpBuscarProd");
+    if (h) h.hidden = true;
+    if (ESTADO.bus.reloj) { clearTimeout(ESTADO.bus.reloj); ESTADO.bus.reloj = null; }
+    // Al cerrar, la consulta en vuelo ya no pinta: el sello la descarta.
+    ESTADO.bus.sello++;
+    ESTADO.bus.cargando = false;
+    const abierta = $("mpHoja") && !$("mpHoja").hidden;
+    if (!abierta) document.body.classList.remove("mp-abierto");
+  }
+
+  /** Lee los campos del formulario y programa la consulta con retardo. */
+  function programarBusquedaGlobal() {
+    leerCamposBusqueda();
+    if (ESTADO.bus.reloj) clearTimeout(ESTADO.bus.reloj);
+    // Se muestra «buscando» desde la primera tecla: así no quedan a la vista
+    // resultados de la consulta anterior mientras corre el retardo.
+    ESTADO.bus.cargando = true;
+    pintarBusquedaGlobal();
+    ESTADO.bus.reloj = setTimeout(() => {
+      ESTADO.bus.reloj = null;
+      consultarBusquedaGlobal();
+    }, 420);
+  }
+
+  function leerCamposBusqueda() {
+    const q = $("mpBusQ"), pr = $("mpBusPrecio");
+    ESTADO.bus.q = q ? q.value.trim() : "";
+    ESTADO.bus.precio = pr ? String(Math.max(0, Math.round(Number(pr.value) || 0))) : "";
+    if (ESTADO.bus.precio === "0") ESTADO.bus.precio = "";
+    // Sin dato nuevo no tiene sentido seguir mostrando la respuesta anterior.
+    ESTADO.bus.datos = null;
+    ESTADO.bus.error = "";
+  }
+
+  async function consultarBusquedaGlobal() {
+    const b = ESTADO.bus;
+    const precio = Number(b.precio) || 0;
+    if (b.q.length < 2 && !b.categoria && !precio) {
+      b.datos = null;
+      b.error = "";
+      b.cargando = false;
+      pintarBusquedaGlobal();
+      return;
+    }
+
+    const sello = ++b.sello;
+    const params = new URLSearchParams();
+    params.set("accion", "productos_buscar");
+    params.set("limite", "60");
+    if (b.q) params.set("q", b.q);
+    if (b.categoria) params.set("categoria", b.categoria);
+    if (precio) params.set("precio_max", String(precio));
+    if (b.orden) params.set("orden", b.orden);
+    const pos = ESTADO.pos;
+    if (pos && Number.isFinite(pos.lat) && Number.isFinite(pos.lon)) {
+      params.set("lat", String(pos.lat));
+      params.set("lon", String(pos.lon));
+    }
+
+    b.cargando = true;
+    b.error = "";
+    pintarBusquedaGlobal();
+
+    try {
+      const r = await fetch(API_MERCADO + "?" + params.toString(), { cache: "no-store" });
+      const d = await r.json().catch(() => null);
+      if (sello !== b.sello) return; // llegó tarde: ya hay otra búsqueda
+      if (!r.ok || !d || !d.ok) {
+        throw new Error((d && d.error) || "error " + r.status);
+      }
+      b.datos = d;
+      if (d.orden) b.orden = d.orden;
+    } catch (e) {
+      if (sello !== b.sello) return;
+      b.datos = null;
+      b.error = (e && e.message) ? e.message : "sin conexión";
+    }
+    if (sello !== b.sello) return;
+    b.cargando = false;
+    pintarBusquedaGlobal();
+  }
+
+  function pintarBusquedaGlobal() {
+    const b = ESTADO.bus;
+    const d = b.datos;
+    const conPos = !!(ESTADO.pos && Number.isFinite(ESTADO.pos.lat) && Number.isFinite(ESTADO.pos.lon));    const efectivo = b.orden || (conPos ? "cercania" : "precio");
+
+    // Chips de orden: el servidor puede cambiar «cercanía» por «precio» si
+    // no mandamos ubicación; el chip activo refleja lo que se está viendo.
+    document.querySelectorAll("#mpBusOrden .mp-chip").forEach((c) => {
+      const o = c.dataset.orden;
+      const on = o === efectivo;
+      c.classList.toggle("on", on);
+      c.setAttribute("aria-pressed", String(on));
+      if (o === "cercania") {
+        c.disabled = !conPos;
+        c.title = conPos ? "Ordenar por cercanía" : "Sin ubicación no se puede ordenar por cercanía";
+      }
+    });
+
+    const cats = $("mpBusCats");
+    if (cats) {
+      const lista = d && Array.isArray(d.categorias) ? d.categorias : [];
+      if (!lista.length) {
+        cats.innerHTML = "";
+      } else {
+        cats.innerHTML =
+          '<button type="button" class="mp-chip' + (b.categoria ? "" : " on") + '" data-c="">Todas</button>' +
+          lista.map((c) =>
+            '<button type="button" class="mp-chip' + (b.categoria === c.nombre ? " on" : "") +
+            '" data-c="' + esc(c.nombre) + '">' + esc(c.nombre) + " · " + c.n + "</button>"
+          ).join("");
+        cats.querySelectorAll(".mp-chip").forEach((c) => {
+          c.onclick = () => {
+            b.categoria = c.dataset.c || "";
+            consultarBusquedaGlobal();
+          };
+        });
+      }
+    }
+
+    const caja = $("mpBusRes");
+    if (!caja) return;
+
+    if (b.q.length < 2 && !b.categoria && !(Number(b.precio) > 0)) {
+      caja.innerHTML = '<div class="mp-vacio"><b>Busca en todas las tiendas</b>' +
+        "<p>Escribe al menos 2 letras, elige una categoría o pon un precio máximo. " +
+        "También puedes buscar una marca o un código de barras.</p></div>";
+      return;
+    }
+
+    if (!d && b.cargando) {
+      caja.innerHTML = '<div class="mp-bus-espera"><span class="mp-bus-punto"></span>Buscando en las tiendas…</div>';
+      return;
+    }
+
+    if (b.error) {
+      caja.innerHTML = '<div class="mp-vacio"><b>No pude buscar</b><p>' + esc(b.error) +
+        '</p><button type="button" class="mp-vacio-btn" id="mpBusReintentar">Reintentar</button></div>';
+      const re = $("mpBusReintentar");
+      if (re) re.onclick = () => consultarBusquedaGlobal();
+      return;
+    }
+
+    if (!d) { caja.innerHTML = ""; return; }
+
+    const lista = Array.isArray(d.resultados) ? d.resultados : [];
+    if (!lista.length) {
+      caja.innerHTML = '<div class="mp-vacio"><b>Sin resultados</b>' +
+        "<p>Ninguna tienda activa tiene eso con ese precio. Prueba con otra palabra, " +
+        "quita la categoría o sube el precio máximo.</p></div>";
+      return;
+    }
+
+    const ordenTxt = d.orden === "cercania" ? "por cercanía"
+      : d.orden === "nombre" ? "por nombre"
+      : d.orden === "precio-desc" ? "por precio (mayor primero)"
+      : "por precio";
+    const total = Number(d.total) || lista.length;
+    const tiendas = Number(d.tiendas) || 0;
+
+    caja.innerHTML =
+      '<div class="mp-bus-resumen"><b>' + total + "</b> " +
+        (total === 1 ? "producto" : "productos") + " en <b>" + tiendas + "</b> " +
+        (tiendas === 1 ? "tienda" : "tiendas") + " · " + ordenTxt +
+        (b.cargando ? ' <span class="mp-bus-mini">actualizando…</span>' : "") + "</div>" +
+      '<div class="mp-cod-lista">' +
+        lista.map((r, i) => {
+          const t = r.tienda || {};
+          const p = r.producto || {};
+          const desc = Math.max(0, Math.min(90, Math.round(Number(p.descuento_vigente) || 0)));
+          const precio = p.precio_efectivo != null
+            ? Math.max(0, Math.round(Number(p.precio_efectivo) || 0))
+            : Math.max(0, Math.round(Number(p.precio) || 0));
+          const stock = p.stock == null ? "disponible"
+            : Number(p.stock) <= 0 ? "agotado"
+            : "quedan " + p.stock;
+          const km = kmTxt(r.dist);
+          return '<article class="mp-cod-res mp-bus-item" data-i="' + i + '" role="button" tabindex="0">' +
+            '<span class="mp-cod-logo">' + iconoDe(t, 20) + "</span>" +
+            '<div class="mp-cod-txt">' +
+              "<b>" + esc(p.nombre || "Producto") + "</b>" +
+              "<small>" + esc(t.nombre || "Marca") +
+                (t.comuna ? " · " + esc(t.comuna) : "") + "</small>" +
+              '<span class="mp-cod-meta">' + esc(stock) +
+                (km ? " · a " + km : "") +
+                (t.abierto === false ? " · <em>cerrada</em>" : "") +
+                (desc ? ' · <em>−' + desc + "%</em>" : "") + "</span>" +
+            "</div>" +
+            '<div class="mp-cod-precio">' +
+              (desc ? "<s>" + clp(p.precio) + "</s>" : "") +
+              "<b>" + clp(precio) + "</b>" +
+              '<button type="button" class="mp-cod-ver" data-i="' + i + '">Ver tienda</button>' +
+            "</div>" +
+          "</article>";
+        }).join("") +
+      "</div>" +
+      (total > lista.length
+        ? '<p class="mp-bus-tope">Se muestran los primeros ' + lista.length +
+          ". Afina la búsqueda para ver el resto.</p>"
+        : "");
+
+    caja.querySelectorAll(".mp-bus-item").forEach((a) => {
+      const ir = () => abrirTiendaDesdeBusqueda(lista[Number(a.dataset.i)]);
+      a.onclick = (e) => {
+        if (e.target instanceof Element && e.target.closest(".mp-cod-ver")) return;
+        ir();
+      };
+      a.onkeydown = (e) => {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); ir(); }
+      };
+    });
+    caja.querySelectorAll(".mp-cod-ver").forEach((btn) => {
+      btn.onclick = (e) => {
+        if (e) e.stopPropagation();
+        abrirTiendaDesdeBusqueda(lista[Number(btn.dataset.i)]);
+      };
+    });
+  }
+
+  /** Salta del resultado a la ficha de esa tienda, con su catálogo cargado y
+   *  el producto buscado a la vista. Si la tienda no estaba en el mapa, se
+   *  pide su ficha pública; si la red falla, se abre con el producto que ya
+   *  vino en el resultado. */
+  async function abrirTiendaDesdeBusqueda(r) {
+    const t = r && r.tienda;
+    if (!t || !t.id) { avisar("Ese resultado ya no está disponible."); return; }
+    let m = ESTADO.mercados.find((x) => x.id === t.id);
+    if (!m || !Array.isArray(m.catalogo) || !m.catalogo.length) {
+      try {
+        const resp = await fetch(API_MERCADO + "?accion=local_ver&id=" +
+          encodeURIComponent(t.id), { cache: "no-store" });
+        const d = await resp.json();
+        if (d && d.ok && d.tienda) m = registrarLocal(d.tienda);
+      } catch (e) { /* se usa lo que ya vino en el resultado */ }
+    }
+    if (!m || !Array.isArray(m.catalogo) || !m.catalogo.length) {
+      m = registrarLocal(Object.assign({}, m || t, { forge: true, catalogo: [r.producto] }));
+    }
+    if (!m) { avisar("No pude abrir esa tienda. Revisa la conexión."); return; }
+    if (r.dist != null && !m.dist) {
+      m.dist = Math.max(10, Math.round(Number(r.dist) * 1000) || 0);
+    }
+
+    cerrarBusquedaGlobal();
+    cerrarCodigos();
+    cerrarCarrito();
+    cerrarPago();
+    abrirHoja(m);
+    const nombre = r.producto && r.producto.nombre ? String(r.producto.nombre) : "";
+    if (nombre) ESTADO.cat.q = nombre;
     pintarHoja();
     const caja = $("mpProductos");
     if (caja && caja.scrollIntoView) {
@@ -2944,6 +3250,42 @@ window.Placer = (function () {
     if (irCarrito) irCarrito.onclick = () => abrirCarrito();
     const scanBtn = $("mpScan");
     if (scanBtn) scanBtn.onclick = () => escanear();
+    const buscarProdBtn = $("mpBuscarProdBtn");
+    if (buscarProdBtn) buscarProdBtn.onclick = () => abrirBusquedaGlobal();
+    const busForm = $("mpBusForm");
+    if (busForm) busForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      leerCamposBusqueda();
+      if (ESTADO.bus.reloj) { clearTimeout(ESTADO.bus.reloj); ESTADO.bus.reloj = null; }
+      consultarBusquedaGlobal();
+    });
+    const busQ = $("mpBusQ"), busPrecio = $("mpBusPrecio");
+    if (busQ) {
+      busQ.addEventListener("input", programarBusquedaGlobal);
+      busQ.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+          busQ.value = "";
+          ESTADO.bus.q = "";
+          programarBusquedaGlobal();
+        }
+      });
+    }
+    if (busPrecio) busPrecio.addEventListener("input", programarBusquedaGlobal);
+    document.querySelectorAll("#mpBusOrden .mp-chip").forEach((b) => {
+      b.onclick = () => {
+        const orden = b.dataset.orden || "";
+        if (orden === "cercania" &&
+            !(ESTADO.pos && Number.isFinite(ESTADO.pos.lat) && Number.isFinite(ESTADO.pos.lon))) {
+          avisar("Activa tu ubicación para ordenar por cercanía.");
+          return;
+        }
+        ESTADO.bus.orden = orden;
+        consultarBusquedaGlobal();
+      };
+    });
+    const busX = $("mpBuscarProdX"), busFondo = $("mpBuscarProdFondo");
+    if (busX) busX.onclick = cerrarBusquedaGlobal;
+    if (busFondo) busFondo.onclick = cerrarBusquedaGlobal;
     /* Acceso directo al catálogo del marketplace desde el mapa. Cierra las
        hojas antes de cambiar de pantalla: si quedan abiertas, tapaban el
        catálogo y el visor. */
@@ -3021,6 +3363,8 @@ window.Placer = (function () {
 
     document.addEventListener("keydown", (e) => {
       if (e.key !== "Escape") return;
+      const bus = $("mpBuscarProd");
+      if (bus && !bus.hidden) { cerrarBusquedaGlobal(); return; }
       const cod = $("mpCodigos");
       if (cod && !cod.hidden) { cerrarCodigos(); return; }
       const car = $("mpCarrito");
@@ -3161,7 +3505,7 @@ window.Placer = (function () {
     productosDe: (m) => (m ? productos(m) : []),
     resumenDeLocal,
     abrirCarrito,
-    cerrarTodo: () => { cerrarCodigos(); cerrarHoja(); cerrarCarrito(); cerrarPago(); },
+    cerrarTodo: () => { cerrarBusquedaGlobal(); cerrarCodigos(); cerrarHoja(); cerrarCarrito(); cerrarPago(); },
     // Puras de la ficha: se prueban sin mapa ni red (tests/web/resenas.js).
     _test: { estrellas, resumenCalificacion, bloqueResenas, haceDias, productos }
   };

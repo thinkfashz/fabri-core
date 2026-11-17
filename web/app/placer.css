@@ -556,6 +556,7 @@
   box-shadow: 0 10px 22px -12px rgba(200,245,66,.9), inset 0 1px 0 rgba(255,255,255,.45);
 }
 .mp-hoja-ico.carrito { background: linear-gradient(165deg, #f2dfb4, var(--mp-oro) 60%, #c9a45c); }
+.mp-hoja-ico > svg { width: 22px; height: 22px; fill: none; stroke: #0b0d05; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
 .mp-hoja-ico.carrito svg { width: 22px; height: 22px; fill: none; stroke: #0b0d05; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .mp-hoja-tit { flex: 1; min-width: 0; }
 .mp-hoja-tit h2 { margin: 0; font-size: 19px; line-height: 1.15; letter-spacing: -.025em; font-weight: 720; }
@@ -602,6 +603,73 @@
   cursor: pointer;
 }
 .mp-cod-ver:hover { background: rgba(200,245,66,.18); }
+
+/* ── 8b · búsqueda global de productos ─────────────────────────────────── */
+.mp-bus-form {
+  display: grid; grid-template-columns: 1fr 112px; gap: 8px;
+  margin: 0 0 10px;
+}
+.mp-bus-q, .mp-bus-precio {
+  min-width: 0; min-height: 44px; padding: 0 13px;
+  border-radius: var(--mp-r-md);
+  border: 1px solid var(--mp-line); background: var(--mp-card);
+  color: var(--mp-tx); font: inherit; font-size: 13.5px;
+  box-shadow: var(--mp-sh-inset); outline: none;
+  transition: border-color .18s, box-shadow .18s;
+}
+.mp-bus-q { grid-column: 1 / -1; }
+.mp-bus-q:focus, .mp-bus-precio:focus {
+  border-color: var(--mp-lima);
+  box-shadow: 0 0 0 3px rgba(200,245,66,.12);
+}
+.mp-bus-q::placeholder, .mp-bus-precio::placeholder { color: var(--mp-tx4); }
+.mp-bus-q::-webkit-search-cancel-button { -webkit-appearance: none; }
+.mp-bus-precio { font-variant-numeric: tabular-nums; }
+.mp-bus-go {
+  min-height: 44px; border: 0; border-radius: var(--mp-r-md); cursor: pointer;
+  background: linear-gradient(165deg, #d9ff6b, var(--mp-lima) 60%, #a8cf2f);
+  color: #0b0d05; font: inherit; font-size: 13px; font-weight: 800;
+  letter-spacing: .01em;
+  box-shadow: 0 10px 22px -14px rgba(200,245,66,.9), inset 0 1px 0 rgba(255,255,255,.45);
+  transition: transform .12s, filter .16s;
+}
+.mp-bus-go:hover { filter: brightness(1.05); }
+.mp-bus-go:active { transform: scale(.97); }
+.mp-bus-orden { display: flex; gap: 7px; margin-bottom: 8px; overflow-x: auto; scrollbar-width: none; }
+.mp-bus-orden::-webkit-scrollbar { display: none; }
+.mp-bus-orden .mp-chip:disabled { opacity: .42; cursor: not-allowed; }
+.mp-chips { display: flex; gap: 7px; overflow-x: auto; scrollbar-width: none; }
+.mp-chips::-webkit-scrollbar { display: none; }
+.mp-bus-cats { margin-bottom: 12px; }
+.mp-bus-cats:empty { display: none; }
+.mp-bus-res { display: grid; gap: 8px; }
+.mp-bus-resumen {
+  margin: 0 0 9px; font-size: 11.5px; line-height: 1.5; color: var(--mp-tx3);
+}
+.mp-bus-resumen b { color: var(--mp-tx); font-weight: 750; }
+.mp-bus-mini { color: var(--mp-lima); font-size: 10.5px; }
+.mp-bus-espera {
+  display: flex; align-items: center; gap: 8px;
+  padding: 18px 4px; font-size: 12px; color: var(--mp-tx3);
+}
+.mp-bus-punto {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--mp-lima); box-shadow: 0 0 0 0 rgba(200,245,66,.5);
+  animation: mp-bus-late 1.1s ease-out infinite;
+}
+@keyframes mp-bus-late {
+  0% { box-shadow: 0 0 0 0 rgba(200,245,66,.45); }
+  100% { box-shadow: 0 0 0 9px rgba(200,245,66,0); }
+}
+.mp-bus-item { width: 100%; text-align: left; cursor: pointer; }
+.mp-bus-item:active { transform: scale(.995); }
+.mp-bus-tope { margin: 9px 2px 0; font-size: 10.5px; line-height: 1.5; color: var(--mp-tx4); }
+.mp-vacio-btn {
+  margin-top: 13px; padding: 9px 15px; border-radius: 999px; cursor: pointer;
+  border: 1px solid rgba(200,245,66,.35); background: rgba(200,245,66,.10);
+  color: var(--mp-lima); font: inherit; font-size: 12px; font-weight: 700;
+}
+.mp-vacio-btn:hover { background: rgba(200,245,66,.18); }
 
 /* ── 9 · catálogo ───────────────────────────────────────────────────────── */
 .mp-cat-cab { display: flex; align-items: center; gap: 8px; margin: 4px 0 6px; }
@@ -790,7 +858,7 @@ body.mp-abierto .nav { transform: translateY(112%); transition: transform .24s c
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .mp-live.ok i, .mp-yo-halo, .mp-esqueleto span, .mp-esqueleto i, .mp-objetivo-anillo, .mp-ubi.girando svg { animation: none; }
+  .mp-live.ok i, .mp-yo-halo, .mp-esqueleto span, .mp-esqueleto i, .mp-objetivo-anillo, .mp-ubi.girando svg, .mp-bus-punto { animation: none; }
   .mp-hoja-panel, .mp-hoja-fondo, .mp-sugerencias { animation: none; }
   .mp-mapa-caja { transform: none; }
 }
