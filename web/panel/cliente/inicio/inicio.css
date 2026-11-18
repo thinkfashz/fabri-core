@@ -1,0 +1,255 @@
+/* C01 · Inicio — hero editorial, riel de tiendas y grilla de ofertas. */
+
+.hero {
+  display: grid;
+  grid-template-columns: 1.08fr 0.92fr;
+  gap: clamp(24px, 4vw, 56px);
+  align-items: center;
+  margin-bottom: 44px;
+}
+
+.hero__copia { min-width: 0; }
+.hero__copia .titulo { margin-bottom: 18px; }
+.hero__acciones { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+
+.hero__ubicacion {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+  margin-top: 22px;
+  font-size: var(--ds-text-sm);
+  color: var(--ds-text-secondary);
+}
+.hero__ubi-btn {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--panel-line);
+  border-radius: var(--ds-radius-pill);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--ds-text-secondary);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.hero__ubi-btn:hover { border-color: var(--ds-accent); color: var(--ds-accent); }
+
+/* Ilustración de mercado: toldo, frutas y etiqueta. Sin fotos remotas. */
+.hero__arte {
+  position: relative;
+  min-height: 330px;
+  overflow: hidden;
+  border-radius: var(--ds-radius-2xl);
+  border: 1px solid var(--panel-line);
+  background:
+    radial-gradient(120% 90% at 78% 6%, rgba(200, 245, 66, 0.22), transparent 58%),
+    radial-gradient(90% 80% at 12% 92%, rgba(90, 217, 232, 0.10), transparent 62%),
+    #0C0F11;
+}
+
+.hero__techo {
+  position: absolute;
+  inset: -12% -14% auto;
+  height: 38%;
+  transform: rotate(-7deg);
+  background: repeating-linear-gradient(90deg,
+    rgba(200, 245, 66, 0.92) 0 24px,
+    rgba(12, 15, 17, 0.96) 24px 48px);
+  opacity: 0.85;
+  -webkit-mask-image: linear-gradient(180deg, #000 55%, transparent 100%);
+  mask-image: linear-gradient(180deg, #000 55%, transparent 100%);
+}
+
+.hero__punto {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(0.4px);
+  box-shadow: inset -6px -8px 0 rgba(0, 0, 0, 0.18);
+}
+.hero__punto--1 { width: 74px; height: 74px; left: 15%; bottom: 18%; background: #C8F542; }
+.hero__punto--2 { width: 52px; height: 52px; left: 30%; bottom: 12%; background: #FFB020; }
+.hero__punto--3 { width: 42px; height: 42px; left: 44%; bottom: 20%; background: #FF7AA8; }
+
+.hero__etiqueta {
+  position: absolute;
+  right: 10%;
+  bottom: 14%;
+  width: min(62%, 250px);
+  padding: 18px 20px 20px;
+  border-radius: 18px;
+  background: rgba(8, 9, 10, 0.82);
+  border: 1px solid var(--panel-line-accent);
+  box-shadow: var(--ds-shadow-lg);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  transform: rotate(2.5deg);
+}
+.hero__etiqueta-top {
+  display: block;
+  font-size: 9.5px;
+  letter-spacing: 0.16em;
+  color: var(--ds-text-tertiary);
+}
+.hero__etiqueta strong {
+  display: block;
+  margin: 4px 0 2px;
+  font-family: var(--ds-font-condensed);
+  font-size: 54px;
+  line-height: 0.95;
+  color: var(--ds-accent);
+  font-variant-numeric: tabular-nums;
+}
+.hero__etiqueta-pie { font-size: var(--ds-text-sm); color: var(--ds-text-secondary); }
+
+.hero__sombra {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  bottom: 7%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.14), transparent);
+}
+
+.bloque { margin-bottom: 44px; }
+.cierre {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+  padding: 28px 30px;
+  border: 1px solid var(--panel-line);
+  border-radius: var(--ds-radius-xl);
+  background: linear-gradient(120deg, rgba(200, 245, 66, 0.06), rgba(255, 255, 255, 0.015) 55%);
+}
+.cierre .entrada { margin-top: 8px; }
+
+/* ── riel de tiendas ─────────────────────────────────────────────────── */
+
+.riel {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(230px, 260px);
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+.riel::-webkit-scrollbar { display: none; }
+
+.tienda {
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 186px;
+  padding: 16px;
+  border-radius: var(--ds-radius-xl);
+  border: 1px solid var(--ds-border);
+  background: var(--ds-bg-card);
+  color: var(--ds-text-primary);
+  transition: border-color 160ms ease, transform 160ms ease;
+}
+.tienda:hover { border-color: var(--panel-line-accent); transform: translateY(-2px); text-decoration: none; }
+.tienda__top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.tienda__nombre {
+  font-family: var(--ds-font-condensed);
+  font-size: 21px;
+  font-weight: 800;
+  line-height: 1.05;
+  margin-top: 2px;
+}
+.tienda__meta { font-size: var(--ds-text-xs); color: var(--ds-text-tertiary); }
+.tienda__pie { margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.tienda__ir { font-size: var(--ds-text-sm); font-weight: 700; color: var(--ds-accent); }
+.tienda--cerrada { opacity: 0.72; }
+.tienda-carga { width: 240px; height: 186px; border-radius: var(--ds-radius-xl); }
+
+.riel__nota { margin-top: 10px; font-size: var(--ds-text-xs); color: var(--ds-text-tertiary); }
+
+/* ── ofertas ─────────────────────────────────────────────────────────── */
+
+.ofertas {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.oferta {
+  display: flex;
+  gap: 12px;
+  padding: 14px;
+  border-radius: var(--ds-radius-lg);
+  border: 1px solid var(--ds-border);
+  background: var(--ds-bg-card);
+  color: var(--ds-text-primary);
+  min-width: 0;
+  transition: border-color 160ms ease;
+}
+.oferta:hover { border-color: var(--panel-line-accent); text-decoration: none; }
+.oferta__cuerpo { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.oferta__nombre {
+  font-size: var(--ds-text-sm);
+  font-weight: 700;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.oferta__tienda { font-size: 11px; color: var(--ds-text-tertiary); }
+.oferta__pie { margin-top: auto; display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap; }
+.oferta__sello {
+  align-self: flex-start;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--ds-accent);
+  text-transform: uppercase;
+}
+.oferta-carga { height: 92px; border-radius: var(--ds-radius-lg); }
+
+/* ── pedido activo ───────────────────────────────────────────────────── */
+
+.pedido-tarjeta {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  padding: 18px 20px;
+  border-radius: var(--ds-radius-xl);
+  border: 1px solid var(--panel-line-accent);
+  background: linear-gradient(110deg, rgba(200, 245, 66, 0.08), rgba(255, 255, 255, 0.015) 60%);
+  color: var(--ds-text-primary);
+}
+.pedido-tarjeta:hover { text-decoration: none; border-color: var(--ds-accent); }
+.pedido-tarjeta__codigo {
+  font-family: var(--ds-font-mono);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--ds-accent);
+}
+.pedido-tarjeta__local { font-size: var(--ds-text-sm); color: var(--ds-text-secondary); }
+.pedido-tarjeta__dato { margin-left: auto; text-align: right; font-size: var(--ds-text-sm); color: var(--ds-text-secondary); }
+.pedido-tarjeta__dato b { display: block; font-size: var(--ds-text-lg); color: var(--ds-text-primary); }
+
+@media (max-width: 1080px) {
+  .ofertas { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 900px) {
+  .hero { grid-template-columns: 1fr; gap: 24px; margin-bottom: 32px; }
+  .hero__arte { min-height: 230px; order: -1; }
+  .hero__etiqueta { right: 6%; bottom: 10%; padding: 14px 16px; }
+  .hero__etiqueta strong { font-size: 40px; }
+  .ofertas { grid-template-columns: 1fr; }
+  .bloque { margin-bottom: 32px; }
+  .cierre { padding: 22px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tienda { transition: none; }
+  .tienda:hover { transform: none; }
+}

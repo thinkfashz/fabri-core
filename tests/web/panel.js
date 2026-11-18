@@ -1,0 +1,368 @@
+#!/usr/bin/env node
+/* FORGE CORE STOCK · panel Cliente (fase 1)
+ *
+ * Qué se comprueba, y por qué importa:
+ *   · cada módulo tiene su HTML, su CSS y su JS propios (el shell no impone
+ *     diseño y una página no queda a medias);
+ *   · todos los enlaces internos del panel resuelven a un archivo real (nada
+ *     de 404 por rutas inventadas);
+ *   · la API se llama SIEMPRE por la base absoluta (una ruta `/api` relativa
+ *     pega en el proyecto equivocado y falla sin decir por qué);
+ *   · el carrito y la sesión usan las MISMAS claves y la misma forma de item
+ *     que la PWA (si cambian, el comprador pierde lo que tenía guardado);
+ *   · términos, ayuda y redirecciones existen y están enlazados.
+ *
+ * No hay navegador headless en este entorno: se verifica el contrato que se
+ * rompe en silencio, no píxeles.
+ *
+ * Uso: node tests/web/panel.js
+ */
+'use strict';
+
+const fs = require('fs');
+const path = require('path');
+
+const RAIZ = path.join(__dirname, '..', '..');
+const WEB = path.join(RAIZ, 'web');
+const PANEL = path.join(WEB, 'panel');
+
+const leer = (p) => fs.readFileSync(p, 'utf8');
+const existe = (p) => fs.existsSync(p);
+
+let fallos = 0;
+const ok = (nombre, cond, detalle) => {
+  if (cond) console.log('  \x1b[1;32m✔\x1b[0m ' + nombre);
+  else { fallos++; console.log('  \x1b[1;31m✖\x1b[0m ' + nombre + (detalle ? ' → ' + detalle : '')); }
+};
+
+const MODULOS = ['inicio', 'mapa', 'buscar', 'tienda', 'producto', 'carrito', 'checkout', 'pedido', 'cuenta', 'ayuda'];
+
+console.log('\n▸ panel · estructura de los módulos');
+
+/* 1 · Cada módulo es una página completa con sus tres archivos. */
+for (const m of MODULOS) {
+  const dir = path.join(PANEL, 'cliente', m);
+  const html = path.join(dir, 'index.html');
+  const css = path.join(dir, m + '.css');
+  const js = path.join(dir, m + '.js');
+  ok('C ' + m + ' tiene index.html, ' + m + '.css y ' + m + '.js',
+    existe(html) && existe(css) && existe(js),
+    [!existe(html) && 'falta html', !existe(css) && 'falta css', !existe(js) && 'falta js'].filter(Boolean).join(', '));
+}
+
+/* 2 · Contrato del shell en cada HTML. */
+{
+  const problemas = [];
+  for (const m of MODULOS) {
+    const p = path.join(PANEL, 'cliente', m, 'index.html');
+    if (!existe(p)) continue;
+    const h = leer(p);
+    const falta = [];
+    if (!/data-panel="cliente"/.test(h)) falta.push('data-panel');
+    if (!new RegExp('data-modulo="' + m + '"').test(h)) falta.push('data-modulo');
+    if (!/class="sidebar" id="sidebar"/.test(h)) falta.push('sidebar');
+    if (!/class="topbar"/.test(h)) falta.push('topbar');
+    if (!/id="contenido"/.test(h)) falta.push('main#contenido');
+    if (!/href="\/components\.css"/.test(h)) falta.push('/components.css');
+    if (!/href="\/panel\/comun\/shell\.css"/.test(h)) falta.push('shell.css');
+    if (!new RegExp('href="\\./' + m + '\\.css"').test(h)) falta.push('css propio');
+    if (!/src="\/panel\/comun\/shell\.js"/.test(h)) falta.push('shell.js');
+    if (!new RegExp('src="\\./' + m + '\\.js"').test(h)) falta.push('js propio');
+    if (/fonts\.googleapis|cdn\.jsdelivr|unpkg\.com|cdnjs\.cloudflare|https?:\/\/[^\s"]+\.css/.test(h)) falta.push('dependencia remota');
+    if (falta.length) problemas.push(m + ': ' + falta.join(', '));
+  }
+  ok('los ' + MODULOS.length + ' módulos cumplen el contrato del shell', problemas.length === 0, problemas.join(' | '));
+}
+
+console.log('\n▸ panel · rutas y enlaces');
+
+/* 3 · Todo enlace/ruta interna `/panel/...` resuelve a un archivo real.
+       Se excluyen los marcados `pronto` en el manifiesto de navegación. */
+{
+  const nav = leer(path.join(PANEL, 'comun', 'nav-cliente.js'));
+  const pronto = new Set();
+  for (const m of nav.matchAll(/ruta:\s*'([^']+)'[^}]*pronto:\s*true/g)) pronto.add(m[1]);
+  const navTodas = [...nav.matchAll(/ruta:\s*'([^']+)'/g)].map((m) => m[1]);
+  for (const r of navTodas) {
+    if (pronto.has(r)) continue;
+    const f = path.join(WEB, r, 'index.html');
+    ok('el menú apunta a ' + r + ' (existe)', existe(f));
+  }
+  ok('los módulos «pronto» del menú no tienen página todavía (no hay 404)',
+    [...pronto].every((r) => !existe(path.join(WEB, r, 'index.html'))),
+    [...pronto].join(', '));
+
+  const rutas = new Set();
+  const archivos = [];
+  for (const m of MODULOS) {
+    for (const ext of ['html', 'js']) {
+      const p = path.join(PANEL, 'cliente', m, m + '.' + ext);
+      if (existe(p)) archivos.push(p);
+    }
+  }
+  for (const p of [...archivos, path.join(PANEL, 'comun', 'shell.js')]) {
+    const txt = leer(p);
+    for (const m of txt.matchAll(/["'](\/panel\/[a-z0-9\/_.-]*)/g)) {
+      let r = m[1];
+      if (!/\.[a-z]+$/.test(r) && !r.endsWith('/')) r += '/';
+      if (r === '/panel/' || pronto.has(r)) continue;
+      rutas.add(r);
+    }
+  }
+  const rotas = [...rutas].filter((r) => {
+    const rel = r.replace(/^\//, '').replace(/\/$/, '');
+    return !existe(path.join(WEB, rel, 'index.html')) && !existe(path.join(WEB, rel));
+  });
+  ok('las ' + rutas.size + ' rutas internas del panel existen', rotas.length === 0, rotas.join(', '));
+}
+
+/* 4 · Todos los assets absolutos de los HTML del panel existen en `web/`. */
+{
+  const rotos = [];
+  for (const m of MODULOS) {
+    const p = path.join(PANEL, 'cliente', m, 'index.html');
+    if (!existe(p)) continue;
+    const h = leer(p);
+    for (const mm of h.matchAll(/(?:href|src)="(\/[^"#?]+)"/g)) {
+      const ruta = mm[1];
+      if (ruta.startsWith('//')) continue;
+      const rel = ruta.replace(/^\//, '');
+      const candidatos = [path.join(WEB, rel), path.join(WEB, rel, 'index.html')];
+      if (!candidatos.some(existe)) rotos.push(m + ' → ' + ruta);
+    }
+  }
+  ok('los assets absolutos de los módulos existen', rotos.length === 0, rotos.join(', '));
+}
+
+console.log('\n▸ panel · API y almacenamiento compartido');
+
+/* 5 · La API vive en otro Vercel: base absoluta, nunca `/api` relativo. */{
+  const api = leer(path.join(PANEL, 'comun', 'api.js'));
+  ok('API_BASE es HTTPS absoluta', /export const API_BASE = 'https:\/\/[^']+';/.test(api));
+  ok('AUTH_URL y MERCADO_URL derivan de la base', /AUTH_URL = API_BASE \+ '\/api\/auth'/.test(api) &&
+    /MERCADO_URL = API_BASE \+ '\/api\/mercado'/.test(api));
+
+  const relativas = [];
+  const fetchDirectos = [];
+  const recorrer = (dir) => {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, e.name);
+      if (e.isDirectory()) { recorrer(p); continue; }
+      if (!e.name.endsWith('.js')) continue;
+      const txt = leer(p);
+      for (const m of txt.matchAll(/fetch\(\s*['"`]\/api\//g)) relativas.push(path.relative(PANEL, p));
+      for (const m of txt.matchAll(/fetch\(/g)) fetchDirectos.push(path.relative(PANEL, p));
+    }
+  };
+  recorrer(PANEL);
+  ok('ningún archivo del panel llama a /api relativo', relativas.length === 0, [...new Set(relativas)].join(', '));
+  const directosUnicos = [...new Set(fetchDirectos)].sort();
+  ok('sólo el cliente HTTP común y la ayuda usan fetch directo',
+    directosUnicos.length === 2 &&
+    directosUnicos[0] === path.join('cliente', 'ayuda', 'ayuda.js') &&
+    directosUnicos[1] === path.join('comun', 'api.js'),
+    directosUnicos.join(', '));
+}
+
+/* 5b · Cada import relativo resuelve a un archivo real.
+       Un `../comun/` de más deja la página en skeleton sin error visible. */
+{
+  const rotos = [];
+  let total = 0;
+  const revisar = (p) => {
+    const txt = leer(p);
+    const dir = path.dirname(p);
+    for (const m of txt.matchAll(/(?:^|\n)\s*(?:import|export)[^'"]*from\s*['"](\.[^'"]+)['"]/g)) {
+      total++;
+      if (!existe(path.resolve(dir, m[1]))) {
+        rotos.push(path.relative(PANEL, p) + ' → ' + m[1]);
+      }
+    }
+  };
+  for (const m of MODULOS) {
+    const p = path.join(PANEL, 'cliente', m, m + '.js');
+    if (existe(p)) revisar(p);
+  }
+  for (const f of fs.readdirSync(path.join(PANEL, 'comun'))) {
+    if (f.endsWith('.js')) revisar(path.join(PANEL, 'comun', f));
+  }
+  ok('los ' + total + ' imports relativos del panel resuelven', rotos.length === 0, rotos.join(', '));
+}
+
+/* 5c · Una clase que usa un módulo no puede estar definida SÓLO en el CSS de
+       otro módulo. Pasó con `.exito`: vivía en checkout.css y dejaba el
+       buscador de pedido con un icono de 520 px. */
+{
+  const clases = (txt) => new Set([...txt.matchAll(/\.([a-zA-Z][\w-]*)/g)].map((m) => m[1]));
+  const compartidas = new Set([
+    ...clases(leer(path.join(WEB, 'components.css'))),
+    ...clases(leer(path.join(PANEL, 'comun', 'shell.css'))),
+  ]);
+  const porModulo = {};
+  for (const m of MODULOS) {
+    const p = path.join(PANEL, 'cliente', m, m + '.css');
+    porModulo[m] = existe(p) ? clases(leer(p)) : new Set();
+  }
+  const fugas = [];
+  for (const m of MODULOS) {
+    const usadas = new Set();
+    for (const ext of ['html', 'js']) {
+      const p = path.join(PANEL, 'cliente', m, m + '.' + ext);
+      if (!existe(p)) continue;
+      for (const mm of leer(p).matchAll(/class="([^"]+)"/g)) {
+        for (const c of mm[1].split(/\s+/)) if (c) usadas.add(c);
+      }
+    }
+    for (const c of usadas) {
+      if (compartidas.has(c) || porModulo[m].has(c)) continue;
+      const dueno = MODULOS.find((o) => o !== m && porModulo[o].has(c));
+      if (dueno) fugas.push(m + ': .' + c + ' sólo en ' + dueno + '.css');
+    }
+  }
+  ok('ningún módulo depende del CSS de otro módulo', fugas.length === 0, fugas.join(' | '));
+  ok('la tarjeta de éxito es compartida (shell.css)', clases(leer(path.join(PANEL, 'comun', 'shell.css'))).has('exito'));
+}
+
+/* 6 · Carrito compatible con la PWA: misma clave y misma forma de item. */
+{
+  const carrito = leer(path.join(PANEL, 'comun', 'carrito.js'));
+  const placer = leer(path.join(WEB, 'app', 'placer.js'));
+  ok('el carrito usa la clave de la PWA', /const KEY = 'fcore\.placer\.carrito'/.test(carrito));
+  ok('la PWA usa esa misma clave', /fcore\.placer\.carrito/.test(placer));
+  ok('el item del carrito conserva n,p,c,s,l,d,i',
+    /n:\s*String/.test(carrito) && /\bp:/.test(carrito) && /\bc:/.test(carrito) &&
+    /\bs:/.test(carrito) && /\bl:/.test(carrito) && /\bd:/.test(carrito) && /\bi:/.test(carrito));
+  ok('el carrito guarda meta de la tienda (nombre, mínimo, envío)',
+    /metaDe/.test(carrito) && /minimo/.test(carrito) && /envio/.test(carrito));
+  ok('el carrito no mezcla tiendas (clave por localId)', /carrito\[localId\]/.test(carrito));
+}
+
+/* 7 · Sesión y ubicación reutilizan las claves de la PWA. */
+{
+  const sesion = leer(path.join(PANEL, 'comun', 'sesion.js'));
+  const catalogo = leer(path.join(PANEL, 'comun', 'catalogo.js'));
+  const pedidos = leer(path.join(PANEL, 'comun', 'pedidos.js'));
+  ok('la sesión usa fcore.nube y fcore.dispositivo',
+    /const KEY = 'fcore\.nube'/.test(sesion) && /const DISP = 'fcore\.dispositivo'/.test(sesion));
+  ok('la ubicación usa fcore.placer.ubicacion', /fcore\.placer\.ubicacion/.test(catalogo));
+  ok('el historial usa fcore.placer.pedidos', /const KEY = 'fcore\.placer\.pedidos'/.test(pedidos));
+  ok('la sesión ofrece recuperación por código',
+    /export async function recuperar\(/.test(sesion) && /export async function recuperarCodigo\(/.test(sesion) &&
+    /recuperar_codigo/.test(sesion));
+}
+
+console.log('\n▸ panel · módulos con contrato propio');
+
+/* 8 · El checkout mapea los errores reales del servidor y evita el doble pedido. */
+{
+  const co = leer(path.join(PANEL, 'cliente', 'checkout', 'checkout.js'));
+  const faltan = ['BAJO_MINIMO', 'CERRADO', 'PAGO_CORTO', 'SIN_STOCK', 'SIN_DIRECCION', 'SIN_COMUNA',
+    'SIN_NOMBRE', 'SIN_TELEFONO', 'NO_CATALOGO', 'SIN_RED'].filter((c) => !co.includes(c));
+  ok('el checkout reconoce los rechazos del servidor', faltan.length === 0, faltan.join(', '));
+  ok('el checkout usa idempotencia en sessionStorage', /sessionStorage[\s\S]{0,80}idem|fcore\.panel\.idem/.test(co));
+  ok('el checkout no deja confirmar una tienda cerrada', /abierto === false/.test(co));
+  ok('el vuelto no parece un error antes de escribir el monto', /caja\.hidden = dado <= 0/.test(co));
+  const coCss = leer(path.join(PANEL, 'cliente', 'checkout', 'checkout.css'));
+  ok('en móvil el formulario va antes que el resumen', !/\.resumen[^}]*order:\s*-1/.test(coCss));
+}
+
+/* 8b · El héroe de Inicio no promete un radio que no se cumple. */
+{
+  const h = leer(path.join(PANEL, 'cliente', 'inicio', 'index.html'));
+  const js = leer(path.join(PANEL, 'cliente', 'inicio', 'inicio.js'));
+  ok('la etiqueta del héroe es dinámica', /data-hero-dist/.test(h) && /data-hero-dist/.test(js));
+  ok('sin tiendas cerca muestra la distancia real', /la más cercana/.test(js));
+}
+
+/* 9 · El seguimiento acepta token o código + contacto y usa push real. */
+{
+  const pe = leer(path.join(PANEL, 'cliente', 'pedido', 'pedido.js'));
+  ok('el seguimiento acepta token o código/contacto',
+    /get\('token'\)/.test(pe) && /get\('codigo'\)/.test(pe) && /get\('contacto'\)/.test(pe));
+  ok('el seguimiento usa push_suscribir y push_baja',
+    /push_suscribir/.test(pe) && /push_baja/.test(pe));
+  ok('el seguimiento registra /sw-push.js', /\/sw-push\.js/.test(pe) && existe(path.join(WEB, 'sw-push.js')));
+}
+
+/* 10 · El mapa usa Leaflet local, no CDN. */
+{
+  const h = leer(path.join(PANEL, 'cliente', 'mapa', 'index.html'));
+  const js = leer(path.join(PANEL, 'cliente', 'mapa', 'mapa.js'));
+  ok('el mapa carga Leaflet desde /app/vendor', /src="\/app\/vendor\/leaflet\.js"/.test(h));
+  ok('el mapa no carga Leaflet de CDN', !/unpkg|cdn\.jsdelivr|cdnjs/.test(h));
+  ok('el mapa calcula la distancia en el cliente (locales no acepta lat/lon)',
+    /distanciaKm/.test(js) && /mercado\('locales'/.test(js));
+}
+
+/* 11 · La ayuda es buscable, tiene temas y consulta la salud real. */
+{
+  const h = leer(path.join(PANEL, 'cliente', 'ayuda', 'index.html'));
+  const js = leer(path.join(PANEL, 'cliente', 'ayuda', 'ayuda.js'));
+  const preguntas = (js.match(/tema:\s*'/g) || []).length;
+  const temas = new Set([...js.matchAll(/tema:\s*'([^']+)'/g)].map((m) => m[1]));
+  ok('la ayuda tiene al menos 20 preguntas', preguntas >= 20, 'hay ' + preguntas);
+  ok('la ayuda agrupa en al menos 5 temas', temas.size >= 5, [...temas].join(', '));
+  ok('la ayuda busca sin tildes', /normalize\('NFD'\)/.test(js));
+  ok('la ayuda consulta /api/health por la base absoluta', /API_BASE \+ '\/api\/health'/.test(js));
+  ok('la ayuda tiene estado sin resultados', /vacio-ayuda/.test(js) && /Nada con esas palabras/.test(js));
+  ok('la ayuda enlaza a los términos', /href="\/terminos\.html"/.test(h));
+}
+
+console.log('\n▸ sitio · términos y redirecciones');
+
+/* 12 · Términos existe, tiene contenido real y está enlazado desde el panel. */
+{
+  const t = path.join(WEB, 'terminos.html');
+  ok('web/terminos.html existe', existe(t));
+  if (existe(t)) {
+    const h = leer(t);
+    const secciones = (h.match(/<section id="/g) || []).length;
+    ok('los términos tienen al menos 12 secciones', secciones >= 12, 'hay ' + secciones);
+    ok('los términos nombran al responsable y el RUT',
+      /Soluciones Fabrick SpA/.test(h) && /76\.095\.190-3/.test(h));
+    ok('los términos explican la tarjeta demo', /demostrativa/i.test(h) && /no se cobra/i.test(h));
+    ok('los términos citan la Ley 19\.496 y la Ley 19\.628',
+      /19\.496/.test(h) && /19\.628/.test(h));
+    ok('los términos enlazan a soporte', /mailto:soporte@fabrick\.cl/.test(h));
+    ok('los términos cargan components.css y su hoja propia',
+      /href="\/components\.css"/.test(h) && /href="\/terminos\.css"/.test(h));
+    ok('web/terminos.css existe', existe(path.join(WEB, 'terminos.css')));
+  }
+  const co = leer(path.join(PANEL, 'cliente', 'checkout', 'checkout.js'));
+  const cu = leer(path.join(PANEL, 'cliente', 'cuenta', 'cuenta.js'));
+  ok('checkout y cuenta enlazan a /terminos.html',
+    /\/terminos\.html/.test(co) && /\/terminos\.html/.test(cu));
+}
+
+/* 13 · Redirecciones del panel: archivo real + regla en Vercel. */
+{
+  for (const rel of ['panel/index.html', 'panel/cliente/index.html']) {
+    const p = path.join(WEB, rel);
+    ok(rel + ' redirige al inicio', existe(p) && /\/panel\/cliente\/inicio\//.test(leer(p)));
+  }
+  const v = JSON.parse(leer(path.join(WEB, 'vercel.json')));
+  const destinos = (v.redirects || []).map((r) => r.source + ' → ' + r.destination);
+  ok('Vercel redirige /panel y /panel/cliente al inicio',
+    destinos.some((d) => d.startsWith('/panel ') && d.endsWith('/panel/cliente/inicio/')) &&
+    destinos.some((d) => d.startsWith('/panel/cliente ') && d.endsWith('/panel/cliente/inicio/')),
+    destinos.join(' | '));
+}
+
+/* 14 · Ningún módulo promete una página que no existe como enlace normal. */
+{
+  const shell = leer(path.join(PANEL, 'comun', 'shell.js'));
+  ok('el shell pinta los «pronto» como span, no como enlace', /nav-item--pronto/.test(shell) && !/pronto[^\n]*href=/.test(shell));
+  const todos = [];
+  for (const m of MODULOS) {
+    const p = path.join(PANEL, 'cliente', m, m + '.js');
+    if (!existe(p)) continue;
+    const txt = leer(p);
+    if (/\/panel\/cliente\/(pedidos|favoritos)\//.test(txt)) todos.push(m);
+  }
+  ok('ningún módulo enlaza a «Mis pedidos» o «Favoritos» (aún no existen)', todos.length === 0, todos.join(', '));
+}
+
+console.log(fallos === 0
+  ? '\n\x1b[1;32m✔ panel: módulos, rutas, API compartida y legales en orden\x1b[0m\n'
+  : '\n\x1b[1;31m✖ panel: ' + fallos + ' fallo(s)\x1b[0m\n');
+process.exit(fallos === 0 ? 0 : 1);

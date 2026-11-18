@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="es-CL" data-panel="cliente">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#08090A">
+  <title>Checkout · FORGE CORE STOCK</title>
+  <meta name="description" content="Confirma el contacto, la entrega y el pago. El pedido lo valida el servidor contra el catálogo real.">
+  <link rel="icon" href="/favicon.png">
+  <link rel="stylesheet" href="/components.css">
+  <link rel="stylesheet" href="/panel/comun/shell.css">
+  <link rel="stylesheet" href="./checkout.css">
+</head>
+<body data-panel="cliente" data-modulo="checkout" data-layout="pasos">
+  <a class="skip" href="#contenido">Saltar al contenido</a>
+  <aside class="sidebar" id="sidebar" aria-label="Navegación del cliente"></aside>
+  <div class="shell-backdrop" hidden data-cerrar-sidebar></div>
+
+  <header class="topbar">
+    <button class="topbar__menu" type="button" data-abrir-sidebar aria-label="Abrir menú" aria-controls="sidebar">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <div class="topbar__id">
+      <span class="topbar__kicker">Panel Cliente</span>
+      <span class="topbar__title">Checkout</span>
+    </div>
+    <div class="topbar__right">
+      <a class="cuenta-chip" href="/panel/cliente/cuenta/" data-cuenta-chip aria-label="Tu cuenta"></a>
+    </div>
+  </header>
+
+  <main id="contenido" class="page page--textura">
+    <nav class="migas" aria-label="Ruta">
+      <a href="/panel/cliente/carrito/">Carrito</a> <span>/</span>
+      <span aria-current="page">Checkout</span>
+    </nav>
+
+    <div data-aviso aria-live="polite"></div>
+
+    <div data-checkout>
+      <div class="ds-skeleton" style="height:420px;border-radius:24px"></div>
+    </div>
+  </main>
+
+  <script type="module" src="/panel/comun/shell.js"></script>
+  <script type="module" src="./checkout.js"></script>
+</body>
+</html>

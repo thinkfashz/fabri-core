@@ -1,0 +1,219 @@
+/* C05 · Producto — galería 58 % y caja de compra sticky 42 %. */
+
+.producto-marco {
+  display: grid;
+  grid-template-columns: minmax(0, 1.38fr) minmax(320px, 0.92fr);
+  gap: clamp(20px, 3vw, 40px);
+  align-items: start;
+}
+
+.migas {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  font-size: var(--ds-text-xs);
+  color: var(--ds-text-tertiary);
+}
+.migas a { color: var(--ds-text-secondary); }
+.migas [aria-current] { color: var(--ds-text-primary); }
+
+/* La base de .migas vive en shell.css; en la ficha ocupa las dos columnas. */
+.producto-marco .migas { grid-column: 1 / -1; }
+
+/* ── galería ──────────────────────────────────────────────────────────── */
+
+.galeria { min-width: 0; }
+
+.galeria__lienzo {
+  position: relative;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--ds-radius-2xl);
+  border: 1px solid var(--panel-line);
+  background:
+    radial-gradient(90% 70% at 70% 15%, rgba(200, 245, 66, 0.09), transparent 65%),
+    linear-gradient(160deg, #12161A, #0B0D0F 72%);
+}
+.galeria__lienzo img { width: 100%; height: 100%; object-fit: contain; padding: 8%; }
+.galeria__inicial {
+  font-family: var(--ds-font-condensed);
+  font-size: clamp(72px, 14vw, 150px);
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.10);
+  letter-spacing: -0.04em;
+  user-select: none;
+}
+.galeria__sello {
+  position: absolute;
+  top: 16px; left: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: var(--ds-radius-pill);
+  background: var(--ds-accent);
+  color: var(--ds-text-on-accent);
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+.galeria__pie {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  font-size: var(--ds-text-xs);
+  color: var(--ds-text-tertiary);
+}
+
+/* ── caja de compra ───────────────────────────────────────────────────── */
+
+.compra {
+  position: sticky;
+  top: calc(var(--panel-topbar-h) + 20px);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  padding: 24px;
+  border-radius: var(--ds-radius-2xl);
+  border: 1px solid var(--ds-border);
+  background: var(--ds-bg-card);
+  box-shadow: var(--ds-shadow-md);
+}
+.compra--oferta { border-color: var(--panel-line-accent); box-shadow: var(--ds-shadow-glow-accent); }
+
+.compra__tienda {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--panel-line);
+  color: var(--ds-text-secondary);
+}
+.compra__tienda:hover b { color: var(--ds-accent); }
+.compra__tienda b { color: var(--ds-text-primary); font-size: var(--ds-text-sm); }
+.compra__tienda small { display: block; font-size: 11px; color: var(--ds-text-tertiary); }
+
+.compra__nombre {
+  font-family: var(--ds-font-condensed);
+  font-size: clamp(24px, 2.6vw, 32px);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+}
+
+.compra__precios { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.compra__precios .precio-lista { font-size: var(--ds-text-base); }
+.compra__ahorro {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 9px;
+  border-radius: var(--ds-radius-pill);
+  background: var(--ds-accent-soft);
+  border: 1px solid var(--panel-line-accent);
+  color: var(--ds-accent);
+  font-size: 11px;
+  font-weight: 800;
+}
+.compra__vigencia { font-size: 11px; color: var(--ds-text-tertiary); }
+
+.compra__cifras {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding: 14px;
+  border-radius: var(--ds-radius-lg);
+  border: 1px solid var(--panel-line);
+  background: rgba(255, 255, 255, 0.02);
+}
+.compra__cifra small {
+  display: block;
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ds-text-tertiary);
+}
+.compra__cifra b { font-size: var(--ds-text-sm); color: var(--ds-text-primary); }
+
+.compra__acciones { display: flex; flex-direction: column; gap: 9px; }
+.compra__fila { display: flex; align-items: center; gap: 10px; }
+.compra__fila .qty { flex: 0 0 auto; }
+.compra__fila .ds-btn { flex: 1 1 auto; }
+
+.compra__nota { font-size: 11.5px; line-height: 1.5; color: var(--ds-text-tertiary); }
+
+/* ── comparación entre marcas ─────────────────────────────────────────── */
+
+.comparar { grid-column: 1 / -1; margin-top: 8px; }
+
+.acordeon {
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-xl);
+  background: var(--ds-bg-card);
+  overflow: hidden;
+}
+.acordeon + .acordeon { margin-top: 10px; }
+.acordeon > summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 58px;
+  padding: 12px 18px;
+  cursor: pointer;
+  list-style: none;
+  font-size: var(--ds-text-sm);
+  font-weight: 700;
+  color: var(--ds-text-primary);
+}
+.acordeon > summary::-webkit-details-marker { display: none; }
+.acordeon > summary::after {
+  content: "";
+  margin-left: auto;
+  width: 8px; height: 8px;
+  border-right: 2px solid var(--ds-text-tertiary);
+  border-bottom: 2px solid var(--ds-text-tertiary);
+  transform: rotate(45deg);
+  transition: transform 160ms ease;
+}
+.acordeon[open] > summary::after { transform: rotate(-135deg); }
+.acordeon > summary small { margin-left: 6px; font-weight: 600; color: var(--ds-text-tertiary); }
+.acordeon__cuerpo { padding: 0 18px 16px; }
+
+.fila-marca {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-top: 1px solid var(--ds-border);
+  color: var(--ds-text-primary);
+}
+.fila-marca:hover { text-decoration: none; }
+.fila-marca:hover .fila-marca__ir { color: var(--ds-accent); }
+.fila-marca__cuerpo { flex: 1 1 auto; min-width: 0; }
+.fila-marca__nombre { font-size: var(--ds-text-sm); font-weight: 700; }
+.fila-marca__meta { font-size: 11.5px; color: var(--ds-text-tertiary); }
+.fila-marca__precio { text-align: right; flex: 0 0 auto; }
+.fila-marca__ir { font-size: var(--ds-text-sm); font-weight: 700; color: var(--ds-text-secondary); white-space: nowrap; }
+.fila-marca--aqui { background: rgba(200, 245, 66, 0.04); }
+
+@media (max-width: 1000px) {
+  .producto-marco { grid-template-columns: 1fr; }
+  .compra { position: static; }
+  .comparar { margin-top: 0; }
+}
+
+@media (max-width: 900px) {
+  .producto-marco { padding-bottom: 76px; }
+  .compra { padding: 18px; border-radius: 20px; }
+  .galeria__lienzo { aspect-ratio: 1 / 1; border-radius: 20px; }
+  .compra__cifras { grid-template-columns: 1fr 1fr; }
+}

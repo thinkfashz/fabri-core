@@ -1,0 +1,197 @@
+/* C13 · Cuenta — ficha de identidad, sesión y zona de peligro. */
+
+.cuenta-marco {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
+  gap: 20px;
+  align-items: start;
+  max-width: 1040px;
+}
+
+.identidad {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  padding: 24px;
+  border-radius: var(--ds-radius-2xl);
+  border: 1px solid var(--panel-line);
+  background:
+    radial-gradient(110% 130% at 90% -20%, rgba(200, 245, 66, 0.10), transparent 55%),
+    var(--ds-bg-card);
+}
+.identidad__ini {
+  width: 76px; height: 76px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--ds-accent);
+  color: var(--ds-text-on-accent);
+  font-family: var(--ds-font-condensed);
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+.identidad__cuerpo { min-width: 0; flex: 1 1 220px; }
+.identidad__nombre {
+  font-family: var(--ds-font-condensed);
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1.05;
+}
+.identidad__correo { margin-top: 4px; font-size: var(--ds-text-sm); color: var(--ds-text-secondary); word-break: break-word; }
+.identidad__desde { margin-top: 2px; font-size: 11px; color: var(--ds-text-tertiary); }
+
+.bloque-cuenta {
+  margin-top: 14px;
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-xl);
+  background: var(--ds-bg-card);
+  overflow: hidden;
+}
+.bloque-cuenta__cabeza {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 15px 18px;
+  border-bottom: 1px solid var(--panel-line);
+}
+.bloque-cuenta__cabeza h2 {
+  font-family: var(--ds-font-condensed);
+  font-size: 17px;
+  font-weight: 800;
+}
+.bloque-cuenta__cuerpo { padding: 16px 18px; }
+
+.dato-cuenta { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--ds-border); font-size: var(--ds-text-sm); }
+.dato-cuenta:last-child { border-bottom: 0; }
+.dato-cuenta span { color: var(--ds-text-secondary); }
+.dato-cuenta b { color: var(--ds-text-primary); font-weight: 600; text-align: right; word-break: break-word; }
+.dato-cuenta code { font-family: var(--ds-font-mono); font-size: 11.5px; color: var(--ds-text-tertiary); }
+
+.bloque-cuenta .ds-btn + .ds-btn { margin-top: 8px; }
+.bloque-cuenta .ds-btn { width: 100%; }
+
+.peligro {
+  margin-top: 28px;
+  padding: 18px;
+  border: 1px solid var(--ds-err-border);
+  border-radius: var(--ds-radius-xl);
+  background: rgba(255, 107, 107, 0.04);
+}
+.peligro h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--ds-font-condensed);
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--ds-err);
+}
+.peligro p { margin: 6px 0 12px; font-size: 12px; line-height: 1.55; color: var(--ds-text-secondary); }
+.peligro .ds-btn--danger { width: 100%; }
+
+/* ── sin sesión: tarjeta de acceso ────────────────────────────────────── */
+
+.acceso {
+  max-width: 440px;
+  margin: 12px auto 0;
+  padding: 26px;
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-2xl);
+  background: var(--ds-bg-card);
+  box-shadow: var(--ds-shadow-lg);
+}
+.acceso__cabecera { text-align: center; margin-bottom: 18px; }
+.acceso__ico {
+  width: 56px; height: 56px;
+  margin: 0 auto 12px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--panel-line-accent);
+  background: var(--ds-accent-soft);
+  color: var(--ds-accent);
+}
+.acceso__ico svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+.acceso h1 { font-family: var(--ds-font-condensed); font-size: 26px; font-weight: 800; }
+.acceso__sub { margin-top: 4px; font-size: 12.5px; color: var(--ds-text-tertiary); }
+
+.segmento {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 3px;
+  padding: 3px;
+  margin-bottom: 18px;
+  border-radius: 12px;
+  border: 1px solid var(--panel-line);
+  background: var(--ds-bg-app-alt);
+}
+.segmento button {
+  min-height: 36px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--ds-text-tertiary);
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.segmento button[aria-selected="true"] {
+  background: var(--ds-bg-elevated);
+  color: var(--ds-text-primary);
+  box-shadow: var(--ds-shadow-sm);
+}
+
+.acceso form { display: flex; flex-direction: column; gap: 12px; }
+.acceso__pie { margin-top: 14px; font-size: 11px; line-height: 1.55; color: var(--ds-text-tertiary); text-align: center; }
+.acceso__pie a { color: var(--ds-text-secondary); text-decoration: underline; }
+.acceso__error {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--ds-err-border);
+  background: var(--ds-err-soft);
+  color: #F0C9C9;
+  font-size: 12px;
+}
+.acceso__ok {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--ds-ok-border);
+  background: var(--ds-ok-soft);
+  color: #A9E9C6;
+  font-size: 12px;
+}
+.acceso__volver {
+  align-self: center;
+  margin-top: 2px;
+  border: 0;
+  background: transparent;
+  color: var(--ds-text-tertiary);
+  font-family: inherit;
+  font-size: 11.5px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.check {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--ds-text-secondary);
+}
+.check input { margin-top: 2px; accent-color: var(--ds-accent); width: 16px; height: 16px; flex: 0 0 auto; }
+
+@media (max-width: 900px) {
+  .cuenta-marco { grid-template-columns: 1fr; }
+  .identidad { padding: 18px; }
+  .identidad__ini { width: 60px; height: 60px; font-size: 24px; }
+  .identidad__nombre { font-size: 23px; }
+  .acceso { padding: 20px; }
+}

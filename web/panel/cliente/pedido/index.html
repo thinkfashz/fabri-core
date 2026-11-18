@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="es-CL" data-panel="cliente">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#08090A">
+  <title>Seguir pedido · FORGE CORE STOCK</title>
+  <meta name="description" content="En qué va tu pedido, qué datos necesita el local y cómo avisarte cuando cambie.">
+  <link rel="icon" href="/favicon.png">
+  <link rel="stylesheet" href="/components.css">
+  <link rel="stylesheet" href="/panel/comun/shell.css">
+  <link rel="stylesheet" href="./pedido.css">
+</head>
+<body data-panel="cliente" data-modulo="pedido" data-layout="seguimiento">
+  <a class="skip" href="#contenido">Saltar al contenido</a>
+  <aside class="sidebar" id="sidebar" aria-label="Navegación del cliente"></aside>
+  <div class="shell-backdrop" hidden data-cerrar-sidebar></div>
+
+  <header class="topbar">
+    <button class="topbar__menu" type="button" data-abrir-sidebar aria-label="Abrir menú" aria-controls="sidebar">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <div class="topbar__id">
+      <span class="topbar__kicker">Panel Cliente</span>
+      <span class="topbar__title">Seguir pedido</span>
+    </div>
+    <div class="topbar__right">
+      <a class="cuenta-chip" href="/panel/cliente/cuenta/" data-cuenta-chip aria-label="Tu cuenta"></a>
+    </div>
+  </header>
+
+  <main id="contenido" class="page page--textura">
+    <div data-aviso aria-live="polite"></div>
+    <div data-pedido>
+      <div class="ds-skeleton" style="height:180px;border-radius:24px;margin-bottom:14px"></div>
+      <div class="ds-skeleton" style="height:320px;border-radius:24px"></div>
+    </div>
+  </main>
+
+  <script type="module" src="/panel/comun/shell.js"></script>
+  <script type="module" src="./pedido.js"></script>
+</body>
+</html>

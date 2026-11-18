@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="es-CL" data-panel="cliente">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#08090A">
+  <title>Carrito · FORGE CORE STOCK</title>
+  <meta name="description" content="Revisa tu pedido por tienda, con precio y stock validados antes de pagar.">
+  <link rel="icon" href="/favicon.png">
+  <link rel="stylesheet" href="/components.css">
+  <link rel="stylesheet" href="/panel/comun/shell.css">
+  <link rel="stylesheet" href="./carrito.css">
+</head>
+<body data-panel="cliente" data-modulo="carrito" data-layout="revision">
+  <a class="skip" href="#contenido">Saltar al contenido</a>
+  <aside class="sidebar" id="sidebar" aria-label="Navegación del cliente"></aside>
+  <div class="shell-backdrop" hidden data-cerrar-sidebar></div>
+
+  <header class="topbar">
+    <button class="topbar__menu" type="button" data-abrir-sidebar aria-label="Abrir menú" aria-controls="sidebar">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <div class="topbar__id">
+      <span class="topbar__kicker">Panel Cliente</span>
+      <span class="topbar__title">Carrito</span>
+    </div>
+    <div class="topbar__right">
+      <a class="cuenta-chip" href="/panel/cliente/cuenta/" data-cuenta-chip aria-label="Tu cuenta"></a>
+    </div>
+  </header>
+
+  <main id="contenido" class="page page--textura">
+    <header class="carrito-cabeza">
+      <div>
+        <span class="antetitulo">Antes de pagar</span>
+        <h1 class="titular titular--sm">Tu carrito</h1>
+        <p class="entrada" data-resumen-texto>Revisando precios y stock en cada tienda…</p>
+      </div>
+      <div class="carrito-cabeza__acciones">
+        <button class="ds-btn ds-btn--ghost ds-btn--sm" type="button" data-sincronizar hidden>Actualizar precios</button>
+        <a class="ds-btn ds-btn--ghost ds-btn--sm" href="/panel/cliente/buscar/">Seguir comprando</a>
+      </div>
+    </header>
+
+    <div data-aviso aria-live="polite"></div>
+    <div data-carrito aria-live="polite">
+      <div class="ds-skeleton" style="height:150px;border-radius:20px;margin-bottom:12px"></div>
+      <div class="ds-skeleton" style="height:120px;border-radius:20px"></div>
+    </div>
+  </main>
+
+  <script type="module" src="/panel/comun/shell.js"></script>
+  <script type="module" src="./carrito.js"></script>
+</body>
+</html>

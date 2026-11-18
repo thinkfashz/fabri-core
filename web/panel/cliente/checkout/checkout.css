@@ -1,0 +1,182 @@
+/* C07 · Checkout — formulario de 3 pasos + resumen sticky. */
+
+.migas {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+  font-size: var(--ds-text-xs);
+  color: var(--ds-text-tertiary);
+}
+.migas a { color: var(--ds-text-secondary); }
+.migas [aria-current] { color: var(--ds-text-primary); }
+
+.checkout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+  gap: clamp(18px, 3vw, 32px);
+  align-items: start;
+}
+
+.paso {
+  position: relative;
+  padding: 22px 24px 24px;
+  margin-bottom: 14px;
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-xl);
+  background: var(--ds-bg-card);
+}
+.paso[data-activo="true"] { border-color: var(--panel-line-accent); }
+
+.paso__num {
+  position: absolute;
+  top: 20px; right: 22px;
+  width: 30px; height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--panel-line);
+  background: var(--ds-bg-app-alt);
+  color: var(--ds-text-tertiary);
+  font-family: var(--ds-font-mono);
+  font-size: 13px;
+  font-weight: 700;
+}
+.paso[data-activo="true"] .paso__num {
+  border-color: var(--ds-accent);
+  background: var(--ds-accent);
+  color: var(--ds-text-on-accent);
+}
+.paso__titulo {
+  font-family: var(--ds-font-condensed);
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  margin-bottom: 3px;
+  padding-right: 44px;
+}
+.paso__nota { font-size: 12px; color: var(--ds-text-tertiary); margin-bottom: 16px; }
+
+.campos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.campos--uno { grid-template-columns: 1fr; }
+.campos .campo--ancho { grid-column: 1 / -1; }
+
+.opciones { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.opciones--pago { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+.opcion__cuerpo { min-width: 0; }
+.opcion__cuerpo b { display: flex; align-items: center; gap: 6px; }
+.opcion__cuerpo small { display: block; }
+
+.pago-detalle {
+  margin-top: 14px;
+  padding: 14px;
+  border-radius: var(--ds-radius-lg);
+  border: 1px dashed var(--ds-border-strong);
+  background: rgba(255, 255, 255, 0.02);
+}
+.pago-detalle[hidden] { display: none; }
+
+.vuelto {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--ds-accent-soft);
+  border: 1px solid var(--panel-line-accent);
+  font-size: var(--ds-text-sm);
+  color: var(--ds-text-secondary);
+}
+.vuelto b { font-family: var(--ds-font-condensed); font-size: 22px; color: var(--ds-accent); font-variant-numeric: tabular-nums; }
+.vuelto--mal { background: var(--ds-err-soft); border-color: var(--ds-err-border); color: #F0C9C9; }
+.vuelto--mal b { color: var(--ds-err); }
+
+.error-campo { font-size: 11.5px; color: var(--ds-err); }
+
+/* ── resumen ──────────────────────────────────────────────────────────── */
+
+.resumen {
+  position: sticky;
+  top: calc(var(--panel-topbar-h) + 20px);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-xl);
+  background: var(--ds-bg-card);
+  overflow: hidden;
+}
+.resumen__cabeza {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 16px;
+  border-bottom: 1px solid var(--panel-line);
+  background: rgba(255, 255, 255, 0.015);
+}
+.resumen__cabeza b { font-size: var(--ds-text-sm); }
+.resumen__cabeza small { display: block; font-size: 11px; color: var(--ds-text-tertiary); }
+
+.resumen__items { padding: 8px 16px; max-height: 260px; overflow-y: auto; }
+.resumen__item {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 12.5px;
+  color: var(--ds-text-secondary);
+}
+.resumen__item span:nth-child(2) { min-width: 0; }
+.resumen__item b { margin-left: auto; color: var(--ds-text-primary); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.resumen__cant {
+  flex: 0 0 auto;
+  min-width: 24px;
+  height: 20px;
+  padding: 0 6px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 6px;
+  background: var(--ds-bg-elevated);
+  color: var(--ds-text-tertiary);
+  font-size: 10.5px;
+  font-weight: 800;
+}
+
+.resumen__totales { padding: 12px 16px 16px; border-top: 1px solid var(--panel-line); }
+.resumen__linea {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 5px 0;
+  font-size: var(--ds-text-sm);
+  color: var(--ds-text-secondary);
+}
+.resumen__linea b { color: var(--ds-text-primary); font-variant-numeric: tabular-nums; }
+.resumen__linea--ahorro b { color: var(--ds-accent); }
+.resumen__linea--total {
+  margin-top: 6px;
+  padding-top: 12px;
+  border-top: 1px solid var(--panel-line);
+}
+.resumen__linea--total b { font-family: var(--ds-font-condensed); font-size: 27px; }
+.resumen__cta { padding: 0 16px 16px; display: flex; flex-direction: column; gap: 8px; }
+.resumen__legal { padding: 0 16px 16px; font-size: 10.5px; line-height: 1.5; color: var(--ds-text-tertiary); }
+
+.resumen__alerta { margin-top: 12px; }
+
+/* La tarjeta de éxito es compartida: vive en /panel/comun/shell.css. */
+
+@media (max-width: 1000px) {
+  .checkout { grid-template-columns: 1fr; }
+  /* En móvil el formulario va primero: el resumen arrastraba el botón
+     «Confirmar» arriba y se podía pulsar sin haber escrito nada. */
+  .resumen { position: static; }
+}
+
+@media (max-width: 900px) {
+  .paso { padding: 18px 16px; }
+  .campos, .opciones, .opciones--pago { grid-template-columns: 1fr; }
+  .resumen__items { max-height: none; }
+}

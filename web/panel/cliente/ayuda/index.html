@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="es-CL" data-panel="cliente">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#08090A">
+  <title>Ayuda · FORGE CORE STOCK</title>
+  <meta name="description" content="Preguntas frecuentes sobre pedidos, pagos, entregas y tu cuenta, con el estado real del servicio.">
+  <link rel="icon" href="/favicon.png">
+  <link rel="stylesheet" href="/components.css">
+  <link rel="stylesheet" href="/panel/comun/shell.css">
+  <link rel="stylesheet" href="./ayuda.css">
+</head>
+<body data-panel="cliente" data-modulo="ayuda" data-layout="lectura">
+  <a class="skip" href="#contenido">Saltar al contenido</a>
+  <aside class="sidebar" id="sidebar" aria-label="Navegación del cliente"></aside>
+  <div class="shell-backdrop" hidden data-cerrar-sidebar></div>
+
+  <header class="topbar">
+    <button class="topbar__menu" type="button" data-abrir-sidebar aria-label="Abrir menú" aria-controls="sidebar">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <div class="topbar__id">
+      <span class="topbar__kicker">Panel Cliente</span>
+      <span class="topbar__title">Ayuda</span>
+    </div>
+    <div class="topbar__right">
+      <a class="cuenta-chip" href="/panel/cliente/cuenta/" data-cuenta-chip aria-label="Tu cuenta"></a>
+    </div>
+  </header>
+
+  <main id="contenido" class="page page--textura">
+    <div class="ayuda-marco">
+      <header class="ayuda-cabeza">
+        <span class="antetitulo">Sin vueltas</span>
+        <h1 class="titular">¿Qué necesitas resolver?</h1>
+        <p class="entrada">Busca por lo que te pasó: pedido, pago, entrega, cuenta o avisos. Si no aparece, abajo tienes cómo hablar con el local y con soporte.</p>
+
+        <div class="buscador" role="search">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg>
+          <input type="search" data-q placeholder="Ej: no me llegó el pedido, cómo pago, cambiar clave" aria-label="Buscar en las preguntas frecuentes" autocomplete="off" autofocus>
+          <button class="buscador__limpiar" type="button" data-limpiar aria-label="Limpiar búsqueda" hidden>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg>
+          </button>
+        </div>
+
+        <div class="temas" data-temas aria-label="Filtrar por tema"></div>
+        <p class="ayuda-cuenta" data-cuenta aria-live="polite">28 preguntas</p>
+      </header>
+
+      <div class="ayuda-lista" data-lista aria-live="polite">
+        <div class="ds-skeleton ds-skeleton--line" style="height:64px;border-radius:14px;margin-bottom:8px"></div>
+        <div class="ds-skeleton ds-skeleton--line" style="height:64px;border-radius:14px;margin-bottom:8px"></div>
+        <div class="ds-skeleton ds-skeleton--line" style="height:64px;border-radius:14px"></div>
+      </div>
+
+      <section class="contacto" aria-labelledby="contactoTitulo">
+        <h2 id="contactoTitulo" class="contacto__titulo">Si la respuesta no está acá</h2>
+        <div class="contacto__rejilla">
+          <article class="contacto__tarjeta contacto__tarjeta--local">
+            <span class="contacto__ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5H4l1.6-3A8.5 8.5 0 1 1 21 11.5Z"/><path d="M8.5 10.5h7M8.5 14h4"/></svg></span>
+            <div>
+              <h3>Tu pedido lo maneja el local</h3>
+              <p>Ellos preparan, entregan y registran cada cambio de estado. Abre el seguimiento y escríbeles por WhatsApp con tu código a mano.</p>
+            </div>
+            <a class="ds-btn ds-btn--secondary ds-btn--sm" href="/panel/cliente/pedido/">Buscar un pedido</a>
+          </article>
+
+          <article class="contacto__tarjeta">
+            <span class="contacto__ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m4 7 8 6 8-6"/></svg></span>
+            <div>
+              <h3>Problemas de la plataforma</h3>
+              <p>Si no puedes entrar, la página falla o un cobro no calza con el pedido, escríbenos contando qué pasó y desde qué correo compraste.</p>
+            </div>
+            <a class="ds-btn ds-btn--ghost ds-btn--sm" href="mailto:soporte@fabrick.cl?subject=Ayuda%20FORGE%20CORE%20STOCK">Escribir a soporte</a>
+          </article>
+        </div>
+      </section>
+
+      <section class="servicio" aria-labelledby="servicioTitulo">
+        <div class="servicio__cabeza">
+          <div>
+            <h2 id="servicioTitulo">Estado del servicio</h2>
+            <p>Consultamos la salud pública de la API que atiende los pedidos. No muestra datos tuyos.</p>
+          </div>
+          <span class="pill" data-estado-pill>consultando…</span>
+        </div>
+        <div class="servicio__cuerpo" data-servicio aria-live="polite">
+          <div class="ds-skeleton ds-skeleton--text" style="width:100%"></div>
+        </div>
+        <div class="servicio__pie">
+          <a class="servicio__enlace" href="/terminos.html">Términos de uso y tratamiento de datos</a>
+          <button class="ds-btn ds-btn--ghost ds-btn--sm" type="button" data-revisar>Volver a consultar</button>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script type="module" src="/panel/comun/shell.js"></script>
+  <script type="module" src="./ayuda.js"></script>
+</body>
+</html>

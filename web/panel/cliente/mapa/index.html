@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="es-CL" data-panel="cliente">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#08090A">
+  <title>Mapa · FORGE CORE STOCK</title>
+  <meta name="description" content="Las tiendas publicadas en el mapa, con rubro, distancia y estado de apertura.">
+  <link rel="icon" href="/favicon.png">
+  <link rel="stylesheet" href="/components.css">
+  <link rel="stylesheet" href="/app/vendor/leaflet.css">
+  <link rel="stylesheet" href="/panel/comun/shell.css">
+  <link rel="stylesheet" href="./mapa.css">
+</head>
+<body data-panel="cliente" data-modulo="mapa" data-layout="mapa">
+  <a class="skip" href="#contenido">Saltar al contenido</a>
+  <aside class="sidebar" id="sidebar" aria-label="Navegación del cliente"></aside>
+  <div class="shell-backdrop" hidden data-cerrar-sidebar></div>
+
+  <header class="topbar">
+    <button class="topbar__menu" type="button" data-abrir-sidebar aria-label="Abrir menú" aria-controls="sidebar">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <div class="topbar__id">
+      <span class="topbar__kicker">Panel Cliente</span>
+      <span class="topbar__title">Mapa</span>
+    </div>
+    <div class="topbar__right">
+      <a class="cuenta-chip" href="/panel/cliente/cuenta/" data-cuenta-chip aria-label="Tu cuenta"></a>
+    </div>
+  </header>
+
+  <main id="contenido" class="page page--full mapa-page">
+    <div class="mapa-lienzo" id="mapa" role="application" aria-label="Mapa de tiendas"></div>
+
+    <div class="mapa-filtros">
+      <div class="mapa-filtros__fila">
+        <div class="mapa-buscador">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg>
+          <input type="search" data-q placeholder="Buscar tienda o comuna" aria-label="Buscar tienda o comuna" autocomplete="off">
+        </div>
+        <label class="mapa-radio">
+          <span>Radio</span>
+          <select data-radio aria-label="Radio de búsqueda">
+            <option value="1">1 km</option>
+            <option value="3" selected>3 km</option>
+            <option value="10">10 km</option>
+            <option value="0">Todo Chile</option>
+          </select>
+        </label>
+        <button class="mapa-ubi" type="button" data-ubicarme aria-label="Centrar en mi ubicación">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="7.5"/></svg>
+        </button>
+      </div>
+      <div class="mapa-chips" data-rubros aria-label="Filtrar por rubro"></div>
+    </div>
+
+    <div class="mapa-hoja" data-hoja aria-live="polite">
+      <div class="mapa-hoja__asa" aria-hidden="true"></div>
+      <div class="mapa-hoja__cabeza">
+        <div>
+          <span class="antetitulo">Cerca de ti</span>
+          <h1 class="mapa-hoja__titulo" data-titulo>Tiendas en el mapa</h1>
+        </div>
+        <span class="pill" data-cuenta>—</span>
+      </div>
+      <div class="mapa-lista" data-lista>
+        <div class="ds-skeleton" style="height:88px;border-radius:14px;min-width:250px"></div>
+        <div class="ds-skeleton" style="height:88px;border-radius:14px;min-width:250px"></div>
+      </div>
+    </div>
+
+    <div data-aviso class="mapa-aviso" aria-live="polite"></div>
+  </main>
+
+  <script src="/app/vendor/leaflet.js"></script>
+  <script type="module" src="/panel/comun/shell.js"></script>
+  <script type="module" src="./mapa.js"></script>
+</body>
+</html>

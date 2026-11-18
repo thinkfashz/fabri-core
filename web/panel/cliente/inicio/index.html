@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="es-CL" data-panel="cliente">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#08090A">
+  <title>Inicio · FORGE CORE STOCK</title>
+  <meta name="description" content="Las tiendas de tu barrio, sus ofertas y el estado de tu pedido en un solo lugar.">
+  <link rel="icon" href="/favicon.png">
+  <link rel="stylesheet" href="/components.css">
+  <link rel="stylesheet" href="/panel/comun/shell.css">
+  <link rel="stylesheet" href="./inicio.css">
+</head>
+<body data-panel="cliente" data-modulo="inicio" data-layout="editorial">
+  <a class="skip" href="#contenido">Saltar al contenido</a>
+  <aside class="sidebar" id="sidebar" aria-label="Navegación del cliente"></aside>
+  <div class="shell-backdrop" hidden data-cerrar-sidebar></div>
+
+  <header class="topbar">
+    <button class="topbar__menu" type="button" data-abrir-sidebar aria-label="Abrir menú" aria-controls="sidebar">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <div class="topbar__id">
+      <span class="topbar__kicker">Panel Cliente</span>
+      <span class="topbar__title">Inicio</span>
+    </div>
+    <div class="topbar__right">
+      <a class="cuenta-chip" href="/panel/cliente/cuenta/" data-cuenta-chip aria-label="Tu cuenta"></a>
+    </div>
+  </header>
+
+  <main id="contenido" class="page page--textura">
+    <section class="hero" aria-labelledby="heroTitulo">
+      <div class="hero__copia">
+        <span class="antetitulo">Cerca de ti</span>
+        <h1 class="titulo" id="heroTitulo">Lo del barrio,<br>sin dar vueltas.</h1>
+        <p class="entrada">Compara precios entre las tiendas de tu comuna, arma el pedido y sigue cada paso. Sin cuenta para mirar; con cuenta para no perder nada.</p>
+        <div class="hero__acciones">
+          <a class="ds-btn ds-btn--lg" href="/panel/cliente/buscar/">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg>
+            Buscar un producto
+          </a>
+          <a class="ds-btn ds-btn--ghost ds-btn--lg" href="/panel/cliente/mapa/">Ver el mapa</a>
+        </div>
+        <div class="hero__ubicacion" data-ubicacion>
+          <span class="punto-vivo" aria-hidden="true"></span>
+          <span data-ubicacion-texto>Cargando tu ubicación…</span>
+          <button class="hero__ubi-btn" type="button" data-usar-ubicacion>Usar mi ubicación</button>
+        </div>
+      </div>
+
+      <div class="hero__arte" aria-hidden="true">
+        <div class="hero__techo"></div>
+        <span class="hero__punto hero__punto--1"></span>
+        <span class="hero__punto hero__punto--2"></span>
+        <span class="hero__punto hero__punto--3"></span>
+        <div class="hero__etiqueta" aria-hidden="true">
+          <span class="hero__etiqueta-top">TIENDAS DEL BARRIO</span>
+          <strong data-hero-dist>3 km</strong>
+          <span class="hero__etiqueta-pie" data-hero-pie>a la redonda</span>
+        </div>
+        <div class="hero__sombra"></div>
+      </div>
+    </section>
+
+    <div data-aviso-inicio aria-live="polite"></div>
+
+    <section class="bloque" data-pedido-activo hidden aria-labelledby="pedidoTitulo">
+      <div class="sec-head">
+        <h2 id="pedidoTitulo">Sigue tu pedido</h2>
+        <a class="sec-head__link" href="/panel/cliente/pedido/">Buscar otro pedido</a>
+      </div>
+      <div data-pedido-tarjeta></div>
+    </section>
+
+    <section class="bloque" aria-labelledby="tiendasTitulo">
+      <div class="sec-head">
+        <h2 id="tiendasTitulo">Tiendas cerca</h2>
+        <a class="sec-head__link" href="/panel/cliente/mapa/">Abrir el mapa</a>
+      </div>
+      <div class="riel" data-tiendas aria-live="polite">
+        <div class="tienda-carga ds-skeleton" aria-hidden="true"></div>
+        <div class="tienda-carga ds-skeleton" aria-hidden="true"></div>
+        <div class="tienda-carga ds-skeleton" aria-hidden="true"></div>
+      </div>
+      <p class="riel__nota" data-tiendas-nota></p>
+    </section>
+
+    <section class="bloque" aria-labelledby="ofertasTitulo">
+      <div class="sec-head">
+        <h2 id="ofertasTitulo" data-ofertas-titulo>Ofertas y precios bajos</h2>
+        <a class="sec-head__link" href="/panel/cliente/buscar/?orden=precio">Comparar precios</a>
+      </div>
+      <div class="ofertas" data-ofertas aria-live="polite">
+        <div class="oferta-carga ds-skeleton" aria-hidden="true"></div>
+        <div class="oferta-carga ds-skeleton" aria-hidden="true"></div>
+        <div class="oferta-carga ds-skeleton" aria-hidden="true"></div>
+      </div>
+    </section>
+
+    <section class="cierre" aria-labelledby="cierreTitulo">
+      <div>
+        <span class="antetitulo">Hecho en Chile</span>
+        <h2 class="titular titular--sm" id="cierreTitulo">Tu compra, a la vista.</h2>
+        <p class="entrada">Precios en CLP, stock real por tienda y seguimiento público sin instalar nada. Lo que ves es lo que el local recibe.</p>
+      </div>
+      <a class="ds-btn ds-btn--secondary" href="/panel/cliente/ayuda/">¿Cómo funciona?</a>
+    </section>
+  </main>
+
+  <script type="module" src="/panel/comun/shell.js"></script>
+  <script type="module" src="./inicio.js"></script>
+</body>
+</html>

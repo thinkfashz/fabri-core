@@ -8,6 +8,74 @@
 
 Última actualización: 2026-11-18
 
+## Sesión 2026-11-18 · Panel Cliente, fase 1
+
+Pedido: construir los módulos de `docs/PANELES-MODULOS.md` empezando por la
+fase 1 del Cliente. Cada módulo es una página completa con **HTML, CSS y JS
+propios**; el shell compartido no impone layout.
+
+**Entregado (10 módulos):** C01 Inicio, C02 Mapa, C03 Buscar, C04 Tienda,
+C05 Producto, C06 Carrito, C07 Checkout, C08 Pedido, C13 Cuenta y C14 Ayuda.
+C09 Mis pedidos, C10 Favoritos, C11 Direcciones y C12 Reseñas quedan como
+`pronto` en el menú (se pintan como `<span>`, no como enlace): no hay 404.
+
+| Pieza | Dónde |
+|---|---|
+| Shell, piezas comunes y regla `[hidden]` | `web/panel/comun/shell.css` |
+| Cliente HTTP con base absoluta, caché y reintento GET | `web/panel/comun/api.js` |
+| Sesión PWA + `recuperar()` / `recuperarCodigo()` | `web/panel/comun/sesion.js` |
+| Carrito compartido con la PWA y `aplicarCatalogo()` | `web/panel/comun/carrito.js` |
+| Catálogo, pedidos e formato | `web/panel/comun/{catalogo,pedidos,formato}.js` |
+| Navegación de ambos paneles | `web/panel/comun/nav-cliente.js`, `nav-negocio.js` |
+| Términos de uso | `web/terminos.html` + `web/terminos.css` |
+| Redirecciones del panel | `web/panel/index.html`, `web/panel/cliente/index.html`, `web/vercel.json` |
+| Suite del panel (19.ª) | `tests/web/panel.js` |
+
+**Decisiones**
+
+- La API del panel usa **base absoluta** `https://fabri-api.vercel.app`. Una
+  ruta `/api` relativa pega en el proyecto de la web y falla sin decir por qué.
+- El carrito y la sesión reutilizan las claves de la PWA
+  (`fcore.placer.carrito`, `fcore.nube`, `fcore.dispositivo`,
+  `fcore.placer.pedidos`): lo armado en el panel se termina en la app.
+- Cada módulo importa `../../comun/...`. Con `../comun/` el navegador no
+  resuelve el módulo y la página queda en skeleton, sin error visible.
+- Lo que el endpoint no expone (edición de perfil, dispositivos, sincronización
+  entre equipos) se muestra como no disponible. No se inventan endpoints ni
+  estados, ni se promete sincronización en el login.
+- El checkout replica el contrato real de `pedido_crear`: idempotencia,
+  revalidación de precios/stock y mapeo de cada rechazo del servidor.
+
+**Fallos reales encontrados al revisar capturas** (corregidos, con prueba):
+
+- Imports con un `../` de más en los 10 módulos → todas las páginas en skeleton.
+- `[hidden]` no ocultaba `.ds-btn` (el componente declara `display:inline-flex`):
+  el contador «0» del carrito y «Actualizar precios» se veían igual.
+- `.exito` vivía sólo en `checkout.css` y pedido lo usaba → icono de 520 px.
+  Ahora es pieza compartida en `shell.css`.
+- `.migas` vivía sólo en `producto.css` y tienda lo usaba → ruta sin estilo.
+- En el mapa, nombre y meta eran `<span>` en línea: la elipsis no aplicaba y la
+  píldora tapaba el nombre; la meta además arrancaba con «·» sin rubro.
+- El checkout mostraba «Falta $8.160» antes de escribir el monto, como si
+  fuera un error del comprador. Ahora el recuadro aparece al escribir.
+- En móvil el resumen iba primero y dejaba «Confirmar pedido» **antes** del
+  formulario; ahora el formulario va primero.
+- El héroe de Inicio prometía «3 km a la redonda» aunque la tienda más cercana
+  estuviera a 108 km. Ahora muestra la distancia real («107,9 km · la más
+  cercana») o el radio sólo si hay tiendas dentro.
+
+**Verificación**: las 19 suites de `tests/web/` pasan (`node tests/web/<archivo>.js`).
+`panel.js` cubre estructura de los 10 módulos, rutas y assets, imports
+relativos, API absoluta, carrito/sesión compatibles, checkout, seguimiento,
+mapa, ayuda, términos, redirecciones y que ningún módulo dependa del CSS de
+otro. Deploy de producción `dpl_87hzsedyh…`; `/panel/` y `/panel/cliente/`
+responden **307** al inicio y los 10 módulos, `/terminos.html` y los assets
+responden **200**.
+
+**Pendiente**: C09–C12 del Cliente y luego el panel Negocio (N01–N17). El
+canje real de un código de recuperación sigue sin probarse de punta a punta:
+el correo de prueba no está registrado en `core_usuarios`.
+
 ## Sesión 2026-11-18 · Login real con InsForge y recuperación por código
 
 Pedido: que el login deje de vivir solo en el SQLite del navegador y pase a

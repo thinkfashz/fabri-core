@@ -98,5 +98,13 @@
         }
       ]
     }
+  ],
+  "redirects": [
+    { "source": "/panel", "destination": "/panel/cliente/inicio/", "permanent": false },
+    { "source": "/panel/", "destination": "/panel/cliente/inicio/", "permanent": false },
+    { "source": "/panel/index.html", "destination": "/panel/cliente/inicio/", "permanent": false },
+    { "source": "/panel/cliente", "destination": "/panel/cliente/inicio/", "permanent": false },
+    { "source": "/panel/cliente/", "destination": "/panel/cliente/inicio/", "permanent": false },
+    { "source": "/panel/cliente/index.html", "destination": "/panel/cliente/inicio/", "permanent": false }
   ]
 }
