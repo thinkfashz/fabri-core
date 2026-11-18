@@ -6,7 +6,70 @@
 > `cl.fabrick.core`, crate `fabrick-core`, dominio `forge-core-stock.vercel.app`,
 > repo `thinkfashz/fabri-core`.
 
-Última actualización: 2026-11-17
+Última actualización: 2026-11-18
+
+## Sesión 2026-11-18 · Login real con InsForge y recuperación por código
+
+Pedido: que el login deje de vivir solo en el SQLite del navegador y pase a
+InsForge Auth, sin romper `/app/`, `forge-core-stock.vercel.app` ni las 27
+acciones de `mercado.ts`; y que quien olvide su contraseña pueda recuperarla con
+un código de 6 dígitos al correo.
+
+**Decisión: patrón BFF.** InsForge valida la contraseña; `fabri-api` sigue
+emitiendo la sesión de 30 días contra `core_sesiones`. El JWT de InsForge no
+entra a la app porque todas las acciones de `mercado.ts` autorizan contra
+`core_sesiones` y `mercado_locales.dueno_id` es FK a `core_usuarios.id`
+(BIGSERIAL). Migración **perezosa**: cada cuenta pasa a InsForge en su primer
+login; ni reset masivo ni correos.
+
+| Pieza | Dónde |
+|---|---|
+| Proyecto `Fabricore` + política (`requireEmailVerification:false`, `resetPasswordMethod:"code"`) | InsForge Cloud, `b9c9206a-…-b8cec3774e90` |
+| Helper HTTP (registro, login, listar, borrar, reset) | `api-telefono/api/_auth_insforge.js` |
+| Hooks externos, `abrirSesion`, compensación de huérfano en 23505 | `api-telefono/api/_auth.js` |
+| Columnas `insforge_id`/`auth_origen`/`migrado_ts`, `crearPuente`, `recuperar`, `recuperar_codigo` | `api-telefono/api/auth.ts` |
+| `CoreAuth.recuperar` / `recuperarCodigo` | `web/app/core-sec.js` |
+| Botón «Olvidé mi contraseña» y flujo de dos pasos | `web/app/core-pro.js` |
+| Plan, contrato verificado y fases | `docs/AUTH-INSFORGE-MIGRACION.md` |
+| Especificación de los 31 módulos de los paneles | `docs/PANELES-MODULOS.md` |
+
+**Interruptor `AUTH_MODO`**: `legacy` → `dual` → `insforge`. Cualquier valor
+raro cae en `legacy` (el código nuevo nunca se activa por un typo). Producción
+quedó en **`dual`**: InsForge manda, el hash PBKDF2 respalda si la nube no
+responde. Rollback = `AUTH_MODO=legacy` y redesplegar.
+
+**Recuperación**: `recuperar` → `send-reset-password` (202 genérico, anti
+enumeración) → `recuperar_codigo` → `exchange-reset-password-token` → `reset-password`
+con `{ otp, newPassword }`. Después se guarda el PBKDF2 nuevo, se revocan
+**todas** las sesiones anteriores y se emite una nueva. Las cuentas legacy se
+crean en InsForge con una clave aleatoria de 32 bytes para poder mandarles el
+código.
+
+**`pass_hash` se conserva también en cuentas InsForge** (cambio sobre el plan
+original): es lo que hace que el rollback a `legacy` no deje a nadie afuera.
+
+**Hallazgos**:
+
+- **InsForge Cloud pausa el proyecto por inactividad.** Medido:
+  `paused_reason:"inactivity"`; durante la pausa todo responde 503 y Postgres
+  cierra el SSL. Se restaura con `POST /projects/v1/{id}/restore` (~2 min). Por
+  eso `dual` es el modo estable y los crons 2/día no sirven de keepalive.
+- `INSFORGE_DATABASE_URL` es `[SENSITIVE]` en Vercel y la API de metadatos
+  devuelve la contraseña enmascarada (`********`): la integración se prueba
+  contra el deploy, no desde el teléfono.
+- El registro de InsForge devuelve **200** (no 201) y el duplicado **409**
+  `AUTH_EMAIL_EXISTS`; código de reset inválido **400** `INVALID_INPUT`.
+- `_auth_insforge.js` empieza con `_`: no cuenta como función. Se sigue en 12.
+
+**Pruebas**: 19 escenarios unitarios de `_auth.js` con repo en memoria (todos
+ok) y verificación real contra producción: registro legacy → sesión → login →
+401 → token válido en `mercado.local_mio` → sesión rechazada desde otro
+dispositivo → borrar; y en `dual`: cuenta legacy migra en el primer login
+(aparece en `auth.users`), segundo login por InsForge, registro nuevo nace
+vinculado, borrado desaparece de ambos lados.
+
+**Pendiente**: canjear un código real de 6 dígitos (requiere el correo del
+dueño) y construir los paneles Cliente y Negocio de `docs/PANELES-MODULOS.md`.
 
 ## Sesión 2026-11-17 · Marketplace Fase 4: búsqueda global de productos
 
