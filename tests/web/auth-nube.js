@@ -97,6 +97,47 @@ function repoMemoria() {
       const i = usuarios.findIndex((x) => String(x.id) === String(id));
       if (i >= 0) usuarios.splice(i, 1);
     },
+    /* Puente con InsForge (columnas nuevas de core_usuarios). */
+    async vincularInsforge(id, insforgeId, origen) {
+      const u = usuarios.find((x) => String(x.id) === String(id));
+      if (u) { u.insforge_id = insforgeId; u.auth_origen = origen || 'insforge'; u.migrado_ts = Date.now(); }
+    },
+    async guardarClave(id, hash, salt, iter) {
+      const u = usuarios.find((x) => String(x.id) === String(id));
+      if (u) { u.pass_hash = hash; u.pass_salt = salt; u.iter = iter; u.intentos = 0; u.bloqueado_hasta = null; }
+    },
+    async revocarSesionesDe(id) {
+      for (const s of sesiones) if (String(s.usuario_id) === String(id)) s.revocada = true;
+    },
+  };
+}
+
+/* Externo falso: el mismo contrato que `crearPuente()` de auth.ts. */
+function externoFalso(opciones, repo) {
+  const o = opciones || {};
+  const llamadas = [];
+  return {
+    llamadas,
+    async verificar(u, pass) {
+      llamadas.push(['verificar', u.email]);
+      return o.veredicto || 'salta';
+    },
+    async sincronizar(u, pass) {
+      llamadas.push(['sincronizar', u.email]);
+      if (o.sincronizar) return o.sincronizar(u, pass);
+      if (!u.insforge_id || u.auth_origen !== 'insforge') {
+        await repo.vincularInsforge(u.id, 'if-' + u.id, 'insforge');
+      }
+    },
+    async crear(cuenta) {
+      llamadas.push(['crear', cuenta.email]);
+      if (o.crear) return o.crear(cuenta);
+      return { ok: true, id: 'if-nuevo' };
+    },
+    async borrar(u) {
+      llamadas.push(['borrar', u.email]);
+      return { ok: true };
+    },
   };
 }
 
@@ -263,6 +304,121 @@ async function probarNucleo() {
   igual('la promoción queda guardada en la base', repoProm.usuarios[1].rol, 'owner');
   igual('la sesión nueva también ve owner',
     (await svcProm2.sesion({}, entra.body.token)).body.usuario.rol, 'owner');
+
+  /* ── Puente con InsForge (AUTH_MODO + hooks externos) ─────────────────── */
+
+  console.log('\n▸ núcleo · puente con InsForge');
+
+  // Sin `externo` nada cambia: el modo legacy queda igual que siempre.
+  {
+    const repoL = repoMemoria();
+    const svcL = crearServicio(repoL, { ahora: () => reloj, modo: 'legacy' });
+    const alta = await svcL.registrar({ email: 'legacy@local.cl', pass: 'clave-segura-1', acepta_terminos: true });
+    igual('legacy registra sin tocar la nube', alta.status, 201);
+    igual('legacy deja auth_origen legacy', repoL.usuarios[0].auth_origen, 'legacy');
+  }
+
+  // Registro con puente: nace vinculado y no se verifica al registrar.
+  {
+    const repoD = repoMemoria();
+    const ext = externoFalso({}, repoD);
+    const svcD = crearServicio(repoD, { ahora: () => reloj, modo: 'dual', externo: ext });
+    const alta = await svcD.registrar({ email: 'nueva@local.cl', pass: 'clave-segura-1', acepta_terminos: true });
+    igual('dual registra en la nube', alta.status, 201);
+    igual('la cuenta nace vinculada', repoD.usuarios[0].insforge_id, 'if-nuevo');
+    igual('y con origen insforge', repoD.usuarios[0].auth_origen, 'insforge');
+    ok('registrar no pregunta por la contraseña', !ext.llamadas.some((l) => l[0] === 'verificar'));
+  }
+
+  // Duplicado en la nube: se responde 409 y no se crea fila local.
+  {
+    const repoD = repoMemoria();
+    const ext = externoFalso({ crear: async () => ({ ok: false, codigo: 'YA_EXISTE' }) }, repoD);
+    const svcD = crearServicio(repoD, { ahora: () => reloj, modo: 'dual', externo: ext });
+    const alta = await svcD.registrar({ email: 'repe@local.cl', pass: 'clave-segura-1', acepta_terminos: true });
+    igual('cuenta que ya existe en InsForge → 409', alta.status, 409);
+    igual('no se crea la fila local', repoD.usuarios.length, 0);
+  }
+
+  // Nube caída al registrar en dual: la cuenta sigue naciendo en local.
+  {
+    const repoD = repoMemoria();
+    const ext = externoFalso({ crear: async () => ({ ok: false, codigo: 'NUBE' }) }, repoD);
+    const svcD = crearServicio(repoD, { ahora: () => reloj, modo: 'dual', externo: ext });
+    const alta = await svcD.registrar({ email: 'sin-nube@local.cl', pass: 'clave-segura-1', acepta_terminos: true });
+    igual('dual con InsForge caído registra igual', alta.status, 201);
+    igual('queda para migrar', repoD.usuarios[0].auth_origen, 'legacy');
+    // ... y en `insforge` el mismo fallo es honesto.
+    const repoD2 = repoMemoria();
+    const ext2 = externoFalso({ crear: async () => ({ ok: false, codigo: 'NUBE' }) }, repoD2);
+    const svcD2 = crearServicio(repoD2, { ahora: () => reloj, modo: 'insforge', externo: ext2 });
+    igual('insforge con la nube caída → 503',
+      (await svcD2.registrar({ email: 'sin-nube@local.cl', pass: 'clave-segura-1', acepta_terminos: true })).status, 503);
+  }
+
+  // Primer login de una cuenta legacy: migra sin que el usuario note nada.
+  {
+    const repoM = repoMemoria();
+    const svcL = crearServicio(repoM, { ahora: () => reloj });
+    await svcL.registrar({ email: 'migra@local.cl', pass: 'clave-segura-1', acepta_terminos: true });
+    const ext = externoFalso({}, repoM);
+    const svcM = crearServicio(repoM, { ahora: () => reloj, modo: 'dual', externo: ext });
+    const entra = await svcM.entrar({ email: 'migra@local.cl', pass: 'clave-segura-1', dispositivo: 'a'.repeat(32) });
+    igual('la cuenta legacy entra y migra', entra.status, 200);
+    igual('queda vinculada en el primer login', repoM.usuarios[0].insforge_id, 'if-1');
+    igual('y marcada como insforge', repoM.usuarios[0].auth_origen, 'insforge');
+  }
+
+  // Cuenta migrada: InsForge manda aunque el hash local diga que sí.
+  {
+    const repoM = repoMemoria();
+    const svcL = crearServicio(repoM, { ahora: () => reloj });
+    await svcL.registrar({ email: 'manda@local.cl', pass: 'clave-segura-1', acepta_terminos: true });
+    repoM.usuarios[0].insforge_id = 'if-9';
+    repoM.usuarios[0].auth_origen = 'insforge';
+    const ext = externoFalso({ veredicto: 'clave' }, repoM);
+    const svcM = crearServicio(repoM, { ahora: () => reloj, modo: 'dual', externo: ext });
+    igual('InsForge dice «no» y el hash local no rescata',
+      (await svcM.entrar({ email: 'manda@local.cl', pass: 'clave-segura-1', dispositivo: 'b'.repeat(32) })).status, 401);
+    // Nube caída en dual: el respaldo deja entrar.
+    const extCaido = externoFalso({ veredicto: 'nube' }, repoM);
+    const svcC = crearServicio(repoM, { ahora: () => reloj, modo: 'dual', externo: extCaido });
+    igual('en dual, nube caída → respaldo PBKDF2',
+      (await svcC.entrar({ email: 'manda@local.cl', pass: 'clave-segura-1', dispositivo: 'c'.repeat(32) })).status, 200);
+    // En insforge, el mismo fallo es un 503 explícito.
+    const svcI = crearServicio(repoM, { ahora: () => reloj, modo: 'insforge', externo: extCaido });
+    igual('en insforge, nube caída → 503',
+      (await svcI.entrar({ email: 'manda@local.cl', pass: 'clave-segura-1', dispositivo: 'd'.repeat(32) })).body.codigo, 'NUBE');
+  }
+
+  // abrirSesion: la usa el canje del código de recuperación.
+  {
+    const repoA = repoMemoria();
+    const svcA = crearServicio(repoA, { ahora: () => reloj });
+    await svcA.registrar({ email: 'reset@local.cl', pass: 'clave-segura-1', acepta_terminos: true });
+    const u = await repoA.buscarPorEmail('reset@local.cl');
+    const abre = await svcA.abrirSesion({ accion: 'recuperar_codigo', dispositivo: 'e'.repeat(32) }, u);
+    igual('abrirSesion emite 200', abre.status, 200);
+    igual('el token abre una sesión válida',
+      (await svcA.sesion({ dispositivo: 'e'.repeat(32) }, abre.body.token)).status, 200);
+    igual('la acción queda registrada', abre.body.accion, 'recuperar_codigo');
+    ok('sin contraseña no se puede abrir sesión de un correo ajeno',
+      (await svcA.abrirSesion({ email: 'nadie@local.cl', dispositivo: 'f'.repeat(32) })).status === 401);
+  }
+
+  // Borrar: primero la nube, después la fila local.
+  {
+    const repoB = repoMemoria();
+    const ext = externoFalso({}, repoB);
+    const svcB = crearServicio(repoB, { ahora: () => reloj, modo: 'dual', externo: ext });
+    await svcB.registrar({ email: 'borra@local.cl', pass: 'clave-segura-1', acepta_terminos: true });
+    const del = await svcB.borrar({ email: 'borra@local.cl', pass: 'clave-segura-1' });
+    igual('borrar con puente → 200', del.status, 200);
+    ok('se llamó al borrado de la nube', ext.llamadas.some((l) => l[0] === 'borrar'));
+    igual('la fila local también se fue', repoB.usuarios.length, 0);
+    igual('la contraseña mala no borra nada',
+      (await svcB.borrar({ email: 'nadie@local.cl', pass: 'x' })).status, 401);
+  }
 }
 
 /* ── B · cliente real con SQLite ─────────────────────────────────────────── */

@@ -282,7 +282,7 @@ ok('la animación de espera respeta movimiento reducido',
 ok('el icono de la cabecera se dimensiona dentro de su caja',
   /\.mp-hoja-ico > svg \{ width: 22px; height: 22px;/.test(placerCss));
 ok('el service worker subió de versión para limpiar la caché',
-  /fcore-v97/.test(sw));
+  /fcore-v98/.test(sw));
 
 console.log(fallos
   ? '\n\x1b[1;31m✖ ' + fallos + ' fallo(s) de ' + pasos + '\x1b[0m\n'
