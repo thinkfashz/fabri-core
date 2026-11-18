@@ -188,12 +188,27 @@ function publico(u) {
  *   invitar     código opcional; si está, el registro lo exige
  *   maxCuentas  tope duro de cuentas (por defecto MAX_CUENTAS)
  *   rootEmail   correo que SIEMPRE tiene rol `owner` (CORE_ROOT_EMAIL)
+ *   modo        'legacy' | 'dual' | 'insforge' (interruptor AUTH_MODO)
+ *   externo     verificador opcional de la contraseña (InsForge). Contrato:
+ *                 verificar(u, pass) → 'ok' | 'clave' | 'salta' | 'nube'
+ *                   ok    = la contraseña es correcta
+ *                   clave = es incorrecta y la fuente externa manda
+ *                   salta = esa fuente no puede decidir; manda PBKDF2
+ *                   nube  = no se pudo comprobar (caída/timeout)
+ *                 sincronizar(u, pass) → deja la fuente externa alineada
+ *                   (crea la cuenta si falta) tras un PBKDF2 correcto
+ *                 crear({email, pass, nombre}) → { ok, id } | { ok:false, codigo }
+ *                 borrar(u) → { ok }
+ *               Este archivo no sabe qué hay detrás: puede ser InsForge, otra
+ *               API o nada. Sin `externo` todo funciona como siempre.
  */
 function crearServicio(repo, opciones = {}) {
   const ahora = typeof opciones.ahora === 'function' ? opciones.ahora : () => Date.now();
   const invitar = String(opciones.invitar ?? '').trim();
   const maxCuentas = Number(opciones.maxCuentas) > 0 ? Number(opciones.maxCuentas) : MAX_CUENTAS;
   const rootEmail = normalizarEmail(opciones.rootEmail);
+  const modo = opciones.modo === 'insforge' || opciones.modo === 'dual' ? opciones.modo : 'legacy';
+  const externo = opciones.externo && typeof opciones.externo === 'object' ? opciones.externo : null;
 
   const mal = (status, codigo, error) => ({ status, body: { ok: false, codigo, error } });
 
@@ -248,6 +263,23 @@ function crearServicio(repo, opciones = {}) {
     return null;
   }
 
+  /** Pregunta al verificador externo (si hay). Nunca lanza. */
+  async function revisarExterno(u, pass) {
+    if (!externo || typeof externo.verificar !== 'function') return 'salta';
+    try {
+      const v = await externo.verificar(u, pass);
+      return v === 'ok' || v === 'clave' || v === 'nube' ? v : 'salta';
+    } catch (_) {
+      return 'nube';
+    }
+  }
+
+  /** Deja la fuente externa alineada con una contraseña ya verificada. */
+  async function sincronizarExterno(u, pass) {
+    if (!externo || typeof externo.sincronizar !== 'function') return;
+    try { await externo.sincronizar(u, pass); } catch (_) { /* no crítico */ }
+  }
+
   return {
     async registrar(cuerpo = {}) {
       const email = normalizarEmail(cuerpo.email);
@@ -278,15 +310,42 @@ function crearServicio(repo, opciones = {}) {
       // CORE_ROOT_EMAIL. El rol no da permisos sobre los locales: eso se
       // resuelve por `dueno_id`.
       const rol = total === 0 || (rootEmail && email === rootEmail) ? 'owner' : 'member';
+
+      // Alta en la fuente externa (InsForge). Si falla por regla, se responde
+      // sin crear nada; si falla la red y estamos en `dual`, la cuenta sigue
+      // en local y se migra en el primer login.
+      let externoId = '';
+      if (externo && typeof externo.crear === 'function') {
+        const r = await externo.crear({ email, pass: String(cuerpo.pass ?? ''), nombre });
+        if (r && r.ok) {
+          externoId = String(r.id || '');
+        } else if (r && r.codigo === 'YA_EXISTE') {
+          return mal(409, 'YA_EXISTE', 'Ese correo ya tiene cuenta en la nube: entra con tu contraseña');
+        } else if (r && (r.codigo === 'DATOS' || r.codigo === 'CLAVE')) {
+          return mal(400, 'CLAVE_CORTA', 'La nube rechazó la contraseña: usa al menos 8 caracteres sin datos obvios');
+        } else if (r && r.codigo === 'LIMITE') {
+          return mal(429, 'LIMITE', 'Demasiados registros seguidos: espera un momento');
+        } else if (modo === 'insforge') {
+          return mal(503, 'NUBE', 'La nube de cuentas no responde: intenta en un minuto');
+        }
+      }
+
       let usuario;
       try {
         usuario = await repo.crearUsuario({
           email, nombre, pass_hash: hash, pass_salt: salt, iter: ITER, rol,
+          insforge_id: externoId,
+          auth_origen: externoId ? 'insforge' : 'legacy',
         });
       } catch (e) {
         // Carrera entre dos registros del mismo correo: el UNIQUE de Postgres
         // gana y se responde igual que si se hubiera detectado antes.
         if (String(e && e.code) === '23505') {
+          // Si alcanzamos a crear la cuenta externa, se deshace para no
+          // dejar un usuario huérfano sin fila local.
+          if (externoId && externo && typeof externo.borrar === 'function') {
+            try { await externo.borrar({ insforge_id: externoId }); } catch (_) { /* nada */ }
+          }
           return mal(409, 'YA_EXISTE', 'Ese correo ya tiene cuenta en la nube: entra con tu contraseña');
         }
         throw e;
@@ -320,8 +379,19 @@ function crearServicio(repo, opciones = {}) {
         return mal(429, 'BLOQUEADO', `Demasiados intentos: vuelve a probar en ${Math.ceil(faltan / 60)} minuto(s)`);
       }
 
-      const calc = await hashPass(pass, u.pass_salt, u.iter || ITER);
-      if (!iguales(calc, u.pass_hash)) {
+      // La fuente externa decide primero cuando conoce la cuenta. En `dual`
+      // un fallo de red NO deja a nadie afuera: se responde con el hash local.
+      const veredicto = await revisarExterno(u, pass);
+      if (veredicto === 'nube' && modo === 'insforge') {
+        return mal(503, 'NUBE', 'La nube de cuentas no responde: intenta en un minuto');
+      }
+
+      let valida = veredicto === 'ok';
+      if (!valida && veredicto !== 'clave') {
+        const calc = await hashPass(pass, u.pass_salt, u.iter || ITER);
+        valida = iguales(calc, u.pass_hash);
+      }
+      if (!valida) {
         const intentos = (Number(u.intentos) || 0) + 1;
         const bloquear = intentos >= MAX_INTENTOS;
         await repo.guardarIntento(u.id, {
@@ -346,6 +416,10 @@ function crearServicio(repo, opciones = {}) {
         if (typeof repo.guardarRol === 'function') await repo.guardarRol(u.id, 'owner');
         u.rol = rol;
       }
+      // Primer login de una cuenta legacy: se crea en la fuente externa con
+      // la misma contraseña que el usuario acaba de escribir. Si ya estaba,
+      // se alinea la clave. Nunca bloquea la entrada.
+      await sincronizarExterno(u, pass);
       const s = await sesionNueva(u, cuerpo.dispositivo, cuerpo.dispositivo_etiqueta);
       return {
         status: 200,
@@ -425,10 +499,59 @@ function crearServicio(repo, opciones = {}) {
         await gastarTiempo(pass);
         return mal(401, 'CREDENCIALES', 'Correo o contraseña incorrectos');
       }
-      const calc = await hashPass(pass, u.pass_salt, u.iter || ITER);
-      if (!iguales(calc, u.pass_hash)) return mal(401, 'CREDENCIALES', 'Correo o contraseña incorrectos');
+      const veredicto = await revisarExterno(u, pass);
+      let valida = veredicto === 'ok';
+      if (!valida && veredicto !== 'clave') {
+        const calc = await hashPass(pass, u.pass_salt, u.iter || ITER);
+        valida = iguales(calc, u.pass_hash);
+      }
+      if (!valida) return mal(401, 'CREDENCIALES', 'Correo o contraseña incorrectos');
+      // Primero la fuente externa: si queda viva y la fila local se va, la
+      // cuenta seguiría existiendo y podría volver a entrar por la nube.
+      if (externo && typeof externo.borrar === 'function' && u.insforge_id) {
+        const r = await externo.borrar(u);
+        if (!r || !r.ok) {
+          if (modo === 'insforge') {
+            return mal(503, 'NUBE', 'No pudimos borrar la cuenta en la nube: intenta en un minuto');
+          }
+        }
+      }
       await repo.borrarUsuario(u.id);
       return { status: 200, body: { ok: true, accion: 'borrar', borrado: u.email } };
+    },
+
+    /**
+     * Abre una sesión para un usuario YA autenticado por un verificador
+     * externo (insforge) o por un código de recuperación. No vuelve a
+     * comprobar la contraseña: eso ya pasó. Reutiliza el mismo camino de
+     * `core_sesiones` (token de 256 bits + huella del dispositivo).
+     */
+    async abrirSesion(cuerpo = {}, usuario = null) {
+      const u = usuario || await repo.buscarPorEmail(normalizarEmail(cuerpo.email));
+      if (!u) return mal(401, 'CREDENCIALES', 'Correo o contraseña incorrectos');
+      const bloqueo = Number(u.bloqueado_hasta) || 0;
+      if (bloqueo > ahora()) {
+        const faltan = Math.ceil((bloqueo - ahora()) / 1000);
+        return mal(429, 'BLOQUEADO', `Demasiados intentos: vuelve a probar en ${Math.ceil(faltan / 60)} minuto(s)`);
+      }
+      let rol = u.rol;
+      if (rootEmail && u.email === rootEmail && rol !== 'owner') {
+        rol = 'owner';
+        if (typeof repo.guardarRol === 'function') await repo.guardarRol(u.id, 'owner');
+        u.rol = rol;
+      }
+      await repo.guardarIntento(u.id, {
+        intentos: 0, bloqueado_hasta: null, ultimo_login: ahora(),
+      });
+      const s = await sesionNueva(u, cuerpo.dispositivo, cuerpo.dispositivo_etiqueta);
+      return {
+        status: 200,
+        body: {
+          ok: true, accion: String(cuerpo.accion || 'entrar'), nube: 'insforge',
+          usuario: publico(u),
+          token: s.token, expira: s.expira,
+        },
+      };
     },
   };
 }

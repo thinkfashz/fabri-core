@@ -35,13 +35,23 @@
 
 import type { IncomingMessage, ServerResponse } from 'http';
 // @ts-ignore: `_auth.js` es JavaScript puro, sin declaraciones de tipos.
-import { crearServicio, MAX_CUENTAS, TERMINOS_VERSION } from './_auth.js';
+import {
+  crearServicio, MAX_CUENTAS, TERMINOS_VERSION,
+  normalizarEmail, normalizarNombre, validarPass, hashPass, nuevoSalt, ITER,
+} from './_auth.js';
+// @ts-ignore: helper HTTP de InsForge, sin tipos (JavaScript puro).
+import * as insforge from './_auth_insforge.js';
 
 export const config = { api: { bodyParser: false } };
 
 const T_USUARIOS = 'core_usuarios';
 const T_SESIONES = 'core_sesiones';
 const T_LATIDO = 'core_latido';
+
+const ACCIONES = [
+  'asegurar', 'registrar', 'entrar', 'sesion', 'salir', 'aceptar_terminos',
+  'usuarios', 'borrar', 'recuperar', 'recuperar_codigo',
+];
 
 /* ── plomería http ──────────────────────────────────────────────────────── */
 
@@ -158,6 +168,13 @@ async function asegurar(pool: any) {
   // y a la huella del dispositivo). ADD COLUMN IF NOT EXISTS es idempotente.
   await pool.query(`ALTER TABLE ${T_USUARIOS} ADD COLUMN IF NOT EXISTS terminos_version TEXT NOT NULL DEFAULT ''`);
   await pool.query(`ALTER TABLE ${T_USUARIOS} ADD COLUMN IF NOT EXISTS terminos_ts TIMESTAMPTZ`);
+  // InsForge Auth (18-11-2026). `insforge_id` es el UUID de auth.users; la
+  // contraseña local se conserva como respaldo para poder volver a `legacy`
+  // sin dejar a nadie afuera.
+  await pool.query(`ALTER TABLE ${T_USUARIOS} ADD COLUMN IF NOT EXISTS insforge_id TEXT NOT NULL DEFAULT ''`);
+  await pool.query(`ALTER TABLE ${T_USUARIOS} ADD COLUMN IF NOT EXISTS auth_origen TEXT NOT NULL DEFAULT 'legacy'`);
+  await pool.query(`ALTER TABLE ${T_USUARIOS} ADD COLUMN IF NOT EXISTS migrado_ts TIMESTAMPTZ`);
+  await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_core_usuarios_insforge ON ${T_USUARIOS} (insforge_id) WHERE insforge_id <> ''`);
   await pool.query(`ALTER TABLE ${T_SESIONES} ADD COLUMN IF NOT EXISTS dispositivo_hash TEXT NOT NULL DEFAULT ''`);
   // Las sesiones heredadas no tienen huella y no se pueden atar a un equipo:
   // se revocan una vez. Quien las tuviera vuelve a entrar (30 días de sesión
@@ -203,6 +220,8 @@ function crearRepo(pool: any) {
     async buscarPorEmail(email: string) {
       const r = await pool.query(
         `SELECT id, email, nombre, rol, pass_hash, pass_salt, iter,
+                insforge_id, auth_origen,
+                (EXTRACT(EPOCH FROM migrado_ts) * 1000)::bigint AS migrado_ts,
                 intentos,
                 (EXTRACT(EPOCH FROM bloqueado_hasta) * 1000)::bigint AS bloqueado_hasta,
                 (EXTRACT(EPOCH FROM ultimo_login) * 1000)::bigint AS ultimo_login,
@@ -214,6 +233,9 @@ function crearRepo(pool: any) {
       return {
         id: f.id, email: f.email, nombre: f.nombre, rol: f.rol,
         pass_hash: f.pass_hash, pass_salt: f.pass_salt, iter: Number(f.iter) || 120000,
+        insforge_id: f.insforge_id || '',
+        auth_origen: f.auth_origen || 'legacy',
+        migrado_ts: ms(f.migrado_ts),
         intentos: Number(f.intentos) || 0,
         bloqueado_hasta: ms(f.bloqueado_hasta),
         ultimo_login: ms(f.ultimo_login),
@@ -224,13 +246,38 @@ function crearRepo(pool: any) {
 
     async crearUsuario(u: any) {
       const r = await pool.query(
-        `INSERT INTO ${T_USUARIOS} (email, nombre, pass_hash, pass_salt, iter, rol)
-         VALUES ($1,$2,$3,$4,$5,$6)
-         RETURNING id, email, nombre, rol, terminos_version,
+        `INSERT INTO ${T_USUARIOS} (email, nombre, pass_hash, pass_salt, iter, rol, insforge_id, auth_origen, migrado_ts)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8, CASE WHEN $7::text = '' THEN NULL ELSE now() END)
+         RETURNING id, email, nombre, rol, insforge_id, auth_origen, terminos_version,
                    (EXTRACT(EPOCH FROM terminos_ts) * 1000)::bigint AS terminos_ts`,
-        [u.email, u.nombre, u.pass_hash, u.pass_salt, u.iter, u.rol]);
+        [u.email, u.nombre, u.pass_hash, u.pass_salt, u.iter, u.rol,
+         u.insforge_id || '', u.auth_origen || 'legacy']);
       const f = r.rows[0];
       return { ...f, terminos_ts: ms(f.terminos_ts) };
+    },
+
+    /** Vincula (o re-vincula) la fila local con su cuenta de InsForge. */
+    async vincularInsforge(id: unknown, insforgeId: string, origen = 'insforge') {
+      await pool.query(
+        `UPDATE ${T_USUARIOS}
+            SET insforge_id = $2, auth_origen = $3, migrado_ts = now()
+          WHERE id = $1`, [id, String(insforgeId || ''), origen]);
+    },
+
+    /** Fija la contraseña local (respaldo) y limpia bloqueo e intentos. */
+    async guardarClave(id: unknown, hash: string, salt: string, iter: number) {
+      await pool.query(
+        `UPDATE ${T_USUARIOS}
+            SET pass_hash = $2, pass_salt = $3, iter = $4,
+                intentos = 0, bloqueado_hasta = NULL
+          WHERE id = $1`, [id, hash, salt, iter]);
+    },
+
+    /** Tras un reset, todas las sesiones abiertas dejan de valer. */
+    async revocarSesionesDe(usuarioId: unknown) {
+      await pool.query(
+        `UPDATE ${T_SESIONES} SET revocada = true WHERE usuario_id = $1 AND revocada = false`,
+        [usuarioId]);
     },
 
     async guardarTerminos(id: unknown, version: string, tsMs: number) {
@@ -301,7 +348,7 @@ function crearRepo(pool: any) {
 
     async listarUsuarios() {
       const r = await pool.query(
-        `SELECT id, email, nombre, rol, terminos_version,
+        `SELECT id, email, nombre, rol, terminos_version, insforge_id, auth_origen,
                 (EXTRACT(EPOCH FROM creado) * 1000)::bigint AS creado,
                 (EXTRACT(EPOCH FROM ultimo_login) * 1000)::bigint AS ultimo_login,
                 (EXTRACT(EPOCH FROM terminos_ts) * 1000)::bigint AS terminos_ts
@@ -311,6 +358,8 @@ function crearRepo(pool: any) {
         creado: ms(f.creado), ultimo_login: ms(f.ultimo_login),
         terminos_version: f.terminos_version || '',
         terminos_ts: ms(f.terminos_ts),
+        auth_origen: f.auth_origen || 'legacy',
+        insforge: Boolean(f.insforge_id),
       }));
     },
 
@@ -318,6 +367,204 @@ function crearRepo(pool: any) {
       await pool.query(`DELETE FROM ${T_USUARIOS} WHERE id = $1`, [id]);
     },
   };
+}
+
+/* ── InsForge Auth (patrón BFF) ─────────────────────────────────────────── */
+
+/**
+ * Puente entre `core_usuarios` y `auth.users` de InsForge. InsForge decide la
+ * contraseña; la sesión de 30 días la sigue emitiendo `core_sesiones`.
+ *
+ * Devuelve `null` en modo `legacy` (o si faltan claves): así `_auth.js`
+ * trabaja exactamente como antes y el código nuevo queda inerte.
+ */
+function crearPuente(repo: any) {
+  const modo = insforge.modo();
+  if (modo === 'legacy' || !insforge.configurado()) return null;
+
+  return {
+    async verificar(u: any, pass: string) {
+      // Sólo una cuenta ya migrada puede dejar que InsForge diga "no".
+      if (!u || !u.insforge_id) return 'salta';
+      const r = await insforge.entrar({ email: u.email, password: pass });
+      if (r.ok) return 'ok';
+      if (r.codigo === 'CREDENCIALES') {
+        return u.auth_origen === 'insforge' ? 'clave' : 'salta';
+      }
+      return modo === 'insforge' ? 'nube' : 'salta';
+    },
+
+    async sincronizar(u: any, pass: string) {
+      if (!u) return;
+      if (u.insforge_id && u.auth_origen === 'insforge') return;
+      const nombre = String(u.nombre || '').trim().slice(0, 80) || undefined;
+      let r = await insforge.registrar({ email: u.email, password: pass, name: nombre });
+      if (!r.ok && r.codigo === 'YA_EXISTE') {
+        // Existe en InsForge con otra clave (la aleatoria de un reset que
+        // nunca se completó, por ejemplo). El usuario acaba de demostrar la
+        // suya contra el hash local: se recrea para que queden iguales.
+        const previo = u.insforge_id
+          ? { ok: true, usuario: { id: u.insforge_id } }
+          : await insforge.buscarPorEmail(u.email);
+        const idPrevio = previo && previo.ok && previo.usuario ? previo.usuario.id : '';
+        if (idPrevio) {
+          const del = await insforge.borrar(idPrevio);
+          if (del.ok) r = await insforge.registrar({ email: u.email, password: pass, name: nombre });
+        }
+      }
+      const id = r.ok ? (insforge.usuarioDe(r) || {}).id : '';
+      if (id) await repo.vincularInsforge(u.id, id, 'insforge');
+    },
+
+    async crear(cuenta: any) {
+      const r = await insforge.registrar({
+        email: cuenta.email, password: cuenta.pass, name: cuenta.nombre,
+      });
+      const u = r.ok ? insforge.usuarioDe(r) : null;
+      return { ok: Boolean(u && u.id), id: (u && u.id) || '', codigo: r.codigo, error: r.error };
+    },
+
+    async borrar(u: any) {
+      if (!u || !u.insforge_id) return { ok: true };
+      return insforge.borrar(u.insforge_id);
+    },
+  };
+}
+
+/**
+ * Códigos de recuperación por IP. Igual que el tope de registros: en
+ * serverless es "best effort", pero evita que un script haga que InsForge
+ * mande cien correos. InsForge tiene su propio límite detrás.
+ */
+const recuperacionesPorIp = new Map<string, { n: number; desde: number }>();
+const RECUPERACIONES_HORA = 5;
+
+function permitirRecuperacion(ip: string): boolean {
+  const ahora = Date.now();
+  const previo = recuperacionesPorIp.get(ip);
+  if (!previo || ahora - previo.desde > VENTANA_MS) {
+    recuperacionesPorIp.set(ip, { n: 1, desde: ahora });
+    return true;
+  }
+  if (previo.n >= RECUPERACIONES_HORA) return false;
+  previo.n += 1;
+  return true;
+}
+
+/**
+ * Paso 1: pedir el código. Responde lo mismo exista o no la cuenta (así no
+ * se puede usar para averiguar quién está registrado). Si la cuenta es
+ * legacy, primero se crea en InsForge con una clave aleatoria: sin eso
+ * InsForge no tiene a quién mandarle el código.
+ */
+async function accionRecuperar(repo: any, cuerpo: Record<string, unknown>, ip: string) {
+  const email = normalizarEmail(cuerpo.email);
+  if (!email) {
+    return { status: 400, body: { ok: false, codigo: 'CORREO', error: 'El correo no parece válido' } };
+  }
+  if (!insforge.configurado()) {
+    return { status: 503, body: { ok: false, codigo: 'SIN_NUBE', error: 'La recuperación no está disponible en este servidor' } };
+  }
+  if (!permitirRecuperacion(ip)) {
+    return { status: 429, body: { ok: false, codigo: 'LIMITE', error: 'Demasiados códigos pedidos: espera unos minutos' } };
+  }
+
+  const generico = {
+    ok: true, accion: 'recuperar', enviado: true,
+    mensaje: 'Si el correo tiene cuenta, te enviamos un código de 6 dígitos. Vence en 5 minutos.',
+  };
+
+  const u = await repo.buscarPorEmail(email);
+  if (u && !u.insforge_id) {
+    const r = await insforge.registrar({
+      email,
+      password: insforge.claveRandom(),
+      name: String(u.nombre || '').trim().slice(0, 80) || undefined,
+    });
+    const id = r.ok ? (insforge.usuarioDe(r) || {}).id : '';
+    if (id) await repo.vincularInsforge(u.id, id, 'legacy');
+  }
+
+  const envio = await insforge.solicitarReset(email);
+  if (!envio.ok) {
+    if (envio.codigo === 'LIMITE') {
+      return { status: 429, body: { ok: false, codigo: 'LIMITE', error: 'Demasiados pedidos seguidos: espera un minuto' } };
+    }
+    if (envio.codigo === 'NUBE' || envio.codigo === 'RED' || envio.codigo === 'TIEMPO') {
+      return { status: 503, body: { ok: false, codigo: 'NUBE', error: 'No pudimos enviar el código ahora: intenta en un minuto' } };
+    }
+  }
+  return { status: 200, body: generico };
+}
+
+/**
+ * Paso 2: canjear el código y fijar la contraseña nueva. Se actualiza la
+ * copia local (respaldo), se revocan TODAS las sesiones anteriores y se
+ * devuelve una sesión nueva, para que el usuario quede adentro.
+ */
+async function accionRecuperarCodigo(repo: any, servicio: any, cuerpo: Record<string, unknown>) {
+  const email = normalizarEmail(cuerpo.email);
+  const codigo = String(cuerpo.codigo ?? cuerpo.code ?? '').replace(/\D/g, '').slice(0, 6);
+  const pass = String(cuerpo.pass ?? '');
+  if (!email) {
+    return { status: 400, body: { ok: false, codigo: 'CORREO', error: 'El correo no parece válido' } };
+  }
+  if (!/^\d{6}$/.test(codigo)) {
+    return { status: 400, body: { ok: false, codigo: 'CODIGO', error: 'El código son 6 dígitos' } };
+  }
+  const falla = validarPass(pass);
+  if (falla) {
+    return { status: 400, body: { ok: false, codigo: 'CLAVE_CORTA', error: falla } };
+  }
+  if (!insforge.configurado()) {
+    return { status: 503, body: { ok: false, codigo: 'SIN_NUBE', error: 'La recuperación no está disponible en este servidor' } };
+  }
+
+  const canje = await insforge.canjearCodigo(email, codigo);
+  if (!canje.ok) {
+    if (canje.codigo === 'CODIGO' || canje.codigo === 'DATOS') {
+      return { status: 401, body: { ok: false, codigo: 'CODIGO', error: 'El código no sirve o venció: pide uno nuevo' } };
+    }
+    return { status: 503, body: { ok: false, codigo: 'NUBE', error: 'La nube no respondió: intenta en un minuto' } };
+  }
+  const pase = String((canje.datos && canje.datos.token) || '');
+  if (!pase) {
+    return { status: 503, body: { ok: false, codigo: 'NUBE', error: 'La nube no devolvió el pase de recuperación' } };
+  }
+
+  const reset = await insforge.resetConClave(pase, pass);
+  if (!reset.ok) {
+    if (reset.codigo === 'CODIGO' || reset.codigo === 'DATOS') {
+      return { status: 401, body: { ok: false, codigo: 'CODIGO', error: 'El código no sirve o venció: pide uno nuevo' } };
+    }
+    return { status: 503, body: { ok: false, codigo: 'NUBE', error: 'La nube no pudo cambiar la contraseña: intenta en un minuto' } };
+  }
+
+  // Confirmación real: el login con la clave nueva devuelve el UUID y prueba
+  // que InsForge quedó con la contraseña que el usuario escribió.
+  const login = await insforge.entrar({ email, password: pass });
+  const insId = login.ok ? (insforge.usuarioDe(login) || {}).id : '';
+
+  const salt = nuevoSalt();
+  const hash = await hashPass(pass, salt, ITER);
+  let u = await repo.buscarPorEmail(email);
+  if (u) {
+    await repo.guardarClave(u.id, hash, salt, ITER);
+    await repo.revocarSesionesDe(u.id);
+    if (insId) await repo.vincularInsforge(u.id, insId, 'insforge');
+    u = await repo.buscarPorEmail(email);
+  } else {
+    const total = await repo.contarUsuarios();
+    u = await repo.crearUsuario({
+      email,
+      nombre: normalizarNombre(cuerpo.nombre, email),
+      pass_hash: hash, pass_salt: salt, iter: ITER,
+      rol: total === 0 ? 'owner' : 'member',
+      insforge_id: insId,
+      auth_origen: insId ? 'insforge' : 'legacy',
+    });
+  }
+  return servicio.abrirSesion({ ...cuerpo, accion: 'recuperar_codigo' }, u);
 }
 
 /* ── latido diario (keep-alive) ─────────────────────────────────────────── */
@@ -482,11 +729,25 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         detalle = 'error de conexión: ' + (e?.message || String(e)).slice(0, 120);
       }
     }
+    // Diagnóstico de la política de auth de InsForge (sólo con ?diag=1).
+    let publicConfig: Record<string, unknown> | null = null;
+    if (url.searchParams.get('diag') === '1' && insforge.configurado()) {
+      const pc = await insforge.publicConfig();
+      publicConfig = pc.ok ? pc.datos : { error: pc.error };
+    }
     return json(res, {
       ok: true,
       servicio: 'fabri-api',
       endpoint: '/api/auth',
       nube: 'insforge',
+      auth: {
+        modo: insforge.modo(),
+        insforge_configurado: insforge.configurado(),
+        insforge_host: insforge.host(),
+        recuperacion: insforge.configurado(),
+        migracion_perezosa: true,
+      },
+      public_config: publicConfig,
       base_configurada: base,
       admin_configurado: Boolean(process.env.FABRI_API_TOKEN),
       invitacion: Boolean(String(process.env.CORE_INVITE || '').trim()),
@@ -497,7 +758,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       base_detalle: detalle,
       ultimo_latido: ultimoLatido,
       latido: '/api/latido',
-      acciones: ['asegurar', 'registrar', 'entrar', 'sesion', 'salir', 'aceptar_terminos', 'usuarios', 'borrar'],
+      acciones: ACCIONES,
     });
   }
 
@@ -544,10 +805,13 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       return json(res, { ok: true, accion, tablas: [T_USUARIOS, T_SESIONES] });
     }
 
-    const servicio = crearServicio(crearRepo(pool), {
+    const repo = crearRepo(pool);
+    const servicio = crearServicio(repo, {
       invitar: String(process.env.CORE_INVITE || '').trim(),
       maxCuentas: Number(process.env.CORE_MAX_CUENTAS) || MAX_CUENTAS,
       rootEmail: String(process.env.CORE_ROOT_EMAIL || '').trim(),
+      modo: insforge.modo(),
+      externo: crearPuente(repo),
     });
 
     const token = bearer(req);
@@ -560,10 +824,12 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       case 'salir': salida = await servicio.salir(cuerpo, token); break;
       case 'usuarios': salida = await servicio.usuarios(esAdmin(req)); break;
       case 'borrar': salida = await servicio.borrar(cuerpo); break;
+      case 'recuperar': salida = await accionRecuperar(repo, cuerpo, ipDe(req)); break;
+      case 'recuperar_codigo': salida = await accionRecuperarCodigo(repo, servicio, cuerpo); break;
       default:
         return json(res, {
           ok: false, error: 'acción desconocida', codigo: 'ACCION',
-          acciones: ['asegurar', 'registrar', 'entrar', 'sesion', 'salir', 'aceptar_terminos', 'usuarios', 'borrar'],
+          acciones: ACCIONES,
         }, 400);
     }
     return json(res, salida.body, salida.status);

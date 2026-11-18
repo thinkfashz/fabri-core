@@ -222,6 +222,48 @@
       throw new Error('Contraseña incorrecta');
     },
 
+    /**
+     * Recuperación, paso 1: pide un código de 6 dígitos al correo. La nube
+     * responde igual exista o no la cuenta (no se puede usar para averiguar
+     * quién está registrado). Nunca lanza: devuelve `{ ok, codigo, error }`.
+     */
+    async recuperar(email) {
+      const n = nube();
+      const e = String(email || '').trim().toLowerCase();
+      if (!n) return { ok: false, codigo: 'SIN_NUBE', error: 'esta versión no trae el módulo de nube' };
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) {
+        return { ok: false, codigo: 'CORREO', error: 'El correo no parece válido' };
+      }
+      return n.api('recuperar', { email: e });
+    },
+
+    /**
+     * Recuperación, paso 2: canjea el código por una contraseña nueva. Si
+     * sale bien deja la sesión abierta y espeja la cuenta en este equipo,
+     * igual que un login normal (para poder entrar sin red después).
+     */
+    async recuperarCodigo(email, codigo, pass) {
+      const n = nube();
+      const e = String(email || '').trim().toLowerCase();
+      const c = String(codigo || '').replace(/\D/g, '');
+      if (!n) return { ok: false, codigo: 'SIN_NUBE', error: 'esta versión no trae el módulo de nube' };
+      if (c.length !== 6) return { ok: false, codigo: 'CODIGO', error: 'El código son 6 dígitos' };
+      if (String(pass || '').length < 8) {
+        return { ok: false, codigo: 'CLAVE_CORTA', error: 'La contraseña necesita al menos 8 caracteres' };
+      }
+      const r = await n.api('recuperar_codigo', {
+        email: e, codigo: c, pass,
+        dispositivo: disp(), dispositivo_etiqueta: navegador(),
+      });
+      if (!r.ok) return r;
+      n.guardar(r);
+      const usuarioLocal = await this._espejo(
+        e, (r.usuario && r.usuario.nombre) || '', pass,
+        r.usuario && r.usuario.rol, true);
+      F().log('info', 'auth', 'contraseña recuperada por código: ' + e);
+      return Object.assign({}, r, { ok: true, usuarioLocal });
+    },
+
     /** Datos guardados de la sesión de nube (para la pantalla de cuenta). */
     nubeInfo() {
       const n = nube();

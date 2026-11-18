@@ -604,12 +604,13 @@
         <button class="btn primary" id="lgGo">${crear ? 'Crear cuenta' : 'Entrar'}</button>
         <button class="btn ghost block" id="lgCambio" type="button" style="margin-top:8px">${crear
           ? 'Ya tengo cuenta · entrar' : 'No tengo cuenta · crear una'}</button>
+        ${crear ? '' : '<button class="btn ghost block" id="lgOlvido" type="button" style="margin-top:8px">Olvidé mi contraseña</button>'}
         <div class="login-pie">
           <span>PBKDF2 120k</span>
           <span class="badge ${est.cls}" id="lgNubeBadge"${est.cls ? '' : ' style="color:#FF6B6B"'}>${esc(est.txt)}</span>
         </div>
         <p class="hint" style="margin-top:10px">La nube guarda el hash de la contraseña, nunca la contraseña.
-          Si la olvidas no hay recuperación automática: puedes crear otra cuenta o borrar los datos locales.</p>
+          Si la olvidas, pide un código de 6 dígitos a tu correo con «Olvidé mi contraseña».</p>
         <div class="login-libre">
           <span>¿Solo quieres ver la tienda?</span>
           <button class="btn ghost block" id="lgVisitar" type="button">Entrar al visor 3D sin cuenta</button>
@@ -630,6 +631,108 @@
     };
 
     let resolver = null;
+
+    /**
+     * Recuperación de contraseña con el flujo nativo de InsForge: código de
+     * 6 dígitos al correo, sin enlaces ni redirects. Dos pasos en la misma
+     * caja; al terminar la sesión queda abierta y la cuenta espejada acá.
+     */
+    const olvido = () => {
+      const correo0 = (($('#lgEmail') || {}).value || emailPrev || '').trim();
+      const marco = (titulo, cuerpo) => {
+        host.innerHTML = `
+        <div class="login-box">
+          <div class="login-head">
+            <div class="mark" aria-hidden="true"><img src="./icons/logo-f.svg" alt=""></div>
+            <b>FORGE CORE STOCK</b>
+          </div>
+          <h2>${titulo}</h2>
+          ${cuerpo}
+        </div>`;
+      };
+
+      const paso1 = (mensaje) => {
+        marco('Recuperar contraseña', `
+          <p class="hint">Te enviamos un código de 6 dígitos al correo. Vence en 5 minutos.</p>
+          <input id="rcEmail" class="field" placeholder="correo@dominio.cl" autocomplete="username" value="${esc(correo0)}">
+          <div id="rcErr" class="hint" style="color:var(--err);margin:0 0 8px;text-align:left">${esc(mensaje || '')}</div>
+          <button class="btn primary" id="rcEnviar" type="button">Enviar código</button>
+          <button class="btn ghost block" id="rcVolver" type="button" style="margin-top:8px">Volver al login</button>`);
+        const err = $('#rcErr');
+        const btn = $('#rcEnviar');
+        const enviar = async () => {
+          const email = ($('#rcEmail').value || '').trim();
+          err.textContent = '';
+          btn.disabled = true;
+          const texto = btn.textContent;
+          btn.textContent = 'Enviando…';
+          try {
+            const r = await window.CoreAuth.recuperar(email);
+            if (!r.ok) throw new Error(r.error || 'No pude pedir el código');
+            paso2(email, r.mensaje || '');
+          } catch (e) {
+            err.textContent = e.message;
+            btn.disabled = false;
+            btn.textContent = texto;
+          }
+        };
+        btn.onclick = enviar;
+        const campo = document.getElementById('rcEmail');
+        if (campo) campo.addEventListener('keydown', (e) => { if (e.key === 'Enter') enviar(); });
+        $('#rcVolver').onclick = () => { modo = 'entrar'; pintar(); };
+      };
+
+      const paso2 = (email, mensaje) => {
+        marco('Revisa tu correo', `
+          <p class="hint">${esc(mensaje || 'Si el correo tiene cuenta, el código ya salió.')}
+            Escríbelo junto a la contraseña nueva.</p>
+          <input id="rcCodigo" class="field" inputmode="numeric" maxlength="6" placeholder="código de 6 dígitos" autocomplete="one-time-code">
+          <input id="rcPass" class="field" type="password" placeholder="contraseña nueva (mínimo 8)" autocomplete="new-password">
+          <input id="rcPass2" class="field" type="password" placeholder="repite la contraseña nueva" autocomplete="new-password">
+          <div id="rcErr" class="hint" style="color:var(--err);margin:0 0 8px;text-align:left"></div>
+          <button class="btn primary" id="rcCambiar" type="button">Cambiar contraseña y entrar</button>
+          <button class="btn ghost block" id="rcOtra" type="button" style="margin-top:8px">Pedir otro código</button>
+          <button class="btn ghost block" id="rcVolver" type="button" style="margin-top:8px">Volver al login</button>`);
+        const err = $('#rcErr');
+        const btn = $('#rcCambiar');
+        const cambiar = async () => {
+          const codigo = ($('#rcCodigo').value || '').replace(/\D/g, '');
+          const pass = $('#rcPass').value;
+          err.textContent = '';
+          if (codigo.length !== 6) { err.textContent = 'El código son 6 dígitos'; return; }
+          if (pass.length < 8) { err.textContent = 'La contraseña necesita al menos 8 caracteres'; return; }
+          if (pass !== $('#rcPass2').value) { err.textContent = 'Las contraseñas no coinciden'; return; }
+          btn.disabled = true;
+          const texto = btn.textContent;
+          btn.textContent = 'Cambiando…';
+          try {
+            const r = await window.CoreAuth.recuperarCodigo(email, codigo, pass);
+            if (!r.ok) throw new Error(r.error || 'No pude cambiar la contraseña');
+            const user = r.usuarioLocal || await window.CoreAuth.current();
+            host.classList.remove('on');
+            try {
+              if (window.Fabri && window.Fabri.toast) window.Fabri.toast('Contraseña cambiada: ya estás dentro.');
+            } catch (_) {}
+            resolver(user);
+          } catch (e) {
+            err.textContent = e.message;
+            btn.disabled = false;
+            btn.textContent = texto;
+          }
+        };
+        btn.onclick = cambiar;
+        $('#rcOtra').onclick = () => paso1('Te mandamos otro código.');
+        $('#rcVolver').onclick = () => { modo = 'entrar'; pintar(); };
+        ['rcCodigo', 'rcPass', 'rcPass2'].forEach((id) => {
+          const el = document.getElementById(id);
+          if (el) el.addEventListener('keydown', (e) => { if (e.key === 'Enter') cambiar(); });
+        });
+        const campo = document.getElementById('rcCodigo');
+        if (campo) setTimeout(() => campo.focus(), 60);
+      };
+
+      paso1('');
+    };
 
     /**
      * Mensaje honesto cuando la cuenta NO quedó en la nube. Devuelve el texto
@@ -698,6 +801,8 @@
         }
       };
       $('#lgGo').onclick = go;
+      const olv = $('#lgOlvido');
+      if (olv) olv.onclick = () => olvido();
       $('#lgCambio').onclick = () => {
         emailPrev = ($('#lgEmail').value || '').trim();
         const nom = $('#lgName');
