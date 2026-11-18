@@ -373,6 +373,7 @@ memoria) y en producción:
 | `auth.users` vive en el mismo Postgres | no se accede por SQL: solo por API. |
 | Proyecto pausado o borrado | rollback a `legacy`; el hash local sigue ahí. |
 | Doble cuenta con el mismo correo | `core_usuarios.email` es `UNIQUE`; el 409 `AUTH_EMAIL_EXISTS` se traduce a `YA_EXISTE`, nunca a una cuenta nueva. |
+| Borrado con la nube caída | si InsForge no confirma el borrado, se responde 503 y la fila local **no** se borra: evita una cuenta fantasma que bloquee un registro futuro con ese correo. |
 | Cuenta en InsForge con otra contraseña | reconciliación: se borra y se recrea con la contraseña demostrada contra el hash local. |
 | Reloj/expiración del JWT | irrelevante: el JWT de InsForge no se usa para autorizar. |
 | `INSFORGE_DATABASE_URL` es `[SENSITIVE]` en Vercel y las claves que devuelve la API vienen enmascaradas | las pruebas de integración se hacen contra el deploy, no desde el teléfono. |

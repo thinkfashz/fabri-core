@@ -507,13 +507,13 @@ function crearServicio(repo, opciones = {}) {
       }
       if (!valida) return mal(401, 'CREDENCIALES', 'Correo o contraseña incorrectos');
       // Primero la fuente externa: si queda viva y la fila local se va, la
-      // cuenta seguiría existiendo y podría volver a entrar por la nube.
+      // cuenta seguiría existiendo y un registro futuro con ese correo
+      // chocaría con un «ya existe» sin dueño visible. Si la nube no confirma
+      // el borrado, no se borra nada y se dice la verdad.
       if (externo && typeof externo.borrar === 'function' && u.insforge_id) {
         const r = await externo.borrar(u);
         if (!r || !r.ok) {
-          if (modo === 'insforge') {
-            return mal(503, 'NUBE', 'No pudimos borrar la cuenta en la nube: intenta en un minuto');
-          }
+          return mal(503, 'NUBE', 'No pudimos borrar la cuenta en la nube: intenta en un minuto');
         }
       }
       await repo.borrarUsuario(u.id);

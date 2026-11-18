@@ -418,6 +418,16 @@ async function probarNucleo() {
     igual('la fila local también se fue', repoB.usuarios.length, 0);
     igual('la contraseña mala no borra nada',
       (await svcB.borrar({ email: 'nadie@local.cl', pass: 'x' })).status, 401);
+
+    // Si la nube no confirma, la cuenta local tampoco se borra: evita dejar
+    // una cuenta fantasma que bloquee un registro futuro con ese correo.
+    const repoZ = repoMemoria();
+    const extZ = externoFalso({}, repoZ);
+    extZ.borrar = async () => ({ ok: false, codigo: 'NUBE' });
+    const svcZ = crearServicio(repoZ, { ahora: () => reloj, modo: 'dual', externo: extZ });
+    await svcZ.registrar({ email: 'zombi@local.cl', pass: 'clave-segura-1', acepta_terminos: true });
+    igual('nube sin borrar → 503', (await svcZ.borrar({ email: 'zombi@local.cl', pass: 'clave-segura-1' })).status, 503);
+    igual('la cuenta local sigue intacta', repoZ.usuarios.length, 1);
   }
 }
 
