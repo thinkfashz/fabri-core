@@ -62,11 +62,17 @@ código + últimos 4 del teléfono.
 
 **Verificación**: 20/20 suites de `tests/web/` en verde (panel ampliado con los
 4 módulos y el contrato de las 7 acciones) y `tsc` 5.6.3 sin errores. Capturas a
-390 px de C09–C12 con el headless shell.
+390 px de C09–C12 con el headless shell, locales y en producción.
 
-**Pendiente inmediato**: desplegar API y web, probar `asegurar` y los 401 de
-`mis_pedidos` / `favoritos_listar` / `direcciones_listar` / `resenas_mias`, y
-retirar el evento controlado del doctor cuando haya `FABRI_API_TOKEN`.
+**Producción**: API `fabri-suxmpjqqa` y web `forge-core-stock-382f95mjo`.
+`asegurar` devuelve las 9 tablas (incluidas `mercado_favoritos` y
+`mercado_direcciones`) y las cuatro acciones privadas responden **401
+SIN_CUENTA** sin sesión. Las 4 páginas nuevas responden 200 y el menú ya no
+tiene `pronto`.
+
+**Pendiente**: probar con una cuenta real el ciclo completo (crear pedido con
+Bearer → verlo en C09 → marcarlo entregado → reseñarlo en C12) y retirar el
+evento controlado del doctor cuando haya `FABRI_API_TOKEN`.
 
 ## Sesión 2026-11-19 · Doctor nativo: páginas, componentes y APIs medidas
 
