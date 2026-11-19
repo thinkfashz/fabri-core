@@ -814,6 +814,31 @@ Authorization: Bearer <token de /api/auth>
 { "accion": "ventas_serie", "local_id": "solucion", "dias": 7 }
 ```
 
+### 5.4 Doctor nativo (observabilidad)
+
+No es un módulo de compra: es la capa que mide si los módulos funcionan. Vive
+en `api-telefono/api/diagnostico.ts` (sin gastar una función nueva) y en
+`web/panel/doctor/`.
+
+| Ruta | Autorización | Devuelve |
+|---|---|---|
+| `GET /api/diagnostico?accion=doctor&dias=14` | pública, CORS | sondeo HTTP real de 14 páginas y 5 APIs, malla de 3 capas, reportes agregados, almacenamiento, descubrimientos y `resumen_ia` |
+| `POST /api/diagnostico` `{accion:"reporte", pagina, eventos[]}` | pública, CORS, rate limit | guarda un reporte comprimido (máx. 20 eventos y 8 KB) |
+| `POST /api/diagnostico` `{accion:"limpiar", dia?, dias?}` | Bearer del dueño | borra un día o lo anterior a N días |
+| `GET/POST /api/diagnostico` sin `accion` | Bearer del dueño | informe legacy de la malla |
+
+- **Cliente**: `web/doctor.js`, script clásico sin `import`/`export` para servir
+  igual en la PWA (antes de `app.js`) y en el panel (`import('/doctor.js')`).
+  Captura errores, promesas, recursos, fallos de API, esqueletos a los 15 s y
+  páginas lentas; deduplica y limpia correo/token/hash antes de enviar.
+- **Página**: `/panel/doctor/`, con KPIs, periodo 1/7/14/30, gráfico, tablas por
+  página/API/error, almacenamiento, descubrimientos y resumen copiable para IA.
+- **Almacenamiento**: `doctor_dias`, una fila por día (no por evento), topes de
+  25 páginas / 20 errores / 15 APIs, fila máxima 48 KB y retención de 30 días.
+  El primer reporte real midió 826 B.
+- **Ubicación exacta**: cada error guarda `archivo:línea:columna`, página y un
+  stack acotado; `api.js` reporta el llamador, no la línea del cliente HTTP.
+
 ---
 
 ## 6. Datos nuevos propuestos
@@ -831,6 +856,7 @@ Todo se crea en `asegurar()` con `CREATE TABLE IF NOT EXISTS` y `ALTER TABLE ...
 | `mercado_liquidaciones` | `id`, `local_id`, `periodo`, `bruto`, `comision`, `neto`, `estado`, `creado` | liquidaciones |
 | `mercado_auditoria` | `id`, `local_id`, `actor_id`, `accion`, `entidad`, `entidad_id`, `antes` JSONB, `despues` JSONB, `ts` | auditoría |
 | `core_usuarios.telefono` | `TEXT NOT NULL DEFAULT ''` | perfil del comprador |
+| `doctor_dias` | `dia DATE PRIMARY KEY`, `datos JSONB`, `bytes`, `actualizado` | agregados diarios del doctor (no eventos crudos) |
 
 Reglas:
 
@@ -838,6 +864,7 @@ Reglas:
 - Los cupones se validan en el servidor; el navegador nunca calcula el total final.
 - Las claves de integración se guardan como hash, nunca en claro.
 - La auditoría no guarda teléfonos ni direcciones completas; solo IDs y campos cambiados.
+- `doctor_dias` es la excepción: se crea y se escribe desde `diagnostico.ts`, no desde `asegurar()` de `mercado.ts`, porque el doctor es transversal a los paneles.
 
 ---
 
@@ -917,5 +944,6 @@ Cada página se considera terminada solo si cumple:
 - **9 tablas/columnas nuevas** propuestas, todas con `IF NOT EXISTS`.
 - **Todo en la nube:** paneles estáticos en Vercel (`forge-core-stock.vercel.app/panel/…`), API en `fabri-api.vercel.app` y cuentas reales en **InsForge**, con sesión compartida con `/app/`.
 - **Login migrando al Auth de InsForge** con patrón BFF y migración perezosa (`AUTH_MODO=legacy → dual → insforge`); plan en [`docs/AUTH-INSFORGE-MIGRACION.md`](./AUTH-INSFORGE-MIGRACION.md).
+- **Doctor nativo** en `/panel/doctor/`: sondea 14 páginas, 5 APIs y la malla, captura errores con `archivo:línea:columna` y guarda una fila por día en `doctor_dias` (826 B el primer reporte), con resumen copiable para IA.
 - **Nunca** llamar `/api/auth` relativo: esa ruta es la auth vieja de Blob y está sin configurar. Siempre `https://fabri-api.vercel.app/api/auth`.
 - **Fase 0–1** entrega el panel del cliente; **Fase 2** el del negocio; **Fase 3–4** crecimiento, equipo e integraciones.

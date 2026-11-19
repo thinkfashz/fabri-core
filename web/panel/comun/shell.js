@@ -5,6 +5,10 @@ import { leer as leerSesion, alCambiar } from './sesion.js';
 import { unidades, suscribir as suscribirCarrito } from './carrito.js';
 import { iniciales } from './formato.js';
 
+/* El doctor de cliente mide errores reales y los manda comprimidos a la nube.
+   Se carga aparte para que un fallo del doctor jamás tumbe el panel. */
+import('/doctor.js').catch(() => { /* sin doctor se sigue navegando */ });
+
 const ICO = {
   inicio: '<path d="M4 11l8-7 8 7"/><path d="M6 10v10h12V10"/>',
   mapa: '<path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2Z"/><path d="M9 4v14M15 6v14"/>',
@@ -165,6 +169,7 @@ async function iniciar() {
     '<nav class="nav"></nav>' +
     '<div class="sidebar__pie">' +
       '<div data-cuenta-slot></div>' +
+      '<a href="/panel/doctor/">Estado y diagnóstico</a>' +
       '<a href="/app/">Abrir la app de compra</a>' +
       '<span>Precios en CLP · Chile</span>' +
     '</div>';

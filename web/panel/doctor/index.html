@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#08090A">
+  <title>Doctor · FORGE CORE STOCK</title>
+  <meta name="description" content="Estado real de las páginas, APIs y errores de FORGE CORE STOCK, con ubicación exacta y almacenamiento comprimido en la nube.">
+  <meta name="robots" content="noindex,follow">
+  <link rel="icon" href="/favicon.png">
+  <link rel="stylesheet" href="/components.css">
+  <link rel="stylesheet" href="/panel/comun/shell.css">
+  <link rel="stylesheet" href="./doctor.css">
+  <!-- Doctor compartido: captura los errores de esta misma página. -->
+  <script src="/doctor.js"></script>
+</head>
+<body data-doctor="1">
+  <a class="skip" href="#contenido">Saltar al contenido</a>
+
+  <header class="doc-top">
+    <div class="doc-top__in">
+      <a class="doc-marca" href="/panel/cliente/inicio/" aria-label="Volver al panel">
+        <img src="/logo-f.svg" alt="">
+        <span class="doc-marca__texto"><b>FORGE CORE</b><span>DOCTOR</span></span>
+      </a>
+      <div class="doc-top__id">
+        <span class="antetitulo">Observabilidad</span>
+        <h1>Doctor</h1>
+      </div>
+      <div class="doc-top__acciones">
+        <span class="doc-live" data-live><i></i><span data-live-txt>cargando…</span></span>
+        <button class="ds-btn ds-btn--ghost ds-btn--sm" type="button" data-refrescar>Actualizar</button>
+        <a class="ds-btn ds-btn--secondary ds-btn--sm" href="/panel/cliente/inicio/">Volver al panel</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="doc-main" id="contenido">
+    <div data-aviso></div>
+
+    <section class="ds-kpi-grid" aria-label="Resumen del estado">
+      <div class="ds-stat">
+        <span class="ds-stat__label">Páginas arriba</span>
+        <strong class="ds-stat__value" data-kpi="paginas">—</strong>
+        <span class="ds-stat__meta" data-kpi-meta="paginas">sondeo real</span>
+      </div>
+      <div class="ds-stat">
+        <span class="ds-stat__label">APIs arriba</span>
+        <strong class="ds-stat__value" data-kpi="apis">—</strong>
+        <span class="ds-stat__meta" data-kpi-meta="apis">sondeo real</span>
+      </div>
+      <div class="ds-stat">
+        <span class="ds-stat__label" data-kpi-label="errores">Errores</span>
+        <strong class="ds-stat__value" data-kpi="errores">—</strong>
+        <span class="ds-stat__meta" data-kpi-meta="errores">navegador</span>
+      </div>
+      <div class="ds-stat">
+        <span class="ds-stat__label">Fallos de API</span>
+        <strong class="ds-stat__value" data-kpi="fallos">—</strong>
+        <span class="ds-stat__meta" data-kpi-meta="fallos">llamadas fallidas</span>
+      </div>
+      <div class="ds-stat">
+        <span class="ds-stat__label">Reportes</span>
+        <strong class="ds-stat__value" data-kpi="reportes">—</strong>
+        <span class="ds-stat__meta" data-kpi-meta="reportes">latidos recibidos</span>
+      </div>
+      <div class="ds-stat">
+        <span class="ds-stat__label">Datos guardados</span>
+        <strong class="ds-stat__value" data-kpi="kb">—</strong>
+        <span class="ds-stat__meta" data-kpi-meta="kb">en la nube</span>
+      </div>
+    </section>
+
+    <section class="doc-bloque" aria-labelledby="graficoTitulo">
+      <div class="doc-bloque__cab">
+        <div>
+          <h2 id="graficoTitulo">Errores y fallos por día</h2>
+          <p>Lo que reportaron los navegadores y lo que rechazó la API. No se estima: se cuenta.</p>
+        </div>
+        <div class="doc-chips" role="group" aria-label="Periodo">
+          <button class="ds-chip" type="button" data-dias="1">Hoy</button>
+          <button class="ds-chip is-active" type="button" data-dias="7" aria-pressed="true">7 días</button>
+          <button class="ds-chip" type="button" data-dias="14">14 días</button>
+          <button class="ds-chip" type="button" data-dias="30">30 días</button>
+        </div>
+      </div>
+      <div class="doc-chart" data-grafico>
+        <div class="ds-skeleton ds-skeleton--card" aria-hidden="true"></div>
+      </div>
+      <p class="doc-chart__pie" data-grafico-pie></p>
+    </section>
+
+    <section class="doc-bloque" aria-labelledby="paginasTitulo">
+      <div class="doc-bloque__cab">
+        <div>
+          <h2 id="paginasTitulo">Páginas</h2>
+          <p>Sondeo HTTP real contra el sitio desplegado + lo que vio el navegador.</p>
+        </div>
+      </div>
+      <div class="doc-tabla" data-paginas>
+        <div class="ds-skeleton ds-skeleton--card" aria-hidden="true"></div>
+      </div>
+    </section>
+
+    <section class="doc-bloque" aria-labelledby="apisTitulo">
+      <div class="doc-bloque__cab">
+        <div>
+          <h2 id="apisTitulo">APIs</h2>
+          <p>Estado medido de los endpoints públicos y protegidos, más los fallos que ve el cliente.</p>
+        </div>
+      </div>
+      <div class="doc-tabla" data-apis>
+        <div class="ds-skeleton ds-skeleton--card" aria-hidden="true"></div>
+      </div>
+    </section>
+
+    <section class="doc-bloque" aria-labelledby="erroresTitulo">
+      <div class="doc-bloque__cab">
+        <div>
+          <h2 id="erroresTitulo">Errores con ubicación</h2>
+          <p>Cada huella se agrupa por mensaje y archivo. El detalle guarda el stack acotado.</p>
+        </div>
+        <span class="pill" data-errores-pill>—</span>
+      </div>
+      <div data-errores>
+        <div class="ds-skeleton ds-skeleton--card" aria-hidden="true"></div>
+      </div>
+    </section>
+
+    <div class="doc-doble">
+      <section class="doc-bloque" aria-labelledby="almacenTitulo">
+        <div class="doc-bloque__cab">
+          <div>
+            <h2 id="almacenTitulo">Almacenamiento</h2>
+            <p>Una fila por día, agregados y topes. La base no se llena de eventos crudos.</p>
+          </div>
+        </div>
+        <div data-almacen>
+          <div class="ds-skeleton ds-skeleton--card" aria-hidden="true"></div>
+        </div>
+      </section>
+
+      <section class="doc-bloque" aria-labelledby="descubrimientosTitulo">
+        <div class="doc-bloque__cab">
+          <div>
+            <h2 id="descubrimientosTitulo">Descubrimientos</h2>
+            <p>Lo que los datos permiten afirmar, sin relleno.</p>
+          </div>
+        </div>
+        <div data-descubrimientos>
+          <div class="ds-skeleton ds-skeleton--card" aria-hidden="true"></div>
+        </div>
+      </section>
+    </div>
+
+    <section class="doc-bloque doc-resumen" aria-labelledby="resumenTitulo">
+      <div class="doc-bloque__cab">
+        <div>
+          <h2 id="resumenTitulo">Resumen para IA</h2>
+          <p>Texto plano con el estado, los errores y su ubicación. Copiar y pegar en cualquier agente.</p>
+        </div>
+        <div class="doc-acciones">
+          <button class="ds-btn ds-btn--sm" type="button" data-copiar>Copiar resumen</button>
+          <button class="ds-btn ds-btn--ghost ds-btn--sm" type="button" data-copiar-json>Copiar JSON</button>
+        </div>
+      </div>
+      <pre class="doc-pre" data-resumen>Consultando el doctor…</pre>
+    </section>
+
+    <footer class="doc-pie">
+      <span>FORGE CORE STOCK · Doctor nativo</span>
+      <span>Precios en CLP · Chile</span>
+      <a href="/panel/cliente/ayuda/">Ayuda</a>
+    </footer>
+  </main>
+
+  <script type="module" src="./doctor.js"></script>
+</body>
+</html>

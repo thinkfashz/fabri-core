@@ -135,7 +135,11 @@ const igual = (nombre, a, b) => ok(nombre, JSON.stringify(a) === JSON.stringify(
   const susLocal = Object.assign({}, sus, { endpoint: 'http://127.0.0.1:' + puerto + '/push/abc' });
 
   const respuesta = await P.enviar(susLocal, texto, {
-    publica: vapid.publica, privada: vapid.privada, subject: 'mailto:prueba@fabrick.cl', ttl: 3600
+    publica: vapid.publica, privada: vapid.privada, subject: 'mailto:prueba@fabrick.cl', ttl: 3600,
+    // En producción el tope es 2,5 s; contra el servidor falso de este test se
+    // da margen porque el contenedor del teléfono a veces arranca lento y este
+    // test mide el formato del envío, no la latencia.
+    timeoutMs: 15000,
   });
   servidor.close();
 

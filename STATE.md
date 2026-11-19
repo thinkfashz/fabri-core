@@ -6,7 +6,69 @@
 > `cl.fabrick.core`, crate `fabrick-core`, dominio `forge-core-stock.vercel.app`,
 > repo `thinkfashz/fabri-core`.
 
-Última actualización: 2026-11-18
+Última actualización: 2026-11-19
+
+## Sesión 2026-11-19 · Doctor nativo: páginas, componentes y APIs medidas
+
+Pedido: un «reactdoctor» nativo que mida los estados reales de páginas,
+componentes y APIs, con página de estadísticas, errores exactos en
+`archivo:línea:columna`, almacenamiento cloud ultracomprimido y resumen legible
+por IA, antes de seguir con los módulos. La app es JavaScript puro, sin React:
+se construyó el equivalente nativo en vez de fingir una integración de React.
+
+**Contrato (todo dentro de `diagnostico.ts`; la API sigue en 12 funciones `.ts`, el tope)**
+
+| Ruta | Autorización | Qué hace |
+|---|---|---|
+| `GET /api/diagnostico?accion=doctor&dias=14` | pública, CORS | sondea 14 páginas y 5 APIs reales, lee los reportes agregados y devuelve el resumen IA |
+| `POST /api/diagnostico {accion:'reporte'}` | pública, CORS, rate limit | guarda un reporte comprimido del navegador en la fila del día |
+| `POST /api/diagnostico {accion:'limpiar'}` | Bearer del dueño | borra un día o lo anterior a N días (datos de prueba) |
+| `GET/POST /api/diagnostico` sin `accion` | Bearer del dueño | informe legacy de la malla, sin cambios |
+
+**Economía de datos**: una fila por día en `doctor_dias` (`dia DATE PRIMARY
+KEY`, `datos JSONB`, `bytes`), no una por evento. Topes de 25 páginas / 20
+errores / 15 APIs por fila, fila máxima 48 KB y retención de 30 días. El
+navegador manda como máximo 12 eventos por carga y un latido por página/día; el
+servidor acepta 20 eventos y 8 KB por reporte. Medido en producción: primer
+reporte con 3 eventos = **826 B**.
+
+**Cliente doctor** (`web/doctor.js`, sin `import`/`export` para servir en la PWA
+y en el panel): captura `error`, `unhandledrejection`, recursos rotos, fallos de
+API, esqueletos visibles a los 15 s y páginas de más de 4 s; deduplica (máximo
+3 repeticiones); limpia tokens, correos y hashes; usa `keepalive` y
+`sendBeacon`; se desactiva en localhost y webdriver. `api.js` le pasa los fallos
+de `auth`, `mercado` y `mercadoPost` con la ubicación del llamador
+(`archivo:línea:columna`).
+
+**Página** `/panel/doctor/` (standalone, sin sidebar): estado vivo, 6 KPIs,
+periodo 1/7/14/30, un gráfico de fallos por día, tablas de páginas, APIs y
+errores con stack expandible, almacenamiento, descubrimientos y resumen
+copiable para IA. Caché local de 6 h con marca «stale» y refresco cada 30 s.
+
+**Fallos reales encontrados al revisar capturas** (corregidos, con prueba):
+
+- En móvil las tablas apiladas salían sin etiquetas: faltaba `data-label` en
+  cada `td` y las columnas largas se aplastaban a la derecha.
+- El sondeo usa `/ruta/` y el reporte normaliza a `/ruta`: la misma página se
+  duplicaba. Ahora se cruzan sin la barra final.
+- GET y POST de la misma ruta se mezclaban en una sola fila; ahora la clave es
+  método + ruta.
+- El reporte se leía dos veces en el POST (stream consumido); se lee una vez.
+
+**Verificación**: 20/20 suites de `tests/web/` en verde (nueva
+`tests/web/doctor.js`, que además ejecuta el doctor real en un navegador
+simulado); `tsc` 5.6.3 sin errores. Producción: 14/14 páginas, 5/5 APIs y 3/3
+capas de la malla; el POST real guardó 826 B y el GET devolvió el error con
+`archivo:línea:columna` y correo/token ya limpiados; `limpiar` sin token
+responde **401**. Capturas a 390 px y 1280 px sin scroll horizontal. Deploys:
+`fabri-3y3r5cgu3` (API) y `forge-core-stock-gzu1x9a5c` (web).
+
+**Pendiente**: la fila de hoy conserva 1 evento controlado de la prueba de humo
+(«prueba controlada del doctor»). Para retirarlo cuando haya token:
+`curl -X POST https://fabri-api.vercel.app/api/diagnostico -H "Authorization:
+Bearer $FABRI_API_TOKEN" -H "Content-Type: application/json" -d
+'{"accion":"limpiar","dia":"2026-11-19"}'`. Después: C09–C12 del Cliente y el
+panel Negocio.
 
 ## Sesión 2026-11-18 · Panel Cliente, fase 1
 
