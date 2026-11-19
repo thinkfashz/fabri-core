@@ -6,6 +6,7 @@
 import { mercado, guardarUltimo, leerUltimo, mensajeDeError } from '../../comun/api.js';
 import { productosDe, buscarEnTienda, distanciaKm, ubicacionGuardada } from '../../comun/catalogo.js';
 import { leer, agregar, cambiar, quitar } from '../../comun/carrito.js';
+import { esFavorito, alternar as alternarFavorito } from '../../comun/favoritos.js';
 import { clp, km, esc, iniciales, fecha } from '../../comun/formato.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -56,6 +57,7 @@ function bloqueCompra() {
   const dist = ubi ? distanciaKm(ubi.lat, ubi.lon, t.lat, t.lon) : null;
   const entrega = Array.isArray(t.entrega) ? t.entrega : ['retiro'];
   const maximo = stock === null ? 999 : Math.min(999, stock);
+  const fav = esFavorito('producto', t.id, p.sku);
 
   const bloqueado = agotado || !abierta;
   const motivo = agotado ? 'Producto agotado' : (!abierta ? 'Tienda cerrada' : 'Agregar al carrito');
@@ -106,6 +108,10 @@ function bloqueCompra() {
       '<span>La tienda está cerrada. Puedes volver cuando abra' + (t.horario ? ' (' + esc(t.horario) + ')' : '') + '.</span></div>' : '') +
 
     '<div class="compra__acciones">' +
+      '<button class="ds-btn ds-btn--ghost compra__fav" type="button" data-favorito aria-pressed="' +
+        (fav ? 'true' : 'false') + '">' +
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20S4 15 4 9.5A4.5 4.5 0 0 1 12 7a4.5 4.5 0 0 1 8 2.5C20 15 12 20 12 20Z"/></svg>' +
+        '<span>' + (fav ? 'Guardado en favoritos' : 'Guardar en favoritos') + '</span></button>' +
       '<div class="compra__fila">' +
         '<div class="qty" aria-label="Cantidad">' +
           '<button type="button" data-menos aria-label="Quitar uno"' + (n <= 0 ? ' disabled' : '') + '>−</button>' +
@@ -262,6 +268,28 @@ function accion(delta) {
   pintar();
 }
 
+async function guardarFavorito(boton) {
+  const t = estado.tienda;
+  const p = estado.producto;
+  if (!t || !p) return;
+  boton.disabled = true;
+  try {
+    const r = await alternarFavorito('producto', t.id, p.sku, {
+      nombre: p.nombre,
+      precio: p.precio,
+      local_nombre: t.nombre,
+      ico: t.ico,
+    });
+    pintar();
+    aviso(r.favorito
+      ? 'Guardado en favoritos' + (r.nube ? '.' : ' en este teléfono. Entra a tu cuenta para llevarlo contigo.')
+      : 'Quitado de favoritos.', r.nube ? 'ok' : 'acento');
+  } catch (e) {
+    boton.disabled = false;
+    aviso(esc(mensajeDeError(e)), 'err');
+  }
+}
+
 function error(titulo, detalle, accionHtml) {
   const marco = $('[data-marco]');
   if (!marco) return;
@@ -312,6 +340,8 @@ async function cargar() {
 }
 
 document.addEventListener('click', (e) => {
+  const fav = e.target.closest('[data-favorito]');
+  if (fav && !fav.disabled) { guardarFavorito(fav); return; }
   if (e.target.closest('[data-mas]')) { accion(1); return; }
   if (e.target.closest('[data-menos]')) { accion(-1); return; }
   const b = e.target.closest('[data-agregar]');

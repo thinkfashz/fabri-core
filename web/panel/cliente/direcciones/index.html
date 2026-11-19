@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="es-CL" data-panel="cliente">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#08090A">
+  <title>Direcciones · FORGE CORE STOCK</title>
+  <meta name="description" content="Guarda tus direcciones de entrega con comuna, referencia y pin en el mapa.">
+  <link rel="icon" href="/favicon.png">
+  <link rel="stylesheet" href="/app/vendor/leaflet.css">
+  <link rel="stylesheet" href="/components.css">
+  <link rel="stylesheet" href="/panel/comun/shell.css">
+  <link rel="stylesheet" href="./direcciones.css">
+</head>
+<body data-panel="cliente" data-modulo="direcciones" data-layout="formulario-mapa">
+  <a class="skip" href="#contenido">Saltar al contenido</a>
+  <aside class="sidebar" id="sidebar" aria-label="Navegación del cliente"></aside>
+  <div class="shell-backdrop" hidden data-cerrar-sidebar></div>
+
+  <header class="topbar">
+    <button class="topbar__menu" type="button" data-abrir-sidebar aria-label="Abrir menú" aria-controls="sidebar">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <div class="topbar__id">
+      <span class="topbar__kicker">Panel Cliente</span>
+      <span class="topbar__title">Direcciones</span>
+    </div>
+    <div class="topbar__right">
+      <a class="cuenta-chip" href="/panel/cliente/cuenta/" data-cuenta-chip aria-label="Tu cuenta"></a>
+    </div>
+  </header>
+
+  <main id="contenido" class="page page--textura">
+    <div data-aviso aria-live="polite"></div>
+
+    <header class="dir-cabeza">
+      <div>
+        <span class="dir-cabeza__kicker">Entrega</span>
+        <h1>Direcciones</h1>
+        <p>Guarda la calle, la comuna y una referencia. El checkout las ofrece para no escribirlas otra vez.</p>
+      </div>
+      <a class="ds-btn ds-btn--ghost ds-btn--sm" href="/panel/cliente/cuenta/">Mi cuenta</a>
+    </header>
+
+    <div class="dir-marco">
+      <div class="dir-columna">
+        <section class="dir-form-caja" aria-labelledby="dirFormTitulo">
+          <div class="dir-form-cabeza">
+            <h2 id="dirFormTitulo" data-form-titulo>Nueva dirección</h2>
+            <button class="dir-cancelar" type="button" data-cancelar hidden>Cancelar edición</button>
+          </div>
+          <form class="dir-form" data-form novalidate>
+            <div class="dir-campos">
+              <div class="dir-campo">
+                <label for="d-alias">Alias</label>
+                <input id="d-alias" name="alias" type="text" maxlength="40" placeholder="Casa, trabajo…" autocomplete="off">
+              </div>
+              <div class="dir-campo dir-campo--ancho">
+                <label for="d-direccion">Calle y número</label>
+                <input id="d-direccion" name="direccion" type="text" maxlength="200" placeholder="Ej: Av. Condell 1234, depto 5" autocomplete="street-address" required>
+              </div>
+              <div class="dir-campo">
+                <label for="d-comuna">Comuna</label>
+                <input id="d-comuna" name="comuna" type="text" maxlength="80" placeholder="Rengo" autocomplete="address-level2" required>
+              </div>
+              <div class="dir-campo dir-campo--ancho">
+                <label for="d-referencia">Referencia</label>
+                <input id="d-referencia" name="referencia" type="text" maxlength="160" placeholder="Frente a la plaza, portón negro…" autocomplete="off">
+              </div>
+            </div>
+            <label class="dir-default">
+              <input type="checkbox" name="predeterminada" data-predeterminada>
+              <span><b>Usar como predeterminada</b><small>El checkout la propone primero.</small></span>
+            </label>
+            <div class="dir-acciones">
+              <button class="ds-btn ds-btn--lg" type="submit" data-guardar>Guardar dirección</button>
+              <button class="ds-btn ds-btn--secondary" type="button" data-ubicacion>Usar mi ubicación</button>
+            </div>
+            <p class="dir-nota">No hay buscador de calles: escribe la dirección y mueve el pin en el mapa. El punto es opcional y sirve para que el repartidor llegue más fácil.</p>
+          </form>
+        </section>
+
+        <section class="dir-lista-caja" aria-labelledby="dirListaTitulo">
+          <div class="dir-lista-cabeza">
+            <h2 id="dirListaTitulo">Tus direcciones</h2>
+            <span class="pill" data-cuenta-dirs>0</span>
+          </div>
+          <div class="dir-lista" data-lista aria-live="polite">
+            <div class="ds-skeleton" style="height:92px;border-radius:16px;margin-bottom:9px"></div>
+            <div class="ds-skeleton" style="height:92px;border-radius:16px"></div>
+          </div>
+        </section>
+      </div>
+
+      <aside class="dir-mapa-caja" aria-label="Mapa del punto de entrega">
+        <div class="dir-mapa" data-mapa></div>
+        <div class="dir-mapa__pie">
+          <span data-pin-texto>Sin punto elegido</span>
+          <button type="button" data-centrar>Centrar</button>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <script src="/app/vendor/leaflet.js"></script>
+  <script type="module" src="/panel/comun/shell.js"></script>
+  <script type="module" src="./direcciones.js"></script>
+</body>
+</html>

@@ -35,7 +35,7 @@ const ok = (nombre, cond, detalle) => {
   else { fallos++; console.log('  \x1b[1;31m✖\x1b[0m ' + nombre + (detalle ? ' → ' + detalle : '')); }
 };
 
-const MODULOS = ['inicio', 'mapa', 'buscar', 'tienda', 'producto', 'carrito', 'checkout', 'pedido', 'cuenta', 'ayuda'];
+const MODULOS = ['inicio', 'mapa', 'buscar', 'tienda', 'producto', 'carrito', 'checkout', 'pedido', 'pedidos', 'favoritos', 'direcciones', 'resenas', 'cuenta', 'ayuda'];
 
 console.log('\n▸ panel · estructura de los módulos');
 
@@ -348,18 +348,119 @@ console.log('\n▸ sitio · términos y redirecciones');
     destinos.join(' | '));
 }
 
-/* 14 · Ningún módulo promete una página que no existe como enlace normal. */
+/* 14 · La navegación no promete páginas a medias: cada enlace del menú abre
+       un módulo real y la fase 2 ya no tiene «pronto» pendientes. */
 {
-  const shell = leer(path.join(PANEL, 'comun', 'shell.js'));
-  ok('el shell pinta los «pronto» como span, no como enlace', /nav-item--pronto/.test(shell) && !/pronto[^\n]*href=/.test(shell));
+  const nav = leer(path.join(PANEL, 'comun', 'nav-cliente.js'));
+  ok('el manifiesto no deja módulos «pronto»',
+    !/pronto:\s*true/.test(nav), nav.match(/pronto:\s*true[^}]*/g)?.join(' | ') || '');
+
   const todos = [];
   for (const m of MODULOS) {
     const p = path.join(PANEL, 'cliente', m, m + '.js');
     if (!existe(p)) continue;
     const txt = leer(p);
-    if (/\/panel\/cliente\/(pedidos|favoritos)\//.test(txt)) todos.push(m);
+    // Los cuatro módulos de la fase 2 existen y se enlazan entre ellos.
+    if (/\/panel\/cliente\/(pedidos|favoritos|direcciones|resenas)\//.test(txt)) todos.push(m);
   }
-  ok('ningún módulo enlaza a «Mis pedidos» o «Favoritos» (aún no existen)', todos.length === 0, todos.join(', '));
+  ok('los módulos enlazan a la fase 2 sólo porque ya existe',
+    todos.length > 0 && todos.every((m) => MODULOS.includes(m)), todos.join(', '));
+
+  for (const m of ['pedidos', 'favoritos', 'direcciones', 'resenas']) {
+    ok('«' + m + '» está en el menú del cliente',
+      new RegExp("ruta: '/panel/cliente/" + m + "/'").test(nav));
+  }
+  const shell = leer(path.join(PANEL, 'comun', 'shell.js'));
+  ok('el shell conserva el estilo para un «pronto» futuro', /nav-item--pronto/.test(shell));
+}
+
+console.log('\n▸ panel · fase 2 (pedidos, favoritos, direcciones, reseñas)');
+
+/* 15 · La API nueva es la misma base y no agrega funciones serverless. */
+{
+  const ts = fs.readdirSync(path.join(RAIZ, 'api-telefono', 'api'))
+    .filter((f) => f.endsWith('.ts'));
+  ok('la API sigue con 12 funciones .ts (tope de Vercel)', ts.length === 12, ts.join(', '));
+
+  const api = leer(path.join(RAIZ, 'api-telefono', 'api', 'mercado.ts'));
+  const acciones = ['mis_pedidos', 'favoritos_listar', 'favorito_alternar',
+    'direcciones_listar', 'direccion_guardar', 'direccion_borrar', 'resenas_mias'];
+  const faltan = acciones.filter((a) => !new RegExp("accion === '" + a + "'").test(api));
+  ok('mercado.ts despacha las 7 acciones nuevas', faltan.length === 0, faltan.join(', '));
+  // La lista del GET (la que anuncia el endpoint) también debe nombrarlas.
+  const bloque = (api.match(/acciones:\s*\[([\s\S]*?)\]/) || [])[1] || '';
+  const enLista = acciones.filter((a) => !bloque.includes("'" + a + "'"));
+  ok('las acciones nuevas están en la lista pública del GET', enLista.length === 0, enLista.join(', '));
+
+  ok('el pedido recuerda la cuenta (cliente_id)',
+    /cliente_id TEXT NOT NULL DEFAULT ''/.test(api) &&
+    /INSERT INTO \$\{T_PEDIDOS\}[\s\S]{0,400}cliente_id\)/.test(api));
+  ok('la reseña recuerda la cuenta (usuario_id)',
+    /usuario_id TEXT NOT NULL DEFAULT ''/.test(api) &&
+    /INSERT INTO \$\{T_RESENAS\} \(id, local_id, pedido_id, autor, estrellas, texto, usuario_id\)/.test(api));
+  ok('favoritos y direcciones tienen tabla propia',
+    /mercado_favoritos/.test(api) && /mercado_direcciones/.test(api));
+  ok('las direcciones tienen tope de 20 y una predeterminada',
+    />= 20/.test(api) && /predeterminada = false/.test(api));
+  ok('un favorito inexistente responde NO_EXISTE, no inventa precio',
+    /codigo: 'NO_EXISTE'/.test(api));
+  ok('mis_pedidos filtra por cliente_id de la sesión', /WHERE p\.cliente_id = \$1/.test(api));
+  ok('resenas_mias devuelve pendientes sin reseña', /NOT EXISTS \(SELECT 1 FROM \$\{T_RESENAS\}/.test(api));
+}
+
+/* 16 · El frontend de la fase 2 usa el espejo local honesto y la nube. */
+{
+  const fav = leer(path.join(PANEL, 'comun', 'favoritos.js'));
+  const dir = leer(path.join(PANEL, 'comun', 'direcciones.js'));
+  const c09 = leer(path.join(PANEL, 'cliente', 'pedidos', 'pedidos.js'));
+  const c10 = leer(path.join(PANEL, 'cliente', 'favoritos', 'favoritos.js'));
+  const c11 = leer(path.join(PANEL, 'cliente', 'direcciones', 'direcciones.js'));
+  const c12 = leer(path.join(PANEL, 'cliente', 'resenas', 'resenas.js'));
+  const co = leer(path.join(PANEL, 'cliente', 'checkout', 'checkout.js'));
+
+  ok('favoritos usa la clave local fcore.panel.favoritos',
+    /const KEY = 'fcore\.panel\.favoritos'/.test(fav));
+  ok('favoritos alterna en la nube y deja espejo local',
+    /favorito_alternar/.test(fav) && /fijarLocal/.test(fav));
+  ok('direcciones usa fcore.panel.direcciones y tope 20',
+    /const KEY = 'fcore\.panel\.direcciones'/.test(dir) && /const TOPE = 20/.test(dir));
+  ok('direcciones distingue «sin pin» de una coordenada falsa',
+    /lat: Number\(f\.lat\) \|\| 0/.test(dir) && /lon: Number\(f\.lon\) \|\| 0/.test(dir));
+
+  ok('C09 lee el historial local y el remoto',
+    /leerPedidos\(\)/.test(c09) && /mis_pedidos/.test(c09));
+  ok('C09 «volver a pedir» usa el catálogo actual',
+    /data-repetir/.test(c09) && /buscarEnTienda/.test(c09) && /local_ver/.test(c09));
+  ok('C09 no muestra un pedido de invitado como si fuera de la cuenta',
+    /soloLocal/.test(c09) && /sólo en este teléfono/.test(c09));
+
+  ok('C10 cruza el precio guardado con el catálogo vivo',
+    /precio_guardado/.test(c10) && /local_ver/.test(c10));
+  ok('C10 marca el producto eliminado sin romper la página',
+    /it\.existe = false|existe: false/.test(c10) && /no disponible/.test(c10));
+
+  ok('C11 usa el Leaflet local, no un CDN',
+    /href="\/app\/vendor\/leaflet\.css"/.test(leer(path.join(PANEL, 'cliente', 'direcciones', 'index.html'))) &&
+    /src="\/app\/vendor\/leaflet\.js"/.test(leer(path.join(PANEL, 'cliente', 'direcciones', 'index.html'))));
+  ok('C11 no inventa geocodificación: se mueve el pin',
+    /data-mapa/.test(c11) && /fijarPin/.test(c11) && /No hay buscador de calles/.test(
+      leer(path.join(PANEL, 'cliente', 'direcciones', 'index.html'))));
+
+  ok('C12 exige prueba de compra para calificar',
+    /resena_crear/.test(c12) && /cuerpo\.token/.test(c12) && /cuerpo\.contacto/.test(c12));
+  ok('C12 cuenta la reseña en el historial de la cuenta',
+    /resenas_mias/.test(c12) && /usuario_id/.test(
+      leer(path.join(RAIZ, 'api-telefono', 'api', 'mercado.ts'))));
+
+  ok('el checkout ofrece direcciones guardadas',
+    /data-dirs/.test(co) && /listarDirecciones/.test(co) && /data-dir-guardada/.test(co));
+  ok('el checkout manda el Bearer para ligar el pedido a la cuenta',
+    /mercadoPost\('pedido_crear', cuerpo, \{[\s\S]{0,90}token: token\(\)/.test(co));
+  ok('la PWA también liga pedidos y reseñas a la cuenta cuando hay sesión',
+    /CoreNube\.activa[\s\S]{0,220}Authorization = "Bearer "/.test(
+      leer(path.join(WEB, 'app', 'placer.js'))) &&
+    /fcore\.nube[\s\S]{0,200}Authorization = "Bearer "/.test(
+      leer(path.join(WEB, 'tienda-seguir.js'))));
 }
 
 console.log(fallos === 0

@@ -179,7 +179,7 @@ const igual = (nombre, a, b) => ok(nombre, JSON.stringify(a) === JSON.stringify(
     /CREATE TABLE IF NOT EXISTS \$\{T_PUSH\}[\s\S]*?endpoint\s+TEXT NOT NULL[\s\S]*?p256dh/.test(api));
   ok('un endpoint por pedido (índice único con huella)',
     /idx_mercado_push_pedido\s+ON \$\{T_PUSH\} \(pedido_id, huella\)/.test(api));
-  ok('la tabla entra en asegurar', /T_RESENAS, T_PUSH/.test(api));
+  ok('la tabla entra en asegurar', /T_RESENAS,[\s\S]{0,160}T_PUSH/.test(api));
   ok('existe push_suscribir', /accion === 'push_suscribir'/.test(api));
   ok('existe push_baja', /accion === 'push_baja'/.test(api));
   ok('las dos están en la lista del GET', /'push_suscribir', 'push_baja'/.test(api));
@@ -220,7 +220,7 @@ const igual = (nombre, a, b) => ok(nombre, JSON.stringify(a) === JSON.stringify(
   ok('la tabla se crea y es única por local',
     /CREATE TABLE IF NOT EXISTS \$\{T_PUSH_LOCAL\}/.test(api) &&
     /idx_mercado_push_local[\s\S]{0,90}\(local_id, huella\)/.test(api));
-  ok('la tabla entra en asegurar', /T_RESENAS, T_PUSH, T_PUSH_LOCAL\]/.test(api));
+  ok('la tabla entra en asegurar', /T_PUSH,\s*T_PUSH_LOCAL\]/.test(api));
   ok('existen push_local_suscribir y push_local_baja',
     /accion === 'push_local_suscribir'/.test(api) && /accion === 'push_local_baja'/.test(api));
   ok('las dos están en la lista del GET', /'push_local_suscribir', 'push_local_baja'/.test(api));

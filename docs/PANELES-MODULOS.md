@@ -437,9 +437,9 @@ La forma elegida es **BFF**: InsForge valida la contraseña y `fabri-api` sigue 
 
 - **Carpeta:** `web/panel/cliente/pedidos/` · **Ruta:** `/panel/cliente/pedidos/`
 - **Objetivo:** ver el historial completo entre dispositivos, no solo el de este teléfono.
-- **Conexión:** `POST /api/mercado { accion: "mis_pedidos" }` 🟡 con Bearer (requiere `cliente_id` en `mercado_pedidos` 🧩); mientras no exista, se usa `fcore.placer.pedidos` + `pedido_seguir` por token.
-- **Endpoint:** `mis_pedidos` 🟡 (fallback local).
-- **Uso:** 1) lista por estado; 2) busca por código o tienda; 3) abre C08; 4) «volver a pedir» reconstruye el carrito con precios actuales.
+- **Conexión:** `POST /api/mercado { accion: "mis_pedidos" }` ✅ con Bearer; `mercado_pedidos.cliente_id` ✅. Sin sesión se usa `fcore.placer.pedidos` y cada pedido se abre con su enlace (`pedido_seguir`).
+- **Endpoint:** `mis_pedidos` ✅ (con respaldo local honesto).
+- **Uso:** 1) lista por estado y por mes; 2) busca por código o tienda; 3) abre C08; 4) «volver a pedir» reconstruye el carrito con precios actuales.
 - **Diseño propio:** lista cronológica con separadores por mes, chips de estado y miniatura de tienda; en escritorio, dos paneles (lista + detalle). Sin tarjetas KPI.
 - **Estados:** sin sesión (invita a entrar), sin pedidos, pedidos solo locales (aviso).
 - **Fase:** 2.
@@ -448,8 +448,8 @@ La forma elegida es **BFF**: InsForge valida la contraseña y `fabri-api` sigue 
 
 - **Carpeta:** `web/panel/cliente/favoritos/` · **Ruta:** `/panel/cliente/favoritos/`
 - **Objetivo:** guardar productos y marcas para volver sin buscar de nuevo.
-- **Conexión:** `favoritos_listar` / `favorito_alternar` 🟡🧩 (tabla `mercado_favoritos`); MVP en `localStorage` (`fcore.panel.favoritos`).
-- **Endpoint:** `favoritos_listar`, `favorito_alternar` 🟡.
+- **Conexión:** `favoritos_listar` / `favorito_alternar` ✅ (tabla `mercado_favoritos` ✅); espejo local en `fcore.panel.favoritos`.
+- **Endpoint:** `favoritos_listar`, `favorito_alternar` ✅.
 - **Uso:** 1) corazón en C04/C05; 2) pestañas Productos / Tiendas; 3) aviso de baja de precio si el producto sigue existiendo; 4) abrir C05.
 - **Diseño propio:** dos columnas: lista de favoritos y panel de «cambios de precio»; en móvil, segmentos. Fotos pequeñas, precios alineados a la derecha.
 - **Estados:** vacío con CTA a buscar; producto eliminado (se marca, no se rompe).
@@ -459,19 +459,19 @@ La forma elegida es **BFF**: InsForge valida la contraseña y `fabri-api` sigue 
 
 - **Carpeta:** `web/panel/cliente/direcciones/` · `Ruta:` `/panel/cliente/direcciones/`
 - **Objetivo:** guardar direcciones con comuna, referencia y punto en el mapa para no reescribirlas en cada checkout.
-- **Conexión:** `direcciones_listar`, `direccion_guardar`, `direccion_borrar` 🟡🧩 (tabla `mercado_direcciones`); MVP en localStorage.
-- **Endpoint:** `direcciones_*` 🟡.
-- **Uso:** 1) nueva dirección; 2) buscar calle o mover el pin; 3) alias («casa», «trabajo»); 4) marcar predeterminada; 5) el checkout la ofrece.
+- **Conexión:** `direcciones_listar`, `direccion_guardar`, `direccion_borrar` ✅ (tabla `mercado_direcciones` ✅); espejo local en `fcore.panel.direcciones`.
+- **Endpoint:** `direcciones_*` ✅.
+- **Uso:** 1) nueva dirección; 2) escribir calle y mover el pin (sin geocodificación inventada); 3) alias («casa», «trabajo»); 4) marcar predeterminada; 5) el checkout la ofrece.
 - **Diseño propio:** formulario a la izquierda y mapa/pin a la derecha; tarjetas de dirección con alias grande; en móvil, pasos. Sin tabla.
-- **Estados:** sin direcciones, comuna fuera de cobertura, geocodificación fallida.
+- **Estados:** sin direcciones, sin pin (lat/lon en 0), sin red (espejo local), tope de 20.
 - **Fase:** 2.
 
 ### C12 · Reseñas
 
 - **Carpeta:** `web/panel/cliente/resenas/` · **Ruta:** `/panel/cliente/resenas/`
 - **Objetivo:** calificar pedidos entregados y ver el historial de lo que el comprador opinó.
-- **Conexión:** `resenas_listar` ✅ (público por tienda), `resena_crear` ✅ (token del pedido), `resenas_mias` 🟡.
-- **Endpoint:** `resenas_listar`, `resena_crear`, `resenas_mias` 🟡.
+- **Conexión:** `resenas_listar` ✅ (público por tienda), `resena_crear` ✅ (prueba de compra con token o código + últimos 4), `resenas_mias` ✅ (`mercado_resenas.usuario_id` ✅).
+- **Endpoint:** `resenas_listar`, `resena_crear`, `resenas_mias` ✅.
 - **Uso:** 1) pedidos pendientes de calificar; 2) estrellas y texto; 3) enviar; 4) ver la reseña publicada y la respuesta del local (cuando exista).
 - **Diseño propio:** bandeja de «pendientes» arriba con foto de tienda y estrellas grandes; abajo, historial en lista. Sin formularios largos.
 - **Estados:** sin pedidos entregados, ya calificado, error de red.

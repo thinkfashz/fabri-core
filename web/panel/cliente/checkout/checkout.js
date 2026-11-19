@@ -7,8 +7,9 @@
 import { mercado, mercadoPost, mensajeDeError } from '../../comun/api.js';
 import { grupos, vaciarTienda, aplicarCatalogo } from '../../comun/carrito.js';
 import { guardarPedido } from '../../comun/pedidos.js';
+import { leerLocales as leerDirecciones, listar as listarDirecciones } from '../../comun/direcciones.js';
 import { clp, esc, iniciales } from '../../comun/formato.js';
-import { leer as leerSesion } from '../../comun/sesion.js';
+import { leer as leerSesion, token, dispositivo } from '../../comun/sesion.js';
 
 const $ = (sel) => document.querySelector(sel);
 const params = new URLSearchParams(location.search);
@@ -23,6 +24,7 @@ const estado = {
   entrega: 'retiro',
   pago: 'efectivo',
   error: '',
+  dirs: [],
 };
 
 function leerCliente() {
@@ -68,6 +70,28 @@ function aviso(html, tipo) {
 function logo(t) {
   if (t.logo) return '<span class="logo-tienda"><img src="' + esc(t.logo) + '" alt=""></span>';
   return '<span class="logo-tienda" aria-hidden="true">' + esc(iniciales(t.nombre)) + '</span>';
+}
+
+function botonesDirecciones(lista) {
+  const l = Array.isArray(lista) ? lista.slice(0, 6) : [];
+  if (!l.length) return '';
+  return '<span class="dirs-guardadas__rotulo">Usar una guardada</span>' +
+    '<div class="dirs-guardadas__lista">' +
+      l.map((d) => '<button class="ds-chip" type="button" data-dir-guardada="' + esc(d.id) + '">' +
+        esc(d.alias || 'Dirección') + ' · ' + esc(d.direccion || '') + '</button>').join('') +
+    '</div>';
+}
+
+async function cargarDireccionesGuardadas() {
+  estado.dirs = leerDirecciones();
+  const caja = $('[data-dirs]');
+  if (caja) caja.innerHTML = botonesDirecciones(estado.dirs);
+  try {
+    const r = await listarDirecciones();
+    estado.dirs = r.direcciones || estado.dirs;
+    const actual = $('[data-dirs]');
+    if (actual) actual.innerHTML = botonesDirecciones(estado.dirs);
+  } catch (_) { /* sin nube quedan las locales */ }
 }
 
 function subtotal() {
@@ -141,6 +165,7 @@ function pasosHtml() {
             '</small></span></label>' +
         '</div>' +
         '<div class="pago-detalle" data-dir' + (entrega === 'delivery' ? '' : ' hidden') + '>' +
+          '<div class="dirs-guardadas" data-dirs></div>' +
           '<div class="campos">' +
             '<div class="campo campo--ancho"><label for="f-dir">Calle y número</label>' +
               '<input id="f-dir" name="direccion" type="text" autocomplete="street-address" value="' + esc(direccion) + '" placeholder="Ej: Av. Condell 1234, depto 5"></div>' +
@@ -338,7 +363,13 @@ async function confirmar() {
   }
 
   try {
-    const d = await mercadoPost('pedido_crear', cuerpo, { ms: 22000 });
+    // Con cuenta, el pedido queda ligado a ella para «Mis pedidos»; sin
+    // cuenta el servidor lo crea igual y se abre con el enlace de siempre.
+    const d = await mercadoPost('pedido_crear', cuerpo, {
+      ms: 22000,
+      token: token(),
+      dispositivo: dispositivo(),
+    });
     estado.listo = true;
     olvidarIdempotencia(estado.grupo.id);
     guardarPedido({
@@ -454,6 +485,27 @@ function montar() {
     if (e.target.name === 'pago_con') refrescarVuelto();
   });
 
+  // Una dirección guardada rellena los tres campos; el comprador puede
+  // corregirla antes de confirmar y no se guarda nada nuevo sin pedirlo.
+  form.addEventListener('click', (e) => {
+    const chip = e.target.closest('[data-dir-guardada]');
+    if (!chip) return;
+    const d = (estado.dirs || []).find((x) => x.id === chip.dataset.dirGuardada);
+    if (!d) return;
+    const dir = $('#f-dir');
+    const comuna = $('#f-comuna');
+    const ref = $('#f-ref');
+    if (dir) dir.value = d.direccion || '';
+    if (comuna) comuna.value = d.comuna || '';
+    if (ref) ref.value = d.referencia || '';
+    form.querySelectorAll('[data-dir-guardada]').forEach((b) => {
+      b.classList.toggle('is-active', b === chip);
+      b.setAttribute('aria-pressed', b === chip ? 'true' : 'false');
+    });
+    const primera = $('#f-dir');
+    if (primera) primera.focus();
+  });
+
   form.addEventListener('submit', (e) => { e.preventDefault(); confirmar(); });
   const b = $('[data-confirmar]');
   if (b) b.addEventListener('click', confirmar);
@@ -502,6 +554,8 @@ async function cargar() {
     montar();
     refrescarVuelto();
     refrescarResumen();
+    // Primero el espejo local (instantáneo) y después la nube si hay cuenta.
+    cargarDireccionesGuardadas();
   } catch (e) {
     errorFatal('No pudimos abrir el checkout',
       e && e.codigo === 'NO_ENCONTRADO'

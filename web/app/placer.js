@@ -3082,10 +3082,22 @@ window.Placer = (function () {
 
       // Un reintento con la misma clave: si el primer envío sí llegó pero la
       // respuesta se perdió, el servidor devuelve ese mismo pedido.
+      // Si hay cuenta en este navegador, el pedido queda ligado a ella para
+      // «Mis pedidos» del panel; sin cuenta se crea igual, como invitado.
+      const cabeceras = { "Content-Type": "application/json" };
+      try {
+        if (window.CoreNube && window.CoreNube.activa && window.CoreNube.activa()) {
+          const sesion = window.CoreNube.leer();
+          if (sesion && sesion.token) {
+            cabeceras.Authorization = "Bearer " + sesion.token;
+            cabeceras["x-dispositivo"] = window.CoreNube.dispositivo();
+          }
+        }
+      } catch (e) { /* sin cuenta: se sigue como invitado */ }
       const enviar = function (intento) {
         return fetch(API_MERCADO, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: cabeceras,
           body: JSON.stringify(cuerpo)
         }).then(function (r) { return r.json(); }).catch(function (e) {
           if (intento < 2) {

@@ -145,6 +145,14 @@
 .compra__cifra b { font-size: var(--ds-text-sm); color: var(--ds-text-primary); }
 
 .compra__acciones { display: flex; flex-direction: column; gap: 9px; }
+.compra__fav { justify-content: center; }
+.compra__fav svg { fill: none; stroke: currentColor; }
+.compra__fav[aria-pressed="true"] {
+  color: var(--ds-accent);
+  border-color: var(--panel-line-accent);
+  background: var(--ds-accent-soft);
+}
+.compra__fav[aria-pressed="true"] svg { fill: currentColor; }
 .compra__fila { display: flex; align-items: center; gap: 10px; }
 .compra__fila .qty { flex: 0 0 auto; }
 .compra__fila .ds-btn { flex: 1 1 auto; }

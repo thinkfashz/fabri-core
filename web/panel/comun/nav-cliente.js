@@ -16,14 +16,16 @@ export const NAV = [
     seccion: 'Mi compra',
     items: [
       { ruta: '/panel/cliente/carrito/', texto: 'Carrito', icono: 'carrito', contador: 'carrito' },
-      { ruta: '/panel/cliente/pedidos/', texto: 'Mis pedidos', icono: 'pedidos', pronto: true },
-      { ruta: '/panel/cliente/favoritos/', texto: 'Favoritos', icono: 'corazon', pronto: true },
+      { ruta: '/panel/cliente/pedidos/', texto: 'Mis pedidos', icono: 'pedidos' },
+      { ruta: '/panel/cliente/favoritos/', texto: 'Favoritos', icono: 'corazon' },
     ],
   },
   {
     seccion: 'Mi cuenta',
     items: [
       { ruta: '/panel/cliente/cuenta/', texto: 'Cuenta', icono: 'cuenta' },
+      { ruta: '/panel/cliente/direcciones/', texto: 'Direcciones', icono: 'etiqueta' },
+      { ruta: '/panel/cliente/resenas/', texto: 'Reseñas', icono: 'estrella' },
       { ruta: '/panel/cliente/ayuda/', texto: 'Ayuda', icono: 'ayuda' },
     ],
   },

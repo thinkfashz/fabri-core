@@ -78,6 +78,25 @@
 }
 .pago-detalle[hidden] { display: none; }
 
+.dirs-guardadas { margin-bottom: 12px; }
+.dirs-guardadas:empty { display: none; }
+.dirs-guardadas__rotulo {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ds-text-tertiary);
+}
+.dirs-guardadas__lista { display: flex; gap: 6px; flex-wrap: wrap; }
+.dirs-guardadas__lista .ds-chip {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .vuelto {
   display: flex;
   align-items: baseline;

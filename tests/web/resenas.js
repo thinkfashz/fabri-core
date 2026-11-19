@@ -70,7 +70,7 @@ ok('existe resena_crear', /accion === 'resena_crear'/.test(api));
 ok('existe resenas_panel', /accion === 'resenas_panel'/.test(api));
 ok('existe resena_moderar', /accion === 'resena_moderar'/.test(api));
 ok('las cinco acciones están en la lista del GET',
-  /'resenas_listar', 'resena_crear', 'resenas_panel', 'resena_moderar'/.test(api));
+  /'resenas_listar', 'resena_crear', 'resenas_mias', 'resenas_panel', 'resena_moderar'/.test(api));
 ok('la tabla aparece en asegurar', /T_PEDIDOS, T_EVENTOS, T_RESENAS/.test(api));
 
 ok('calificar exige el pedido entregado', /pedido\.estado !== 'entregado'/.test(api));

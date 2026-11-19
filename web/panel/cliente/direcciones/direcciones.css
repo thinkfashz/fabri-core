@@ -1,0 +1,270 @@
+/* C11 · Direcciones — formulario y lista a la izquierda, mapa y pin a la
+   derecha. En móvil el mapa baja después del formulario; las tarjetas de
+   dirección llevan el alias grande y la dirección debajo. */
+
+.dir-cabeza {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin: 4px 0 18px;
+}
+.dir-cabeza__kicker {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ds-text-tertiary);
+}
+.dir-cabeza h1 {
+  margin: 2px 0 4px;
+  font-family: var(--ds-font-condensed);
+  font-size: clamp(30px, 4vw, 42px);
+  font-weight: 800;
+  line-height: 1;
+}
+.dir-cabeza p {
+  margin: 0;
+  max-width: 58ch;
+  font-size: var(--ds-text-sm);
+  color: var(--ds-text-secondary);
+}
+
+.dir-marco {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(310px, 42%);
+  gap: 18px;
+  align-items: start;
+}
+.dir-columna { min-width: 0; }
+
+.dir-form-caja,
+.dir-lista-caja {
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-2xl);
+  background: var(--ds-bg-card);
+  overflow: hidden;
+}
+.dir-lista-caja { margin-top: 16px; }
+.dir-form-cabeza,
+.dir-lista-cabeza {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 15px 18px;
+  border-bottom: 1px solid var(--panel-line);
+}
+.dir-form-cabeza h2,
+.dir-lista-cabeza h2 {
+  font-family: var(--ds-font-condensed);
+  font-size: 17px;
+  font-weight: 800;
+}
+.dir-cancelar {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--ds-accent);
+  font: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.dir-form { padding: 16px 18px 18px; }
+.dir-campos {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.dir-campo { display: grid; gap: 5px; }
+.dir-campo--ancho { grid-column: 1 / -1; }
+.dir-campo label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ds-text-tertiary);
+}
+.dir-campo input {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-bg-raised);
+  color: var(--ds-text-primary);
+  font: inherit;
+  font-size: 13px;
+}
+.dir-campo input:focus {
+  outline: none;
+  border-color: var(--panel-line-accent);
+  box-shadow: 0 0 0 3px var(--ds-accent-soft);
+}
+.dir-campo input[aria-invalid="true"] { border-color: var(--ds-err); }
+
+.dir-default {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 11px 12px;
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-md);
+  cursor: pointer;
+}
+.dir-default input { margin-top: 2px; accent-color: var(--ds-accent); }
+.dir-default b { display: block; font-size: 12.5px; font-weight: 600; }
+.dir-default small { display: block; margin-top: 1px; font-size: 10.5px; color: var(--ds-text-tertiary); }
+
+.dir-acciones {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+.dir-acciones .ds-btn--lg { flex: 1 1 190px; }
+.dir-nota {
+  margin: 12px 0 0;
+  font-size: 10.5px;
+  line-height: 1.55;
+  color: var(--ds-text-tertiary);
+}
+
+.dir-lista { padding: 10px 12px 12px; }
+
+.dir-card {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-lg);
+  background: var(--ds-bg-raised);
+  margin-bottom: 8px;
+}
+.dir-card:last-child { margin-bottom: 0; }
+.dir-card--default {
+  border-color: var(--panel-line-accent);
+  background:
+    radial-gradient(120% 140% at 95% -20%, rgba(200, 245, 66, 0.10), transparent 55%),
+    var(--ds-bg-raised);
+}
+.dir-card__ico {
+  display: grid;
+  place-items: center;
+  flex: 0 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  border: 1px solid var(--ds-border);
+  background: var(--ds-bg-card);
+  color: var(--ds-accent);
+}
+.dir-card__ico svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; }
+.dir-card__cuerpo { flex: 1 1 auto; min-width: 0; }
+.dir-card__alias {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--ds-font-condensed);
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 1.1;
+}
+.dir-card__direccion {
+  display: block;
+  margin-top: 3px;
+  font-size: 12.5px;
+  line-height: 1.35;
+  color: var(--ds-text-primary);
+  word-break: break-word;
+}
+.dir-card__meta {
+  display: block;
+  margin-top: 2px;
+  font-size: 10.5px;
+  color: var(--ds-text-tertiary);
+}
+.dir-card__acciones {
+  display: flex;
+  gap: 4px;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.dir-mini {
+  border: 1px solid var(--ds-border);
+  border-radius: 8px;
+  background: transparent;
+  min-height: 30px;
+  padding: 0 8px;
+  color: var(--ds-text-secondary);
+  font: inherit;
+  font-size: 10.5px;
+  cursor: pointer;
+}
+.dir-mini:hover { border-color: var(--panel-line-accent); color: var(--ds-accent); }
+.dir-mini--peligro:hover { border-color: var(--ds-err-border); color: var(--ds-err); }
+
+.dir-vacio { padding: 8px 4px; }
+
+.dir-mapa-caja {
+  position: sticky;
+  top: 16px;
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-2xl);
+  background: var(--ds-bg-card);
+  overflow: hidden;
+}
+.dir-mapa {
+  height: min(62vh, 520px);
+  min-height: 320px;
+  background: var(--ds-bg-raised);
+  z-index: 0;
+}
+.dir-mapa__pie {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 11px 14px;
+  border-top: 1px solid var(--panel-line);
+  font-size: 10.5px;
+  color: var(--ds-text-tertiary);
+}
+.dir-mapa__pie button {
+  border: 1px solid var(--ds-border);
+  border-radius: 999px;
+  background: transparent;
+  min-height: 30px;
+  padding: 0 10px;
+  color: var(--ds-text-secondary);
+  font: inherit;
+  font-size: 10.5px;
+  cursor: pointer;
+}
+.dir-mapa__pie button:hover { color: var(--ds-accent); border-color: var(--panel-line-accent); }
+
+.dir-pin span {
+  display: block;
+  width: 18px;
+  height: 18px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  background: var(--ds-accent);
+  border: 2px solid #0B0D0F;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+}
+
+@media (max-width: 860px) {
+  .dir-marco { grid-template-columns: 1fr; }
+  .dir-mapa-caja { position: static; }
+  .dir-mapa { height: 340px; min-height: 300px; }
+}
+@media (max-width: 520px) {
+  .dir-campos { grid-template-columns: 1fr; }
+  .dir-card { flex-wrap: wrap; }
+  .dir-card__acciones { width: 100%; justify-content: flex-start; padding-left: 52px; }
+}

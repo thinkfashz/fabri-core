@@ -55,6 +55,17 @@
 //   POST { accion: "push_baja", token, endpoint }         → deja de avisar (PÚBLICO)
 //   POST { accion: "push_local_suscribir", local_id, suscripcion } → avisos de la tienda (DUEÑO · ADMIN)
 //   POST { accion: "push_local_baja", local_id, endpoint }        → deja de avisar la tienda (DUEÑO · ADMIN)
+//   POST { accion: "mis_pedidos" }              → historial del comprador (CUENTA)
+//                                              → incluye token de seguimiento e
+//                                                indica si ya tiene reseña
+//   POST { accion: "favoritos_listar" }         → productos y tiendas guardadas (CUENTA)
+//   POST { accion: "favorito_alternar", tipo, local_id, sku? }
+//                                              → guarda o quita (CUENTA)
+//   POST { accion: "direcciones_listar" }       → direcciones del comprador (CUENTA)
+//   POST { accion: "direccion_guardar", ... }   → crea o edita (CUENTA)
+//   POST { accion: "direccion_borrar", id }     → borra una dirección (CUENTA)
+//   POST { accion: "resenas_mias" }             → mis reseñas y pedidos
+//                                                entregados sin calificar (CUENTA)
 //   POST { accion: "resenas_listar", local_id } → reseñas visibles + promedio (PÚBLICO)
 //   POST { accion: "resena_crear", token, estrellas, texto }
 //                                              → califica un pedido entregado (PÚBLICO)
@@ -102,6 +113,8 @@ const T_PRODUCTOS = 'mercado_productos';
 const T_PEDIDOS = 'mercado_pedidos';
 const T_EVENTOS = 'mercado_pedido_eventos';
 const T_RESENAS = 'mercado_resenas';
+const T_FAVORITOS = 'mercado_favoritos';
+const T_DIRECCIONES = 'mercado_direcciones';
 const T_PUSH = 'mercado_push';
 const T_PUSH_LOCAL = 'mercado_push_local';
 const T_CUENTAS = 'core_usuarios';
@@ -489,6 +502,13 @@ async function asegurar(pool: any) {
   await pool.query(`ALTER TABLE ${T_PEDIDOS} ADD COLUMN IF NOT EXISTS idempotencia TEXT NOT NULL DEFAULT ''`);
   await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_mercado_pedidos_idempotencia
                       ON ${T_PEDIDOS} (local_id, idempotencia) WHERE idempotencia <> ''`);
+  // C09: el pedido recuerda qué cuenta lo hizo. Sigue siendo público abrirlo
+  // con el token o con código + teléfono; `cliente_id` sólo agrega el
+  // historial entre dispositivos para quien entró. Los pedidos viejos y los
+  // de invitado quedan con '' y no aparecen en «Mis pedidos» remoto.
+  await pool.query(`ALTER TABLE ${T_PEDIDOS} ADD COLUMN IF NOT EXISTS cliente_id TEXT NOT NULL DEFAULT ''`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_mercado_pedidos_cliente
+                      ON ${T_PEDIDOS} (cliente_id, creado DESC) WHERE cliente_id <> ''`);
   // Lo que el comprador ahorró con las ofertas del catálogo. Se guarda al
   // crear el pedido para que el panel del dueño y el resumen del admin no
   // tengan que recalcular el JSON de cada pedido.
@@ -543,6 +563,49 @@ async function asegurar(pool: any) {
                       ON ${T_RESENAS} (pedido_id)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_mercado_resenas_local
                       ON ${T_RESENAS} (local_id, creado DESC)`);
+  // C12: la reseña recuerda qué cuenta la escribió. El historial público
+  // sigue mostrando sólo el autor abreviado; esto es para «mis reseñas».
+  await pool.query(`ALTER TABLE ${T_RESENAS} ADD COLUMN IF NOT EXISTS usuario_id TEXT NOT NULL DEFAULT ''`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_mercado_resenas_usuario
+                      ON ${T_RESENAS} (usuario_id, creado DESC) WHERE usuario_id <> ''`);
+
+  /* C10 · Favoritos. Se guardan las claves (cuenta + tipo + tienda + SKU) y
+     un snapshot mínimo (nombre y precio) para poder mostrar un producto que
+     después desapareció del catálogo. El precio actual NO se copia: se lee
+     del catálogo vivo al listar, así la baja de precio es real. */
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ${T_FAVORITOS} (
+      usuario_id TEXT NOT NULL,
+      tipo       TEXT NOT NULL DEFAULT 'producto',
+      local_id   TEXT NOT NULL DEFAULT '',
+      sku        TEXT NOT NULL DEFAULT '',
+      nombre     TEXT NOT NULL DEFAULT '',
+      precio     NUMERIC NOT NULL DEFAULT 0,
+      creado     TIMESTAMPTZ NOT NULL DEFAULT now(),
+      PRIMARY KEY (usuario_id, tipo, local_id, sku)
+    )`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_mercado_favoritos_usuario
+                      ON ${T_FAVORITOS} (usuario_id, creado DESC)`);
+
+  /* C11 · Direcciones del comprador. `alias` es lo que ve primero («casa»,
+     «trabajo»); lat/lon son el pin del mapa y 0 significa «sin punto». Una
+     sola predeterminada por cuenta: se limpia antes de marcar otra. */
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ${T_DIRECCIONES} (
+      id             TEXT PRIMARY KEY,
+      usuario_id     TEXT NOT NULL,
+      alias          TEXT NOT NULL DEFAULT '',
+      direccion      TEXT NOT NULL DEFAULT '',
+      comuna         TEXT NOT NULL DEFAULT '',
+      referencia     TEXT NOT NULL DEFAULT '',
+      lat            DOUBLE PRECISION NOT NULL DEFAULT 0,
+      lon            DOUBLE PRECISION NOT NULL DEFAULT 0,
+      predeterminada BOOLEAN NOT NULL DEFAULT false,
+      creado         TIMESTAMPTZ NOT NULL DEFAULT now(),
+      actualizado    TIMESTAMPTZ NOT NULL DEFAULT now()
+    )`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_mercado_direcciones_usuario
+                      ON ${T_DIRECCIONES} (usuario_id, predeterminada DESC, creado DESC)`);
   // Avisos push: una fila por dispositivo suscrito a un pedido. El `endpoint`
   // es una URL de capacidad (quien la tiene puede mandar avisos a ese
   // navegador), así que nunca se devuelve al cliente. La `huella` permite el
@@ -1547,7 +1610,9 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         'pedido_crear', 'pedido_seguir', 'push_suscribir', 'push_baja',
         'push_local_suscribir', 'push_local_baja',
         'pedidos_listar', 'pedido_estado',
-        'resenas_listar', 'resena_crear', 'resenas_panel', 'resena_moderar',
+        'mis_pedidos', 'favoritos_listar', 'favorito_alternar',
+        'direcciones_listar', 'direccion_guardar', 'direccion_borrar',
+        'resenas_listar', 'resena_crear', 'resenas_mias', 'resenas_panel', 'resena_moderar',
         'ventas_serie', 'resumen',
       ],
     });
@@ -1584,7 +1649,11 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     await asegurar(pool);
 
     if (accion === 'asegurar') {
-      return json(res, { ok: true, accion, tablas: [T_LOCALES, T_PRODUCTOS, T_PEDIDOS, T_EVENTOS, T_RESENAS, T_PUSH, T_PUSH_LOCAL] });
+      return json(res, {
+        ok: true, accion,
+        tablas: [T_LOCALES, T_PRODUCTOS, T_PEDIDOS, T_EVENTOS, T_RESENAS,
+          T_FAVORITOS, T_DIRECCIONES, T_PUSH, T_PUSH_LOCAL],
+      });
     }
 
     /* Misma lectura pública del link de marca, por POST para la APK. */
@@ -1941,6 +2010,12 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         return json(res, { ok: false, error: 'el local está cerrado', codigo: 'CERRADO' }, 409);
       }
 
+      // C09: si el comprador entró, el pedido queda ligado a su cuenta para
+      // que «Mis pedidos» lo vea en cualquier dispositivo. Sin sesión válida
+      // se guarda '' y el pedido se sigue abriendo con el enlace o el código.
+      const accesoCompra = await cuentaDe(pool, req);
+      const clienteId = accesoCompra.usuario ? accesoCompra.usuario.id : '';
+
       // Idempotencia: el mismo intento repetido devuelve el pedido que ya se
       // creó, en vez de duplicarlo. Es lo que pasa con doble toque o cuando la
       // red del teléfono se corta justo después de enviar.
@@ -2121,9 +2196,10 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
             `INSERT INTO ${T_PEDIDOS}
                (id,local_id,codigo,cliente,telefono,items,subtotal,envio,total,entrega,
                 direccion,nota,estado,seguimiento,idempotencia,ahorro,
-                comuna_entrega,referencia_entrega,metodo_pago,pago_con,vuelto,clave_entrega)
+                comuna_entrega,referencia_entrega,metodo_pago,pago_con,vuelto,clave_entrega,
+                cliente_id)
              VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,$12,'nuevo',$13,$14,$15,
-                     $16,$17,$18,$19,$20,$21)`,
+                     $16,$17,$18,$19,$20,$21,$22)`,
             [id, localId, codigo, nombreCliente, telefono,
               JSON.stringify(items.map((x) => ({
                 sku: x.sku, codigo: x.codigo || '', nombre: x.nombre, precio: x.precio,
@@ -2133,7 +2209,8 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
               }))),
               subtotal, envio, total, entrega,
               direccion, nota, seguimiento, idem, ahorro,
-              comunaEntrega, referenciaEntrega, pago, efectivo.dado, efectivo.vuelto, claveEntrega]
+              comunaEntrega, referenciaEntrega, pago, efectivo.dado, efectivo.vuelto, claveEntrega,
+              clienteId]
           );
           await cliente_pg.query(
             `INSERT INTO ${T_EVENTOS} (pedido_id, estado, actor, nota)
@@ -2448,6 +2525,317 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       return json(res, { ok: true, accion, borrados: r.rowCount });
     }
 
+    /* ── C09 · historial del comprador (CUENTA) ─────────────────────────────
+       Sólo los pedidos que se crearon con la sesión de esta cuenta. Los
+       pedidos de invitado siguen viviendo en el navegador y se abren con el
+       enlace: no se pueden reclamar a posteriori. */
+    if (accion === 'mis_pedidos') {
+      const acceso = await cuentaDe(pool, req);
+      if (!acceso.usuario) {
+        return json(res, {
+          ok: false, codigo: acceso.motivo || 'SIN_CUENTA',
+          error: mensajeCuenta(acceso.motivo, 'entra a tu cuenta para ver tus pedidos'),
+        }, 401);
+      }
+      const limite = Math.min(200, Math.max(1, entero(cuerpo.limite, 100) || 100));
+      const r = await pool.query(
+        `SELECT p.id, p.local_id, p.codigo, p.seguimiento, p.cliente, p.items,
+                p.subtotal::float8 AS subtotal, p.envio::float8 AS envio, p.total::float8 AS total,
+                p.ahorro::float8 AS ahorro,
+                p.entrega, p.direccion, p.comuna_entrega, p.referencia_entrega,
+                p.metodo_pago, p.pago_con::float8 AS pago_con, p.vuelto::float8 AS vuelto,
+                p.nota, p.estado, p.creado, p.actualizado,
+                l.nombre AS local_nombre, l.ico AS local_ico, l.telefono AS local_telefono,
+                l.direccion AS local_direccion, l.comuna AS local_comuna, l.abierto AS local_abierto,
+                EXISTS (SELECT 1 FROM ${T_RESENAS} r WHERE r.pedido_id = p.id) AS resenado
+           FROM ${T_PEDIDOS} p
+           LEFT JOIN ${T_LOCALES} l ON l.id = p.local_id
+          WHERE p.cliente_id = $1
+          ORDER BY p.creado DESC LIMIT $2`,
+        [acceso.usuario.id, limite]
+      );
+      return json(res, {
+        ok: true, accion,
+        pedidos: r.rows,
+        total: r.rowCount,
+      });
+    }
+
+    /* ── C10 · favoritos (CUENTA) ───────────────────────────────────────────
+       La lista siempre lee el catálogo vivo: si el producto sigue, muestra su
+       nombre, precio efectivo y stock de hoy; si desapareció, conserva el
+       snapshot y lo marca `existe: false` en vez de romper la página. */
+    if (accion === 'favoritos_listar') {
+      const acceso = await cuentaDe(pool, req);
+      if (!acceso.usuario) {
+        return json(res, {
+          ok: false, codigo: acceso.motivo || 'SIN_CUENTA',
+          error: mensajeCuenta(acceso.motivo, 'entra a tu cuenta para ver tus favoritos'),
+        }, 401);
+      }
+      const r = await pool.query(
+        `SELECT f.tipo, f.local_id AS favorito_local_id, f.sku AS favorito_sku,
+                f.nombre AS nombre_guardado, f.precio::float8 AS precio_guardado, f.creado,
+                ${camposProducto('p.')},
+                l.nombre AS local_nombre, l.ico AS local_ico, l.abierto AS local_abierto,
+                l.activo AS local_activo, l.comuna AS local_comuna
+           FROM ${T_FAVORITOS} f
+           LEFT JOIN ${T_PRODUCTOS} p
+                  ON f.tipo = 'producto' AND p.local_id = f.local_id AND p.sku = f.sku
+           LEFT JOIN ${T_LOCALES} l ON l.id = f.local_id
+          WHERE f.usuario_id = $1
+          ORDER BY f.creado DESC LIMIT 200`,
+        [acceso.usuario.id]
+      );
+      return json(res, { ok: true, accion, favoritos: r.rows });
+    }
+
+    if (accion === 'favorito_alternar') {
+      const acceso = await cuentaDe(pool, req);
+      if (!acceso.usuario) {
+        return json(res, {
+          ok: false, codigo: acceso.motivo || 'SIN_CUENTA',
+          error: mensajeCuenta(acceso.motivo, 'entra a tu cuenta para guardar favoritos'),
+        }, 401);
+      }
+      const tipo = texto(cuerpo.tipo, 20).trim() === 'tienda' ? 'tienda' : 'producto';
+      const localId = idLocal(cuerpo.local_id);
+      if (!localId) return json(res, { ok: false, codigo: 'FALTA_LOCAL', error: 'falta la tienda' }, 400);
+      const sku = tipo === 'producto' ? texto(cuerpo.sku, 60).trim() : '';
+      if (tipo === 'producto' && !sku) {
+        return json(res, { ok: false, codigo: 'FALTA_SKU', error: 'falta el producto' }, 400);
+      }
+
+      // Se comprueba contra la base antes de guardar: un favorito roto no
+      // sirve de nada y el navegador no puede inventar precios.
+      let nombre = '';
+      let precio = 0;
+      if (tipo === 'producto') {
+        const pr = await pool.query(
+          `SELECT ${CAMPOS_PRODUCTO} FROM ${T_PRODUCTOS}
+            WHERE local_id = $1 AND sku = $2 LIMIT 1`, [localId, sku]
+        );
+        const p = pr.rows[0];
+        if (!p) {
+          return json(res, {
+            ok: false, codigo: 'NO_EXISTE',
+            error: 'ese producto ya no está en el catálogo de la tienda',
+          }, 404);
+        }
+        nombre = texto(p.nombre, 160).trim();
+        precio = Number(p.precio_efectivo) || Number(p.precio) || 0;
+      } else {
+        const lr = await pool.query(
+          `SELECT id, nombre FROM ${T_LOCALES} WHERE id = $1 AND activo LIMIT 1`, [localId]
+        );
+        const l = lr.rows[0];
+        if (!l) {
+          return json(res, {
+            ok: false, codigo: 'NO_EXISTE',
+            error: 'esa tienda ya no está publicada',
+          }, 404);
+        }
+        nombre = texto(l.nombre, 160).trim();
+      }
+
+      const borrado = await pool.query(
+        `DELETE FROM ${T_FAVORITOS}
+          WHERE usuario_id = $1 AND tipo = $2 AND local_id = $3 AND sku = $4`,
+        [acceso.usuario.id, tipo, localId, sku]
+      );
+      if (borrado.rowCount) {
+        return json(res, { ok: true, accion, favorito: false, tipo, local_id: localId, sku });
+      }
+
+      const cuenta = await pool.query(
+        `SELECT COUNT(*)::int AS n FROM ${T_FAVORITOS} WHERE usuario_id = $1`,
+        [acceso.usuario.id]
+      );
+      if (Number(cuenta.rows[0]?.n) >= 200) {
+        return json(res, {
+          ok: false, codigo: 'TOPE',
+          error: 'llegaste al máximo de 200 favoritos: quita alguno para guardar otro',
+        }, 409);
+      }
+      await pool.query(
+        `INSERT INTO ${T_FAVORITOS} (usuario_id, tipo, local_id, sku, nombre, precio)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         ON CONFLICT (usuario_id, tipo, local_id, sku)
+         DO UPDATE SET nombre = EXCLUDED.nombre, precio = EXCLUDED.precio`,
+        [acceso.usuario.id, tipo, localId, sku, nombre, precio]
+      );
+      return json(res, {
+        ok: true, accion, favorito: true, tipo, local_id: localId, sku, nombre, precio,
+      });
+    }
+
+    /* ── C11 · direcciones del comprador (CUENTA) ───────────────────────────
+       Tope de 20 por cuenta; una sola predeterminada. El pin es opcional:
+       lat/lon en 0 significa «sin punto en el mapa», no una dirección falsa. */
+    if (accion === 'direcciones_listar') {
+      const acceso = await cuentaDe(pool, req);
+      if (!acceso.usuario) {
+        return json(res, {
+          ok: false, codigo: acceso.motivo || 'SIN_CUENTA',
+          error: mensajeCuenta(acceso.motivo, 'entra a tu cuenta para ver tus direcciones'),
+        }, 401);
+      }
+      const r = await pool.query(
+        `SELECT id, alias, direccion, comuna, referencia,
+                lat::float8 AS lat, lon::float8 AS lon,
+                predeterminada, creado, actualizado
+           FROM ${T_DIRECCIONES}
+          WHERE usuario_id = $1
+          ORDER BY predeterminada DESC, creado DESC LIMIT 50`,
+        [acceso.usuario.id]
+      );
+      return json(res, { ok: true, accion, direcciones: r.rows });
+    }
+
+    if (accion === 'direccion_guardar') {
+      const acceso = await cuentaDe(pool, req);
+      if (!acceso.usuario) {
+        return json(res, {
+          ok: false, codigo: acceso.motivo || 'SIN_CUENTA',
+          error: mensajeCuenta(acceso.motivo, 'entra a tu cuenta para guardar direcciones'),
+        }, 401);
+      }
+      const id = texto(cuerpo.id, 60).trim();
+      const alias = texto(cuerpo.alias, 40).trim() || 'Dirección';
+      const direccion = texto(cuerpo.direccion, 200).trim();
+      const comuna = texto(cuerpo.comuna, 80).trim();
+      const referencia = texto(cuerpo.referencia, 160).trim();
+      const predeterminada = booleano(cuerpo.predeterminada, false);
+      const latN = Number(cuerpo.lat);
+      const lonN = Number(cuerpo.lon);
+      const lat = Number.isFinite(latN) ? Math.max(-56, Math.min(-17, latN)) : 0;
+      const lon = Number.isFinite(lonN) ? Math.max(-76, Math.min(-66, lonN)) : 0;
+      if (direccion.length < 5) {
+        return json(res, { ok: false, codigo: 'SIN_DIRECCION', error: 'escribe la calle y el número' }, 400);
+      }
+      if (comuna.length < 2) {
+        return json(res, { ok: false, codigo: 'SIN_COMUNA', error: 'escribe la comuna' }, 400);
+      }
+
+      let fila: any = null;
+      if (id) {
+        const up = await pool.query(
+          `UPDATE ${T_DIRECCIONES}
+              SET alias = $1, direccion = $2, comuna = $3, referencia = $4,
+                  lat = $5, lon = $6, predeterminada = $7, actualizado = now()
+            WHERE id = $8 AND usuario_id = $9
+            RETURNING id, alias, direccion, comuna, referencia,
+                      lat::float8 AS lat, lon::float8 AS lon,
+                      predeterminada, creado, actualizado`,
+          [alias, direccion, comuna, referencia, lat, lon, predeterminada, id, acceso.usuario.id]
+        );
+        fila = up.rows[0] || null;
+        if (!fila) {
+          return json(res, { ok: false, codigo: 'NO_ENCONTRADA', error: 'esa dirección no existe en tu cuenta' }, 404);
+        }
+      } else {
+        const cuenta = await pool.query(
+          `SELECT COUNT(*)::int AS n FROM ${T_DIRECCIONES} WHERE usuario_id = $1`,
+          [acceso.usuario.id]
+        );
+        const n = Number(cuenta.rows[0]?.n) || 0;
+        if (n >= 20) {
+          return json(res, {
+            ok: false, codigo: 'TOPE',
+            error: 'llegaste al máximo de 20 direcciones: borra una para guardar otra',
+          }, 409);
+        }
+        const nuevoId = 'dir-' + Date.now().toString(36) + randomBytes(3).toString('hex');
+        const primera = n === 0;
+        const ins = await pool.query(
+          `INSERT INTO ${T_DIRECCIONES}
+             (id, usuario_id, alias, direccion, comuna, referencia, lat, lon, predeterminada)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+           RETURNING id, alias, direccion, comuna, referencia,
+                     lat::float8 AS lat, lon::float8 AS lon,
+                     predeterminada, creado, actualizado`,
+          [nuevoId, acceso.usuario.id, alias, direccion, comuna, referencia, lat, lon,
+            predeterminada || primera]
+        );
+        fila = ins.rows[0];
+      }
+
+      if (fila.predeterminada) {
+        await pool.query(
+          `UPDATE ${T_DIRECCIONES} SET predeterminada = false
+            WHERE usuario_id = $1 AND id <> $2 AND predeterminada = true`,
+          [acceso.usuario.id, fila.id]
+        );
+      }
+      return json(res, { ok: true, accion, direccion: fila });
+    }
+
+    if (accion === 'direccion_borrar') {
+      const acceso = await cuentaDe(pool, req);
+      if (!acceso.usuario) {
+        return json(res, {
+          ok: false, codigo: acceso.motivo || 'SIN_CUENTA',
+          error: mensajeCuenta(acceso.motivo, 'entra a tu cuenta para borrar direcciones'),
+        }, 401);
+      }
+      const id = texto(cuerpo.id, 60).trim();
+      if (!id) return json(res, { ok: false, codigo: 'FALTA_ID', error: 'falta la dirección' }, 400);
+      const r = await pool.query(
+        `DELETE FROM ${T_DIRECCIONES} WHERE id = $1 AND usuario_id = $2`,
+        [id, acceso.usuario.id]
+      );
+      if (!r.rowCount) {
+        return json(res, { ok: false, codigo: 'NO_ENCONTRADA', error: 'esa dirección no existe en tu cuenta' }, 404);
+      }
+      // Si se borró la predeterminada, la más reciente que quede toma el lugar.
+      await pool.query(
+        `UPDATE ${T_DIRECCIONES} SET predeterminada = true
+          WHERE usuario_id = $1
+            AND NOT EXISTS (SELECT 1 FROM ${T_DIRECCIONES} WHERE usuario_id = $1 AND predeterminada)
+            AND id = (SELECT id FROM ${T_DIRECCIONES} WHERE usuario_id = $1 ORDER BY creado DESC LIMIT 1)`,
+        [acceso.usuario.id]
+      );
+      return json(res, { ok: true, accion, borrados: r.rowCount });
+    }
+
+    /* ── C12 · mis reseñas (CUENTA) ─────────────────────────────────────────
+       Devuelve lo que ya opiné y los pedidos entregados que todavía no tienen
+       reseña. El token de seguimiento viaja para que la página pueda llamar a
+       `resena_crear`, que es la que exige la prueba de compra. */
+    if (accion === 'resenas_mias') {
+      const acceso = await cuentaDe(pool, req);
+      if (!acceso.usuario) {
+        return json(res, {
+          ok: false, codigo: acceso.motivo || 'SIN_CUENTA',
+          error: mensajeCuenta(acceso.motivo, 'entra a tu cuenta para ver tus reseñas'),
+        }, 401);
+      }
+      const mias = await pool.query(
+        `SELECT r.id, r.estrellas::int AS estrellas, r.texto, r.creado, r.local_id,
+                l.nombre AS local_nombre, l.ico AS local_ico
+           FROM ${T_RESENAS} r
+           LEFT JOIN ${T_LOCALES} l ON l.id = r.local_id
+          WHERE r.usuario_id = $1
+          ORDER BY r.creado DESC LIMIT 200`,
+        [acceso.usuario.id]
+      );
+      const pendientes = await pool.query(
+        `SELECT p.codigo, p.seguimiento, p.local_id, p.creado, p.total::float8 AS total, p.items,
+                l.nombre AS local_nombre, l.ico AS local_ico
+           FROM ${T_PEDIDOS} p
+           LEFT JOIN ${T_LOCALES} l ON l.id = p.local_id
+          WHERE p.cliente_id = $1 AND p.estado = 'entregado'
+            AND NOT EXISTS (SELECT 1 FROM ${T_RESENAS} r WHERE r.pedido_id = p.id)
+          ORDER BY p.creado DESC LIMIT 50`,
+        [acceso.usuario.id]
+      );
+      return json(res, {
+        ok: true, accion,
+        resenas: mias.rows,
+        pendientes: pendientes.rows,
+      });
+    }
+
     /* ── reseñas (público: leer y escribir) ─────────────────────────────────
        Calificar exige el token del pedido y que el local lo haya marcado como
        entregado: no se puede opinar de una compra que no ocurrió. Una reseña
@@ -2534,12 +2922,18 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         }, 409);
       }
 
+      // C12: si quien califica está en su cuenta, la reseña queda ligada para
+      // el historial «mis reseñas». El pedido se sigue probando con el token
+      // o el código + teléfono: la cuenta no reemplaza esa prueba.
+      const accesoResena = await cuentaDe(pool, req);
+      const resenaUsuario = accesoResena.usuario ? accesoResena.usuario.id : '';
+
       const id = 'res-' + Date.now().toString(36) + randomBytes(3).toString('hex');
       try {
         await pool.query(
-          `INSERT INTO ${T_RESENAS} (id, local_id, pedido_id, autor, estrellas, texto)
-           VALUES ($1, $2, $3, $4, $5, $6)`,
-          [id, pedido.local_id, pedido.id, autorPublico(pedido.cliente), estrellas, textoResena]
+          `INSERT INTO ${T_RESENAS} (id, local_id, pedido_id, autor, estrellas, texto, usuario_id)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [id, pedido.local_id, pedido.id, autorPublico(pedido.cliente), estrellas, textoResena, resenaUsuario]
         );
       } catch (e: any) {
         // El índice único en `pedido_id` es el que impide opinar dos veces.

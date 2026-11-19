@@ -8,6 +8,66 @@
 
 Última actualización: 2026-11-19
 
+## Sesión 2026-11-19 · Panel Cliente fase 2: C09–C12
+
+Pedido: completar los cuatro módulos que quedaban como `pronto`, conectados a
+InsForge y sin crear funciones serverless nuevas (el tope de 12 `.ts` sigue).
+
+**Backend (`api-telefono/api/mercado.ts`)**
+
+| Cambio | Detalle |
+|---|---|
+| `mercado_pedidos.cliente_id` | índice parcial; `pedido_crear` lo guarda si el Bearer es válido |
+| `mercado_resenas.usuario_id` | índice parcial; `resena_crear` lo guarda si hay cuenta |
+| `mercado_favoritos` | PK `(usuario_id, tipo, local_id, sku)` + snapshot nombre/precio |
+| `mercado_direcciones` | tope 20 por cuenta; una sola predeterminada; `lat/lon = 0` es «sin pin» |
+| Acciones nuevas | `mis_pedidos`, `favoritos_listar`, `favorito_alternar`, `direcciones_listar`, `direccion_guardar`, `direccion_borrar`, `resenas_mias` |
+
+Las siete acciones están en la lista pública del GET y las cuatro tablas en
+`asegurar`. La prueba de compra de una reseña **no** cambia: token del pedido o
+código + últimos 4 del teléfono.
+
+**Frontend**
+
+- C09 · Mis pedidos: historial remoto (`mis_pedidos`) + local
+  (`fcore.placer.pedidos`), filtros, búsqueda por código/tienda, separadores por
+  mes, detalle en dos paneles y «volver a pedir» con el catálogo y precios de
+  hoy. Los pedidos de invitado se marcan «sólo en este teléfono».
+- C10 · Favoritos: pestañas Productos/Tiendas, corazón en la ficha de producto,
+  precio actual leído del catálogo vivo, panel de bajas reales contra el precio
+  guardado y producto eliminado marcado (`existe: false`). Sube los favoritos
+  locales que la cuenta todavía no tiene.
+- C11 · Direcciones: formulario con alias, calle, comuna y referencia; mapa
+  Leaflet **local** (`/app/vendor/leaflet.js`), pin arrastrable, predeterminada,
+  editar y borrar. Sin buscador de calles ni geocodificación inventada.
+- C12 · Reseñas: pedidos entregados pendientes con estrellas grandes, envío con
+  token o código + últimos 4, historial propio (`resenas_mias`) y respaldo local
+  en `fcore.panel.resenas`.
+- Piezas comunes nuevas: `web/panel/comun/favoritos.js` y
+  `web/panel/comun/direcciones.js` (nube + espejo local). El checkout ofrece las
+  direcciones guardadas desde el espejo y luego desde la nube.
+- `nav-cliente.js` ya no tiene `pronto`; agrega Direcciones y Reseñas en «Mi
+  cuenta».
+
+**Fallos reales encontrados al revisar capturas** (corregidos, con prueba)
+
+- C09 quedaba con el `<body>` vacío: `querySelector('[data-detalle]')` atrapaba
+  el propio `<body data-detalle="0">` y `innerHTML` borraba sidebar, topbar y
+  contenido. Ahora el detalle se selecciona por `.pedido-detalle`.
+- `favoritos.css` tenía una llave `}` de más: la media query de 880 px no se
+  aplicaba y en móvil la columna lateral de 340 px aplastaba la lista a 32 px.
+  Se corrigió y las seis hojas nuevas/tocadas quedaron con llaves balanceadas.
+- «Cargando» y los estados vacíos se muestran sin fingir datos: sin sesión, sin
+  red y sin pedidos se explican con enlaces reales.
+
+**Verificación**: 20/20 suites de `tests/web/` en verde (panel ampliado con los
+4 módulos y el contrato de las 7 acciones) y `tsc` 5.6.3 sin errores. Capturas a
+390 px de C09–C12 con el headless shell.
+
+**Pendiente inmediato**: desplegar API y web, probar `asegurar` y los 401 de
+`mis_pedidos` / `favoritos_listar` / `direcciones_listar` / `resenas_mias`, y
+retirar el evento controlado del doctor cuando haya `FABRI_API_TOKEN`.
+
 ## Sesión 2026-11-19 · Doctor nativo: páginas, componentes y APIs medidas
 
 Pedido: un «reactdoctor» nativo que mida los estados reales de páginas,

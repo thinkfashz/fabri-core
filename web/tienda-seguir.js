@@ -295,9 +295,21 @@
   }
 
   function buscar(cuerpo) {
+    // Si la persona entró en este navegador, la reseña queda ligada a su
+    // cuenta para «Mis reseñas» del panel. La prueba de compra del pedido
+    // sigue viajando aparte y no se reemplaza por la sesión.
+    var cabeceras = { "Content-Type": "application/json" };
+    try {
+      var nube = JSON.parse(localStorage.getItem("fcore.nube") || "null");
+      if (nube && nube.token) {
+        cabeceras.Authorization = "Bearer " + nube.token;
+        var disp = localStorage.getItem("fcore.dispositivo");
+        if (disp) cabeceras["x-dispositivo"] = disp;
+      }
+    } catch (e) { /* invitado: la reseña se publica igual */ }
     return fetch(MERCADO, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: cabeceras,
       body: JSON.stringify(cuerpo)
     }).then(function (r) {
       return r.json().catch(function () { return {}; });
