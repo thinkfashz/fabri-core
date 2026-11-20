@@ -1,0 +1,203 @@
+/* Panel Negocio · base compartida
+   Solo lo que usan todos los módulos: acceso, estados de carga/error, chip de
+   tienda y cabecera de módulo. Cada módulo trae su propio CSS con su layout. */
+
+/* ── acceso ─────────────────────────────────────────────────────────────── */
+
+.neg-acceso {
+  width: min(420px, 100%);
+  margin: clamp(24px, 8vh, 96px) auto 0;
+  padding: 28px 24px 22px;
+  border: 1px solid var(--panel-line);
+  border-radius: 20px;
+  background: var(--ds-bg-elevated);
+  box-shadow: var(--ds-shadow-lg);
+}
+.neg-acceso__ico {
+  width: 48px; height: 48px;
+  display: grid; place-items: center;
+  margin-bottom: 14px;
+  border-radius: 14px;
+  border: 1px solid var(--panel-line-accent);
+  background: var(--ds-accent-soft);
+  color: var(--ds-accent);
+}
+.neg-acceso__ico svg { width: 24px; height: 24px; }
+.neg-acceso__kicker {
+  font-size: 10.5px; font-weight: 800; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--ds-text-tertiary);
+}
+.neg-acceso h1 {
+  margin: 4px 0 6px;
+  font-family: var(--ds-font-condensed);
+  font-size: 28px; font-weight: 800; line-height: 1.05;
+}
+.neg-acceso__sub { font-size: 12.5px; color: var(--ds-text-tertiary); line-height: 1.5; }
+.neg-acceso .aviso { margin-top: 14px; }
+.neg-acceso__form { display: flex; flex-direction: column; gap: 12px; margin-top: 18px; }
+.neg-acceso__form .campo { display: flex; flex-direction: column; gap: 6px; }
+.neg-acceso__form .campo span { font-size: 11.5px; font-weight: 700; color: var(--ds-text-secondary); }
+.neg-acceso__form input {
+  width: 100%; min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--panel-line);
+  border-radius: 11px;
+  background: var(--ds-bg-app-alt);
+  color: var(--ds-text-primary);
+  font: inherit; font-size: 14px;
+}
+.neg-acceso__form input:focus-visible { outline: 2px solid var(--ds-accent); outline-offset: 1px; }
+.neg-acceso__error {
+  padding: 9px 11px;
+  border: 1px solid rgba(255, 107, 107, .35);
+  border-radius: 10px;
+  background: rgba(255, 107, 107, .09);
+  color: #FFB4B4;
+  font-size: 12px;
+}
+.neg-acceso__pie {
+  margin-top: 16px;
+  font-size: 11.5px; line-height: 1.55;
+  color: var(--ds-text-tertiary);
+}
+
+/* ── carga y estados ────────────────────────────────────────────────────── */
+
+.neg-cargando { display: flex; flex-direction: column; gap: 12px; }
+.neg-cargando__barra { height: 34px; width: min(320px, 80%); }
+.neg-cargando__bloque { height: 120px; }
+
+.neg-estado {
+  max-width: 560px;
+  margin: clamp(20px, 6vh, 64px) auto;
+  padding: 24px;
+  border: 1px solid var(--panel-line);
+  border-radius: 18px;
+  background: var(--ds-bg-elevated);
+}
+.neg-estado h2 { font-family: var(--ds-font-condensed); font-size: 22px; font-weight: 800; }
+.neg-estado p { margin-top: 8px; font-size: 13px; line-height: 1.6; color: var(--ds-text-secondary); }
+.neg-estado__acciones { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+
+/* ── chip de tienda en la barra superior ────────────────────────────────── */
+
+.neg-tienda {
+  display: inline-flex; align-items: center; gap: 9px;
+  min-height: 42px; padding: 5px 10px 5px 5px;
+  border: 1px solid var(--panel-line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .03);
+}
+.neg-tienda__logo {
+  width: 32px; height: 32px; flex: 0 0 auto;
+  display: grid; place-items: center;
+  border-radius: 9px;
+  background: var(--ds-bg-sunken);
+  color: var(--ds-text-secondary);
+  font-family: var(--ds-font-condensed);
+  font-size: 13px; font-weight: 800;
+  overflow: hidden;
+}
+.neg-tienda__logo img { width: 100%; height: 100%; object-fit: cover; }
+.neg-tienda__txt { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
+.neg-tienda__txt b { font-size: 12.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 190px; }
+.neg-tienda__txt small { display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; color: var(--ds-text-tertiary); }
+.neg-tienda--sel { padding-right: 6px; }
+.neg-tienda--sel select {
+  max-width: 190px; min-height: 34px;
+  border: 1px solid var(--panel-line);
+  border-radius: 9px;
+  background: var(--ds-bg-app-alt);
+  color: var(--ds-text-primary);
+  font: inherit; font-size: 12px;
+  padding: 4px 8px;
+}
+.neg-punto {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--ds-text-tertiary);
+}
+.neg-punto--ok { background: #5BD98A; box-shadow: 0 0 0 3px rgba(91, 217, 138, .14); }
+
+/* ── cabecera de módulo ─────────────────────────────────────────────────── */
+
+.neg-cabeza {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+.neg-cabeza__kicker {
+  font-size: 10.5px; font-weight: 800; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--ds-text-tertiary);
+}
+.neg-cabeza h1 {
+  margin: 3px 0 4px;
+  font-family: var(--ds-font-condensed);
+  font-size: clamp(26px, 4vw, 34px);
+  font-weight: 800; line-height: 1.05;
+}
+.neg-cabeza p { font-size: 12.5px; color: var(--ds-text-tertiary); max-width: 60ch; }
+.neg-cabeza__acciones { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+.neg-aviso { margin-bottom: 14px; }
+.neg-aviso:empty { display: none; }
+
+/* ── piezas genéricas ───────────────────────────────────────────────────── */
+
+.neg-seg {
+  display: inline-flex; gap: 3px; padding: 3px;
+  border: 1px solid var(--panel-line);
+  border-radius: 11px;
+  background: var(--ds-bg-app-alt);
+}
+.neg-seg button {
+  min-height: 32px; padding: 0 12px;
+  border: 0; border-radius: 8px;
+  background: transparent;
+  color: var(--ds-text-tertiary);
+  font: inherit; font-size: 11.5px; font-weight: 700;
+  cursor: pointer;
+}
+.neg-seg button[aria-selected="true"] {
+  background: var(--ds-bg-elevated);
+  color: var(--ds-text-primary);
+  box-shadow: var(--ds-shadow-sm);
+}
+
+.neg-tarjeta {
+  border: 1px solid var(--panel-line);
+  border-radius: 16px;
+  background: var(--ds-bg-elevated);
+  padding: 18px;
+}
+.neg-tarjeta h2 {
+  font-family: var(--ds-font-condensed);
+  font-size: 16px; font-weight: 800;
+  letter-spacing: .02em;
+}
+.neg-tarjeta__sub { font-size: 11.5px; color: var(--ds-text-tertiary); }
+
+.neg-tabla { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.neg-tabla th {
+  padding: 8px 10px;
+  text-align: left;
+  font-size: 10.5px; font-weight: 800; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--ds-text-tertiary);
+  border-bottom: 1px solid var(--panel-line);
+  white-space: nowrap;
+}
+.neg-tabla td { padding: 10px; border-bottom: 1px solid rgba(255, 255, 255, .05); vertical-align: middle; }
+.neg-tabla tr:last-child td { border-bottom: 0; }
+
+.neg-vacio {
+  padding: 34px 20px;
+  text-align: center;
+  color: var(--ds-text-tertiary);
+  font-size: 12.5px;
+}
+.neg-vacio b { display: block; margin-bottom: 4px; color: var(--ds-text-secondary); font-size: 13.5px; }
+
+@media (max-width: 700px) {
+  .neg-acceso { margin-top: 12px; padding: 22px 18px 18px; }
+  .neg-tienda__txt b { max-width: 120px; }
+  .neg-tienda--sel select { max-width: 130px; }
+}

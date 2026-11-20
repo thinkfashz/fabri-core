@@ -77,16 +77,18 @@ function pintarNav(contenedor, nav, panel) {
 
 function pintarCuenta() {
   const slots = document.querySelectorAll('[data-cuenta-slot]');
+  // La cuenta es la misma en los dos paneles: C13 es donde se administra.
+  const destino = '/panel/cliente/cuenta/';
   const d = leerSesion();
   const u = d && d.usuario;
   const html = u
-    ? '<a class="sidebar__cuenta" href="/panel/cliente/cuenta/">' +
+    ? '<a class="sidebar__cuenta" href="' + destino + '">' +
       '<span class="cuenta-chip__ini">' + iniciales(u.nombre || u.email) + '</span>' +
       '<span class="crece"><b>' + (u.nombre || 'Tu cuenta') + '</b>' +
       '<small>' + (u.email || '') + '</small></span></a>'
-    : '<a class="sidebar__cuenta" href="/panel/cliente/cuenta/">' +
+    : '<a class="sidebar__cuenta" href="' + destino + '">' +
       '<span class="cuenta-chip__ini">?</span>' +
-      '<span class="crece"><b>Entrar</b><small>para sincronizar tu cuenta</small></span></a>';
+      '<span class="crece"><b>Entrar</b><small>para administrar tu negocio</small></span></a>';
   slots.forEach((s) => { s.innerHTML = html; });
 
   const chip = document.querySelector('[data-cuenta-chip]');
@@ -95,7 +97,7 @@ function pintarCuenta() {
       ? '<span class="cuenta-chip__ini">' + iniciales(u.nombre || u.email) + '</span><span>' +
         (u.nombre || 'Mi cuenta') + '</span>'
       : '<span class="cuenta-chip__ini">?</span><span>Entrar</span>';
-    chip.setAttribute('href', '/panel/cliente/cuenta/');
+    chip.setAttribute('href', destino);
   }
 }
 
@@ -161,8 +163,9 @@ async function iniciar() {
     ? (await import('./nav-negocio.js')).NAV
     : (await import('./nav-cliente.js')).NAV;
 
+  const inicio = panel === 'negocio' ? '/panel/negocio/resumen/' : '/panel/cliente/inicio/';
   sidebar.innerHTML =
-    '<a class="marca" href="/panel/' + panel + '/inicio/">' +
+    '<a class="marca" href="' + inicio + '">' +
       '<img src="/logo-f.svg" alt="">' +
       '<span class="marca__texto"><b>FORGE CORE</b><span>STOCK</span></span>' +
     '</a>' +

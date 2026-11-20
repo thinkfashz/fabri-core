@@ -356,6 +356,12 @@ console.log('\n▸ sitio · términos y redirecciones');
     destinos.some((d) => d.startsWith('/panel ') && d.endsWith('/panel/cliente/inicio/')) &&
     destinos.some((d) => d.startsWith('/panel/cliente ') && d.endsWith('/panel/cliente/inicio/')),
     destinos.join(' | '));
+  ok('panel/negocio/index.html redirige al resumen',
+    existe(path.join(WEB, 'panel', 'negocio', 'index.html')) &&
+    /\/panel\/negocio\/resumen\//.test(leer(path.join(WEB, 'panel', 'negocio', 'index.html'))));
+  ok('Vercel redirige /panel/negocio al resumen',
+    destinos.some((d) => d.startsWith('/panel/negocio ') && d.endsWith('/panel/negocio/resumen/')),
+    destinos.join(' | '));
 }
 
 /* 14 · La navegación no promete páginas a medias: cada enlace del menú abre

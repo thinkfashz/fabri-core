@@ -321,25 +321,25 @@ La forma elegida es **BFF**: InsForge valida la contraseña y `fabri-api` sigue 
 
 ### 2.3 Negocio
 
-| # | Módulo | Ruta | Carpeta | Endpoint principal | Fase |
-|---|---|---|---|---|---|
-| N01 | Resumen | `/panel/negocio/resumen/` | `web/panel/negocio/resumen/` | `ventas_serie` ✅ | 2 |
-| N02 | Pedidos | `/panel/negocio/pedidos/` | `web/panel/negocio/pedidos/` | `pedidos_listar`, `pedido_estado` ✅ | 2 |
-| N03 | Productos | `/panel/negocio/productos/` | `web/panel/negocio/productos/` | `local_mio`, `productos_subir` ✅ | 2 |
-| N04 | Inventario | `/panel/negocio/inventario/` | `web/panel/negocio/inventario/` | `productos_subir` ✅ | 2 |
-| N05 | Ofertas | `/panel/negocio/ofertas/` | `web/panel/negocio/ofertas/` | `productos_subir` ✅ | 3 |
-| N06 | Mi tienda | `/panel/negocio/tienda/` | `web/panel/negocio/tienda/` | `local_actualizar`, `local_estado` ✅ | 2 |
-| N07 | Horarios y entrega | `/panel/negocio/horarios/` | `web/panel/negocio/horarios/` | `local_actualizar` ✅ | 2 |
-| N08 | Reseñas | `/panel/negocio/resenas/` | `web/panel/negocio/resenas/` | `resenas_panel`, `resena_moderar` ✅ | 2 |
-| N09 | Clientes | `/panel/negocio/clientes/` | `web/panel/negocio/clientes/` | `clientes_listar` 🟡 | 3 |
-| N10 | Reportes | `/panel/negocio/reportes/` | `web/panel/negocio/reportes/` | `ventas_serie` ✅ / `reportes_exportar` 🟡 | 3 |
-| N11 | Cupones | `/panel/negocio/cupones/` | `web/panel/negocio/cupones/` | `cupones_*` 🟡🧩 | 3 |
-| N12 | Pagos | `/panel/negocio/pagos/` | `web/panel/negocio/pagos/` | `pagos_config`, `liquidaciones_listar` 🟡🧩 | 3 |
-| N13 | Equipo | `/panel/negocio/equipo/` | `web/panel/negocio/equipo/` | `equipo_*` 🟡🧩 | 4 |
-| N14 | Notificaciones | `/panel/negocio/notificaciones/` | `web/panel/negocio/notificaciones/` | `push_local_suscribir`, `push_local_baja` ✅ | 2 |
-| N15 | Auditoría | `/panel/negocio/auditoria/` | `web/panel/negocio/auditoria/` | `auditoria_listar` 🟡🧩 | 4 |
-| N16 | Ajustes | `/panel/negocio/ajustes/` | `web/panel/negocio/ajustes/` | `local_actualizar`, `local_borrar` ✅ | 2 |
-| N17 | Integraciones | `/panel/negocio/integraciones/` | `web/panel/negocio/integraciones/` | `integraciones_*` 🟡🧩 | 4 |
+| # | Módulo | Ruta | Carpeta | Endpoint principal | Fase | Estado |
+|---|---|---|---|---|---|---|
+| N01 | Resumen | `/panel/negocio/resumen/` | `web/panel/negocio/resumen/` | `ventas_serie`, `pedidos_listar` ✅ | 2 | ✅ desplegado |
+| N02 | Pedidos | `/panel/negocio/pedidos/` | `web/panel/negocio/pedidos/` | `pedidos_listar`, `pedido_estado` ✅ | 2 | ✅ desplegado |
+| N03 | Productos | `/panel/negocio/productos/` | `web/panel/negocio/productos/` | `local_mio`, `productos_subir`, `producto_borrar` ✅ | 2 | ✅ desplegado |
+| N04 | Inventario | `/panel/negocio/inventario/` | `web/panel/negocio/inventario/` | `productos_subir` ✅ | 2 | ✅ desplegado |
+| N05 | Ofertas | `/panel/negocio/ofertas/` | `web/panel/negocio/ofertas/` | `productos_subir` ✅ | 3 | 🟡 pendiente |
+| N06 | Mi tienda | `/panel/negocio/tienda/` | `web/panel/negocio/tienda/` | `local_actualizar`, `local_estado` ✅ | 2 | ✅ desplegado |
+| N07 | Horarios y entrega | `/panel/negocio/horarios/` | `web/panel/negocio/horarios/` | `local_actualizar` ✅ | 2 | 🟡 pendiente |
+| N08 | Reseñas | `/panel/negocio/resenas/` | `web/panel/negocio/resenas/` | `resenas_panel`, `resena_moderar` ✅ | 2 | 🟡 pendiente |
+| N09 | Clientes | `/panel/negocio/clientes/` | `web/panel/negocio/clientes/` | `clientes_listar` 🟡 | 3 | 🟡 pendiente |
+| N10 | Reportes | `/panel/negocio/reportes/` | `web/panel/negocio/reportes/` | `ventas_serie` ✅ / `reportes_exportar` 🟡 | 3 | 🟡 pendiente |
+| N11 | Cupones | `/panel/negocio/cupones/` | `web/panel/negocio/cupones/` | `cupones_*` 🟡🧩 | 3 | 🟡 pendiente |
+| N12 | Pagos | `/panel/negocio/pagos/` | `web/panel/negocio/pagos/` | `pagos_config`, `liquidaciones_listar` 🟡🧩 | 3 | 🟡 pendiente |
+| N13 | Equipo | `/panel/negocio/equipo/` | `web/panel/negocio/equipo/` | `equipo_*` 🟡🧩 | 4 | 🟡 pendiente |
+| N14 | Notificaciones | `/panel/negocio/notificaciones/` | `web/panel/negocio/notificaciones/` | `push_local_suscribir`, `push_local_baja` ✅ | 2 | 🟡 pendiente |
+| N15 | Auditoría | `/panel/negocio/auditoria/` | `web/panel/negocio/auditoria/` | `auditoria_listar` 🟡🧩 | 4 | 🟡 pendiente |
+| N16 | Ajustes | `/panel/negocio/ajustes/` | `web/panel/negocio/ajustes/` | `local_actualizar`, `local_borrar` ✅ | 2 | 🟡 pendiente |
+| N17 | Integraciones | `/panel/negocio/integraciones/` | `web/panel/negocio/integraciones/` | `integraciones_*` 🟡🧩 | 4 | 🟡 pendiente |
 
 ---
 
@@ -512,7 +512,7 @@ La forma elegida es **BFF**: InsForge valida la contraseña y `fabri-api` sigue 
 - **Uso:** 1) elige tienda si tiene varias; 2) elige 7/30/90 días; 3) clic en «pedidos abiertos» → N02; 4) clic en «stock bajo» → N04.
 - **Diseño propio:** franja de 4 cifras, gráfico de área de ventas, cola de pedidos en vivo a la derecha, top 5 y stock crítico en dos columnas. Densidad de escritorio; en móvil, todo apilado.
 - **Estados:** tienda sin ventas (serie plana), sin reseñas, base caída.
-- **Fase:** 2.
+- **Fase:** 2 · **Estado: ✅ desplegado.** Pide `ventas_serie` y `pedidos_listar` en paralelo; si la cola falla, la serie se sigue mostrando y la cola ofrece reintento.
 
 ### N02 · Pedidos
 
@@ -523,7 +523,7 @@ La forma elegida es **BFF**: InsForge valida la contraseña y `fabri-api` sigue 
 - **Uso:** 1) entra un pedido; 2) ábrelo; 3) imprime o prepara; 4) marca «listo»; 5) entrega con clave si corresponde; 6) el comprador recibe el aviso.
 - **Diseño propio:** kanban de 4 columnas en escritorio (`nuevo`, `visto`, `listo`, `entregado`) con contador y tiempo; tabla compacta alternativa; detalle en panel lateral, no en modal. En móvil, lista por estado con acciones grandes.
 - **Estados:** sin pedidos, pedido cancelado, sin permiso, push no soportado.
-- **Fase:** 2.
+- **Fase:** 2 · **Estado: ✅ desplegado.** Detalle dentro de la tarjeta (sin modal); aviso de entrega con código cuando el pedido lo exige; avisos push del local con `push_local_suscribir`/`push_local_baja`.
 
 ### N03 · Productos
 
@@ -532,9 +532,9 @@ La forma elegida es **BFF**: InsForge valida la contraseña y `fabri-api` sigue 
 - **Conexión:** `local_mio` ✅ (tienda + catálogo), `productos_subir` ✅ (upsert por lote), `producto_borrar` ✅, `imagen_ver` ✅.
 - **Endpoint:** `local_mio`, `productos_subir`, `producto_borrar`, `imagen_ver`.
 - **Uso:** 1) busca o filtra; 2) crea/edita en línea; 3) sube foto (máx. 200 KB, 640 px); 4) importa CSV/JSON; 5) borra con confirmación.
-- **Diseño propio:** tabla de datos con columnas fijas (foto, nombre, SKU, categoría, precio, stock), edición en línea y barra de acciones masivas; importador en panel lateral. Sin tarjetas.
+- **Diseño propio:** tabla de datos con columnas fijas (foto, nombre, SKU, categoría, precio, stock), edición en línea y barra de acciones masivas; importador en panel lateral. En móvil, cada fila es una tarjeta (precio, stock y acciones siempre visibles, sin scroll horizontal).
 - **Estados:** catálogo vacío, SKU duplicado, foto muy pesada, límite de 3000 productos.
-- **Fase:** 2.
+- **Fase:** 2 · **Estado: ✅ desplegado.** La foto se achica a 640 px y 200 KB antes de subir; la importación acepta CSV y JSON con sinónimos de encabezado.
 
 ### N04 · Inventario
 
@@ -545,7 +545,7 @@ La forma elegida es **BFF**: InsForge valida la contraseña y `fabri-api` sigue 
 - **Uso:** 1) ordena por stock ascendente; 2) ajusta +/− en línea; 3) escanea un código para encontrar el SKU; 4) guarda el lote.
 - **Diseño propio:** matriz de stock con celdas editables, semáforo (0, 1–5, 6+) y filtros por categoría; en móvil, lista con steppers. Sin gráficos.
 - **Estados:** stock nulo (sin control), agotado, sin cambios, error de guardado.
-- **Fase:** 2.
+- **Fase:** 2 · **Estado: ✅ desplegado.** Los cambios se acumulan y se guardan en un lote; cada producto viaja completo para no borrar nombre, precio ni categoría.
 
 ### N05 · Ofertas
 
@@ -567,7 +567,7 @@ La forma elegida es **BFF**: InsForge valida la contraseña y `fabri-api` sigue 
 - **Uso:** 1) edita identidad; 2) sube logo (120 KB, 192 px); 3) ajusta el pin; 4) abre/cierra; 5) copia el link o descarga el QR.
 - **Diseño propio:** editor con vista previa en vivo de la ficha pública (como C04) al lado; formulario por bloques. Sin tabla.
 - **Estados:** logo muy pesado, dirección sin geocodificar, tienda cerrada, link no disponible.
-- **Fase:** 2.
+- **Fase:** 2 · **Estado: ✅ desplegado.** El pin se mueve con coordenadas válidas en Chile o con el GPS del teléfono; el logo se achica a 192 px y 120 KB. Abrir/cerrar usa `local_estado` y actualiza el chip sin borrar lo que el dueño está escribiendo.
 
 ### N07 · Horarios y entrega
 
@@ -887,9 +887,9 @@ C01–C08, C13, C14. C09–C12 se completaron en la fase 2 con datos en InsForge
 
 ### Fase 2 · Negocio MVP (6–8 días)
 
-N01–N04, N06–N08, N14, N16. `local_mio` como fuente de verdad.
+N01–N04 y N06 **desplegados**. N07, N08, N14 y N16 siguen pendientes; `local_mio` es la fuente de verdad.
 
-**Aceptación:** el dueño entra con su cuenta, ve ventas de 7 días, avanza un pedido, edita stock y ficha, y recibe el push; nada de esto requiere la `clave` si hay sesión.
+**Aceptación:** el dueño entra con su cuenta, ve ventas de 7 días, avanza un pedido, edita stock y ficha, y recibe el push; nada de esto requiere la `clave` si hay sesión. Hoy: resumen, cola de pedidos, catálogo, inventario y ficha funcionan con datos reales; faltan horarios, reseñas, notificaciones y ajustes.
 
 ### Fase 3 · Crecimiento (5–7 días)
 

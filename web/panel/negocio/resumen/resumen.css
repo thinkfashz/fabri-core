@@ -1,0 +1,165 @@
+/* N01 · Resumen — franja de cifras, serie de ventas y dos columnas densas. */
+
+.res-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.res-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px;
+  border: 1px solid var(--panel-line);
+  border-radius: 16px;
+  background: var(--ds-bg-elevated);
+  min-width: 0;
+}
+.res-kpi--acento { border-color: var(--panel-line-accent); background: linear-gradient(180deg, rgba(200, 245, 66, .06), transparent 70%), var(--ds-bg-elevated); }
+.res-kpi__rotulo {
+  font-size: 10.5px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--ds-text-tertiary);
+}
+.res-kpi__valor {
+  font-family: var(--ds-font-condensed);
+  font-size: clamp(22px, 3vw, 30px);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -.01em;
+}
+.res-kpi--acento .res-kpi__valor { color: var(--ds-accent); }
+.res-kpi__nota { font-size: 11.5px; color: var(--ds-text-tertiary); }
+
+.res-grilla {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.res-columna { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+/* ── serie ─────────────────────────────────────────────────────────────── */
+
+.res-serie__cabeza,
+.res-cola__cabeza {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.res-serie__cabeza h2,
+.res-cola__cabeza h2 { font-family: var(--ds-font-condensed); font-size: 17px; font-weight: 800; }
+.res-serie__conversion {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ds-text-tertiary);
+  white-space: nowrap;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--panel-line);
+}
+
+.res-barras {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 148px;
+  padding-top: 8px;
+  border-bottom: 1px solid var(--panel-line);
+}
+.res-barra {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 2px;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.res-barra__alto {
+  width: 100%;
+  max-width: 34px;
+  border-radius: 4px 4px 0 0;
+  background: linear-gradient(180deg, var(--ds-accent), rgba(200, 245, 66, .28));
+  opacity: .78;
+  transition: opacity .18s ease;
+}
+.res-barra--hoy .res-barra__alto { opacity: 1; box-shadow: 0 0 0 1px rgba(200, 245, 66, .35); }
+.res-barra:hover .res-barra__alto { opacity: 1; }
+.res-barra__dia {
+  position: absolute;
+  top: calc(100% + 4px);
+  font-size: 9px;
+  color: var(--ds-text-tertiary);
+  white-space: nowrap;
+}
+.res-serie .res-barras { margin-bottom: 16px; }
+
+/* ── cola de pedidos ───────────────────────────────────────────────────── */
+
+.res-cola__lista,
+.res-stock__lista,
+.res-top__lista { list-style: none; margin: 0; padding: 0; }
+.res-cola__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 0;
+  border-top: 1px solid rgba(255, 255, 255, .06);
+}
+.res-cola__item:first-child { border-top: 0; padding-top: 0; }
+.res-cola__quien { display: flex; flex-direction: column; min-width: 0; }
+.res-cola__quien b { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.res-cola__quien span { font-size: 11px; color: var(--ds-text-tertiary); }
+.res-cola__fin { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+.res-cola__fin strong { font-size: 13px; font-variant-numeric: tabular-nums; }
+
+/* ── top productos ─────────────────────────────────────────────────────── */
+
+.res-top__item { display: flex; gap: 10px; padding: 9px 0; border-top: 1px solid rgba(255, 255, 255, .06); }
+.res-top__item:first-child { border-top: 0; padding-top: 0; }
+.res-top__n {
+  width: 20px; height: 20px; flex: 0 0 auto;
+  display: grid; place-items: center;
+  border-radius: 6px;
+  background: var(--ds-bg-sunken);
+  color: var(--ds-text-tertiary);
+  font-size: 10px; font-weight: 800;
+}
+.res-top__cuerpo { flex: 1 1 auto; min-width: 0; }
+.res-top__linea { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.res-top__linea b { font-size: 12.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.res-top__linea span { font-size: 12px; font-variant-numeric: tabular-nums; color: var(--ds-text-secondary); white-space: nowrap; }
+.res-top__barra { height: 4px; margin: 5px 0 3px; border-radius: 999px; background: var(--ds-bg-sunken); overflow: hidden; }
+.res-top__barra span { display: block; height: 100%; border-radius: inherit; background: var(--ds-accent); opacity: .55; }
+.res-top__unidades { font-size: 10.5px; color: var(--ds-text-tertiary); }
+
+/* ── stock ─────────────────────────────────────────────────────────────── */
+
+.res-stock__item {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 9px 0; border-top: 1px solid rgba(255, 255, 255, .06);
+}
+.res-stock__item:first-child { border-top: 0; padding-top: 0; }
+.res-stock__nombre { display: flex; flex-direction: column; min-width: 0; }
+.res-stock__nombre b { font-size: 12.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.res-stock__nombre span { font-size: 10.5px; color: var(--ds-text-tertiary); }
+
+/* ── responsive ────────────────────────────────────────────────────────── */
+
+@media (max-width: 1080px) {
+  .res-grilla { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 760px) {
+  .res-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .res-barras { height: 120px; }
+}
+@media (max-width: 420px) {
+  .res-kpi { padding: 13px; }
+  .res-kpi__valor { font-size: 22px; }
+}

@@ -1,0 +1,221 @@
+/* N03 · Productos — tabla densa con edición en línea y paneles de alta. */
+
+.prod-barra {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.prod-buscar {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+.prod-buscar input,
+.prod-barra select {
+  width: 100%;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--panel-line);
+  border-radius: 11px;
+  background: var(--ds-bg-elevated);
+  color: var(--ds-text-primary);
+  font-family: inherit;
+  font-size: 13px;
+}
+.prod-barra select { flex: 0 1 220px; width: auto; }
+.prod-cuenta { font-size: 12px; color: var(--ds-text-tertiary); white-space: nowrap; }
+
+.prod-tabla-caja {
+  border: 1px solid var(--panel-line);
+  border-radius: 14px;
+  overflow: auto;
+  background: var(--ds-bg-elevated);
+}
+.prod-tabla { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 720px; }
+.prod-tabla th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 10px 12px;
+  text-align: left;
+  font-size: 10.5px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ds-text-tertiary);
+  background: var(--ds-bg-app-alt);
+  border-bottom: 1px solid var(--panel-line);
+  white-space: nowrap;
+}
+.prod-tabla td { padding: 10px 12px; border-bottom: 1px solid rgba(255, 255, 255, .05); vertical-align: middle; }
+.prod-tabla tr:last-child td { border-bottom: 0; }
+.prod-tabla tbody tr:hover { background: rgba(255, 255, 255, .02); }
+
+.prod-celda-foto { width: 56px; }
+.prod-foto {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--ds-bg-sunken);
+  border: 1px solid var(--panel-line);
+  font-family: var(--ds-font-condensed);
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--ds-text-tertiary);
+}
+.prod-foto img { width: 100%; height: 100%; object-fit: cover; }
+.prod-foto--vacia { color: var(--ds-text-secondary); }
+.prod-celda-nombre { min-width: 190px; }
+.prod-celda-nombre strong { display: block; font-size: 13px; font-weight: 700; }
+.prod-celda-nombre span { display: block; margin-top: 2px; font-size: 11px; color: var(--ds-text-tertiary); }
+.prod-celda-precio { white-space: nowrap; }
+.prod-celda-precio strong { font-size: 13.5px; }
+.prod-celda-precio s { margin-left: 6px; font-size: 11px; color: var(--ds-text-tertiary); }
+.prod-dcto {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--ds-accent-soft);
+  color: var(--ds-accent);
+  font-size: 10.5px;
+  font-weight: 700;
+}
+.prod-celda-acciones { white-space: nowrap; text-align: right; }
+.prod-borrar { color: #F08A8A; }
+.prod-tenue { color: var(--ds-text-tertiary); font-size: 12px; }
+
+.prod-panel {
+  margin-bottom: 16px;
+  padding: 18px;
+  border: 1px solid var(--panel-line-accent);
+  border-radius: 16px;
+  background: var(--ds-bg-elevated);
+}
+.prod-panel__cabeza {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.prod-panel__cabeza h2 { font-family: var(--ds-font-condensed); font-size: 18px; }
+.prod-form { display: grid; grid-template-columns: 148px minmax(0, 1fr); gap: 18px; }
+.prod-form__foto { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+.prod-foto-campo { display: flex; flex-direction: column; gap: 8px; cursor: pointer; }
+.prod-foto-preview {
+  display: grid;
+  place-items: center;
+  width: 128px;
+  height: 128px;
+  border-radius: 14px;
+  border: 1px dashed var(--panel-line);
+  background: var(--ds-bg-sunken);
+  overflow: hidden;
+  color: var(--ds-text-tertiary);
+  font-size: 12px;
+}
+.prod-foto-preview img { width: 100%; height: 100%; object-fit: cover; }
+.prod-foto-campo input { font-size: 11px; color: var(--ds-text-tertiary); max-width: 148px; }
+.prod-foto-nota { font-size: 10.5px; line-height: 1.4; color: var(--ds-text-tertiary); }
+.prod-form__campos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.prod-form .campo { display: flex; flex-direction: column; gap: 5px; }
+.prod-form .campo--ancho { grid-column: 1 / -1; }
+.prod-form .campo span { font-size: 11px; font-weight: 700; color: var(--ds-text-secondary); }
+.prod-form .campo input {
+  min-height: 38px;
+  padding: 0 11px;
+  border: 1px solid var(--panel-line);
+  border-radius: 10px;
+  background: var(--ds-bg-app-alt);
+  color: var(--ds-text-primary);
+  font-family: inherit;
+  font-size: 13px;
+}
+.prod-form .campo input[readonly] { opacity: .6; }
+.prod-form__pie {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-top: 4px;
+}
+.prod-nota { font-size: 11.5px; color: var(--ds-text-tertiary); line-height: 1.5; }
+
+.prod-import-area {
+  width: 100%;
+  min-height: 150px;
+  padding: 12px;
+  border: 1px solid var(--panel-line);
+  border-radius: 12px;
+  background: var(--ds-bg-app-alt);
+  color: var(--ds-text-primary);
+  font-family: var(--ds-font-mono, monospace);
+  font-size: 12px;
+  line-height: 1.5;
+  resize: vertical;
+}
+.prod-import-pie {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.prod-archivo { font-size: 12px; color: var(--ds-text-secondary); }
+
+@media (max-width: 760px) {
+  .prod-form { grid-template-columns: minmax(0, 1fr); }
+  .prod-form__foto { flex-direction: row; align-items: center; }
+  .prod-foto-preview { width: 88px; height: 88px; }
+  .prod-form__campos { grid-template-columns: minmax(0, 1fr); }
+  .prod-tabla-caja { border-radius: 12px; }
+}
+
+/* En móvil la tabla se convierte en tarjetas: precio, stock y acciones no
+   pueden quedar fuera de la pantalla. Sin scroll horizontal. */
+@media (max-width: 640px) {
+  .prod-tabla-caja {
+    border: 0;
+    background: transparent;
+    overflow: visible;
+    border-radius: 0;
+  }
+  .prod-tabla { min-width: 0; display: block; }
+  .prod-tabla thead { display: none; }
+  .prod-tabla tbody { display: grid; gap: 10px; }
+  .prod-tabla tr {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+    grid-template-areas:
+      "foto nombre precio"
+      "foto cat stock"
+      "acc acc acc";
+    gap: 6px 10px;
+    padding: 12px;
+    border: 1px solid var(--panel-line);
+    border-radius: 14px;
+    background: var(--ds-bg-elevated);
+  }
+  .prod-tabla td { border: 0; padding: 0; }
+  .prod-tabla tbody tr:hover { background: var(--ds-bg-elevated); }
+  .prod-celda-foto { grid-area: foto; align-self: start; }
+  .prod-celda-nombre { grid-area: nombre; min-width: 0; }
+  .prod-celda-nombre strong { white-space: normal; }
+  .prod-tabla td:nth-child(3) { grid-area: cat; }
+  .prod-celda-precio { grid-area: precio; text-align: right; }
+  .prod-celda-stock { grid-area: stock; text-align: right; }
+  .prod-celda-acciones {
+    grid-area: acc;
+    text-align: right;
+    margin-top: 4px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--panel-line);
+  }
+}

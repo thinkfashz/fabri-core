@@ -1829,6 +1829,16 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         entrega: (v) => lista(v, ENTREGAS, ['retiro']),
         abierto: (v) => booleano(v, true),
       };
+      // El pin se edita desde N06. Sólo se acepta dentro de Chile y con
+      // coordenadas finitas: un 0,0 inventado rompería el mapa público.
+      if (campos.lat != null && Number.isFinite(Number(campos.lat))) {
+        const lat = Number(campos.lat);
+        if (lat >= -56 && lat <= -17) permitidos.lat = () => lat;
+      }
+      if (campos.lon != null && Number.isFinite(Number(campos.lon))) {
+        const lon = Number(campos.lon);
+        if (lon >= -76 && lon <= -66) permitidos.lon = () => lon;
+      }
       const sets: string[] = [];
       const valores: unknown[] = [];
       let n = 1;

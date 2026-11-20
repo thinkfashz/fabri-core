@@ -1,0 +1,104 @@
+/* N04 · Inventario — matriz de stock con semáforo y edición por celdas. */
+
+.inv-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.inv-kpi {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--panel-line);
+  border-radius: 12px;
+  background: var(--ds-bg-elevated);
+}
+.inv-kpi span { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ds-text-tertiary); }
+.inv-kpi strong { font-size: 22px; font-variant-numeric: tabular-nums; }
+
+.inv-barra {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.inv-buscar { flex: 1 1 220px; min-width: 0; }
+.inv-buscar input,
+.inv-barra select {
+  width: 100%;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--panel-line);
+  border-radius: 11px;
+  background: var(--ds-bg-elevated);
+  color: var(--ds-text-primary);
+  font-family: inherit;
+  font-size: 13px;
+}
+.inv-barra select { flex: 0 1 200px; width: auto; }
+.inv-check { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--ds-text-secondary); white-space: nowrap; }
+.inv-check input { width: 16px; height: 16px; accent-color: var(--ds-accent); }
+
+.inv-tabla-caja {
+  border: 1px solid var(--panel-line);
+  border-radius: 14px;
+  overflow: auto;
+  background: var(--ds-bg-elevated);
+}
+.inv-tabla { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 560px; }
+.inv-tabla th {
+  position: sticky; top: 0; z-index: 1;
+  padding: 10px 12px;
+  text-align: left;
+  font-size: 10.5px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ds-text-tertiary);
+  background: var(--ds-bg-app-alt);
+  border-bottom: 1px solid var(--panel-line);
+  white-space: nowrap;
+}
+.inv-tabla td { padding: 9px 12px; border-bottom: 1px solid rgba(255, 255, 255, .05); vertical-align: middle; }
+.inv-tabla tr:last-child td { border-bottom: 0; }
+.inv-nombre strong { display: block; font-size: 13px; }
+.inv-nombre span { display: block; margin-top: 2px; font-size: 10.5px; color: var(--ds-text-tertiary); }
+.inv-tenue { color: var(--ds-text-tertiary); font-size: 12px; }
+
+.inv-control { display: flex; align-items: center; gap: 4px; }
+.inv-step {
+  width: 30px; height: 30px;
+  border: 1px solid var(--panel-line);
+  border-radius: 8px;
+  background: var(--ds-bg-app-alt);
+  color: var(--ds-text-secondary);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+.inv-step:hover { border-color: var(--panel-line-accent); color: var(--ds-accent); }
+.inv-control input {
+  width: 64px;
+  min-height: 30px;
+  padding: 0 6px;
+  border: 1px solid var(--panel-line);
+  border-radius: 8px;
+  background: var(--ds-bg-app-alt);
+  color: var(--ds-text-primary);
+  font-family: inherit;
+  font-size: 13px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.inv-control input:focus-visible { outline: 2px solid var(--ds-accent); outline-offset: 1px; }
+
+.inv-tabla tr.inv-agotado td { background: rgba(255, 107, 107, .05); }
+.inv-tabla tr.inv-bajo td { background: rgba(255, 196, 87, .04); }
+
+@media (max-width: 760px) {
+  .inv-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .inv-barra select { flex: 1 1 100%; }
+}

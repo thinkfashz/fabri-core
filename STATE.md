@@ -8,6 +8,66 @@
 
 Última actualización: 2026-11-20
 
+## Sesión 2026-11-20 · Panel Negocio: N01–N04 y N06 desplegados
+
+Pedido: construir el Panel Negocio (`web/panel/negocio/`), que no existía, con
+los módulos de la fase 2 conectados a InsForge y sin crear funciones
+serverless nuevas.
+
+**Base del panel (`web/panel/comun/negocio.js` + `negocio.css`)**
+
+- Reutiliza la MISMA sesión que el panel Cliente y la PWA (`fcore.nube`).
+- `arrancar()` resuelve la tienda con `local_mio`, la guarda en
+  `fcore.panel.negocio.tienda` y entrega un contexto (`cuenta`, `tiendas`,
+  `tienda`, `elegir`, `fijar`, `recargar`, `llamar`) uniforme a cada módulo.
+- Sin sesión muestra el acceso; sin tienda, un estado honesto con el camino
+  para publicarla. El selector de tienda viaja en la barra superior.
+- `comprimirImagen()` achica logo y foto en el navegador antes de subirlos.
+
+**Módulos desplegados**
+
+| Módulo | Ruta | Qué hace |
+|---|---|---|
+| N01 Resumen | `/panel/negocio/resumen/` | `ventas_serie` + `pedidos_listar` en paralelo; 4 cifras, serie por día, top 5, cola de pedidos, stock crítico. |
+| N02 Pedidos | `/panel/negocio/pedidos/` | Cola en 4 columnas, detalle en la tarjeta, `pedido_estado`, código de entrega y avisos push del local. |
+| N03 Productos | `/panel/negocio/productos/` | Catálogo real, alta/edición, foto, borrado, importación CSV/JSON; en móvil la tabla es tarjeta. |
+| N04 Inventario | `/panel/negocio/inventario/` | Matriz de stock con steppers, semáforo y guardado por lote. |
+| N06 Mi tienda | `/panel/negocio/tienda/` | Ficha pública con vista previa en vivo, logo, pin por coordenadas/GPS y abrir/cerrar. |
+
+**Backend (`api-telefono/api/mercado.ts`)**
+
+- `local_actualizar` ahora acepta `lat`/`lon` del negocio, validados dentro de
+  Chile y con valores finitos; un `0,0` se ignora en vez de romper el mapa.
+- Desplegado: `dpl_947Na4MsDWM86U5VT9T53EvnypsY` (fabri-api).
+
+**Verificación real (cuenta y tienda temporales, borradas al terminar)**
+
+- Registro 201, sesión 200, `local_crear` 200, `local_mio` con la tienda.
+- Por la interfaz real (CDP): guardar ficha cambió nombre, marca, teléfono,
+  dirección, comuna y pin; `local_mio` lo confirmó; logo subido (data URL
+  1.035 chars) y quitado (logo vacío); abrir/cerrar actualizó el chip sin
+  borrar lo que el dueño escribía.
+- Productos: `productos_subir` 3/3; pedido de prueba `MP-BMLH5` por $7.450 con
+  2 líneas y `pedidos_listar` lo mostró. Resumen pintó ventas, top y cola reales.
+- `local_borrar` borró la tienda y `borrar` la cuenta: `entrar` quedó 401
+  `CREDENCIALES`. Sin residuos.
+- 21/21 suites de `tests/web/` en verde, incluido el nuevo
+  `tests/web/panel-negocio.js` con 29 comprobaciones (estructura, contrato del
+  shell, rutas del manifiesto, API absoluta, imports y CSS por módulo).
+- TypeScript limpio sobre los 12 `.ts`.
+
+**Producción**
+
+- Web `dpl_7RGhBb6JzuacqGaHjmhLgWAFvNVw`. `/panel/negocio/resumen/`, `/pedidos/`,
+  `/productos/`, `/inventario/` y `/tienda/` responden 200; `/panel/negocio` y
+  `/panel/negocio/` redirigen al resumen (307); `negocio.js` y `nav-negocio.js`
+  en vivo con la base y los módulos correctos.
+- Sin sesión, la pantalla de acceso se muestra sin errores de consola.
+
+**Pendiente**: N07 Horarios, N08 Reseñas, N14 Notificaciones y N16 Ajustes
+(quedan `pronto` en el menú); `perfil_actualizar` en C13; ciclo completo
+pedido → entregado → reseña con una cuenta real.
+
 ## Sesión 2026-11-20 · Mapa con canvas y cuenta conectada a InsForge
 
 Pedido: acercar más el mapa, dibujar la ubicación propia con canvas y conectar

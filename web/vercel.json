@@ -105,6 +105,9 @@
     { "source": "/panel/index.html", "destination": "/panel/cliente/inicio/", "permanent": false },
     { "source": "/panel/cliente", "destination": "/panel/cliente/inicio/", "permanent": false },
     { "source": "/panel/cliente/", "destination": "/panel/cliente/inicio/", "permanent": false },
-    { "source": "/panel/cliente/index.html", "destination": "/panel/cliente/inicio/", "permanent": false }
+    { "source": "/panel/cliente/index.html", "destination": "/panel/cliente/inicio/", "permanent": false },
+    { "source": "/panel/negocio", "destination": "/panel/negocio/resumen/", "permanent": false },
+    { "source": "/panel/negocio/", "destination": "/panel/negocio/resumen/", "permanent": false },
+    { "source": "/panel/negocio/index.html", "destination": "/panel/negocio/resumen/", "permanent": false }
   ]
 }

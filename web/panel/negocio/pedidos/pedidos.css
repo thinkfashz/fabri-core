@@ -1,0 +1,187 @@
+/* N02 · Pedidos — kanban de cuatro columnas con tarjetas operables. */
+
+.ped-barra {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.ped-buscar {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: min(300px, 100%);
+  padding: 0 12px;
+  min-height: 40px;
+  border: 1px solid var(--panel-line);
+  border-radius: 12px;
+  background: var(--ds-bg-elevated);
+  color: var(--ds-text-tertiary);
+}
+.ped-buscar svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+.ped-buscar input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ds-text-primary);
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+}
+.ped-buscar input::placeholder { color: var(--ds-text-tertiary); }
+
+.ped-kanban {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(240px, 1fr));
+  gap: 12px;
+  align-items: start;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+.ped-columna {
+  min-width: 0;
+  border: 1px solid var(--panel-line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, .015);
+}
+.ped-columna__cabeza {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 12px 10px;
+  border-bottom: 1px solid var(--panel-line);
+}
+.ped-columna__cabeza h2 {
+  font-family: var(--ds-font-condensed);
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+}
+.ped-columna__n {
+  min-width: 22px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--ds-bg-sunken);
+  color: var(--ds-text-secondary);
+  font-size: 11px;
+  font-weight: 800;
+  text-align: center;
+}
+.ped-columna__cuerpo {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  min-height: 90px;
+}
+
+.ped-card {
+  border: 1px solid var(--panel-line);
+  border-radius: 12px;
+  background: var(--ds-bg-elevated);
+  padding: 12px;
+}
+.ped-card__cabeza {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.ped-card__codigo {
+  font-family: var(--ds-font-mono, ui-monospace, monospace);
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--ds-text-secondary);
+  letter-spacing: .02em;
+}
+.ped-card__hora { margin-left: auto; font-size: 10.5px; color: var(--ds-text-tertiary); }
+.ped-card__quien { display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px; }
+.ped-card__quien b { font-size: 13.5px; }
+.ped-card__quien span { font-size: 11px; color: var(--ds-text-tertiary); }
+.ped-card__total { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.ped-card__total strong { font-size: 17px; font-variant-numeric: tabular-nums; }
+.ped-card__total span { font-size: 10.5px; color: var(--ds-text-tertiary); text-transform: uppercase; letter-spacing: .04em; }
+.ped-card__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, .06);
+}
+.ped-card__ver {
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  color: var(--ds-text-tertiary);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 4px 2px;
+}
+.ped-card__ver:hover { color: var(--ds-text-primary); text-decoration: underline; }
+
+.ped-detalle {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--panel-line);
+  display: grid;
+  gap: 10px;
+}
+.ped-detalle__rotulo {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ds-text-tertiary);
+}
+.ped-detalle__items { list-style: none; display: grid; gap: 4px; }
+.ped-detalle__items li { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; }
+.ped-detalle__items b { font-variant-numeric: tabular-nums; }
+.ped-detalle p { font-size: 12px; }
+.ped-detalle__tenue { color: var(--ds-text-tertiary); }
+.ped-detalle__eventos { list-style: none; display: grid; gap: 3px; font-size: 11px; color: var(--ds-text-secondary); }
+
+.ped-vacio {
+  padding: 18px 10px;
+  border: 1px dashed var(--panel-line);
+  border-radius: 10px;
+  color: var(--ds-text-tertiary);
+  font-size: 11.5px;
+  text-align: center;
+}
+
+.ped-cancelados { margin-top: 22px; }
+.ped-cancelados h2 {
+  font-family: var(--ds-font-condensed);
+  font-size: 14px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+  margin-bottom: 10px;
+  color: var(--ds-text-tertiary);
+}
+.ped-cancelados__lista {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 10px;
+}
+
+@media (max-width: 1100px) {
+  .ped-kanban { grid-template-columns: repeat(2, minmax(220px, 1fr)); }
+}
+@media (max-width: 700px) {
+  .ped-kanban { grid-template-columns: minmax(0, 1fr); }
+  .ped-barra { align-items: stretch; }
+  .ped-buscar { min-width: 0; width: 100%; }
+  .neg-seg { overflow-x: auto; }
+}

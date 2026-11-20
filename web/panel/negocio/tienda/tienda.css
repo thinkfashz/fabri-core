@@ -1,0 +1,194 @@
+/* N06 · Mi tienda — formulario a la izquierda y ficha pública en vivo. */
+
+.mie-grilla {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 20px;
+  align-items: start;
+}
+
+/* ── formulario ─────────────────────────────────────────────────────────── */
+
+.mie-bloque {
+  border: 1px solid var(--panel-line);
+  border-radius: 16px;
+  background: var(--ds-bg-elevated);
+  padding: 18px;
+  margin-bottom: 14px;
+}
+.mie-bloque h2 {
+  margin-bottom: 14px;
+  font-family: var(--ds-font-condensed);
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: .02em;
+}
+.mie-bloque h2::after {
+  content: '';
+  display: block;
+  width: 28px;
+  height: 2px;
+  margin-top: 7px;
+  border-radius: 2px;
+  background: var(--ds-accent);
+}
+
+.mie-logo {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+.mie-logo-caja {
+  flex: 0 0 auto;
+  width: 76px;
+  height: 76px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--panel-line-accent);
+  border-radius: 20px;
+  background: var(--ds-accent-soft);
+  color: var(--ds-accent);
+  font-family: var(--ds-font-condensed);
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: .02em;
+}
+.mie-logo-caja img { width: 100%; height: 100%; object-fit: cover; }
+.mie-logo-acciones { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
+.mie-logo-acciones label { cursor: pointer; }
+.mie-nota { font-size: 11px; line-height: 1.45; color: var(--ds-text-tertiary); }
+
+.mie-campos {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.mie-campos .campo--ancho { grid-column: 1 / -1; }
+.mie-campos .campo > span { font-size: 11.5px; font-weight: 700; color: var(--ds-text-secondary); }
+
+.mie-pin-fila {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.mie-pin-fila input { flex: 1 1 130px; min-width: 0; }
+.mie-pin-fila .ds-btn { flex: 0 0 auto; }
+
+.mie-pie {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-top: 4px;
+}
+.mie-pie .ds-btn[type="submit"] { min-width: 160px; }
+
+/* ── vista previa ───────────────────────────────────────────────────────── */
+
+.mie-preview {
+  position: sticky;
+  top: calc(var(--panel-topbar-h) + 16px);
+}
+.mie-preview-rotulo {
+  margin-bottom: 8px;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--ds-text-tertiary);
+}
+.mie-ficha {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--panel-line);
+  border-radius: 20px;
+  background:
+    radial-gradient(420px 200px at 100% -10%, rgba(200, 245, 66, .09), transparent 70%),
+    var(--ds-bg-elevated);
+  padding: 18px;
+  box-shadow: var(--ds-shadow-md);
+}
+.mie-ficha::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: linear-gradient(90deg, var(--ds-accent), rgba(90, 217, 232, .55));
+}
+.mie-ficha-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.mie-ficha-logo {
+  flex: 0 0 auto;
+  width: 56px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 16px;
+  border: 1px solid var(--panel-line-accent);
+  background: var(--ds-accent-soft);
+  color: var(--ds-accent);
+  font-family: var(--ds-font-condensed);
+  font-size: 20px;
+  font-weight: 800;
+}
+.mie-ficha-logo img { width: 100%; height: 100%; object-fit: cover; }
+.mie-ficha-top h3 {
+  font-family: var(--ds-font-condensed);
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+.mie-ficha-top p {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--ds-text-tertiary);
+  overflow-wrap: anywhere;
+}
+.mie-ficha-datos {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 14px;
+  margin: 0;
+}
+.mie-ficha-datos dt {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--ds-text-tertiary);
+}
+.mie-ficha-datos dd {
+  margin: 2px 0 0;
+  font-size: 12.5px;
+  color: var(--ds-text-secondary);
+  overflow-wrap: anywhere;
+}
+.mie-ficha-pie {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--panel-line);
+}
+
+/* ── responsive ─────────────────────────────────────────────────────────── */
+
+@media (max-width: 980px) {
+  .mie-grilla { grid-template-columns: minmax(0, 1fr); }
+  .mie-preview { position: static; }
+}
+@media (max-width: 620px) {
+  .mie-campos { grid-template-columns: minmax(0, 1fr); }
+  .mie-logo { align-items: flex-start; }
+  .mie-ficha-datos { grid-template-columns: minmax(0, 1fr); }
+  .mie-pie .ds-btn { flex: 1 1 auto; }
+}
