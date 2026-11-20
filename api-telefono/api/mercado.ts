@@ -1802,6 +1802,11 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         tiendas: r.rows.map((l: any) => Object.assign(aTienda(l), {
           catalogo: catalogo[l.id] || [],
           pedidos_pendientes: pendientes[l.id] || 0,
+          /* El panel de Ajustes necesita saber el plan y si la tienda está
+             publicada. Van sólo acá: `aTienda` también sirve la ficha pública
+             y el mapa, donde el plan del dueño no tiene por qué viajar. */
+          plan: l.plan || 'gratis',
+          activo: l.activo !== false,
         })),
       });
     }
@@ -2994,10 +2999,14 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         `SELECT id, autor, estrellas::int AS estrellas, texto, oculta, creado
            FROM ${T_RESENAS} WHERE local_id = $1 ORDER BY creado DESC LIMIT 200`, [localId]
       );
+      /* Las ocultas se cuentan sobre TODAS las filas de la tienda: si el
+         WHERE las excluyera antes de contarlas, `ocultas` daría siempre 0 y
+         el panel no podría avisar que hay reseñas fuera del promedio. */
       const prom = await pool.query(
-        `SELECT COUNT(*)::int AS n, AVG(estrellas)::float8 AS promedio,
+        `SELECT COUNT(*) FILTER (WHERE oculta = false)::int AS n,
+                AVG(estrellas) FILTER (WHERE oculta = false)::float8 AS promedio,
                 COUNT(*) FILTER (WHERE oculta)::int AS ocultas
-           FROM ${T_RESENAS} WHERE local_id = $1 AND oculta = false`, [localId]
+           FROM ${T_RESENAS} WHERE local_id = $1`, [localId]
       );
       const c = prom.rows[0] || {};
       return json(res, {

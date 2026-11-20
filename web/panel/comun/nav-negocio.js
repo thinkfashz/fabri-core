@@ -10,7 +10,7 @@ export const NAV = [
     items: [
       { ruta: '/panel/negocio/resumen/', texto: 'Resumen', icono: 'inicio' },
       { ruta: '/panel/negocio/pedidos/', texto: 'Pedidos', icono: 'pedidos' },
-      { ruta: '/panel/negocio/notificaciones/', texto: 'Notificaciones', icono: 'campana', pronto: true },
+      { ruta: '/panel/negocio/notificaciones/', texto: 'Notificaciones', icono: 'campana' },
     ],
   },
   {
@@ -25,8 +25,8 @@ export const NAV = [
     seccion: 'Mi negocio',
     items: [
       { ruta: '/panel/negocio/tienda/', texto: 'Mi tienda', icono: 'tienda' },
-      { ruta: '/panel/negocio/horarios/', texto: 'Horarios y entrega', icono: 'reloj', pronto: true },
-      { ruta: '/panel/negocio/resenas/', texto: 'Reseñas', icono: 'estrella', pronto: true },
+      { ruta: '/panel/negocio/horarios/', texto: 'Horarios y entrega', icono: 'reloj' },
+      { ruta: '/panel/negocio/resenas/', texto: 'Reseñas', icono: 'estrella' },
     ],
   },
   {
@@ -43,7 +43,7 @@ export const NAV = [
       { ruta: '/panel/negocio/pagos/', texto: 'Pagos', icono: 'tarjeta', pronto: true },
       { ruta: '/panel/negocio/equipo/', texto: 'Equipo', icono: 'cuenta', pronto: true },
       { ruta: '/panel/negocio/auditoria/', texto: 'Auditoría', icono: 'escudo', pronto: true },
-      { ruta: '/panel/negocio/ajustes/', texto: 'Ajustes', icono: 'ajustes', pronto: true },
+      { ruta: '/panel/negocio/ajustes/', texto: 'Ajustes', icono: 'ajustes' },
       { ruta: '/panel/negocio/integraciones/', texto: 'Integraciones', icono: 'nube', pronto: true },
     ],
   },

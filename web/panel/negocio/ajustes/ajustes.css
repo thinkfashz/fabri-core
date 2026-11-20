@@ -1,0 +1,138 @@
+/* N16 · Ajustes — bloques apilados, barra de plan y zona de peligro al final. */
+
+.aju-pila {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 940px;
+}
+
+.aju-bloque { padding: 18px; }
+.aju-bloque__cabeza {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.aju-bloque__cabeza h2 { margin-bottom: 2px; }
+
+.aju-nota {
+  margin-top: 10px;
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--ds-text-tertiary);
+}
+.aju-nota--borde {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--panel-line);
+}
+
+/* Cuenta */
+.aju-cuenta { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.aju-avatar {
+  display: grid;
+  place-items: center;
+  flex: 0 0 46px;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 1px solid var(--panel-line-accent);
+  background: var(--ds-accent-soft);
+  color: var(--ds-accent);
+  font-family: var(--ds-font-condensed);
+  font-size: 16px;
+  font-weight: 800;
+}
+.aju-cuenta__id { flex: 1 1 180px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.aju-cuenta__id b { font-size: 14px; font-weight: 700; }
+.aju-cuenta__id > span { font-size: 11.5px; color: var(--ds-text-tertiary); overflow-wrap: anywhere; }
+.aju-cuenta__id .pill { align-self: flex-start; margin-top: 3px; }
+
+/* Plan */
+.aju-plan { padding: 12px; border: 1px solid var(--panel-line); border-radius: 12px; background: rgba(0, 0, 0, .14); }
+.aju-plan__linea { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 11.5px; color: var(--ds-text-tertiary); }
+.aju-plan__linea b { font-size: 12.5px; color: var(--ds-text-secondary); font-variant-numeric: tabular-nums; }
+.aju-barra {
+  height: 7px;
+  margin-top: 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .07);
+  overflow: hidden;
+}
+.aju-barra > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #C8F542, #9BD22C);
+  transition: width .3s ease;
+}
+.aju-plan .aju-nota { margin-top: 8px; }
+
+.aju-fila {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--panel-line);
+}
+.aju-fila__txt { flex: 1 1 220px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.aju-fila__txt b { font-size: 12.5px; font-weight: 700; }
+.aju-fila__txt span { font-size: 11.5px; line-height: 1.45; color: var(--ds-text-tertiary); }
+
+/* Contacto */
+.aju-campos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.aju-campos .campo--ancho { grid-column: 1 / -1; }
+.aju-form__pie {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.aju-form__pie .aju-nota { margin: 0; flex: 1 1 220px; }
+
+/* Exportar */
+.aju-export { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.aju-export__item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px;
+  border: 1px solid var(--panel-line);
+  border-radius: 12px;
+  background: var(--ds-bg-app-alt);
+}
+.aju-export__item b { font-size: 13px; }
+.aju-export__item > span { font-size: 11.5px; line-height: 1.45; color: var(--ds-text-tertiary); }
+.aju-export__acciones { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+
+/* Zona de peligro */
+.aju-peligro { padding: 18px; border-color: rgba(240, 120, 120, .22); }
+.aju-peligro h2 { color: #F0A9A9; }
+.aju-bloqueo { margin-top: 12px; font-size: 12px; }
+.aju-bloqueo__acciones { margin-top: 8px; }
+
+.aju-borrar {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--panel-line);
+}
+.aju-borrar .campo { flex: 1 1 260px; }
+.aju-borrar .campo b { color: var(--ds-text-primary); }
+.aju-borrar .ds-btn { flex: 0 0 auto; }
+
+@media (max-width: 700px) {
+  .aju-bloque, .aju-peligro { padding: 15px; }
+  .aju-campos { grid-template-columns: minmax(0, 1fr); }
+  .aju-export { grid-template-columns: minmax(0, 1fr); }
+  .aju-borrar .ds-btn { width: 100%; }
+}

@@ -329,16 +329,16 @@ La forma elegida es **BFF**: InsForge valida la contraseña y `fabri-api` sigue 
 | N04 | Inventario | `/panel/negocio/inventario/` | `web/panel/negocio/inventario/` | `productos_subir` ✅ | 2 | ✅ desplegado |
 | N05 | Ofertas | `/panel/negocio/ofertas/` | `web/panel/negocio/ofertas/` | `productos_subir` ✅ | 3 | 🟡 pendiente |
 | N06 | Mi tienda | `/panel/negocio/tienda/` | `web/panel/negocio/tienda/` | `local_actualizar`, `local_estado` ✅ | 2 | ✅ desplegado |
-| N07 | Horarios y entrega | `/panel/negocio/horarios/` | `web/panel/negocio/horarios/` | `local_actualizar` ✅ | 2 | 🟡 pendiente |
-| N08 | Reseñas | `/panel/negocio/resenas/` | `web/panel/negocio/resenas/` | `resenas_panel`, `resena_moderar` ✅ | 2 | 🟡 pendiente |
+| N07 | Horarios y entrega | `/panel/negocio/horarios/` | `web/panel/negocio/horarios/` | `local_actualizar` ✅ | 2 | ✅ desplegado |
+| N08 | Reseñas | `/panel/negocio/resenas/` | `web/panel/negocio/resenas/` | `resenas_panel`, `resena_moderar` ✅ | 2 | ✅ desplegado |
 | N09 | Clientes | `/panel/negocio/clientes/` | `web/panel/negocio/clientes/` | `clientes_listar` 🟡 | 3 | 🟡 pendiente |
 | N10 | Reportes | `/panel/negocio/reportes/` | `web/panel/negocio/reportes/` | `ventas_serie` ✅ / `reportes_exportar` 🟡 | 3 | 🟡 pendiente |
 | N11 | Cupones | `/panel/negocio/cupones/` | `web/panel/negocio/cupones/` | `cupones_*` 🟡🧩 | 3 | 🟡 pendiente |
 | N12 | Pagos | `/panel/negocio/pagos/` | `web/panel/negocio/pagos/` | `pagos_config`, `liquidaciones_listar` 🟡🧩 | 3 | 🟡 pendiente |
 | N13 | Equipo | `/panel/negocio/equipo/` | `web/panel/negocio/equipo/` | `equipo_*` 🟡🧩 | 4 | 🟡 pendiente |
-| N14 | Notificaciones | `/panel/negocio/notificaciones/` | `web/panel/negocio/notificaciones/` | `push_local_suscribir`, `push_local_baja` ✅ | 2 | 🟡 pendiente |
+| N14 | Notificaciones | `/panel/negocio/notificaciones/` | `web/panel/negocio/notificaciones/` | `push_local_suscribir`, `push_local_baja` ✅ | 2 | ✅ desplegado |
 | N15 | Auditoría | `/panel/negocio/auditoria/` | `web/panel/negocio/auditoria/` | `auditoria_listar` 🟡🧩 | 4 | 🟡 pendiente |
-| N16 | Ajustes | `/panel/negocio/ajustes/` | `web/panel/negocio/ajustes/` | `local_actualizar`, `local_borrar` ✅ | 2 | 🟡 pendiente |
+| N16 | Ajustes | `/panel/negocio/ajustes/` | `web/panel/negocio/ajustes/` | `local_actualizar`, `local_borrar` ✅ | 2 | ✅ desplegado |
 | N17 | Integraciones | `/panel/negocio/integraciones/` | `web/panel/negocio/integraciones/` | `integraciones_*` 🟡🧩 | 4 | 🟡 pendiente |
 
 ---
@@ -652,7 +652,7 @@ La forma elegida es **BFF**: InsForge valida la contraseña y `fabri-api` sigue 
 - **Objetivo:** enterarse de un pedido aunque el panel esté cerrado.
 - **Conexión:** `push_local_suscribir` / `push_local_baja` ✅ (una fila por navegador en `mercado_push_local`).
 - **Endpoint:** `push_local_suscribir`, `push_local_baja`.
-- **Uso:** 1) activa avisos en este navegador; 2) prueba el aviso; 3) desactiva; 4) revisa dispositivos suscritos.
+- **Uso:** 1) activa avisos en este navegador; 2) prueba el aviso; 3) desactiva; 4) entiende que no hay lista de dispositivos (la API no la expone): cada navegador se suscribe por su cuenta.
 - **Diseño propio:** tarjeta de estado del permiso, botón grande de activar/desactivar y lista de dispositivos; explicación clara de qué se avisa.
 - **Estados:** permiso denegado, navegador sin push, suscripción vencida.
 - **Fase:** 2.
@@ -887,9 +887,9 @@ C01–C08, C13, C14. C09–C12 se completaron en la fase 2 con datos en InsForge
 
 ### Fase 2 · Negocio MVP (6–8 días)
 
-N01–N04 y N06 **desplegados**. N07, N08, N14 y N16 siguen pendientes; `local_mio` es la fuente de verdad.
+N01–N04, N06, N07, N08, N14 y N16 **desplegados**. `local_mio` es la fuente de verdad del panel; `aTienda` (ficha pública y mapa) no expone el plan del dueño.
 
-**Aceptación:** el dueño entra con su cuenta, ve ventas de 7 días, avanza un pedido, edita stock y ficha, y recibe el push; nada de esto requiere la `clave` si hay sesión. Hoy: resumen, cola de pedidos, catálogo, inventario y ficha funcionan con datos reales; faltan horarios, reseñas, notificaciones y ajustes.
+**Aceptación:** el dueño entra con su cuenta, ve ventas de 7 días, avanza un pedido, edita stock y ficha, gestiona horario/entrega, modera reseñas, activa/desactiva avisos en este navegador y exporta o borra la tienda con confirmación; nada de esto requiere la `clave` si hay sesión. Hoy: resumen, cola de pedidos, catálogo, inventario, ficha, horarios, reseñas, notificaciones y ajustes funcionan con datos reales; faltan ofertas, clientes, reportes, cupones, pagos, equipo, auditoría e integraciones.
 
 ### Fase 3 · Crecimiento (5–7 días)
 

@@ -1,0 +1,126 @@
+/* N14 · Notificaciones — estado del permiso arriba, explicación al costado. */
+
+.not-carga { margin-bottom: 14px; font-size: 12px; }
+
+.not-grilla {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  gap: 14px;
+  align-items: start;
+}
+
+.not-estado {
+  padding: 20px;
+  background:
+    radial-gradient(120% 130% at 92% -10%, rgba(200, 245, 66, .07), transparent 55%),
+    var(--ds-bg-elevated);
+}
+.not-estado--warn { background: radial-gradient(120% 130% at 92% -10%, rgba(245, 196, 81, .07), transparent 55%), var(--ds-bg-elevated); }
+.not-estado--err { background: radial-gradient(120% 130% at 92% -10%, rgba(240, 120, 120, .07), transparent 55%), var(--ds-bg-elevated); }
+
+.not-estado__ico {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  margin-bottom: 12px;
+  border-radius: 14px;
+  border: 1px solid var(--panel-line-accent);
+  background: var(--ds-accent-soft);
+  color: var(--ds-accent);
+}
+.not-estado--warn .not-estado__ico { border-color: var(--ds-warn-border); background: var(--ds-warn-soft); color: var(--ds-warn); }
+.not-estado--err .not-estado__ico { border-color: var(--ds-err-border); background: var(--ds-err-soft); color: var(--ds-err); }
+.not-estado__ico svg { width: 22px; height: 22px; }
+
+.not-estado__cabeza { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+.not-estado__cabeza h2 { font-size: 21px; }
+.not-estado__texto {
+  margin-top: 8px;
+  max-width: 62ch;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--ds-text-secondary);
+}
+
+.not-estado__datos {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 16px 0 0;
+  padding: 12px;
+  border: 1px solid var(--panel-line);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, .16);
+}
+.not-estado__datos > div { min-width: 0; }
+.not-estado__datos dt {
+  font-size: 9.5px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--ds-text-tertiary);
+}
+.not-estado__datos dd {
+  margin: 3px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ds-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.not-estado__acciones { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+
+.not-lado { display: flex; flex-direction: column; gap: 14px; }
+.not-info h2, .not-pasos h2 { font-size: 16px; margin-bottom: 10px; }
+
+.not-info__lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
+.not-info__lista li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-left: 11px;
+  border-left: 2px solid var(--panel-line-accent);
+}
+.not-info__lista b { font-size: 12px; font-weight: 700; }
+.not-info__lista span { font-size: 11.5px; line-height: 1.45; color: var(--ds-text-tertiary); }
+
+.not-info__nota {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--panel-line);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--ds-text-tertiary);
+}
+
+.not-pasos__lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.not-pasos__lista li { display: flex; align-items: flex-start; gap: 10px; }
+.not-paso__n {
+  display: grid;
+  place-items: center;
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--ds-accent-soft);
+  border: 1px solid var(--panel-line-accent);
+  color: var(--ds-accent);
+  font-size: 10.5px;
+  font-weight: 800;
+}
+.not-pasos__lista div { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.not-pasos__lista b { font-size: 12px; font-weight: 700; }
+.not-pasos__lista small { font-size: 11px; line-height: 1.4; color: var(--ds-text-tertiary); }
+
+.not-esqueleto .not-grilla { margin: 0; }
+
+@media (max-width: 980px) {
+  .not-grilla { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 620px) {
+  .not-estado { padding: 16px; }
+  .not-estado__datos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .not-estado__acciones .ds-btn { width: 100%; }
+}

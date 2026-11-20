@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* FORGE CORE STOCK · panel Negocio (N01–N04, N06)
+/* FORGE CORE STOCK · panel Negocio (N01–N08, N14, N16)
  *
  * Qué se comprueba, y por qué importa:
  *   · cada módulo es una página completa con su HTML, su CSS y su JS;
@@ -37,8 +37,9 @@ const ok = (nombre, cond, detalle) => {
   }
 };
 
-/* Los cinco módulos construidos en la fase 2 del negocio. */
-const MODULOS = ['resumen', 'pedidos', 'productos', 'inventario', 'tienda'];
+/* Los módulos de la fase 2 del negocio que ya tienen página. */
+const MODULOS = ['resumen', 'pedidos', 'productos', 'inventario', 'tienda',
+  'horarios', 'resenas', 'notificaciones', 'ajustes'];
 
 console.log('\n▸ panel Negocio · estructura de los módulos');
 
@@ -93,6 +94,14 @@ for (const m of MODULOS) {
     if (!/data-negocio/.test(txt)) faltan.push(m + ': no apunta al contenedor');
   }
   ok('los módulos usan la base común y arrancan', faltan.length === 0, faltan.join(' | '));
+}
+
+/* 3b · Al quedarse sin tienda, el chip de la barra no puede quedar pegado. */
+{
+  const base = leer(path.join(PANEL, 'comun', 'negocio.js'));
+  ok('el chip de tienda se limpia al no haber tienda',
+    /if \(!tiendas\.length\) \{\s*limpiarSlot\(\);/.test(base));
+  ok('el chip también se limpia sin sesión', /enAcceso = true;\s*limpiarSlot\(\);/.test(base));
 }
 
 console.log('\n▸ panel Negocio · navegación y rutas');
@@ -248,6 +257,10 @@ console.log('\n▸ panel Negocio · navegación y rutas');
     productos: ['productos_subir', 'producto_borrar'],
     inventario: ['productos_subir'],
     tienda: ['local_actualizar', 'local_estado'],
+    horarios: ['local_actualizar', 'local_estado'],
+    resenas: ['resenas_panel', 'resena_moderar'],
+    notificaciones: ['ventas_serie', 'push_local_suscribir', 'push_local_baja'],
+    ajustes: ['local_actualizar', 'local_borrar', 'local_activo', 'pedidos_listar'],
   };
   const faltan = [];
   for (const [m, acciones] of Object.entries(esperadas)) {
@@ -273,6 +286,21 @@ console.log('\n▸ panel Negocio · navegación y rutas');
   ok('local_actualizar acepta lat/lon',
     /campos\.lat != null/.test(api) && /campos\.lon != null/.test(api));
   ok('el pin se valida dentro de Chile', /lat >= -56/.test(api) && /lon >= -76/.test(api));
+}
+
+/* 11 · El panel de Ajustes ve el plan y la publicación, sin filtrarlos al mapa. */
+{
+  const api = leer(path.join(RAIZ, 'api-telefono', 'api', 'mercado.ts'));
+  ok('local_mio expone plan y activo',
+    /plan: l\.plan \|\| 'gratis'/.test(api) && /activo: l\.activo !== false/.test(api));
+  ok('resenas_panel cuenta las ocultas sobre todas las filas',
+    /COUNT\(\*\) FILTER \(WHERE oculta = false\)/.test(api) &&
+    /COUNT\(\*\) FILTER \(WHERE oculta\)/.test(api));
+
+  const iniTienda = api.indexOf('function aTienda');
+  const finTienda = api.indexOf('function ', iniTienda + 10);
+  ok('aTienda público no expone el plan del dueño',
+    iniTienda > 0 && finTienda > iniTienda && !/plan:/.test(api.slice(iniTienda, finTienda)));
 }
 
 console.log('\n' + (fallos ? '\x1b[1;31m' : '\x1b[1;32m') +

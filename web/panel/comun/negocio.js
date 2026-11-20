@@ -150,6 +150,14 @@ function tiendaChip(t) {
       (abierta ? 'Abierta' : 'Cerrada') + '</small></span>';
 }
 
+/* Al cerrar sesión o borrar la última tienda hay que vaciar el chip de la
+   barra: el DOM del shell sobrevive al repintado del módulo, así que si no se
+   limpia queda el nombre de una tienda que ya no existe. */
+function limpiarSlot() {
+  const slot = $('[data-tienda-slot]');
+  if (slot) slot.innerHTML = '';
+}
+
 function pintarSlot(ctx, alElegir) {
   const slot = $('[data-tienda-slot]');
   if (!slot) return;
@@ -200,6 +208,7 @@ export async function arrancar(opciones) {
 
   if (!activa()) {
     enAcceso = true;
+    limpiarSlot();
     caja.innerHTML = accesoHtml(o.mensaje);
     montarAcceso(caja, () => arrancar(o));
     return null;
@@ -213,10 +222,12 @@ export async function arrancar(opciones) {
   } catch (fallo) {
     if (fallo && fallo.status === 401) {
       enAcceso = true;
+      limpiarSlot();
       caja.innerHTML = accesoHtml(mensajeDeError(fallo));
       montarAcceso(caja, () => arrancar(o));
       return null;
     }
+    limpiarSlot();
     caja.innerHTML = errorHtml(mensajeDeError(fallo));
     const b = $('[data-reintentar]', caja);
     if (b) b.addEventListener('click', () => arrancar(o));
@@ -225,6 +236,7 @@ export async function arrancar(opciones) {
 
   const tiendas = datos.tiendas;
   if (!tiendas.length) {
+    limpiarSlot();
     caja.innerHTML = sinTiendaHtml(datos.cuenta);
     return null;
   }
