@@ -43,9 +43,9 @@
           <span>Radio</span>
           <select data-radio aria-label="Radio de búsqueda">
             <option value="1">1 km</option>
-            <option value="3" selected>3 km</option>
+            <option value="3">3 km</option>
             <option value="10">10 km</option>
-            <option value="0">Todo Chile</option>
+            <option value="0" selected>Todo Chile</option>
           </select>
         </label>
         <button class="mapa-ubi" type="button" data-ubicarme aria-label="Centrar en mi ubicación">
@@ -53,6 +53,11 @@
         </button>
       </div>
       <div class="mapa-chips" data-rubros aria-label="Filtrar por rubro"></div>
+      <div class="mapa-gps" data-gps hidden>
+        <span class="mapa-gps__punto" aria-hidden="true"></span>
+        <span data-gps-texto>Mi ubicación</span>
+        <button type="button" data-gps-centrar>Centrar</button>
+      </div>
     </div>
 
     <div class="mapa-hoja" data-hoja aria-live="polite">

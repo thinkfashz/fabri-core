@@ -305,18 +305,18 @@ La forma elegida es **BFF**: InsForge valida la contraseña y `fabri-api` sigue 
 | # | Módulo | Ruta | Carpeta | Endpoint principal | Fase |
 |---|---|---|---|---|---|
 | C01 | Inicio | `/panel/cliente/inicio/` | `web/panel/cliente/inicio/` | `locales`, `productos_buscar` ✅ | 1 |
-| C02 | Mapa | `/panel/cliente/mapa/` | `web/panel/cliente/mapa/` | `locales` ✅ | 1 |
+| C02 | Mapa | `/panel/cliente/mapa/` | `web/panel/cliente/mapa/` | `locales` ✅ | 2 |
 | C03 | Buscar | `/panel/cliente/buscar/` | `web/panel/cliente/buscar/` | `productos_buscar` ✅ | 1 |
 | C04 | Tienda | `/panel/cliente/tienda/?id=` | `web/panel/cliente/tienda/` | `local_ver` ✅ | 1 |
 | C05 | Producto | `/panel/cliente/producto/?local=&sku=` | `web/panel/cliente/producto/` | `local_ver` ✅ / `producto_ver` 🟡 | 1 |
 | C06 | Carrito | `/panel/cliente/carrito/` | `web/panel/cliente/carrito/` | `local_ver` ✅ + localStorage | 1 |
 | C07 | Checkout | `/panel/cliente/checkout/` | `web/panel/cliente/checkout/` | `pedido_crear` ✅ | 1 |
 | C08 | Pedido | `/panel/cliente/pedido/?token=` | `web/panel/cliente/pedido/` | `pedido_seguir` ✅ | 1 |
-| C09 | Mis pedidos | `/panel/cliente/pedidos/` | `web/panel/cliente/pedidos/` | `mis_pedidos` 🟡 | 2 |
-| C10 | Favoritos | `/panel/cliente/favoritos/` | `web/panel/cliente/favoritos/` | `favoritos_listar` 🟡🧩 | 2 |
-| C11 | Direcciones | `/panel/cliente/direcciones/` | `web/panel/cliente/direcciones/` | `direcciones_listar` 🟡🧩 | 2 |
-| C12 | Reseñas | `/panel/cliente/resenas/` | `web/panel/cliente/resenas/` | `resenas_listar`, `resena_crear` ✅ | 2 |
-| C13 | Cuenta | `/panel/cliente/cuenta/` | `web/panel/cliente/cuenta/` | `auth` ✅ + `perfil_actualizar` 🟡 | 1 |
+| C09 | Mis pedidos | `/panel/cliente/pedidos/` | `web/panel/cliente/pedidos/` | `mis_pedidos` ✅ | 2 |
+| C10 | Favoritos | `/panel/cliente/favoritos/` | `web/panel/cliente/favoritos/` | `favoritos_listar` ✅ | 2 |
+| C11 | Direcciones | `/panel/cliente/direcciones/` | `web/panel/cliente/direcciones/` | `direcciones_listar` ✅ | 2 |
+| C12 | Reseñas | `/panel/cliente/resenas/` | `web/panel/cliente/resenas/` | `resenas_mias`, `resena_crear` ✅ | 2 |
+| C13 | Cuenta | `/panel/cliente/cuenta/` | `web/panel/cliente/cuenta/` | `auth` ✅ + resumen de 4 acciones ✅ | 2 |
 | C14 | Ayuda | `/panel/cliente/ayuda/` | `web/panel/cliente/ayuda/` | sin endpoint | 1 |
 
 ### 2.3 Negocio
@@ -359,13 +359,13 @@ La forma elegida es **BFF**: InsForge valida la contraseña y `fabri-api` sigue 
 ### C02 · Mapa
 
 - **Carpeta:** `web/panel/cliente/mapa/` · **Ruta:** `/panel/cliente/mapa/`
-- **Objetivo:** explorar el mapa global de tiendas y entrar a una marca.
-- **Conexión:** `GET /api/mercado?accion=locales&con_catalogo=0` ✅; reutiliza `placer.js`/Leaflet si ya está cargado, o un `<iframe>` al mapa de `/app/#panel` para no duplicar el motor.
+- **Objetivo:** explorar el mapa global de tiendas, ver la ubicación propia y entrar a una marca.
+- **Conexión:** `GET /api/mercado?accion=locales&con_catalogo=0` ✅.
 - **Endpoint:** `locales`.
-- **Uso:** 1) mapa a pantalla completa; 2) filtros por rubro y radio; 3) clic en pin → tarjeta inferior con logo, horario, mínimo y envío; 4) «Ver tienda» → C04.
-- **Diseño propio:** mapa full-bleed; el shell se superpone con la sidebar translúcida; buscador flotante arriba; hoja inferior arrastrable; cero tarjetas fuera del mapa.
-- **Estados:** permiso denegado, teselas caídas (fondo con rejilla y aviso), sin tiendas en el radio.
-- **Fase:** 1.
+- **Uso:** 1) mapa a pantalla completa; 2) filtros por rubro, texto y radio; 3) ubicación propia con precisión GPS y radio dibujado; 4) clic en pin → tarjeta inferior con logo, horario, mínimo y envío; 5) «Ver tienda» → C04.
+- **Diseño propio:** mapa full-bleed con Leaflet **local** (`/app/vendor/leaflet.js`), teselas OSM oscurecidas por CSS, buscador flotante arriba y hoja inferior con riel de tiendas. La ubicación propia se pinta en un **canvas** sobre las teselas: punto, halo pulsante solo con GPS de ahora, círculo de precisión real y radio de búsqueda punteado. `maxZoom: 20` sobre teselas nativas 19 para poder acercarse hasta ~0,12 m/px.
+- **Estados:** permiso denegado (no se pinta Santiago como si fuera propio), teselas caídas (aviso y enlaces), sin tiendas en el radio, ubicación cacheada marcada «Guardada recién/hace N h» sin fingir GPS vivo.
+- **Fase:** 2.
 
 ### C03 · Buscar
 
@@ -480,13 +480,13 @@ La forma elegida es **BFF**: InsForge valida la contraseña y `fabri-api` sigue 
 ### C13 · Cuenta
 
 - **Carpeta:** `web/panel/cliente/cuenta/` · **Ruta:** `/panel/cliente/cuenta/`
-- **Objetivo:** una sola página para identidad, seguridad y sesión.
-- **Conexión:** `POST /api/auth { accion: "sesion" }` ✅, `salir` ✅, `borrar` ✅; `perfil_actualizar` 🟡 y `pass_cambiar` 🟡.
-- **Endpoint:** `auth` (`sesion`, `salir`, `borrar`) + `perfil_actualizar`, `pass_cambiar` 🟡.
-- **Uso:** 1) editar nombre y teléfono; 2) cambiar contraseña; 3) ver dispositivos; 4) aceptar términos; 5) cerrar sesión; 6) eliminar cuenta con confirmación.
-- **Diseño propio:** ficha de identidad con inicial grande, secciones apiladas y zona de peligro separada al final; no es un dashboard.
-- **Estados:** sin sesión (login embebido), token vencido, error de contraseña.
-- **Fase:** 1.
+- **Objetivo:** una sola página para identidad, seguridad, sesión y lo que la cuenta tiene guardado en InsForge.
+- **Conexión:** `POST /api/auth { accion: "sesion" }` ✅, `salir` ✅, `borrar` ✅; resumen con `mis_pedidos`, `favoritos_listar`, `direcciones_listar` y `resenas_mias` ✅. `perfil_actualizar` y `pass_cambiar` siguen 🟡: el cambio de clave se hace por el flujo de recuperación.
+- **Endpoint:** `auth` (`sesion`, `salir`, `borrar`) + las cuatro acciones privadas de `mercado` para el resumen.
+- **Uso:** 1) entrar, crear cuenta o recuperar la clave; 2) ver el resumen real de pedidos, favoritos, direcciones y reseñas en la nube; 3) cambiar la contraseña; 4) revisar la sesión; 5) cerrar sesión; 6) eliminar la cuenta con confirmación.
+- **Diseño propio:** ficha de identidad con inicial grande, bloque «En la nube» con cuatro contadores enlazados a sus módulos, secciones apiladas y zona de peligro separada al final; no es un dashboard.
+- **Estados:** sin sesión (login embebido), token vencido, error de contraseña, nube sin respuesta con reintento; nunca se muestran datos locales como si fueran de la cuenta.
+- **Fase:** 2.
 
 ### C14 · Ayuda
 
@@ -881,7 +881,7 @@ Reglas:
 
 ### Fase 1 · Cliente MVP (5–7 días)
 
-C01–C08, C13, C14. C09–C12 con almacenamiento local y avisos de «se sincroniza al iniciar sesión».
+C01–C08, C13, C14. C09–C12 se completaron en la fase 2 con datos en InsForge.
 
 **Aceptación:** buscar, abrir tienda, agregar al carrito, pagar demo, seguir el pedido y verlo en el historial local; sin romper `/app/`.
 
@@ -893,7 +893,7 @@ N01–N04, N06–N08, N14, N16. `local_mio` como fuente de verdad.
 
 ### Fase 3 · Crecimiento (5–7 días)
 
-N05, N09–N12, C09–C12 en la nube, `mis_pedidos`, `favoritos_*`, `direcciones_*`, `cupones_*`.
+N05, N09–N12, cupones en checkout, reportes exportados y cliente recurrente. Las acciones `mis_pedidos`, `favoritos_*`, `direcciones_*` y `resenas_mias` ya están en la nube (fase 2).
 
 **Aceptación:** historial entre dispositivos, cupón aplicado en checkout, reporte exportado y cliente recurrente visible.
 

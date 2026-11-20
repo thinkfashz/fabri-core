@@ -6,7 +6,58 @@
 > `cl.fabrick.core`, crate `fabrick-core`, dominio `forge-core-stock.vercel.app`,
 > repo `thinkfashz/fabri-core`.
 
-Última actualización: 2026-11-19
+Última actualización: 2026-11-20
+
+## Sesión 2026-11-20 · Mapa con canvas y cuenta conectada a InsForge
+
+Pedido: acercar más el mapa, dibujar la ubicación propia con canvas y conectar
+de verdad el login y los datos (reseñas, compras, favoritos, direcciones) a
+InsForge.
+
+**Mapa C02**
+
+| Cambio | Detalle |
+|---|---|
+| Zoom real | `maxZoom: 20` con `maxNativeZoom: 19`: OSM entrega hasta 19 y Leaflet escala la última tesela; en Chile son ~0,12 m/px. Pasos de 0,5 y rueda más fina. |
+| Canvas propio | Capa `<canvas>` sobre las teselas (debajo de los pines) que dibuja punto, aro, halo pulsante y círculo de precisión GPS. Se redibuja en `move`, `zoom`, `resize` y `viewreset`; respeta `prefers-reduced-motion`. |
+| Precisión honesta | `pedirUbicacion` usa alta precisión y guarda `accuracy`; el chip muestra «Mi ubicación · ±18 m» o «Guardada hace 2 h». Sin GPS no se pinta Santiago como ubicación propia: se conserva la última o no se dibuja nada. |
+| Radio visible | El radio de 1/3/10 km se dibuja punteado en el canvas y el zoom se calcula con los metros por píxel para que entre en pantalla. «Todo Chile» encuadra las tiendas. |
+| Estado inicial | El selector parte en «Todo Chile» (antes decía 3 km sin filtrar). Al tocar «mi ubicación» pasa a 3 km y encuadra ese radio. |
+
+**Cuenta C13**
+
+- Bloque «En la nube» con los conteos reales de `mis_pedidos`,
+  `favoritos_listar`, `direcciones_listar` y `resenas_mias`, enlazados a sus
+  módulos y con reintento si InsForge no responde. Sin endpoints nuevos.
+- Se corrigió el texto que todavía decía que el historial vivía sólo en el
+  navegador. Ahora explica que pedidos, favoritos, direcciones y reseñas
+  viajan con la cuenta.
+
+**Fallo real encontrado en la captura**: el `<select>` decía «3 km» pero
+`estado.radio` era 0 y no se dibujaba ni filtraba nada. Se alineó el estado
+inicial con «Todo Chile» y se dejó el cambio a 3 km para cuando hay ubicación.
+
+**Verificación**
+
+- 20/20 suites de `tests/web/` en verde; `tests/web/panel.js` suma pruebas de
+  `maxZoom 20`, canvas, precisión, radio y del resumen de C13.
+- TypeScript limpio con `tsc --noEmit --skipLibCheck --noImplicitAny false`
+  sobre los 12 `.ts` de `api-telefono/api`.
+- Cuenta temporal real contra producción: `registrar` 201, `sesion` 200,
+  favorito alta/listado/baja (1 → 0), dirección alta/listado/baja (1 → 0),
+  `mis_pedidos` y `resenas_mias` 200 con 0. Después `borrar` 200 y `entrar`
+  401 `CREDENCIALES`: no quedó cuenta de prueba.
+- Capturas a 390 px del mapa (local con ubicación cacheada y canvas) y de la
+  cuenta (local con sesión real y conteos 2 favoritos / 1 dirección; producción
+  con el login). Sin errores de consola.
+
+**Producción**: web `dpl_HuxU74yBraKu6foB6Gn6qMrQ8GeY` (READY). Verificado en
+`https://forge-core-stock.vercel.app/panel/cliente/mapa/` y `/cuenta/` (200) y
+`mapa.js` en vivo con `maxNativeZoom`.
+
+**Pendiente**: editar nombre/teléfono desde C13 (`perfil_actualizar`), ciclo
+completo pedido → entregado → reseña con una cuenta real y stock, y retirar el
+evento controlado del doctor cuando haya `FABRI_API_TOKEN`.
 
 ## Sesión 2026-11-19 · Panel Cliente fase 2: C09–C12
 

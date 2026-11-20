@@ -292,6 +292,16 @@ console.log('\n▸ panel · módulos con contrato propio');
   ok('el mapa no carga Leaflet de CDN', !/unpkg|cdn\.jsdelivr|cdnjs/.test(h));
   ok('el mapa calcula la distancia en el cliente (locales no acepta lat/lon)',
     /distanciaKm/.test(js) && /mercado\('locales'/.test(js));
+  ok('el mapa permite acercarse más que el teselado nativo',
+    /maxZoom:\s*20/.test(js) && /maxNativeZoom:\s*19/.test(js));
+  ok('el mapa dibuja la ubicación y su precisión en canvas',
+    /createElement\('canvas'\)/.test(js) && /mapa-ubicacion-canvas/.test(js) &&
+    /latLngToContainerPoint/.test(js) && /precision/.test(js));
+  ok('el mapa dibuja el radio de búsqueda en el canvas',
+    /setLineDash/.test(js) && /estado\.radio/.test(js));
+  ok('el respaldo de Santiago no se pinta como ubicación propia',
+    /origen === 'gps'/.test(js) && /estado\.ubi = previa/.test(js) &&
+    !/L\.marker\(\[estado\.ubi\.lat/.test(js));
 }
 
 /* 11 · La ayuda es buscable, tiene temas y consulta la salud real. */
@@ -417,6 +427,7 @@ console.log('\n▸ panel · fase 2 (pedidos, favoritos, direcciones, reseñas)')
   const c11 = leer(path.join(PANEL, 'cliente', 'direcciones', 'direcciones.js'));
   const c12 = leer(path.join(PANEL, 'cliente', 'resenas', 'resenas.js'));
   const co = leer(path.join(PANEL, 'cliente', 'checkout', 'checkout.js'));
+  const cu = leer(path.join(PANEL, 'cliente', 'cuenta', 'cuenta.js'));
 
   ok('favoritos usa la clave local fcore.panel.favoritos',
     /const KEY = 'fcore\.panel\.favoritos'/.test(fav));
@@ -461,6 +472,13 @@ console.log('\n▸ panel · fase 2 (pedidos, favoritos, direcciones, reseñas)')
       leer(path.join(WEB, 'app', 'placer.js'))) &&
     /fcore\.nube[\s\S]{0,200}Authorization = "Bearer "/.test(
       leer(path.join(WEB, 'tienda-seguir.js'))));
+
+  ok('C13 resume pedidos, favoritos, direcciones y reseñas de InsForge',
+    /mis_pedidos/.test(cu) && /favoritos_listar/.test(cu) &&
+    /direcciones_listar/.test(cu) && /resenas_mias/.test(cu) &&
+    /nube-resumen/.test(cu));
+  ok('C13 ya no dice que el historial vive sólo en el navegador',
+    !/El historial vive en este navegador/.test(cu) && /cualquier dispositivo/.test(cu));
 }
 
 console.log(fallos === 0

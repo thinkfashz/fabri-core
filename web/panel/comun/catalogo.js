@@ -100,7 +100,17 @@ export function ubicacionGuardada() {
     const d = JSON.parse(localStorage.getItem('fcore.placer.ubicacion') || 'null');
     if (!d || !Number.isFinite(Number(d.lat)) || !Number.isFinite(Number(d.lon))) return null;
     if (Date.now() - Number(d.t || 0) > 86400000) return null;
-    return { lat: Number(d.lat), lon: Number(d.lon), nombre: 'tu última ubicación', origen: 'cache', t: d.t };
+    return {
+      lat: Number(d.lat),
+      lon: Number(d.lon),
+      // La precisión se guarda para poder dibujar el círculo real; si no
+      // existe (datos viejos o GPS sin exactitud) se devuelve 0 y el mapa
+      // sólo pinta el punto, sin inventar un radio.
+      precision: Math.max(0, Math.round(Number(d.precision) || 0)),
+      nombre: 'tu última ubicación',
+      origen: 'cache',
+      t: Number(d.t),
+    };
   } catch (_) { return null; }
 }
 
@@ -118,23 +128,34 @@ export function pedirUbicacion(opciones) {
     }
     let listo = false;
     const terminar = (v) => { if (!listo) { listo = true; resolve(v); } };
-    const reloj = setTimeout(() => terminar(RESPALDO), o.ms || 9000);
+    const reloj = setTimeout(() => terminar(RESPALDO), (o.ms || 12000) + 400);
     navigator.geolocation.getCurrentPosition(
       (p) => {
         clearTimeout(reloj);
         const dato = {
           lat: Number(p.coords.latitude),
           lon: Number(p.coords.longitude),
-          precision: Math.round(Number(p.coords.accuracy) || 0),
+          precision: Math.max(0, Math.round(Number(p.coords.accuracy) || 0)),
           nombre: 'tu ubicación',
           origen: 'gps',
           t: Date.now(),
         };
-        try { localStorage.setItem('fcore.placer.ubicacion', JSON.stringify({ lat: dato.lat, lon: dato.lon, t: dato.t })); } catch (_) {}
+        try {
+          localStorage.setItem('fcore.placer.ubicacion', JSON.stringify({
+            lat: dato.lat, lon: dato.lon, precision: dato.precision, t: dato.t,
+          }));
+        } catch (_) {}
         terminar(dato);
       },
       () => { clearTimeout(reloj); terminar(RESPALDO); },
-      { enableHighAccuracy: false, timeout: o.ms || 8000, maximumAge: 300000 }
+      {
+        // Alta precisión: el mapa dibuja el radio real de incertidumbre. Si
+        // tarda más de lo tolerable, el tiempo límite devuelve el respaldo y
+        // ninguna pantalla finge una ubicación que no se leyó.
+        enableHighAccuracy: o.alta !== false,
+        timeout: o.ms || 12000,
+        maximumAge: o.maxAge != null ? o.maxAge : 60000,
+      }
     );
   });
 }

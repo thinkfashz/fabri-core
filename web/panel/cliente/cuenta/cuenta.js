@@ -6,13 +6,23 @@
 
 import {
   leer, activa, refrescar, entrar, registrar, salir, borrar,
-  recuperar, recuperarCodigo, dispositivo, alCambiar,
+  recuperar, recuperarCodigo, dispositivo, token, alCambiar,
 } from '../../comun/sesion.js';
-import { ErrorApi } from '../../comun/api.js';
+import { ErrorApi, mercadoPost } from '../../comun/api.js';
 import { iniciales, esc, fechaHora } from '../../comun/formato.js';
 
 const $ = (sel) => document.querySelector(sel);
-const estado = { modo: 'entrar', enviando: false, aviso: '', error: '', ok: '', correo: '' };
+const estado = {
+  modo: 'entrar',
+  enviando: false,
+  aviso: '',
+  error: '',
+  ok: '',
+  correo: '',
+  nube: null,
+  nubeError: '',
+  cargandoNube: false,
+};
 
 function aviso(html, tipo) {
   const caja = $('[data-aviso]');
@@ -45,7 +55,7 @@ function pantallaAcceso() {
       '<div class="acceso__ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg></div>' +
       '<h1>' + (esEntrar ? 'Entra a tu cuenta' : esCrear ? 'Crea tu cuenta' : 'Recupera tu clave') + '</h1>' +
       '<p class="acceso__sub">' + (esEntrar
-        ? 'Para recuperar tu acceso y dejar tu nombre en los pedidos. El historial vive en este navegador: la sincronización entre dispositivos todavía no está disponible.'
+        ? 'Para recuperar tu acceso y dejar tu nombre en los pedidos. Tus compras, favoritos, direcciones y reseñas quedan en tu cuenta y se ven en cualquier dispositivo.'
         : esCrear
           ? 'Gratis. Sólo necesitas un correo y una clave de 8 caracteres o más.'
           : 'Te enviamos un código de 6 dígitos al correo. Vence en 5 minutos.') + '</p>' +
@@ -63,7 +73,7 @@ function pantallaAcceso() {
     (esEntrar ? formularioEntrar() : esCrear ? formularioCrear() : formularioRecuperar()) +
 
     '<p class="acceso__pie">Al continuar aceptas los <a href="/terminos.html">términos de uso</a>. ' +
-      'Puedes comprar sin cuenta: la cuenta es para no perder el historial.</p>' +
+      'Puedes comprar sin cuenta: la cuenta guarda tus pedidos, favoritos, direcciones y reseñas en la nube.</p>' +
   '</div>';
 }
 
@@ -115,6 +125,55 @@ function formularioRecuperar() {
   '</form>';
 }
 
+function bloqueNube() {
+  if (estado.nubeError) {
+    return '<section class="bloque-cuenta" aria-labelledby="nubeTitulo">' +
+      '<div class="bloque-cuenta__cabeza"><h2 id="nubeTitulo">En la nube</h2>' +
+        '<span class="pill pill--err">sin respuesta</span></div>' +
+      '<div class="bloque-cuenta__cuerpo">' +
+        '<p class="nube-nota">No pudimos leer tus datos de InsForge: ' + esc(estado.nubeError) + '</p>' +
+        '<button class="ds-btn ds-btn--secondary ds-btn--sm" type="button" data-nube-reintentar>Reintentar</button>' +
+      '</div>' +
+    '</section>';
+  }
+
+  if (!estado.nube) {
+    return '<section class="bloque-cuenta" aria-labelledby="nubeTitulo">' +
+      '<div class="bloque-cuenta__cabeza"><h2 id="nubeTitulo">En la nube</h2>' +
+        '<span class="pill">leyendo…</span></div>' +
+      '<div class="bloque-cuenta__cuerpo">' +
+        '<div class="nube-resumen nube-resumen--cargando" aria-hidden="true">' +
+          '<span></span><span></span><span></span><span></span>' +
+        '</div>' +
+        '<p class="nube-nota">Consultando tu cuenta en InsForge.</p>' +
+      '</div>' +
+    '</section>';
+  }
+
+  const n = estado.nube;
+  const dato = (ruta, valor, etiqueta) =>
+    '<a class="nube-dato" href="' + ruta + '"><b>' + valor + '</b><span>' + etiqueta + '</span></a>';
+  return '<section class="bloque-cuenta" aria-labelledby="nubeTitulo">' +
+    '<div class="bloque-cuenta__cabeza"><h2 id="nubeTitulo">En la nube</h2>' +
+      '<span class="pill pill--ok">InsForge</span></div>' +
+    '<div class="bloque-cuenta__cuerpo">' +
+      '<div class="nube-resumen">' +
+        dato('/panel/cliente/pedidos/', String(n.pedidos), 'pedidos') +
+        dato('/panel/cliente/favoritos/', String(n.favoritos), 'favoritos') +
+        dato('/panel/cliente/direcciones/', String(n.direcciones), 'direcciones') +
+        dato('/panel/cliente/resenas/', String(n.resenas), 'reseñas') +
+      '</div>' +
+      '<p class="nube-nota">' +
+        (n.pendientes > 0
+          ? 'Tienes ' + n.pendientes + ' pedido' + (n.pendientes === 1 ? '' : 's') +
+            ' entregado' + (n.pendientes === 1 ? '' : 's') + ' por calificar. '
+          : '') +
+        'Estos datos están en tu cuenta y se ven en cualquier dispositivo donde entres.' +
+      '</p>' +
+    '</div>' +
+  '</section>';
+}
+
 function pantallaCuenta() {
   const d = leer() || {};
   const u = d.usuario || {};
@@ -135,6 +194,8 @@ function pantallaCuenta() {
         '<a class="ds-btn ds-btn--ghost ds-btn--sm" href="/app/">Abrir la app</a>' +
       '</section>' +
 
+      bloqueNube() +
+
       '<section class="bloque-cuenta" aria-labelledby="seguridadTitulo">' +
         '<div class="bloque-cuenta__cabeza"><h2 id="seguridadTitulo">Seguridad</h2>' +
           '<span class="pill pill--ok">activa</span></div>' +
@@ -153,7 +214,7 @@ function pantallaCuenta() {
           '<div class="dato-cuenta"><span>Correo</span><b>' + esc(u.email || '—') + '</b></div>' +
           '<div class="dato-cuenta"><span>Rol</span><b>' + esc(u.rol || 'cliente') + '</b></div>' +
           '<p style="margin-top:10px;font-size:11px;line-height:1.5;color:var(--ds-text-tertiary)">' +
-            'La edición del nombre y del teléfono llega en la próxima actualización. Mientras tanto, el teléfono se toma del último checkout.</p>' +
+            'El nombre sale de tu cuenta. El teléfono se toma del último checkout y queda guardado con cada pedido en InsForge. La edición del perfil llega en la próxima actualización.</p>' +
         '</div>' +
       '</section>' +
 
@@ -193,6 +254,36 @@ function pintar() {
   if (activa()) caja.innerHTML = pantallaCuenta();
   else caja.innerHTML = pantallaAcceso();
   montar();
+  if (activa()) cargarNube();
+}
+
+/* Lee en paralelo lo que la cuenta tiene guardado en InsForge. Son las mismas
+   cuatro acciones privadas que usan los módulos; no hay endpoint nuevo. */
+async function cargarNube() {
+  if (!activa() || estado.cargandoNube || estado.nube || estado.nubeError) return;
+  estado.cargandoNube = true;
+  const opts = { token: token(), dispositivo: dispositivo() };
+  try {
+    const [p, f, d, r] = await Promise.all([
+      mercadoPost('mis_pedidos', {}, opts),
+      mercadoPost('favoritos_listar', {}, opts),
+      mercadoPost('direcciones_listar', {}, opts),
+      mercadoPost('resenas_mias', {}, opts),
+    ]);
+    estado.nube = {
+      pedidos: Array.isArray(p.pedidos) ? p.pedidos.length : 0,
+      favoritos: Array.isArray(f.favoritos) ? f.favoritos.length : 0,
+      direcciones: Array.isArray(d.direcciones) ? d.direcciones.length : 0,
+      resenas: Array.isArray(r.resenas) ? r.resenas.length : 0,
+      pendientes: Array.isArray(r.pendientes) ? r.pendientes.length : 0,
+    };
+    estado.nubeError = '';
+  } catch (e) {
+    estado.nubeError = mensaje(e);
+  } finally {
+    estado.cargandoNube = false;
+    if (activa()) pintar();
+  }
 }
 
 function modo(nuevo) {
@@ -239,6 +330,14 @@ function montar() {
 }
 
 function engancharCuenta() {
+  const reintentar = document.querySelector('[data-nube-reintentar]');
+  if (reintentar) {
+    reintentar.addEventListener('click', () => {
+      estado.nube = null;
+      estado.nubeError = '';
+      pintar();
+    });
+  }
   const salirBtn = document.querySelector('[data-salir]');
   if (salirBtn) {
     salirBtn.addEventListener('click', async () => {
@@ -380,6 +479,10 @@ async function hacerRecuperar(form) {
   }
 }
 
-alCambiar(() => { if (!estado.enviando) pintar(); });
+alCambiar(() => {
+  estado.nube = null;
+  estado.nubeError = '';
+  if (!estado.enviando) pintar();
+});
 
 refrescar().finally(() => pintar());

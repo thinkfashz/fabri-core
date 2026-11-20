@@ -9,6 +9,9 @@ import { distanciaKm, ubicacionGuardada, pedirUbicacion, RESPALDO } from '../../
 import { km, esc, iniciales } from '../../comun/formato.js';
 
 const $ = (sel) => document.querySelector(sel);
+const REDUCIR = window.matchMedia
+  ? window.matchMedia('(prefers-reduced-motion: reduce)')
+  : { matches: false };
 
 const estado = {
   tiendas: [],
@@ -21,6 +24,7 @@ const estado = {
   marcadores: new Map(),
   elegida: '',
   sinRed: false,
+  redibujarUbi: null,
 };
 
 function aviso(html, tipo) {
@@ -161,6 +165,193 @@ function icono(t, elegida) {
   });
 }
 
+function textoMetros(m) {
+  const n = Math.max(0, Number(m) || 0);
+  if (n >= 1000) {
+    const km = n / 1000;
+    return (km >= 10 ? Math.round(km) : km.toFixed(1).replace('.', ',')) + ' km';
+  }
+  return Math.round(n) + ' m';
+}
+
+function edadCorta(ts) {
+  const min = Math.max(0, Math.round((Date.now() - Number(ts || 0)) / 60000));
+  if (min < 1) return 'recién';
+  if (min < 60) return 'hace ' + min + ' min';
+  const h = Math.round(min / 60);
+  return h < 24 ? 'hace ' + h + ' h' : '';
+}
+
+/* Chip bajo los filtros: dice si la ubicación es de ahora o la última
+   guardada, y con qué precisión. No se muestra nada si no hay ubicación. */
+function pintarGps() {
+  const chip = $('[data-gps]');
+  const texto = $('[data-gps-texto]');
+  if (!chip || !texto) return;
+  const u = estado.ubi;
+  if (!u) {
+    chip.hidden = true;
+    const b = $('[data-ubicarme]');
+    if (b) b.dataset.activo = 'false';
+    return;
+  }
+  chip.hidden = false;
+  const b = $('[data-ubicarme]');
+  if (b) b.dataset.activo = 'true';
+  const p = Number(u.precision) || 0;
+  if (u.origen === 'gps') {
+    texto.textContent = p
+      ? 'Mi ubicación · precisión ±' + textoMetros(p)
+      : 'Mi ubicación';
+  } else {
+    const edad = edadCorta(u.t);
+    texto.textContent = 'Guardada' + (edad ? ' ' + edad : '') +
+      (p ? ' · ±' + textoMetros(p) : '');
+  }
+  chip.dataset.origen = u.origen === 'gps' ? 'gps' : 'cache';
+}
+
+/* Capa de ubicación propia dibujada en canvas (no son divs de Leaflet):
+   punto, precisión real del GPS y radio de búsqueda elegido. Se redibuja en
+   cada movimiento o zoom usando la proyección del mapa. */
+function montarCapaUbicacion(mapa) {
+  const cont = mapa.getContainer();
+  const lienzo = document.createElement('canvas');
+  lienzo.className = 'mapa-ubicacion-canvas';
+  lienzo.setAttribute('aria-hidden', 'true');
+  cont.appendChild(lienzo);
+  const ctx = lienzo.getContext('2d');
+  if (!ctx) return null;
+
+  const t0 = typeof performance !== 'undefined' ? performance.now() : Date.now();
+  let raf = 0;
+  let ancho = 0;
+  let alto = 0;
+  let dpr = 1;
+
+  function ajustar() {
+    const w = Math.max(1, cont.clientWidth);
+    const h = Math.max(1, cont.clientHeight);
+    const d = Math.min(2.5, window.devicePixelRatio || 1);
+    if (lienzo.width !== Math.round(w * d) || lienzo.height !== Math.round(h * d)) {
+      lienzo.width = Math.round(w * d);
+      lienzo.height = Math.round(h * d);
+      lienzo.style.width = w + 'px';
+      lienzo.style.height = h + 'px';
+    }
+    ancho = w; alto = h; dpr = d;
+  }
+
+  // Metros por píxel en la latitud del punto (Web Mercator).
+  function metrosPorPixel(lat) {
+    return 156543.03392 * Math.cos((Number(lat) || 0) * Math.PI / 180) /
+      Math.pow(2, mapa.getZoom());
+  }
+
+  function circulo(x, y, r, relleno, borde, guion) {
+    if (r <= 0) return;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    if (relleno) { ctx.fillStyle = relleno; ctx.fill(); }
+    if (borde) {
+      ctx.setLineDash(guion || []);
+      ctx.lineWidth = guion ? 1.4 : 1.2;
+      ctx.strokeStyle = borde;
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+
+  function dibujar(ts) {
+    raf = 0;
+    ajustar();
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, ancho, alto);
+
+    const u = estado.ubi;
+    if (!u) return;
+    const p = mapa.latLngToContainerPoint([u.lat, u.lon]);
+    if (p.x < -120 || p.y < -120 || p.x > ancho + 120 || p.y > alto + 120) return;
+
+    const mpp = metrosPorPixel(u.lat);
+    const vivo = u.origen === 'gps';
+    const precision = Math.max(0, Number(u.precision) || 0);
+
+    // Radio de búsqueda: el mismo que filtra la lista, dibujado punteado.
+    if (estado.radio > 0) {
+      circulo(p.x, p.y, (estado.radio * 1000) / mpp, null, 'rgba(200, 245, 66, 0.38)', [5, 7]);
+    }
+
+    // Círculo de precisión real. Sólo si el GPS lo entregó y es razonable:
+    // un radio de kilómetros no dice nada útil y taparía las tiendas.
+    if (precision > 0 && precision <= 3000) {
+      const r = Math.max(12, precision / mpp);
+      const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
+      g.addColorStop(0, 'rgba(90, 217, 232, 0.30)');
+      g.addColorStop(0.72, 'rgba(90, 217, 232, 0.12)');
+      g.addColorStop(1, 'rgba(90, 217, 232, 0.02)');
+      circulo(p.x, p.y, r, g, 'rgba(90, 217, 232, 0.46)');
+    }
+
+    // Halo pulsante sólo con GPS de ahora; una ubicación cacheada se dibuja
+    // quieta para no fingir que el teléfono está leyendo el GPS.
+    if (vivo && !REDUCIR.matches) {
+      const fase = ((ts - t0) % 2400) / 2400;
+      circulo(p.x, p.y, 14 + fase * 22, null,
+        'rgba(90, 217, 232, ' + (0.5 * (1 - fase)).toFixed(3) + ')');
+    }
+
+    // Punto propio: borde oscuro, relleno cian y aro claro.
+    circulo(p.x, p.y, 10.5, 'rgba(8, 9, 10, 0.9)');
+    circulo(p.x, p.y, 7.5, '#5AD9E8');
+    circulo(p.x, p.y, 7.5, null, '#EAFBFF');
+  }
+
+  function animar(ts) {
+    dibujar(ts);
+    if (!REDUCIR.matches && estado.ubi && estado.ubi.origen === 'gps') {
+      raf = window.requestAnimationFrame(animar);
+    }
+  }
+
+  function redibujar() {
+    if (raf) return;
+    raf = window.requestAnimationFrame(animar);
+  }
+
+  mapa.on('move zoom viewreset resize moveend zoomend', redibujar);
+  if (REDUCIR.addEventListener) REDUCIR.addEventListener('change', redibujar);
+  return redibujar;
+}
+
+function puntosDeTiendas() {
+  return estado.tiendas
+    .filter((t) => Number.isFinite(Number(t.lat)) && Number.isFinite(Number(t.lon)))
+    .map((t) => [Number(t.lat), Number(t.lon)]);
+}
+
+function encuadrarTiendas(maxZoom) {
+  const L = window.L;
+  if (!L || !estado.mapa) return;
+  const puntos = puntosDeTiendas();
+  if (!puntos.length) return;
+  if (puntos.length === 1) estado.mapa.setView(puntos[0], Math.min(15, maxZoom || 14));
+  else estado.mapa.fitBounds(L.latLngBounds(puntos).pad(0.16), { maxZoom: maxZoom || 14 });
+}
+
+/* Zoom que deja el radio elegido dentro de la pantalla, sin adivinar: se
+   calcula con los metros por píxel del mapa y el lado menor visible. */
+function zoomParaRadio(metros) {
+  const mapa = estado.mapa;
+  if (!mapa || !estado.ubi) return 14;
+  const caja = mapa.getSize();
+  const px = Math.max(90, Math.min(caja.x, caja.y) * 0.38);
+  const mpp = Math.max(0.05, metros / px);
+  const lat = Number(estado.ubi.lat) || RESPALDO.lat;
+  const z = Math.log2(156543.03392 * Math.cos(lat * Math.PI / 180) / mpp);
+  return Math.max(4, Math.min(18, Math.round(z * 2) / 2));
+}
+
 function pintarMarcadores() {
   const L = window.L;
   if (!L || !estado.mapa || !estado.capa) return;
@@ -216,6 +407,8 @@ function elegir(id, centrar) {
 function refrescar() {
   pintarLista();
   pintarMarcadores();
+  pintarGps();
+  if (estado.redibujarUbi) estado.redibujarUbi();
 }
 
 function limpiar() {
@@ -238,33 +431,31 @@ function montarMapa() {
     attributionControl: true,
     preferCanvas: true,
     worldCopyJump: true,
+    // 20 es el tope de cercanía: las teselas nativas llegan a 19 y Leaflet
+    // escala esa última para el nivel 20 (0,12 m/px en Chile). Con 0,5 de
+    // paso el zoom fino no obliga a saltar de golpe.
+    minZoom: 3,
+    maxZoom: 20,
+    zoomSnap: 0.5,
+    zoomDelta: 0.5,
+    wheelPxPerZoomLevel: 90,
   }).setView([RESPALDO.lat, RESPALDO.lon], 12);
 
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
+    maxZoom: 20,
+    maxNativeZoom: 19,
     crossOrigin: true,
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>',
   }).addTo(mapa);
 
   estado.mapa = mapa;
   estado.capa = L.layerGroup().addTo(mapa);
+  estado.redibujarUbi = montarCapaUbicacion(mapa);
 
-  if (estado.ubi) {
-    L.marker([estado.ubi.lat, estado.ubi.lon], {
-      icon: L.divIcon({ className: 'pin-envoltorio', html: '<span class="pin-yo"></span>', iconSize: [22, 22], iconAnchor: [11, 11] }),
-      interactive: false,
-      zIndexOffset: 900,
-    }).addTo(mapa);
-    mapa.setView([estado.ubi.lat, estado.ubi.lon], 13);
-  }
-
-  // Encuadre inicial: todas las tiendas (o la ubicación + tiendas cercanas).
-  const puntos = estado.tiendas
-    .filter((t) => Number.isFinite(Number(t.lat)) && Number.isFinite(Number(t.lon)))
-    .map((t) => [Number(t.lat), Number(t.lon)]);
-  if (estado.ubi) puntos.push([estado.ubi.lat, estado.ubi.lon]);
-  if (puntos.length === 1) mapa.setView(puntos[0], 13);
-  else if (puntos.length > 1) mapa.fitBounds(L.latLngBounds(puntos).pad(0.18), { maxZoom: 14 });
+  // Encuadre inicial: si hay ubicación propia se parte cerca de ella; si no,
+  // se encuadran todas las tiendas publicadas.
+  if (estado.ubi) mapa.setView([estado.ubi.lat, estado.ubi.lon], 15);
+  else encuadrarTiendas(14);
 
   // Al mover el mapa no se pierde el filtro: sólo se cierran los popups.
   mapa.on('popupclose', () => { /* sin acción: el pin sigue elegido */ });
@@ -290,18 +481,41 @@ async function cargar() {
 
 async function ubicarme() {
   const b = $('[data-ubicarme]');
-  if (b) { b.disabled = true; b.dataset.activo = 'true'; }
-  const u = await pedirUbicacion();
-  estado.ubi = u;
-  if (b) b.disabled = false;
-  if (u.origen === 'gps') {
+  const previa = estado.ubi;
+  if (b) {
+    b.disabled = true;
+    b.dataset.activo = 'true';
+    b.setAttribute('aria-busy', 'true');
+  }
+  const u = await pedirUbicacion({ ms: 14000, alta: true });
+  if (b) {
+    b.disabled = false;
+    b.removeAttribute('aria-busy');
+  }
+
+  if (u && u.origen === 'gps') {
+    estado.ubi = u;
     const sel = $('[data-radio]');
     if (sel && sel.value === '0') sel.value = '3';
     estado.radio = Number(sel && sel.value) || 0;
-    if (estado.mapa) estado.mapa.setView([u.lat, u.lon], 14);
-    aviso('');
+    if (estado.mapa) {
+      const z = estado.radio > 0
+        ? Math.max(14, zoomParaRadio(estado.radio * 1000))
+        : 16;
+      estado.mapa.setView([u.lat, u.lon], z, { animate: true });
+    }
+    const p = Number(u.precision) || 0;
+    aviso(p > 1000
+      ? 'La señal del GPS es imprecisa (±' + textoMetros(p) + '). El punto es aproximado.'
+      : '', p > 1000 ? 'warn' : '');
   } else {
-    aviso('No pudimos leer tu ubicación. Puedes seguir explorando el mapa sin filtro de radio.', 'warn');
+    // El respaldo de Santiago sirve para encuadrar el mapa, no para decir
+    // «estás acá». Si había una ubicación guardada se conserva; si no, el
+    // mapa queda sin punto propio.
+    estado.ubi = previa;
+    aviso(previa
+      ? 'No pudimos actualizar tu ubicación: seguimos mostrando la última guardada.'
+      : 'No pudimos leer tu ubicación. Puedes mover el mapa y explorar las tiendas sin filtro de radio.', 'warn');
   }
   refrescar();
 }
@@ -321,19 +535,42 @@ function montar() {
   const sel = $('[data-radio]');
   if (sel) {
     sel.addEventListener('change', () => {
-      if (Number(sel.value) > 0 && !estado.ubi) {
+      const n = Number(sel.value) || 0;
+      if (n > 0 && !estado.ubi) {
         aviso('Activa tu ubicación para filtrar por radio.', 'warn');
         sel.value = '0';
         estado.radio = 0;
         refrescar();
         return;
       }
-      estado.radio = Number(sel.value) || 0;
+      estado.radio = n;
+      if (estado.mapa && estado.ubi) {
+        if (n > 0) {
+          estado.mapa.setView(
+            [estado.ubi.lat, estado.ubi.lon],
+            zoomParaRadio(n * 1000),
+            { animate: true }
+          );
+        } else {
+          encuadrarTiendas(12);
+        }
+      }
       refrescar();
     });
   }
   const ubi = $('[data-ubicarme]');
   if (ubi) ubi.addEventListener('click', ubicarme);
+  const centrar = $('[data-gps-centrar]');
+  if (centrar) {
+    centrar.addEventListener('click', () => {
+      if (!estado.ubi || !estado.mapa) return;
+      estado.mapa.setView(
+        [estado.ubi.lat, estado.ubi.lon],
+        Math.max(15, estado.mapa.getZoom()),
+        { animate: true }
+      );
+    });
+  }
 }
 
 (async function arranque() {

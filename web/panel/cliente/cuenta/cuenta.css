@@ -71,6 +71,55 @@
 .dato-cuenta b { color: var(--ds-text-primary); font-weight: 600; text-align: right; word-break: break-word; }
 .dato-cuenta code { font-family: var(--ds-font-mono); font-size: 11.5px; color: var(--ds-text-tertiary); }
 
+/* Resumen de lo que vive en InsForge: mismos endpoints que los módulos. */
+.nube-resumen {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+.nube-dato {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 11px 10px;
+  border: 1px solid var(--ds-border);
+  border-radius: 12px;
+  background: var(--ds-bg-app-alt);
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 140ms ease, transform 140ms ease;
+}
+.nube-dato:hover { border-color: var(--panel-line-accent); transform: translateY(-1px); }
+.nube-dato b {
+  font-family: var(--ds-font-condensed);
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1;
+}
+.nube-dato span {
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ds-text-tertiary);
+}
+.nube-resumen--cargando span {
+  height: 66px;
+  border-radius: 12px;
+  background: var(--ds-bg-app-alt);
+  border: 1px solid var(--ds-border);
+  animation: nube-latir 1.4s ease-in-out infinite;
+}
+.nube-resumen--cargando span:nth-child(2) { animation-delay: 120ms; }
+.nube-resumen--cargando span:nth-child(3) { animation-delay: 240ms; }
+.nube-resumen--cargando span:nth-child(4) { animation-delay: 360ms; }
+@keyframes nube-latir { 0%, 100% { opacity: 0.45; } 50% { opacity: 0.9; } }
+.nube-nota {
+  margin-top: 10px;
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--ds-text-tertiary);
+}
+
 .bloque-cuenta .ds-btn + .ds-btn { margin-top: 8px; }
 .bloque-cuenta .ds-btn { width: 100%; }
 
@@ -194,4 +243,10 @@
   .identidad__ini { width: 60px; height: 60px; font-size: 24px; }
   .identidad__nombre { font-size: 23px; }
   .acceso { padding: 20px; }
+  .nube-resumen { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nube-dato { transition: none; }
+  .nube-resumen--cargando span { animation: none; opacity: 0.7; }
 }
