@@ -1,0 +1,113 @@
+/* Aviso legal y de datos · FORGE CORE STOCK
+   Se muestra una vez por versión, antes de usar la app. Si no se acepta, el
+   overlay no se cierra: no hay forma de seguir sin leer y aceptar. */
+
+#legalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(3, 3, 3, .94);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  overflow-y: auto;
+  padding: 18px 14px calc(24px + env(safe-area-inset-bottom, 0px));
+}
+#legalOverlay[hidden] { display: none; }
+
+.legal-caja {
+  width: 100%;
+  max-width: 640px;
+  background: #0b0b0b;
+  border: 1px solid #242424;
+  border-radius: 18px;
+  padding: 18px 16px;
+  color: #e8e8e8;
+  font-size: 13px;
+  line-height: 1.55;
+}
+.legal-caja h2 {
+  margin: 0 0 4px;
+  font-size: 20px;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+.legal-caja .legal-sub {
+  margin: 0 0 14px;
+  color: #c8ff00;
+  font-size: 11.5px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.legal-caja h3 {
+  margin: 16px 0 6px;
+  font-size: 13px;
+  color: #fff;
+  letter-spacing: .01em;
+}
+.legal-caja p { margin: 0 0 8px; color: #b9b9b9; }
+.legal-caja ul { margin: 0 0 8px; padding-left: 18px; color: #b9b9b9; }
+.legal-caja li { margin-bottom: 4px; }
+.legal-caja b { color: #fff; }
+.legal-caja code {
+  background: #151515;
+  border: 1px solid #262626;
+  border-radius: 5px;
+  padding: 1px 5px;
+  font-size: 11.5px;
+}
+.legal-check {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin: 16px 0 12px;
+  padding: 11px;
+  border: 1px solid #2c3a12;
+  background: #0f1508;
+  border-radius: 12px;
+  color: #d8e8c0;
+  font-size: 12.5px;
+}
+.legal-check input {
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  accent-color: #c8ff00;
+  flex: 0 0 auto;
+}
+.legal-fila { display: flex; gap: 9px; flex-wrap: wrap; }
+.legal-btn {
+  flex: 1 1 150px;
+  border: 1px solid #2a2a2a;
+  background: #141414;
+  color: #eee;
+  border-radius: 12px;
+  padding: 12px 14px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.legal-btn--pri {
+  background: #c8ff00;
+  border-color: #c8ff00;
+  color: #050505;
+}
+.legal-btn:disabled { opacity: .4; cursor: default; }
+.legal-nota {
+  margin: 12px 0 0;
+  font-size: 11px;
+  color: #7d7d7d;
+  line-height: 1.5;
+}
+.legal-enlace {
+  color: #c8ff00;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  background: none;
+  border: 0;
+  font: inherit;
+  padding: 0;
+}

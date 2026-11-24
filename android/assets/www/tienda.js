@@ -233,7 +233,7 @@
     var c = cfg();
     if (!c) return;
     trabajo("Subiendo el catálogo del equipo…", function () {
-      return api(INV, { accion: "subir", local_id: c.local, clave: c.clave, etiqueta: "APK FORGE CORE STOCK", plataforma: "android", version: "0.9.64" })
+      return api(INV, { accion: "subir", local_id: c.local, clave: c.clave, etiqueta: "APK FORGE CORE STOCK", plataforma: "android", version: "0.9.65" })
         .then(function (r) {
           if (!r.ok) return { ok: false, texto: motivo(r) };
           return { ok: true, texto: "Subidos " + (Number(r.d.subidos) || 0) + " productos." };

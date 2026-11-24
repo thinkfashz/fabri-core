@@ -35,6 +35,8 @@
 //                                              → edita (DUEÑO por cuenta/clave · ADMIN)
 //   POST { accion: "local_estado", local_id, clave?, abierto }
 //                                              → ABIERTO/CERRADO (DUEÑO · ADMIN)
+//   POST { accion: "estado_base", local_id }         → tamaño y filas de la base
+//                                              (DUEÑO · ADMIN), sin datos
 //   POST { accion: "clientes_listar", local_id, q?, segmento? }
 //                                              → clientes agregados de los pedidos
 //                                              (DUEÑO · ADMIN), sin datos sensibles
@@ -1650,7 +1652,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       acciones: [
         'asegurar', 'locales', 'local_ver', 'local_crear', 'local_mio', 'local_actualizar',
         'local_estado', 'local_borrar', 'productos_subir', 'producto_borrar',
-        'conexion_estado', 'conexion_rotar', 'clientes_listar',
+        'conexion_estado', 'conexion_rotar', 'clientes_listar', 'estado_base',
         'imagen_ver', 'codigo_buscar', 'productos_buscar',
         'pedido_crear', 'pedido_seguir', 'push_suscribir', 'push_baja',
         'push_local_suscribir', 'push_local_baja',
@@ -2040,6 +2042,57 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
        usa `/api/inventario`: no se crea una segunda llave ni se toca la APK.
        El dueño, desde su sesión, puede ver el estado y rotar la clave; la
        clave nueva se muestra UNA vez (en la base sólo queda su hash). */
+    /* ── estado de la base, para el panel y la APK ─────────────────────────
+       Devuelve el tamaño real de la base y de cada tabla del negocio. No
+       expone filas ni datos: sólo nombres, conteos y bytes. Si el rol de la
+       base no permite medir el tamaño, se dice en `aviso` en vez de fingir 0. */
+    if (accion === 'estado_base') {
+      const localId = idLocal(cuerpo.local_id);
+      const { local, motivo } = await autorizarLocal(pool, req, localId, texto(cuerpo.clave, 60));
+      if (!local) return json(res, { ok: false, error: 'no autorizado', codigo: motivo }, 401);
+
+      let bytes: number | null = null;
+      let aviso = '';
+      try {
+        const r = await pool.query(`SELECT pg_database_size(current_database())::bigint AS b`);
+        bytes = Number(r.rows[0] && r.rows[0].b) || 0;
+      } catch (e: any) {
+        aviso = 'el rol de la base no permite medir el tamaño total';
+      }
+
+      /* Sólo tablas del negocio: nada de catálogos internos de Postgres. */
+      let tablas: any[] = [];
+      try {
+        const r = await pool.query(
+          `SELECT relname AS tabla,
+                  COALESCE(n_live_tup, 0)::bigint AS filas,
+                  pg_total_relation_size(relid)::bigint AS bytes
+             FROM pg_stat_user_tables
+            WHERE relname LIKE 'mercado_%' OR relname LIKE 'inv_%'
+            ORDER BY pg_total_relation_size(relid) DESC
+            LIMIT 20`
+        );
+        tablas = r.rows.map((x: any) => ({
+          tabla: x.tabla,
+          filas: Number(x.filas) || 0,
+          bytes: Number(x.bytes) || 0,
+        }));
+      } catch (e: any) {
+        aviso = aviso || 'no se pudo leer el detalle por tabla';
+      }
+
+      const totalFilas = tablas.reduce((a, t) => a + t.filas, 0);
+      return json(res, {
+        ok: true, accion,
+        local_id: localId,
+        tienda: local.nombre,
+        base: { bytes, filas: totalFilas, tablas: tablas.length },
+        tablas,
+        aviso,
+        ahora: new Date().toISOString(),
+      });
+    }
+
     if (accion === 'conexion_estado') {
       const localId = idLocal(cuerpo.local_id);
       const { local, motivo } = await autorizarLocal(pool, req, localId, texto(cuerpo.clave, 60));

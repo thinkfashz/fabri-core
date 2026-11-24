@@ -27,6 +27,8 @@ const estado = {
   fallo: '',
   verif: null,        // { clase, texto, tienda, productos, ms, codigo }
   probando: false,
+  base: null,         // estado de la base en la nube (estado_base)
+  baseError: '',
   clave: '',          // valor nuevo, sólo en memoria
   rotando: false,
   copiado: false,
@@ -45,6 +47,15 @@ function fechaHora(v) {
       day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
     }).format(d);
   } catch (_) { return d.toLocaleString('es-CL'); }
+}
+
+function humano(bytes) {
+  const n = Number(bytes);
+  if (!Number.isFinite(n) || n <= 0) return '—';
+  const u = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let i = 0, v = n;
+  while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
+  return (i === 0 ? v : v.toFixed(v < 10 ? 1 : 0)) + ' ' + u[i];
 }
 
 function hace(v) {
@@ -180,6 +191,14 @@ async function copiarClave() {
 async function cargarEstado() {
   const ctx = estado.ctx;
   if (!ctx || !ctx.tienda) return;
+  /* La base se consulta aparte: si falla, el resto de la página sigue. */
+  llamar('estado_base', { local_id: ctx.tienda.id }).then((b) => {
+    estado.base = b || null;
+    estado.baseError = '';
+    if (estado.conexion) pintar();
+  }).catch((e) => {
+    estado.baseError = (e && e.message) || 'No pudimos medir la base.';
+  });
   try {
     const d = await llamar('conexion_estado', { local_id: ctx.tienda.id });
     estado.conexion = d.conexion || null;
@@ -478,6 +497,43 @@ function bloqueEstado() {
   '</section>';
 }
 
+function bloqueBase() {
+  if (!estado.base && !estado.baseError) return '';
+  if (estado.baseError) {
+    return '<section class="cn-card" aria-labelledby="cnBaseTitulo">' +
+      '<div class="cn-card__cabeza"><h2 class="cn-card__titulo" id="cnBaseTitulo">Base de datos en la nube</h2>' +
+        '<span class="pill pill--err">sin lectura</span></div>' +
+      '<div class="cn-error"><b>No se pudo medir</b><br>' + esc(estado.baseError) + '</div>' +
+    '</section>';
+  }
+  const b = estado.base;
+  const base = b.base || {};
+  const tablas = Array.isArray(b.tablas) ? b.tablas.slice(0, 6) : [];
+  return '<section class="cn-card" aria-labelledby="cnBaseTitulo">' +
+    '<div class="cn-card__cabeza"><h2 class="cn-card__titulo" id="cnBaseTitulo">Base de datos en la nube</h2>' +
+      '<span class="pill pill--ok">InsForge</span></div>' +
+    '<div class="cn-datos">' +
+      '<div class="cn-dato"><span class="cn-dato__rot">Tamaño total</span>' +
+        '<span class="cn-dato__val">' + esc(humano(base.bytes)) + '</span></div>' +
+      '<div class="cn-dato"><span class="cn-dato__rot">Filas del negocio</span>' +
+        '<span class="cn-dato__val">' + (Number(base.filas) || 0) + '</span></div>' +
+      '<div class="cn-dato"><span class="cn-dato__rot">Tablas</span>' +
+        '<span class="cn-dato__val">' + (Number(base.tablas) || 0) + '</span></div>' +
+      '<div class="cn-dato"><span class="cn-dato__rot">Medido</span>' +
+        '<span class="cn-dato__val">' + esc(fechaHora(b.ahora)) + '</span></div>' +
+    '</div>' +
+    (tablas.length
+      ? '<div class="cn-datos">' + tablas.map((t) =>
+          '<div class="cn-dato"><span class="cn-dato__rot">' + esc(t.tabla) + '</span>' +
+          '<span class="cn-dato__val">' + (Number(t.filas) || 0) + ' filas · ' + esc(humano(t.bytes)) + '</span></div>'
+        ).join('') + '</div>'
+      : '') +
+    (b.aviso ? '<div class="cn-error"><b>Aviso</b><br>' + esc(b.aviso) + '</div>' : '') +
+    '<p class="cn-nota">Es el tamaño del servidor, no el de tu teléfono. El catálogo y los pedidos viven aquí; ' +
+      'las fotos del dispositivo no se suben solas.</p>' +
+  '</section>';
+}
+
 function bloqueFallos() {
   if (!estado.errores.length && !estado.fallo) return '';
   const lista = estado.errores.length
@@ -548,6 +604,7 @@ function contenido() {
       bloqueEstado() +
       bloqueFallos() +
     '</div>' +
+    bloqueBase() +
     bloquePasos() +
   '</div>';
 }

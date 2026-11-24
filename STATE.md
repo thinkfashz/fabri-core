@@ -8,6 +8,55 @@
 
 Última actualización: 2026-11-24
 
+## Sesión 2026-11-24 · APK 0.9.65: estado de base, Integración y aviso legal
+
+Pedido: mostrar el estado de la base en el celular y en la nube al sincronizar,
+mejorar la página de Integración con estadísticas por conexión y datos para una
+base de respaldo externa, simplificar la conexión con un botón de auth, y añadir
+avisos explícitos de permisos, datos, cookies y responsabilidad.
+
+**Estado de la base**
+
+- `mercado.ts`: acción `estado_base` (dueño/clave/admin) con
+  `pg_database_size`, filas y tamaño por tabla del negocio. No devuelve datos.
+- Panel `/panel/negocio/conexion/`: tarjeta «Base de datos en la nube» con
+  tamaño, filas, tablas y aviso si el rol no permite medir.
+- APK: Integración muestra **local** (almacenamiento de la app + aviso de que
+  SQLite y modelos viven en el espacio interno) y **nube** (`estado_base` con
+  tamaño, filas y tablas).
+- Verificado en producción: base de 14,5 MB, 125 filas, 12 tablas.
+
+**Integración mejorada (APK)**
+
+- Cuatro tarjetas independientes, cada una con estado, última prueba y latencia:
+  nube de la tienda, estado de la base, base de respaldo externa (endpoint HTTPS
+  + token, probar y enviar sobre JSON) e IA remota.
+- «Conectar con mi cuenta» abre la nube en el navegador del teléfono; Java ahora
+  permite abrir `forge-core-stock.vercel.app` y `fabri-api.vercel.app` con
+  `Intent.ACTION_VIEW` (antes bloqueaba todo enlace externo).
+- Estados guardados en `fcore.int`; nunca se muestra «conectado» sin prueba.
+
+**Aviso legal y de datos**
+
+- `legal.js` + `legal.css` en la APK: overlay obligatorio antes de usar, con
+  datos del vendedor y del cliente, almacenamiento local y nube, cookies,
+  permisos, responsabilidad y derechos. Se guarda versión `2026-11-24` y fecha;
+  no se puede continuar sin marcar la aceptación.
+- Web: `/privacidad.html` nueva, enlaces desde `/terminos.html` y aviso en el
+  login de `/app/` con términos, datos y responsabilidad.
+
+**Compilación y entrega**
+
+- `versionCode` 80 · `versionName` 0.9.65 · package `cl.fabrick.core` · misma
+  firma. `FORGE_SALTAR_RUST=1 bash scripts/compilar.sh` → 2m 45s.
+- `/storage/emulated/0/Download/FORGE-CORE-STOCK.apk` y `…-0.9.65.apk`
+  (md5 `21eb08422dd216dd55e3ce594df5d8da`), y publicado en
+  `web/descargas/FORGE-CORE-STOCK.apk`.
+- Datos de prueba borrados; 26/26 suites siguen en verde.
+
+**Pendiente**: probar en el teléfono la aceptación legal, el estado de la base y
+el botón de conexión con una tienda real.
+
 ## Sesión 2026-11-24 · APK 0.9.64 sobre la estable (0.9.63)
 
 Pedido: la 1.2.0 no abría; conservar la app estable 0.9.63 con su logo, añadir

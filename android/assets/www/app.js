@@ -7041,91 +7041,340 @@ async function errorIniciar() {
   }).join("");
 }
 
-function integracionIniciar() {
-  const nota = document.getElementById("intNotaEstado");
-  if (nota) nota.textContent = "Aquí puedes configurar la API en la nube y los conectores externos paso a paso.";
-  const urlEl = document.getElementById("intUrl");
-  const tokenEl = document.getElementById("intToken");
-  const modeloEl = document.getElementById("intModelo");
-  const proveedor = document.getElementById("intProveedor");
-  const estadoModelo = document.getElementById("datosEstadoModelo");
+/* ── Integración: nube, base, respaldo externo e IA ────────────────────────
+   Cada tarjeta guarda su propio estado (`fcore.int`) con la última prueba, su
+   latencia y el resultado. Nada se muestra como «conectado» si la prueba no
+   respondió: se dice el error tal cual. */
 
-  if (urlEl && !urlEl.value.trim()) urlEl.value = "https://fabri-api.vercel.app";
-  if (tokenEl) tokenEl.placeholder = "FABRI_API_TOKEN (archivo /tmp/fabri_token.env)";
-  if (estadoModelo) estadoModelo.textContent = "Para verificar el modelo local, abre la pestaña Chat → Escanear modelos.";
+function intLeer() {
+  try { return JSON.parse(localStorage.getItem("fcore.int") || "{}") || {}; } catch (e) { return {}; }
+}
+function intGuardarEstado(seccion, datos) {
+  try {
+    const todo = intLeer();
+    todo[seccion] = Object.assign({ ts: Date.now() }, datos || {});
+    localStorage.setItem("fcore.int", JSON.stringify(todo));
+  } catch (e) { /* modo privado */ }
+}
+function intBytes(n) {
+  const v = Number(n) || 0;
+  if (v <= 0) return "—";
+  const u = ["B", "KB", "MB", "GB", "TB"];
+  let i = 0, x = v;
+  while (x >= 1024 && i < u.length - 1) { x /= 1024; i++; }
+  return (i === 0 ? x : x.toFixed(x < 10 ? 1 : 0)) + " " + u[i];
+}
+function intHace(ts) {
+  if (!ts) return "—";
+  const min = Math.max(0, Math.round((Date.now() - ts) / 60000));
+  if (min < 1) return "ahora";
+  if (min < 60) return "hace " + min + " min";
+  return "hace " + Math.round(min / 60) + " h";
+}
+
+function integracionIniciar() {
+  const leer = (k, d) => { try { return localStorage.getItem(k) || d; } catch (e) { return d; } };
+  const url = document.getElementById("intUrl");
+  const local = document.getElementById("intLocal");
+  const clave = document.getElementById("intClave");
+  const token = document.getElementById("intToken");
+  const modelo = document.getElementById("intModelo");
+  const prov = document.getElementById("intProveedor");
+  const resUrl = document.getElementById("intResUrl");
+  const resTok = document.getElementById("intResToken");
+
+  if (url && !url.value.trim()) url.value = leer("fabrick.nube.url", "https://fabri-api.vercel.app");
+  if (local) local.value = leer("fabrick.nube.local", "");
+  if (clave) clave.value = leer("fabrick.nube.clave", "");
+  if (token) token.value = leer("fabrick.nube.token", "");
+  if (modelo) modelo.value = leer("fabrick.nube.modelo", "qwen-0.5b-nube");
+  if (prov) prov.value = leer("fabrick.nube.proveedor", "vercel");
+  if (resUrl) resUrl.value = leer("fcore.int.respaldo.url", "");
+  if (resTok) resTok.value = leer("fcore.int.respaldo.token", "");
+
+  const est = intLeer();
+  const n = est.nube, r = est.respaldo, ia = est.ia;
+  const nota = document.getElementById("intNotaEstado");
+  if (nota) {
+    nota.textContent = n
+      ? (n.ok ? "Última prueba OK" : "Último error: " + (n.error || "sin detalle")) + " · " + intHace(n.ts)
+      : "Sin probar todavía.";
+  }
+  const res = document.getElementById("intResEstado");
+  if (res) {
+    res.textContent = r
+      ? (r.ok ? "Endpoint respondió " + (r.ms || 0) + " ms" : "Falló: " + (r.error || "sin detalle")) + " · " + intHace(r.ts)
+      : "Sin probar.";
+  }
+  const iaEl = document.getElementById("intIAEstado");
+  if (iaEl) {
+    iaEl.textContent = ia
+      ? (ia.ok ? "Proveedor responde (" + (ia.ms || 0) + " ms)" : "Falló: " + (ia.error || "sin detalle")) + " · " + intHace(ia.ts)
+      : "Sin probar.";
+  }
+  integracionEstadoLocal();
 }
 
 async function integracionGuardar() {
-  const url = document.getElementById("intUrl").value.trim();
-  const token = document.getElementById("intToken").value.trim();
-  const localEl = document.getElementById("intLocal");
-  const claveEl = document.getElementById("intClave");
-  const local = localEl ? localEl.value.trim().toLowerCase() : "";
-  const clave = claveEl ? claveEl.value.trim() : "";
-  const modelo = document.getElementById("intModelo").value.trim();
+  const url = (document.getElementById("intUrl").value || "").trim();
+  const token = (document.getElementById("intToken").value || "").trim();
+  const local = (document.getElementById("intLocal").value || "").trim().toLowerCase();
+  const clave = (document.getElementById("intClave").value || "").trim();
+  const modelo = (document.getElementById("intModelo").value || "").trim();
+  const proveedor = (document.getElementById("intProveedor").value || "vercel").trim();
   const nota = document.getElementById("intNotaEstado");
+
   if (!url || !/^https:\/\//.test(url)) {
-    if (nota) nota.textContent = "Falta URL válida (debe ser https://…). Ejemplo: https://fabri-api.vercel.app";
+    if (nota) nota.textContent = "Falta una URL válida (https://…).";
     toast("Integración: URL inválida", "error");
     return;
   }
-  // Dos formas de entrar: ADMIN con el token global (dueño de la plataforma)
-  // o DUEÑO con el ID de su local + su clave (espacio aislado y gratis).
-  if (!token && !(local && clave)) {
-    if (nota) nota.textContent = "Falta credencial: el token (admin) o el ID + clave de tu local (dueño).";
+  if (!token && !(local && clave.length === 8)) {
+    if (nota) nota.textContent = "Falta credencial: la clave de la tienda (8 caracteres) o el token de administración.";
     toast("Integración: falta la credencial", "error");
     return;
   }
-  // El módulo de nube (inventario.js, flujo.js, datos.js) lee la config desde
-  // localStorage, no del núcleo. Guardarla acá es lo que hace que sincronice.
   try {
     localStorage.setItem("fabrick.nube.url", url.replace(/\/+$/, ""));
     localStorage.setItem("fabrick.nube.token", token);
     localStorage.setItem("fabrick.nube.local", local);
     localStorage.setItem("fabrick.nube.clave", clave);
-  } catch (e) {}
+    localStorage.setItem("fabrick.nube.modelo", modelo);
+    localStorage.setItem("fabrick.nube.proveedor", proveedor);
+  } catch (e) { /* modo privado */ }
   if (window.INV && window.INV.nube) {
     window.INV.nube.url = url.replace(/\/+$/, "");
     window.INV.nube.token = token;
     window.INV.nube.local = local;
     window.INV.nube.clave = clave;
   }
-  try {
-    const r = await apiTarde("nube", { accion: "configurar", url, token }, { maxMs: 20000 });
-    const d = r.data || r;
-    if (d.ok) {
-      if (nota) nota.textContent = "Configuración guardada: " + url + " · Modelo: " + modelo;
-      toast("Integración guardada", "");
-    } else {
-      if (nota) nota.textContent = "Error: " + (d.error || "no se pudo guardar");
-      toast("Integración: " + (d.error || "no se pudo guardar"), "error");
-    }
-  } catch (e) {
-    if (nota) nota.textContent = "Error: " + e.message;
-    toast("Integración: " + e.message, "error");
-  }
+  await integracionProbar();
+  integracionEstadoBase();
 }
 
 async function integracionProbar() {
-  const url = document.getElementById("intUrl").value.trim() || "https://fabri-api.vercel.app";
+  const url = ((document.getElementById("intUrl") || {}).value || "https://fabri-api.vercel.app").trim().replace(/\/+$/, "");
   const nota = document.getElementById("intNotaEstado");
-  if (nota) nota.textContent = "Probando conexión con " + url + "…";
+  if (nota) nota.textContent = "Probando " + url + "…";
+  const t0 = Date.now();
   try {
-    const r = await apiTarde("nube", { accion: "estado", url }, { maxMs: 20000 });
-    const d = r.data || r;
-    if (d.ok) {
-      if (nota) nota.textContent = "Conexión verificada: " + (d.mensaje || d.url || url);
-      toast("Integración: conexión OK", "");
+    const r = await fetch(url + "/api/health", { cache: "no-store" });
+    const ms = Date.now() - t0;
+    const d = await r.json().catch(() => ({}));
+    const ok = r.ok;
+    intGuardarEstado("nube", { ok, ms, error: ok ? "" : (d.error || ("HTTP " + r.status)), url });
+    if (nota) nota.textContent = ok
+      ? "Conexión OK · " + ms + " ms · " + intHace(Date.now())
+      : "La API respondió " + r.status + ": " + (d.error || "sin detalle");
+    toast(ok ? "Nube: conexión OK" : "Nube: error de conexión", ok ? "" : "error");
+  } catch (e) {
+    intGuardarEstado("nube", { ok: false, ms: Date.now() - t0, error: e.message, url });
+    if (nota) nota.textContent = "Sin conexión con " + url + ": " + e.message;
+    toast("Nube: sin conexión", "error");
+  }
+  const n = intLeer().nube;
+  const stats = document.getElementById("intNubeStats");
+  if (stats) stats.textContent = n ? (n.ok ? "Saludable" : "Con error") + " · " + (n.ms || 0) + " ms · " + intHace(n.ts) : "—";
+}
+
+/** Tamaño del almacenamiento de la app en el teléfono (lo que la WebView puede medir). */
+async function integracionEstadoLocal() {
+  const el = document.getElementById("intBaseLocal");
+  if (!el) return;
+  try {
+    if (navigator.storage && navigator.storage.estimate) {
+      const e = await navigator.storage.estimate();
+      el.textContent = "Local (almacenamiento de la app): " + intBytes(e.usage) +
+        " usados de " + intBytes(e.quota) + ". La base SQLite y los modelos viven en el espacio interno de la app.";
     } else {
-      if (nota) nota.textContent = "Error al probar: " + (d.error || r.error || "respuesta sin datos");
-      toast("Integración: " + (d.error || r.error || "respuesta sin datos"), "error");
+      el.textContent = "Local: este WebView no expone el tamaño. Revisa Ajustes → Apps → FORGE CORE STOCK → Almacenamiento.";
     }
   } catch (e) {
-    if (nota) nota.textContent = "Excepción: " + e.message;
-    toast("Integración: " + e.message, "error");
+    el.textContent = "Local: no se pudo medir (" + e.message + ").";
   }
 }
 
+/** Estado real de la base en la nube: tamaño, filas y tablas. */
+async function integracionEstadoBase() {
+  const url = ((document.getElementById("intUrl") || {}).value || "").trim().replace(/\/+$/, "");
+  const local = ((document.getElementById("intLocal") || {}).value || "").trim().toLowerCase();
+  const clave = ((document.getElementById("intClave") || {}).value || "").trim();
+  const nubeEl = document.getElementById("intBaseNube");
+  const tablasEl = document.getElementById("intBaseTablas");
+  if (!nubeEl) return;
+  if (!url || !local || clave.length !== 8) {
+    nubeEl.textContent = "Nube: escribe el ID de la tienda y su clave para medirla.";
+    if (tablasEl) tablasEl.innerHTML = "";
+    return;
+  }
+  nubeEl.textContent = "Nube: consultando…";
+  const t0 = Date.now();
+  try {
+    const r = await fetch(url + "/api/mercado", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ accion: "estado_base", local_id: local, clave }),
+    });
+    const d = await r.json().catch(() => ({}));
+    const ms = Date.now() - t0;
+    if (!r.ok || !d.ok) {
+      nubeEl.textContent = "Nube: " + (d.error || ("HTTP " + r.status));
+      if (tablasEl) tablasEl.innerHTML = "";
+      return;
+    }
+    const b = d.base || {};
+    nubeEl.textContent = "Nube: " + intBytes(b.bytes) + " · " + (b.filas || 0) + " filas · " +
+      (b.tablas || 0) + " tablas · medido en " + ms + " ms" + (d.aviso ? " · " + d.aviso : "");
+    if (tablasEl) {
+      const filas = (d.tablas || []).slice(0, 8).map((t) =>
+        `<p class="nota">· ${t.tabla}: ${t.filas} filas · ${intBytes(t.bytes)}</p>`).join("");
+      tablasEl.innerHTML = filas || "";
+    }
+    intGuardarEstado("base", { ok: true, ms, bytes: b.bytes, filas: b.filas });
+  } catch (e) {
+    nubeEl.textContent = "Nube: sin conexión (" + e.message + ").";
+    if (tablasEl) tablasEl.innerHTML = "";
+    intGuardarEstado("base", { ok: false, ms: Date.now() - t0, error: e.message });
+  }
+}
+
+function integracionAuth() {
+  /* Abre la nube en el navegador del teléfono (MainActivity permite el dominio
+     propio). Allí el dueño ve la clave y puede copiarla a esta pantalla. */
+  try {
+    window.location.href = "https://forge-core-stock.vercel.app/panel/negocio/conexion/?desde=apk";
+  } catch (e) {
+    toast("No se pudo abrir la nube", "error");
+  }
+}
+
+function integracionVerLegal() {
+  try {
+    localStorage.removeItem("fcore.legal.version");
+    location.reload();
+  } catch (e) {
+    toast("Abre el aviso legal al reiniciar", "error");
+  }
+}
+
+/* ── respaldo externo ─────────────────────────────────────────────────── */
+
+function integracionRespaldoGuardar() {
+  const url = ((document.getElementById("intResUrl") || {}).value || "").trim();
+  const token = ((document.getElementById("intResToken") || {}).value || "").trim();
+  const nota = document.getElementById("intResEstado");
+  if (!url || !/^https:\/\//.test(url)) {
+    if (nota) nota.textContent = "El respaldo necesita una URL https válida.";
+    toast("Respaldo: URL inválida", "error");
+    return;
+  }
+  try {
+    localStorage.setItem("fcore.int.respaldo.url", url);
+    localStorage.setItem("fcore.int.respaldo.token", token);
+  } catch (e) { /* modo privado */ }
+  if (nota) nota.textContent = "Guardado. Pulsa «Probar endpoint».";
+  toast("Respaldo guardado", "");
+}
+
+async function integracionRespaldoProbar() {
+  const url = ((document.getElementById("intResUrl") || {}).value || "").trim();
+  const token = ((document.getElementById("intResToken") || {}).value || "").trim();
+  const nota = document.getElementById("intResEstado");
+  const stats = document.getElementById("intResStats");
+  if (!url || !/^https:\/\//.test(url)) {
+    if (nota) nota.textContent = "Falta la URL https del respaldo.";
+    return;
+  }
+  if (nota) nota.textContent = "Probando " + url + "…";
+  const t0 = Date.now();
+  try {
+    const r = await fetch(url, {
+      method: "GET",
+      headers: token ? { Authorization: "Bearer " + token } : {},
+      cache: "no-store",
+    });
+    const ms = Date.now() - t0;
+    // Un endpoint de respaldo puede no aceptar GET: 405 también prueba que existe.
+    const ok = r.ok || r.status === 405;
+    intGuardarEstado("respaldo", { ok, ms, status: r.status, url, error: ok ? "" : ("HTTP " + r.status) });
+    if (nota) nota.textContent = ok
+      ? "Endpoint accesible (HTTP " + r.status + ") · " + ms + " ms"
+      : "El endpoint respondió " + r.status + ". Revisa la URL o el token.";
+    if (stats) stats.textContent = "Prueba: " + (ok ? "OK" : "error") + " · " + ms + " ms · " + intHace(Date.now());
+  } catch (e) {
+    intGuardarEstado("respaldo", { ok: false, ms: Date.now() - t0, error: e.message, url });
+    if (nota) nota.textContent = "No se pudo alcanzar el endpoint: " + e.message;
+    if (stats) stats.textContent = "Prueba: error de red · " + intHace(Date.now());
+  }
+}
+
+async function integracionRespaldoEnviar() {
+  const url = ((document.getElementById("intResUrl") || {}).value || "").trim();
+  const token = ((document.getElementById("intResToken") || {}).value || "").trim();
+  const local = ((document.getElementById("intLocal") || {}).value || "").trim();
+  const nota = document.getElementById("intResEstado");
+  if (!url) { if (nota) nota.textContent = "Falta la URL del respaldo."; return; }
+  const sobre = {
+    origen: "forge-core-stock",
+    tipo: "prueba_respaldo",
+    tienda: local,
+    generado: new Date().toISOString(),
+    version: "0.9.65",
+    mensaje: "Sobre de prueba. El respaldo completo del catálogo se exporta desde Datos.",
+  };
+  if (nota) nota.textContent = "Enviando sobre de prueba…";
+  const t0 = Date.now();
+  try {
+    const r = await fetch(url, {
+      method: "POST",
+      headers: Object.assign({ "Content-Type": "application/json" }, token ? { Authorization: "Bearer " + token } : {}),
+      body: JSON.stringify(sobre),
+    });
+    const ms = Date.now() - t0;
+    intGuardarEstado("respaldo", { ok: r.ok, ms, status: r.status, url, error: r.ok ? "" : ("HTTP " + r.status) });
+    if (nota) nota.textContent = r.ok
+      ? "Sobre entregado (HTTP " + r.status + ") · " + ms + " ms"
+      : "El endpoint rechazó el sobre: HTTP " + r.status;
+  } catch (e) {
+    intGuardarEstado("respaldo", { ok: false, ms: Date.now() - t0, error: e.message, url });
+    if (nota) nota.textContent = "Error al enviar: " + e.message;
+  }
+}
+
+/* ── IA remota ────────────────────────────────────────────────────────── */
+
+function integracionIAGuardar() {
+  const modelo = (document.getElementById("intModelo").value || "").trim();
+  const proveedor = (document.getElementById("intProveedor").value || "").trim();
+  try {
+    localStorage.setItem("fabrick.nube.modelo", modelo);
+    localStorage.setItem("fabrick.nube.proveedor", proveedor);
+  } catch (e) { /* modo privado */ }
+  const el = document.getElementById("intIAEstado");
+  if (el) el.textContent = "Guardado: " + proveedor + " · " + modelo;
+  toast("IA: configuración guardada", "");
+}
+
+async function integracionIAProbar() {
+  const url = ((document.getElementById("intUrl") || {}).value || "").trim().replace(/\/+$/, "");
+  const el = document.getElementById("intIAEstado");
+  const stats = document.getElementById("intIAStats");
+  if (el) el.textContent = "Probando el proveedor…";
+  const t0 = Date.now();
+  try {
+    const r = await fetch(url + "/api/health", { cache: "no-store" });
+    const ms = Date.now() - t0;
+    intGuardarEstado("ia", { ok: r.ok, ms, error: r.ok ? "" : ("HTTP " + r.status) });
+    if (el) el.textContent = r.ok
+      ? "Proveedor alcanzable · " + ms + " ms. La clave del modelo se guarda en Conexiones."
+      : "El proveedor respondió " + r.status + ".";
+    if (stats) stats.textContent = "Prueba: " + (r.ok ? "OK" : "error") + " · " + ms + " ms · " + intHace(Date.now());
+  } catch (e) {
+    intGuardarEstado("ia", { ok: false, ms: Date.now() - t0, error: e.message });
+    if (el) el.textContent = "Sin conexión con el proveedor: " + e.message;
+    if (stats) stats.textContent = "Prueba: error de red · " + intHace(Date.now());
+  }
+}
 
 /** Pinta el bloque «Rendimiento del núcleo» en Diagnóstico. */
 function pintarRendimiento(rend) {

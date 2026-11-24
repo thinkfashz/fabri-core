@@ -2,6 +2,8 @@ package cl.fabrick.core;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.content.Intent;
+import android.net.Uri;
 import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
@@ -213,6 +215,19 @@ public class MainActivity extends Activity {
             public boolean shouldOverrideUrlLoading(WebView vista, String url) {
                 if (url.startsWith("file:///android_asset/") || ActivosWeb.esPropio(url)) {
                     return false;
+                }
+                /* La nube del producto se abre en el navegador del teléfono, no
+                   dentro de la WebView: así el dueño puede iniciar sesión con su
+                   cuenta, leer los términos o generar la clave de conexión sin
+                   mezclar la sesión de la app con la del panel web. */
+                if (url != null && (url.startsWith("https://forge-core-stock.vercel.app")
+                        || url.startsWith("https://fabri-api.vercel.app"))) {
+                    try {
+                        startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+                    } catch (Throwable t) {
+                        Toast.makeText(MainActivity.this, "No hay navegador para abrir el enlace", Toast.LENGTH_SHORT).show();
+                    }
+                    return true;
                 }
                 Toast.makeText(MainActivity.this, "Enlace externo bloqueado", Toast.LENGTH_SHORT).show();
                 return true;

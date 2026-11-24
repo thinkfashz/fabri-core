@@ -14,6 +14,7 @@
   <link rel="stylesheet" href="contabilidad.css" />
   <link rel="stylesheet" href="dte.css" />
   <link rel="stylesheet" href="tienda.css" />
+  <link rel="stylesheet" href="legal.css" />
 </head>
 <body>
   <!-- ===================== ACCESO · HUELLA + PIN ===================== -->
@@ -1538,45 +1539,91 @@ npx -y omniroute@latest
     <section class="vista" id="v-integracion">
       <div class="cab-vista">
         <h2>Integración / Conectores</h2>
-        <p>Conecta servicios externos paso a paso. Las claves se almacenan en Android Keystore y no se muestran completos.</p>
+        <p>Cada conexión por separado: estado, credenciales, prueba y último resultado. Las claves se guardan en
+          este equipo y nunca se muestran completas.</p>
       </div>
-      <div class="bloque">
-        <h3>API en la nube (Vercel / InsForge)</h3>
-        <p class="nota">Conexión necesaria para la IA remota y sincronización. El token vive en Vercel y en el dispositivo solo se guarda el JWT en Keystore.</p>
+
+      <!-- 1 · Nube del negocio -->
+      <div class="bloque" id="intNube">
+        <h3>1 · Nube de tu tienda</h3>
+        <p class="nota">Es la base donde viven tu catálogo, pedidos y clientes. Se conecta con el ID de la tienda y
+          su clave de 8 caracteres; el token global es sólo para administración.</p>
         <label for="intUrl">URL de la API</label>
         <input id="intUrl" class="input" value="https://fabri-api.vercel.app" placeholder="https://fabri-api.vercel.app" />
-        <label for="intToken">Token de acceso</label>
-        <input id="intToken" class="input" type="password" placeholder="FABRI_API_TOKEN (del archivo /tmp/fabri_token.env)" />
-        <p class="nota">Dos formas de entrar: <b>admin</b> con el token global (ve todo), o <b>dueño</b> con el ID de su local y su clave de 8 caracteres (sólo ve su espacio aislado).</p>
-        <label for="intLocal">ID del local (dueño)</label>
-        <input id="intLocal" class="input" placeholder="ej: t-ree-01" autocomplete="off" spellcheck="false" />
-        <label for="intClave">Clave del local (dueño)</label>
+        <label for="intLocal">ID de la tienda (dueño)</label>
+        <input id="intLocal" class="input" placeholder="ej: mi-tienda" autocomplete="off" spellcheck="false" />
+        <label for="intClave">Clave de la tienda (8 caracteres)</label>
         <input id="intClave" class="input" type="password" placeholder="8 caracteres" autocomplete="off" />
-        <label for="intModelo">Modelo remoto por defecto</label>
-        <input id="intModelo" class="input" value="qwen-0.5b-nube" placeholder="qwen-0.5b-nube" />
+        <label for="intToken">Token global (admin, opcional)</label>
+        <input id="intToken" class="input" type="password" placeholder="sólo si eres administrador de la plataforma" />
         <div class="fila-botones">
           <button class="btn btn-primario" onclick="integracionGuardar()">Guardar y probar</button>
-          <button class="btn" onclick="integracionProbar()">Probar conexión</button>
+          <button class="btn" onclick="integracionProbar()">Probar</button>
+          <button class="btn" onclick="integracionEstadoBase()">Estado de la base</button>
+          <button class="btn" onclick="integracionAuth()">Conectar con mi cuenta</button>
         </div>
         <p class="nota" id="intNotaEstado">—</p>
+        <p class="nota" id="intNubeStats">Sin datos todavía.</p>
       </div>
-      <div class="bloque">
-        <h3>Proveedor de chat remoto</h3>
+
+      <!-- 2 · Estado de la base: celular y nube -->
+      <div class="bloque" id="intBase">
+        <h3>2 · Estado de la base: este equipo y la nube</h3>
+        <p class="nota">El teléfono guarda la base local y los modelos; la nube guarda los datos del negocio. Son
+          dos espacios distintos y aquí se ven por separado.</p>
+        <div class="fila-botones">
+          <button class="btn" onclick="integracionEstadoBase()">Actualizar estado</button>
+        </div>
+        <p class="nota" id="intBaseLocal">Local: —</p>
+        <p class="nota" id="intBaseNube">Nube: —</p>
+        <div id="intBaseTablas"></div>
+      </div>
+
+      <!-- 3 · Respaldo externo -->
+      <div class="bloque" id="intRespaldo">
+        <h3>3 · Base de respaldo externa</h3>
+        <p class="nota">Un endpoint HTTPS propio que reciba JSON (por ejemplo, tu servidor o un webhook de
+          almacenamiento). No es una conexión SQL directa: la app envía un sobre firmado con tu tienda y la fecha.
+          El respaldo completo del catálogo está en Datos → Exportar.</p>
+        <label for="intResUrl">URL del respaldo (https)</label>
+        <input id="intResUrl" class="input" placeholder="https://mi-servidor/respaldo" />
+        <label for="intResToken">Token del respaldo (opcional)</label>
+        <input id="intResToken" class="input" type="password" placeholder="Bearer si tu endpoint lo pide" />
+        <div class="fila-botones">
+          <button class="btn" onclick="integracionRespaldoGuardar()">Guardar</button>
+          <button class="btn" onclick="integracionRespaldoProbar()">Probar endpoint</button>
+          <button class="btn btn-primario" onclick="integracionRespaldoEnviar()">Enviar sobre de prueba</button>
+        </div>
+        <p class="nota" id="intResEstado">Sin probar.</p>
+        <p class="nota" id="intResStats">—</p>
+      </div>
+
+      <!-- 4 · IA remota -->
+      <div class="bloque" id="intIA">
+        <h3>4 · IA remota</h3>
+        <p class="nota">Proveedor OpenAI-compatible. La clave se guarda en la bóveda del teléfono; aquí sólo se
+          configura el destino y el modelo por defecto.</p>
+        <label for="intProveedor">Proveedor</label>
         <select class="input" id="intProveedor">
           <option value="vercel">Vercel (https://fabri-api.vercel.app)</option>
           <option value="ollama">Ollama (LAN o local)</option>
           <option value="gemini">Gemini API (Google)</option>
         </select>
-        <p class="nota">Selecciona el proveedor antes de guardar. El modelo debe coincidir con el servicio elegido.</p>
+        <label for="intModelo">Modelo por defecto</label>
+        <input id="intModelo" class="input" value="qwen-0.5b-nube" placeholder="qwen-0.5b-nube" />
+        <div class="fila-botones">
+          <button class="btn" onclick="integracionIAGuardar()">Guardar</button>
+          <button class="btn" onclick="integracionIAProbar()">Probar</button>
+        </div>
+        <p class="nota" id="intIAEstado">Sin probar.</p>
+        <p class="nota" id="intIAStats">—</p>
       </div>
+
       <div class="bloque">
-        <h3>Instrucciones paso a paso</h3>
-        <ol class="lista compacta">
-          <li>1. Abre la pestaña <strong>Conexiones</strong> del menú.</li>
-          <li>2. Completa URL, Token y Modelo con los datos del archivo <code>/tmp/fabri_token.env</code>.</li>
-          <li>3. Pulsa <strong>Guardar y probar</strong> para verificar que la API responda.</li>
-          <li>4. El token se almacena en Android Keystore (Keystore) y no se expone en pantalla.</li>
-        </ol>
+        <h3>Datos y transparencia</h3>
+        <p class="nota">La app guarda datos del vendedor y del cliente en el teléfono y, si conectas la tienda, en
+          la nube. No usa cookies publicitarias. Puedes revisar y aceptar el aviso completo desde
+          <button class="legal-enlace" type="button" onclick="integracionVerLegal()">Aviso de datos y responsabilidad</button>.</p>
       </div>
     </section>
 
@@ -3227,6 +3274,7 @@ CREATE INDEX IF NOT EXISTS idx_inv_productos_actualizado
   <script src="marcas.js"></script>
   <script src="diagnostico.js"></script>
   <script src="marcas-ia.js"></script>
+  <script src="legal.js"></script>
   <script src="tienda.js"></script>
   <script src="app.js"></script>
   <script src="ui-icons.js"></script>

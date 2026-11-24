@@ -611,6 +611,12 @@
         </div>
         <p class="hint" style="margin-top:10px">La nube guarda el hash de la contraseña, nunca la contraseña.
           Si la olvidas, pide un código de 6 dígitos a tu correo con «Olvidé mi contraseña».</p>
+        <p class="hint legal-login" style="margin-top:12px;text-align:left">
+          Al entrar aceptas los <a href="/terminos.html" target="_blank" rel="noopener">términos</a> y el
+          <a href="/privacidad.html" target="_blank" rel="noopener">aviso de datos</a>. La app guarda tus datos
+          en este equipo y, si conectas la tienda, en la nube. No usa cookies publicitarias. El uso que hagas
+          de la app y de los datos de tus clientes es tu responsabilidad.
+        </p>
         <div class="login-libre">
           <span>¿Solo quieres ver la tienda?</span>
           <button class="btn ghost block" id="lgVisitar" type="button">Entrar al visor 3D sin cuenta</button>

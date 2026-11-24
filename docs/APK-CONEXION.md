@@ -11,9 +11,43 @@ segunda llave: el puente es `/api/inventario`, multi-inquilino por `local_id`.
    una nueva** (se muestra una sola vez).
 3. La clave se guarda sólo como `SHA-256` en `mercado_locales.clave_hash`.
 
-## 2 · Vista «Tienda y CRM» en el menú lateral
+## 2 · Aviso legal y de datos (primera vez)
 
-La 0.9.64 no cambia las pantallas existentes: añade **una vista** al menú
+Al abrir la app, si no se aceptó la versión vigente, aparece un aviso que no se
+puede cerrar sin aceptar (`legal.js` + `legal.css`). Explica, en lenguaje claro:
+
+- qué datos del vendedor y del cliente se tratan;
+- que el teléfono guarda base local, catálogo, bóveda y modelos (no se suben);
+- que la nube guarda tienda, catálogo, pedidos, reseñas y clientes;
+- cookies y almacenamiento local (sin cookies publicitarias);
+- permisos de internet, cámara y notificaciones;
+- responsabilidad del uso y límites del fundador/desarrolladores;
+- derechos de acceso, exportación y eliminación.
+
+La aceptación se guarda con versión (`2026-11-24`) y fecha. Se puede releer desde
+Integración → «Aviso de datos y responsabilidad». La versión web está en
+`/privacidad.html` y `/terminos.html`.
+
+## 3 · Vista «Integración / Conectores» (mejorada)
+
+Cuatro tarjetas separadas, cada una con su estado, su última prueba y latencia:
+
+1. **Nube de tu tienda:** URL, ID y clave, token admin opcional. Guardar, probar,
+   **estado de la base** y **Conectar con mi cuenta** (abre la nube en el
+   navegador del teléfono para generar o copiar la clave).
+2. **Estado de la base:** local (almacenamiento de la app y aviso de que SQLite y
+   modelos viven en el espacio interno) y nube (`estado_base`: tamaño, filas y
+   tablas reales).
+3. **Base de respaldo externa:** endpoint HTTPS + token, probar y enviar un sobre
+   JSON. No es conexión SQL directa; el respaldo completo se exporta desde Datos.
+4. **IA remota:** proveedor, modelo por defecto, guardar y probar.
+
+Los estados se guardan en `fcore.int` (última prueba, latencia, error) y no se
+muestra «conectado» si la prueba no respondió.
+
+## 4 · Vista «Tienda y CRM» en el menú lateral
+
+La 0.9.65 no cambia las pantallas existentes: añade **una vista** al menú
 lateral (`data-vista="tienda"`), con tres pestañas internas.
 
 - **Conexión:** identificador + clave, probar, estado de la nube (publicada,
@@ -30,7 +64,7 @@ reutilizaron las 7 bibliotecas nativas de la 0.9.63.
 Archivos: `android/assets/www/tienda.js`, `tienda.css` y tres líneas de
 integración en `index.html` (menú, sección, script) y `app.js` (router).
 
-## 3 · Qué hace la vista «Tienda»
+## 5 · Qué hace la vista «Tienda»
 
 | Acción | Llamada | Qué pasa |
 |---|---|---|
@@ -66,7 +100,7 @@ El build lite no levanta daemon ni resuelve dependencias. En este equipo tarda
 
 ```sh
 FORGE_SALTAR_RUST=1 bash scripts/compilar.sh
-# APK: dist/FORGE-CORE-STOCK-0.9.64.apk  (~1m 47s, firmada)
+# APK: dist/FORGE-CORE-STOCK-0.9.65.apk  (~1m 47s, firmada)
 ```
 
 `FORGE_SALTAR_RUST=1` reutiliza las bibliotecas nativas del APK 0.9.63 (mismas,
@@ -92,17 +126,17 @@ unzip -l out/forge-core-stock-lite.apk | tail
 $ANDROID_SDK_ROOT/build-tools/34.0.0/apksigner verify --print-certs out/forge-core-stock-lite.apk
 ```
 
-## 4 · Entrega e instalación encima de la 0.9.63
+## 6 · Entrega e instalación encima de la 0.9.63
 
 - `/storage/emulated/0/Download/FORGE-CORE-STOCK.apk` (nombre estable)
-- `/storage/emulated/0/Download/FORGE-CORE-STOCK-0.9.64.apk`
+- `/storage/emulated/0/Download/FORGE-CORE-STOCK-0.9.65.apk`
 - `https://forge-core-stock.vercel.app/descargas/FORGE-CORE-STOCK.apk`
 
 Misma firma de depuración (`SHA-256 959b85cc…`) y mismo package
 `cl.fabrick.core`, con `versionCode 79 > 78`: Android la trata como
 **actualización** y conserva los datos.
 
-## 5 · Contrato del puente (resumen)
+## 7 · Contrato del puente (resumen)
 
 ```http
 POST https://fabri-api.vercel.app/api/inventario
@@ -117,7 +151,7 @@ Acciones: `verificar`, `estado`, `error`, `desconectar`, `subir`, `bajar`,
 - `estado` y `subir` registran el dispositivo; `verificar` no.
 - Nada devuelve la clave, su hash, el correo del dueño ni el teléfono completo.
 
-## 6 · Pendiente de prueba en el teléfono
+## 8 · Pendiente de prueba en el teléfono
 
 La vista compila y el APK conserva package, firma, icono e IDs de recursos de
 la 0.9.63. Falta abrirla en el teléfono y probar con una tienda real:

@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#08090A">
+  <title>Privacidad y datos · FORGE CORE STOCK</title>
+  <meta name="description" content="Qué datos usa FORGE CORE STOCK, dónde se guardan (teléfono y nube), cookies, permisos, responsabilidad y derechos del cliente y del vendedor.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://forge-core-stock.vercel.app/privacidad.html">
+  <link rel="icon" href="/favicon.png">
+  <link rel="stylesheet" href="/components.css">
+  <link rel="stylesheet" href="/terminos.css">
+</head>
+<body>
+  <a class="skip" href="#contenido">Saltar al contenido</a>
+
+  <header class="legal-top">
+    <a class="legal-marca" href="/">
+      <span class="legal-marca__ico" aria-hidden="true"></span>
+      <span class="legal-marca__texto"><b>FORGE CORE STOCK</b><span>Soluciones Fabrick</span></span>
+    </a>
+    <nav class="legal-nav" aria-label="Enlaces del sitio">
+      <a href="/app/">Abrir la app</a>
+      <a href="/terminos.html">Términos</a>
+      <a href="/panel/cliente/ayuda/">Ayuda</a>
+    </nav>
+  </header>
+
+  <main id="contenido" class="legal">
+    <p class="legal-eyebrow">Transparencia</p>
+    <h1>Privacidad y uso de datos</h1>
+    <p class="legal-fecha">Última actualización: 24 de noviembre de 2026 · versión 2026-11-24</p>
+
+    <section>
+      <h2>1 · Quién trata los datos</h2>
+      <p>
+        FORGE CORE STOCK es una aplicación de Soluciones Fabrick. Cuando un comercio la usa,
+        <b>el comercio es el responsable</b> de los datos de sus clientes y de la información que
+        publica. Soluciones Fabrick provee la aplicación y la infraestructura de sincronización.
+      </p>
+    </section>
+
+    <section>
+      <h2>2 · Qué datos se tratan</h2>
+      <h3>Del vendedor</h3>
+      <ul>
+        <li>Nombre de la tienda, marca, rubro, dirección, comuna, teléfono y horario.</li>
+        <li>Identificador de la tienda y clave de conexión (se guarda como hash; se muestra una sola vez).</li>
+        <li>Catálogo: productos, precios, stock, ofertas y fotos que el propio comercio sube.</li>
+        <li>Pedidos, boletas, movimientos de inventario y ajustes.</li>
+        <li>Correo y nombre de la cuenta que administra la tienda.</li>
+      </ul>
+      <h3>Del cliente</h3>
+      <ul>
+        <li>Nombre, teléfono y dirección de entrega que escribe al comprar.</li>
+        <li>Productos comprados, montos, estado del pedido y reseñas que publica.</li>
+        <li>Los últimos cuatro dígitos del teléfono se usan para validar el seguimiento y el CRM.</li>
+      </ul>
+      <h3>Del uso técnico</h3>
+      <ul>
+        <li>Errores, fecha y resultado de las sincronizaciones, versión de la app y tipo de dispositivo.</li>
+        <li>No se recopilan contactos, mensajes, llamadas ni archivos ajenos a los que el usuario elige.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>3 · Dónde se guardan</h2>
+      <p>
+        <b>En el teléfono:</b> la base local (SQLite), el catálogo, la bóveda de credenciales y los
+        modelos de inteligencia artificial descargados. Este espacio puede ocupar varios gigabytes y
+        <b>no se sube a la nube</b>.
+      </p>
+      <p>
+        <b>En la nube:</b> tienda, catálogo, pedidos, reseñas y los clientes agregados desde los
+        pedidos. Se guarda en la base InsForge del responsable, con acceso restringido por cuenta o
+        por la clave de la tienda. Las claves se almacenan como hash.
+      </p>
+      <p>
+        Al desinstalar la app se borran los datos locales. Los datos de negocio pueden recuperarse al
+        reconectar la tienda con su clave, porque están en la nube.
+      </p>
+    </section>
+
+    <section>
+      <h2>4 · Cookies y almacenamiento local</h2>
+      <p>
+        El sitio y la app <b>no usan cookies publicitarias ni rastreadores de terceros</b>. Se usa
+        almacenamiento local del dispositivo (base de datos y almacenamiento del navegador interno)
+        para mantener la sesión, el carrito y los datos de trabajo aunque se cierre la app.
+      </p>
+      <p>
+        El panel web usa una sesión con token para mantener la cuenta abierta. Puedes cerrar sesión
+        desde la cuenta o borrar los datos del navegador; al hacerlo se pierde la sesión, no los
+        datos de la nube.
+      </p>
+    </section>
+
+    <section>
+      <h2>5 · Permisos del teléfono</h2>
+      <ul>
+        <li><b>Internet:</b> sincronizar con la tienda y usar la IA remota.</li>
+        <li><b>Cámara:</b> solo al abrir el escáner de códigos o tomar la foto de un producto.</li>
+        <li><b>Notificaciones:</b> solo si el usuario las activa.</li>
+        <li><b>Almacenamiento:</b> solo para exportar o importar los archivos que el usuario elige.</li>
+      </ul>
+      <p>Los permisos se piden en el momento en que se usan y pueden revocarse en Ajustes de Android.</p>
+    </section>
+
+    <section>
+      <h2>6 · Para qué se usan</h2>
+      <ul>
+        <li>Mostrar el catálogo, procesar pedidos y coordinar la entrega.</li>
+        <li>Sincronizar el catálogo entre la app y la tienda.</li>
+        <li>Permitir el seguimiento del pedido y la reseña del cliente.</li>
+        <li>Diagnosticar fallos y mejorar la estabilidad.</li>
+        <li>Enviar avisos al vendedor o al cliente, solo si los activan.</li>
+      </ul>
+      <p>No se venden datos personales ni se usan para publicidad de terceros.</p>
+    </section>
+
+    <section>
+      <h2>7 · Responsabilidad</h2>
+      <p>
+        La aplicación se entrega <b>tal como está</b>. El fundador y los desarrolladores de FORGE CORE
+        STOCK <b>no se hacen responsables</b> del uso indebido de la aplicación, de decisiones
+        comerciales tomadas con sus datos, de la información que cada usuario carga, ni de daños
+        derivados de un uso contrario a la ley o a estos avisos.
+      </p>
+      <p>
+        Cada comercio es responsable de contar con base legal para tratar los datos de sus clientes,
+        de mantener sus claves seguras y de atender los derechos de sus clientes.
+      </p>
+    </section>
+
+    <section>
+      <h2>8 · Derechos y contacto</h2>
+      <p>
+        Puedes ver y exportar tus datos desde la app (Ajustes → exportar) y eliminar tu tienda desde
+        el panel del negocio. Para consultas sobre datos personales, escribe a
+        <a href="mailto:faubricioedms@gmail.com">faubricioedms@gmail.com</a>.
+      </p>
+      <p>
+        Si un cliente quiere ejercer sus derechos, debe contactar al comercio donde compró; el
+        comercio puede eliminar sus pedidos y datos asociados desde el panel.
+      </p>
+    </section>
+
+    <footer class="legal-pie">
+      <p>FORGE CORE STOCK · Soluciones Fabrick · Chile</p>
+      <p><a href="/terminos.html">Términos de uso</a> · <a href="/">Inicio</a></p>
+    </footer>
+  </main>
+</body>
+</html>
