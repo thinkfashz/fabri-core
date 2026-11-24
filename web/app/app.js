@@ -733,7 +733,12 @@
       CoreAuth.init();
       /* Acceso libre al visor y al mapa. Con #tienda o #mercado se entra
          directo, sin cuenta; el resto de la consola sigue pidiendo sesión. */
-      const pedida = marcaTienda ? "tienda" : String(location.hash || "").replace("#", "");
+      /* Sin hash, un visitante entra al catálogo/mapa, no al login. Antes el
+         destino vacío no era «público» y la app abría la cuenta apenas se
+         cargaba: el comprador no podía ni mirar la tienda. La cuenta se pide
+         recién al confirmar el pedido (Placer.pagar). */
+      const hashPedido = String(location.hash || "").replace("#", "");
+      const pedida = marcaTienda ? "tienda" : (hashPedido || "publico");
       const libre = !!PUBLICAS[pedida];
       let user = await CoreAuth.current();
       if (!user && !libre) user = await Pro.gate();

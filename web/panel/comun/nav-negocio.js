@@ -33,7 +33,7 @@ export const NAV = [
   {
     seccion: 'Crecimiento',
     items: [
-      { ruta: '/panel/negocio/clientes/', texto: 'Clientes', icono: 'cuenta', pronto: true },
+      { ruta: '/panel/negocio/clientes/', texto: 'Clientes', icono: 'cuenta' },
       { ruta: '/panel/negocio/reportes/', texto: 'Reportes', icono: 'grafico', pronto: true },
       { ruta: '/panel/negocio/cupones/', texto: 'Cupones', icono: 'cupon', pronto: true },
     ],

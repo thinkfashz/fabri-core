@@ -47,7 +47,10 @@ class LiteActivity : Activity() {
     private val pool = Executors.newSingleThreadExecutor()
     private val ui = Handler(Looper.getMainLooper())
 
-    private val tabs = listOf("Inicio", "Consola", "Datos", "IA", "Permisos", "Ajustes")
+    private val tabs = listOf("Inicio", "Consola", "Datos", "Tienda", "IA", "Permisos", "Ajustes")
+    private var tiendaMsg = ""
+    private var tiendaOk = true
+    private var tiendaOcupado = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -123,7 +126,8 @@ class LiteActivity : Activity() {
         try {
             content.removeAllViews()
             content.addView(when (tab) {
-                0 -> inicio(); 1 -> consola(); 2 -> datos(); 3 -> ia(); 4 -> permisos(); else -> ajustes()
+                0 -> inicio(); 1 -> consola(); 2 -> datos(); 3 -> tienda()
+                4 -> ia(); 5 -> permisos(); else -> ajustes()
             })
             navBar.removeAllViews()
             val fresh = nav()
@@ -422,6 +426,143 @@ class LiteActivity : Activity() {
         }
 
     // ── 3 · IA ────────────────────────────────────────────────────────────
+    // ── tienda: puente con la nube ───────────────────────────────────────
+    /**
+     * Conecta la APK con una tienda usando su clave de 8 caracteres.
+     *
+     * Todo se ejecuta en el pool: la red nunca bloquea la interfaz. El estado
+     * que se muestra sale de la respuesta real (`/api/inventario`), no de una
+     * suposición. La clave se guarda cifrada con el Keystore.
+     */
+    private fun tienda(): View {
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(14), dp(6), dp(14), dp(18))
+        }
+        box.addView(Ui.title(this, "Tienda",
+            "Conecta esta APK con tu tienda: sube el catálogo del equipo y baja el de la nube."))
+
+        val cfg = Shop.leer(db)
+        if (cfg == null) {
+            box.addView(Ui.card(this, "Conectar con mi tienda",
+                "El identificador y la clave están en el panel del negocio → Conexión.", "sin conectar", false))
+            if (tiendaMsg.isNotBlank()) {
+                box.addView(Ui.text(this, tiendaMsg, 12.5f, if (tiendaOk) C.OK else C.ERR))
+            }
+
+            val id = Ui.field(this, "Identificador (ej: mi-almacen)")
+            val clave = Ui.field(this, "Clave de 8 caracteres", password = true)
+            box.addView(id)
+            box.addView(clave)
+            box.addView(Ui.button(this, if (tiendaOcupado) "Conectando…" else "Conectar y probar", true) {
+                if (tiendaOcupado) return@button
+                val local = id.text.toString().trim().lowercase()
+                val k = clave.text.toString().trim().uppercase()
+                if (local.isBlank()) { tiendaOk = false; tiendaMsg = "Escribe el identificador de la tienda."; render(); return@button }
+                if (k.length != 8) { tiendaOk = false; tiendaMsg = "La clave tiene 8 caracteres."; render(); return@button }
+                trabajo("Probando la conexión…") {
+                    val r = Shop.verificar(this@LiteActivity, Shop.Cfg(local, k))
+                    if (r.ok) {
+                        Shop.guardar(db, Shop.Cfg(local, k))
+                        db.kvPut("shop.ultimo", System.currentTimeMillis().toString())
+                    }
+                    r
+                }
+            })
+            box.addView(Ui.text(this,
+                "La clave no se muestra completa ni se guarda en claro: queda cifrada con el Keystore del teléfono.",
+                11.5f, C.MUTED))
+            return box
+        }
+
+        /* Conectado: estado y acciones. */
+        val ultimo = db.kvGet("shop.ultimo").toLongOrNull() ?: 0L
+        val productos = db.scalar("SELECT COUNT(*) FROM products").toIntOrNull() ?: 0
+        val detalle = buildString {
+            append("Tienda: ").append(cfg.local)
+            append("\nClave: ").append(Shop.pista(cfg.clave))
+            append("\nProductos en este equipo: ").append(productos)
+            if (ultimo > 0) append("\nÚltima sincronización: ").append(hace(ultimo))
+        }
+        box.addView(Ui.card(this, "Conectada", detalle, "enlace listo", true))
+
+        if (tiendaMsg.isNotBlank()) {
+            box.addView(Ui.text(this, tiendaMsg, 12.5f, if (tiendaOk) C.OK else C.ERR))
+        }
+
+        val fila1 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        fila1.addView(Ui.button(this, "Probar", false) {
+            if (tiendaOcupado) return@button
+            trabajo("Probando…") { Shop.verificar(this@LiteActivity, cfg) }
+        })
+        fila1.addView(Ui.button(this, "Ver estado", false) {
+            if (tiendaOcupado) return@button
+            trabajo("Consultando…") {
+                val r = Shop.estado(this@LiteActivity, cfg)
+                if (r.ok) Shop.Resp(true, r.ms, Shop.resumen(r), r.json) else r
+            }
+        })
+        box.addView(fila1)
+
+        val fila2 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        fila2.addView(Ui.button(this, if (tiendaOcupado) "Trabajando…" else "Subir catálogo", true) {
+            if (tiendaOcupado) return@button
+            trabajo("Subiendo el catálogo del equipo…") { Shop.subir(db, this@LiteActivity, cfg) }
+        })
+        fila2.addView(Ui.button(this, "Bajar catálogo", false) {
+            if (tiendaOcupado) return@button
+            trabajo("Bajando el catálogo de la nube…") { Shop.bajar(db, this@LiteActivity, cfg) }
+        })
+        box.addView(fila2)
+
+        box.addView(Ui.button(this, "Cambiar de tienda", false) {
+            if (tiendaOcupado) return@button
+            android.app.AlertDialog.Builder(this)
+                .setTitle("Cambiar de tienda")
+                .setMessage("Se olvidará la tienda conectada en este equipo. El catálogo local se conserva como respaldo.")
+                .setNegativeButton("Cancelar", null)
+                .setPositiveButton("Cambiar") { _, _ ->
+                    Shop.olvidar(db)
+                    tiendaMsg = ""
+                    render()
+                }
+                .show()
+        })
+
+        box.addView(Ui.text(this,
+            "Subir manda el catálogo de este equipo a la tienda; bajar guarda el de la nube en la base local. " +
+                "Nada se borra: el equipo conserva su copia.", 11.5f, C.MUTED))
+        return box
+    }
+
+    /** Ejecuta una llamada del puente fuera del hilo de la interfaz. */
+    private fun trabajo(texto: String, accion: () -> Shop.Resp) {
+        tiendaOcupado = true
+        tiendaMsg = texto
+        render()
+        pool.execute {
+            val r = try { accion() } catch (t: Throwable) {
+                Shop.Resp(false, 0, t.message ?: "error inesperado")
+            }
+            ui.post {
+                tiendaOcupado = false
+                tiendaOk = r.ok
+                tiendaMsg = if (r.ok) r.texto.ifBlank { Shop.resumen(r) } else r.texto
+                render()
+            }
+        }
+    }
+
+    private fun hace(ts: Long): String {
+        val min = ((System.currentTimeMillis() - ts) / 60000L).coerceAtLeast(0)
+        return when {
+            min < 1 -> "ahora"
+            min < 60 -> "hace $min min"
+            min < 1440 -> "hace ${min / 60} h"
+            else -> "hace ${min / 1440} d"
+        }
+    }
+
     private fun ia(): View {
         val v = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         v.addView(Ui.title(this, "Integraciones de IA", "Tu clave, cifrada con el Keystore. Nunca se muestra ni se registra."))

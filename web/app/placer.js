@@ -2597,6 +2597,17 @@ window.Placer = (function () {
       // corta, doble toque), el servidor devuelve el mismo pedido y no crea dos.
       idempotencia: "pc-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10)
     };
+    /* Si el comprador ya entró, no se le pide otra vez lo que la cuenta ya
+       sabe. El teléfono no vive en la cuenta, así que sólo se completa solo
+       cuando el pedido anterior lo guardó en este equipo. */
+    try {
+      if (window.CoreNube && window.CoreNube.activa && window.CoreNube.activa()) {
+        const ses = window.CoreNube.leer();
+        const u = ses && ses.usuario;
+        if (u && u.nombre && !ESTADO.pedido.nombre) ESTADO.pedido.nombre = u.nombre;
+      }
+    } catch (e) { /* sin cuenta: se escribe a mano */ }
+
     const hoja = $("mpPago");
     if (!hoja) return;
     hoja.hidden = false;
@@ -2962,10 +2973,21 @@ window.Placer = (function () {
     $("mpPagar").onclick = () => pagar(m);
   }
 
-  function pagar(m) {
+  async function pagar(m) {
     if (m && m.minimo > 0 && (ESTADO.pago.subtotal || 0) < m.minimo) {
       avisar("El pedido mínimo de " + m.nombre + " es " + clp(m.minimo) + ".");
       return;
+    }
+    /* Explorar, ver productos y armar el carrito no piden cuenta. Al confirmar
+       el pedido sí: así queda ligado a la persona (historial y CRM) y no se
+       crea un pedido huérfano que después nadie puede reclamar. */
+    const conCuenta = Boolean(window.CoreNube && window.CoreNube.activa && window.CoreNube.activa());
+    if (!conCuenta) {
+      const u = window.Pro && Pro.gate ? await Pro.gate() : null;
+      if (!u) {
+        avisar("Entra a tu cuenta para confirmar el pedido. Tu carrito queda guardado.");
+        return;
+      }
     }
     const problemas = erroresPago();
     if (Object.keys(problemas).length) {

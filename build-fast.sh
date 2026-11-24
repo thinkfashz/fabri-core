@@ -36,8 +36,16 @@ if [ -d /data/data/com.termux/files/usr ]; then
   PLAT=termux
   BT=/data/data/com.termux/files/usr/bin        # binarios ARM (los del SDK son x86-64)
   JAVA=/data/data/com.termux/files/usr/lib/jvm/java-21-openjdk/bin/java
-  SDK=${ANDROID_SDK_ROOT:-/root/android-sdk}
-  KS=/data/data/com.termux/files/home/android-sdk/debug.keystore
+  # El SDK puede estar en /root/android-sdk o en el home de Termux; se busca
+  # el que tenga platforms/ para no fallar según cómo se abrió la consola.
+  SDK=${ANDROID_SDK_ROOT:-}
+  if [ -z "$SDK" ] || [ ! -d "$SDK/platforms" ]; then
+    for c in /root/android-sdk /data/data/com.termux/files/home/android-sdk "$HOME/android-sdk"; do
+      [ -d "$c/platforms" ] && SDK=$c && break
+    done
+  fi
+  KS=$SDK/debug.keystore
+  [ -f "$KS" ] || KS=/data/data/com.termux/files/home/android-sdk/debug.keystore
   [ -f "$KS" ] || KS=/root/android-sdk/debug.keystore
 else
   PLAT=linux

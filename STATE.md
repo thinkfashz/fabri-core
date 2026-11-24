@@ -8,6 +8,66 @@
 
 Última actualización: 2026-11-24
 
+## Sesión 2026-11-24 · APK conectada, /app/ sin login y CRM de clientes
+
+Pedido: conectar la APK con la tienda y compilarla rápido; hacer que `/app/`
+deje explorar mapa, catálogo, producto y carrito sin cuenta y pida sesión recién
+al comprar; y adaptar un CRM (GopherCRM) al panel y su barra lateral.
+
+**APK · pestaña «Tienda» (`fast/lite/`)**
+
+- `Shop.kt` (nuevo): puente con `/api/inventario` usando la MISMA clave de 8
+  caracteres de la tienda. Acciones `verificar`, `estado`, `subir`, `bajar` y
+  reporte de `error`. La clave se cifra con `Sec` (AES-256-GCM, Keystore) y
+  nunca se escribe en claro ni en logs.
+- `Db.kt`: `kvPut/kvGet/kvDel` y `productUpsert` (upsert por `sku`).
+- `MainActivity.kt`: nueva pestaña «Tienda» con conexión, estado, subir/bajar
+  catálogo y cambio de tienda. Todo en un pool; la UI no se bloquea.
+- Cada llamada manda `huella` (Android ID), `etiqueta`, `plataforma` y
+  `version`, para que el panel muestre dispositivos reales.
+- `build-fast.sh` ahora autodetecta el SDK (`/root/android-sdk` o
+  `~/android-sdk`). Compilado: **249 s**, APK firmada
+  `out/forge-core-stock-lite.apk` (100 KB). `fast/out/` y `fast/lib/` pasaron a
+  `.gitignore` (eran binarios versionados).
+- Documento nuevo: `docs/APK-CONEXION.md`.
+
+**`/app/` · explorar sin cuenta, comprar con cuenta**
+
+- `app.js`: sin hash, el destino de un visitante es `publico` (antes el hash
+  vacío no era «libre» y abría el login de entrada). Ya no hay login al abrir.
+- `placer.js`: `pagar()` ahora es async y, si no hay sesión, abre `Pro.gate()` y
+  sólo continúa cuando el comprador entra; si cancela, el carrito se conserva.
+  El nombre se prellena desde la cuenta.
+- Verificado por UI: `/app/` abre en `s-publico` con la barra pública y sin
+  login; mapa, catálogo (42 locales) y ficha de la tienda con su producto se
+  ven sin cuenta; al pulsar «Confirmar pedido» aparece el login y **no** se crea
+  el pedido.
+
+**CRM · N09 Clientes (`web/panel/negocio/clientes/`)**
+
+- Página completa (HTML/CSS/JS propios) construida por un agente en paralelo,
+  revisada e integrada: KPIs, buscador, chips de segmento, lista, ficha con
+  últimos pedidos y CSV en el navegador.
+- Backend `clientes_listar` en `mercado.ts`: agrupa los pedidos por
+  `cliente_id` o por los últimos 8 dígitos del teléfono; teléfono `**** 1234`,
+  id opaco `c-<hash>`, segmento (recurrente/nuevo/inactivo), ticket y últimos
+  tres pedidos. Nunca devuelve `cliente_id`, correo ni teléfono completo.
+- En el menú como «Clientes» (sin `pronto`).
+
+**Verificación real (datos temporales borrados)**
+
+- `clientes_listar`: 1 cliente, 2 pedidos, $2.400, «recurrente», `**** 3333`,
+  id opaco; búsqueda OK; 401 sin sesión.
+- UI del CRM: KPIs correctos, fila con «Ver ficha», ficha con KPIs y últimos
+  pedidos, botón CSV generando un blob, sin scroll horizontal a 390 px,
+  consola limpia.
+- Tests: `tests/web/clientes-negocio.js` (23 comprobaciones) y 26/26 suites.
+- Desplegado: API `fabri-api` y web `forge-core-stock`.
+
+**Pendiente**: probar la APK en un teléfono con una tienda real (el build no se
+ejecuta en este entorno); confirmar la compra con sesión por UI (el gate y el
+prellenado ya están verificados).
+
 ## Sesión 2026-11-24 · Conexión APK/tienda con clave única (N18)
 
 Pedido: que cada tienda tenga un código/API única para conectar la APK y los

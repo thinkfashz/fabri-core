@@ -331,7 +331,7 @@ La forma elegida es **BFF**: InsForge valida la contraseña y `fabri-api` sigue 
 | N06 | Mi tienda | `/panel/negocio/tienda/` | `web/panel/negocio/tienda/` | `local_actualizar`, `local_estado` ✅ | 2 | ✅ desplegado |
 | N07 | Horarios y entrega | `/panel/negocio/horarios/` | `web/panel/negocio/horarios/` | `local_actualizar` ✅ | 2 | ✅ desplegado |
 | N08 | Reseñas | `/panel/negocio/resenas/` | `web/panel/negocio/resenas/` | `resenas_panel`, `resena_moderar` ✅ | 2 | ✅ desplegado |
-| N09 | Clientes | `/panel/negocio/clientes/` | `web/panel/negocio/clientes/` | `clientes_listar` 🟡 | 3 | 🟡 pendiente |
+| N09 | Clientes (CRM) | `/panel/negocio/clientes/` | `web/panel/negocio/clientes/` | `clientes_listar` ✅ | 2 | ✅ desplegado |
 | N10 | Reportes | `/panel/negocio/reportes/` | `web/panel/negocio/reportes/` | `ventas_serie` ✅ / `reportes_exportar` 🟡 | 3 | 🟡 pendiente |
 | N11 | Cupones | `/panel/negocio/cupones/` | `web/panel/negocio/cupones/` | `cupones_*` 🟡🧩 | 3 | 🟡 pendiente |
 | N12 | Pagos | `/panel/negocio/pagos/` | `web/panel/negocio/pagos/` | `pagos_config`, `liquidaciones_listar` 🟡🧩 | 3 | 🟡 pendiente |
@@ -605,16 +605,29 @@ La forma elegida es **BFF**: InsForge valida la contraseña y `fabri-api` sigue 
 - **Estados:** sin reseñas, todas ocultas, sin permiso.
 - **Fase:** 2.
 
-### N09 · Clientes
+### N09 · Clientes (CRM)
 
 - **Carpeta:** `web/panel/negocio/clientes/` · **Ruta:** `/panel/negocio/clientes/`
-- **Objetivo:** conocer a quién le vendes y detectar clientes recurrentes.
-- **Conexión:** `clientes_listar` 🟡 (agrega pedidos por teléfono/email; sin exponer datos completos); `pedidos_listar` ✅ como respaldo.
-- **Endpoint:** `clientes_listar` 🟡.
-- **Uso:** 1) busca por nombre o teléfono; 2) ordena por última compra o total; 3) abre el historial; 4) exporta la lista si eres dueño.
-- **Diseño propio:** tabla con cliente, pedidos, total, última compra y etiqueta «recurrente»; sin tarjetas. Datos personales enmascarados salvo el teléfono que el cliente dejó para el pedido.
-- **Estados:** sin clientes, sin permiso, pedidos viejos sin contacto.
-- **Fase:** 3.
+- **Objetivo:** ver a quién le vendes, cuánto gasta y cuándo compró por última
+  vez, sin inventar un directorio: **el cliente es quien compró**.
+- **Conexión:** `clientes_listar` ✅ (dueño/clave/admin): agrupa los pedidos por
+  `cliente_id` (con cuenta) o por los últimos 8 dígitos del teléfono (invitado),
+  así la misma persona no se duplica.
+- **Endpoint:** `clientes_listar` (`local_id`, `q?`, `segmento?`, `limite?`).
+- **Uso:** 1) entra el primer pedido; 2) la lista muestra el cliente; 3) busca o
+  filtra por recurrentes, nuevos o inactivos; 4) abre la ficha con sus KPIs y
+  sus últimos tres pedidos; 5) exporta el CSV de lo que está viendo.
+- **Diseño propio:** KPIs (totales, con cuenta, recurrentes, gasto), buscador,
+  chips de segmento, lista/tabla que se apila en móvil y ficha lateral fija en
+  escritorio. Sin tabla de contactos separada del historial.
+- **Privacidad:** la API devuelve el teléfono como `**** 1234` y un id opaco
+  (`c-<hash>`); nunca el `cliente_id`, el correo ni el teléfono completo.
+- **Estados:** sin clientes, sin resultados, error de API, sin red; CSV en el
+  navegador con `Blob` (sin endpoint nuevo).
+- **Fase:** 2 · **Estado: ✅ desplegado.** Verificado con una tienda real: 1
+  cliente con 2 pedidos, $2.400, segmento «recurrente», teléfono `**** 3333`,
+  id opaco; búsqueda por nombre; 401 sin sesión; ficha con KPIs y últimos
+  pedidos; CSV generado en el navegador; sin scroll horizontal a 390 px.
 
 ### N10 · Reportes
 
@@ -753,7 +766,7 @@ La forma elegida es **BFF**: InsForge valida la contraseña y `fabri-api` sigue 
 | `pass_cambiar` | POST | Bearer | contraseña | C13 | 2 |
 | `conexion_estado` | POST | dueño/clave/admin | clave configurada, productos en la nube, dispositivos reales y fallos | N18 | 2 |
 | `conexion_rotar` | POST | dueño/clave/admin | clave nueva (una sola vez) y desconexión de los dispositivos | N18 | 2 |
-| `clientes_listar` | POST | dueño/clave/admin | clientes agregados de los pedidos | N09 | 3 |
+| `clientes_listar` | POST | dueño/clave/admin | clientes agregados de los pedidos (teléfono enmascarado, id opaco) | N09 | 2 |
 | `reportes_exportar` | POST | dueño/clave/admin | CSV de pedidos del rango | N10 | 3 |
 | `cupones_listar` | POST | dueño/clave/admin | cupones del local | N11 | 3 |
 | `cupon_crear` | POST | dueño/clave/admin | alta | N11 | 3 |
@@ -939,9 +952,9 @@ C01–C08, C13, C14. C09–C12 se completaron en la fase 2 con datos en InsForge
 
 ### Fase 2 · Negocio MVP (6–8 días)
 
-N01–N04, N06, N07, N08, N14, N16 y N18 **desplegados**. `local_mio` es la fuente de verdad del panel; `aTienda` (ficha pública y mapa) no expone el plan del dueño.
+N01–N04, N06, N07, N08, **N09**, N14, N16 y N18 **desplegados**. `local_mio` es la fuente de verdad del panel; `aTienda` (ficha pública y mapa) no expone el plan del dueño.
 
-**Aceptación:** el dueño entra con su cuenta, ve ventas de 7 días, avanza un pedido, edita stock y ficha, gestiona horario/entrega, modera reseñas, activa/desactiva avisos en este navegador y exporta o borra la tienda con confirmación; nada de esto requiere la `clave` si hay sesión. Hoy: resumen, cola de pedidos, catálogo, inventario, ficha, horarios, reseñas, notificaciones y ajustes funcionan con datos reales; faltan ofertas, clientes, reportes, cupones, pagos, equipo, auditoría e integraciones.
+**Aceptación:** el dueño entra con su cuenta, ve ventas de 7 días, avanza un pedido, edita stock y ficha, gestiona horario/entrega, modera reseñas, activa/desactiva avisos en este navegador y exporta o borra la tienda con confirmación; nada de esto requiere la `clave` si hay sesión. Hoy: resumen, cola de pedidos, catálogo, inventario, ficha, horarios, reseñas, clientes (CRM), conexión APK, notificaciones y ajustes funcionan con datos reales; faltan ofertas, reportes, cupones, pagos, equipo, auditoría e integraciones.
 
 **Verificado el 2026-11-24:** ciclo completo con dos cuentas reales (dueña y compradora) por la interfaz: pedido de la compradora, entrega por N02 con código (`nuevo → visto → listo → entregado`), reseña 5★ en C12 y promedio 5,0 en N08. Datos temporales borrados al terminar; sin errores de consola.
 

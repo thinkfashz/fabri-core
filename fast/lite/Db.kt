@@ -204,6 +204,35 @@ class Db(ctx: Context) : SQLiteOpenHelper(ctx, NAME, null, VERSION) {
         log("error", "sql", e.message ?: "error"); -1L
     }
 
+    /* ── tienda: credenciales y catálogo local ─────────────────────────── */
+    /** Guarda un valor simple (por ejemplo, la tienda conectada). */
+    fun kvPut(k: String, v: String) = try {
+        writableDatabase.insertWithOnConflict("kv", null, ContentValues().apply {
+            put("key", k); put("value", v)
+        }, SQLiteDatabase.CONFLICT_REPLACE)
+        Unit
+    } catch (_: Throwable) { Unit }
+
+    fun kvGet(k: String): String = try {
+        scalar("SELECT value FROM kv WHERE key = ?", arrayOf(k))
+    } catch (_: Throwable) { "" }
+
+    fun kvDel(k: String) = try {
+        writableDatabase.delete("kv", "key = ?", arrayOf(k)); Unit
+    } catch (_: Throwable) { Unit }
+
+    /** Alta o edición de un producto del catálogo local, por SKU. */
+    fun productUpsert(sku: String, name: String, price: Double, unit: String, description: String) = try {
+        writableDatabase.insertWithOnConflict("products", null, ContentValues().apply {
+            put("sku", sku)
+            put("name", name)
+            put("price", price)
+            put("unit", unit)
+            put("description", description.take(1000))
+        }, SQLiteDatabase.CONFLICT_REPLACE)
+        Unit
+    } catch (_: Throwable) { Unit }
+
     /** Tamaño real del archivo (páginas × tamaño de página). */
     fun sizeBytes(): Long = try {
         val p = scalar("PRAGMA page_count").toLongOrNull() ?: 0L

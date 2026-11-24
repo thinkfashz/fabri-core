@@ -35,6 +35,9 @@
 //                                              → edita (DUEÑO por cuenta/clave · ADMIN)
 //   POST { accion: "local_estado", local_id, clave?, abierto }
 //                                              → ABIERTO/CERRADO (DUEÑO · ADMIN)
+//   POST { accion: "clientes_listar", local_id, q?, segmento? }
+//                                              → clientes agregados de los pedidos
+//                                              (DUEÑO · ADMIN), sin datos sensibles
 //   POST { accion: "conexion_estado", local_id }     → estado del puente APK/tienda
 //                                              (DUEÑO · ADMIN): clave configurada,
 //                                              productos en la nube, dispositivos
@@ -1647,7 +1650,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       acciones: [
         'asegurar', 'locales', 'local_ver', 'local_crear', 'local_mio', 'local_actualizar',
         'local_estado', 'local_borrar', 'productos_subir', 'producto_borrar',
-        'conexion_estado', 'conexion_rotar',
+        'conexion_estado', 'conexion_rotar', 'clientes_listar',
         'imagen_ver', 'codigo_buscar', 'productos_buscar',
         'pedido_crear', 'pedido_seguir', 'push_suscribir', 'push_baja',
         'push_local_suscribir', 'push_local_baja',
@@ -1918,6 +1921,118 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         [abierto, Math.floor(Date.now() / 1000), localId]
       );
       return json(res, { ok: true, accion, id: localId, abierto });
+    }
+
+    /* ── CRM del negocio: clientes agregados desde los pedidos ─────────────
+       No hay tabla de clientes: el cliente ES quien compró. Se agrupa por
+       `cliente_id` (si entró con cuenta) o por los últimos 8 dígitos del
+       teléfono (invitado), para que la misma persona no se duplique.
+       Nunca se devuelve el teléfono completo, el correo ni el `cliente_id`:
+       la UI recibe un id opaco y el teléfono enmascarado. */
+    if (accion === 'clientes_listar') {
+      const localId = idLocal(cuerpo.local_id);
+      const { local, motivo } = await autorizarLocal(pool, req, localId, texto(cuerpo.clave, 60));
+      if (!local) return json(res, { ok: false, error: 'no autorizado', codigo: motivo }, 401);
+
+      const q = texto(cuerpo.q, 80).trim();
+      const segmento = texto(cuerpo.segmento, 20).trim().toLowerCase();
+      const limite = Math.min(200, Math.max(1, entero(cuerpo.limite, 200) || 200));
+      const claveSql = `COALESCE(NULLIF(cliente_id, ''), 'tel:' ||
+        right(regexp_replace(telefono, '[^0-9]', '', 'g'), 8))`;
+
+      const filtro = [];
+      const args: unknown[] = [localId];
+      if (q) {
+        args.push('%' + q + '%');
+        filtro.push(`(nombre ILIKE $${args.length} OR telefono ILIKE $${args.length})`);
+      }
+      const donde = filtro.length ? ' AND ' + filtro.join(' AND ') : '';
+
+      const agg = await pool.query(
+        `SELECT clave, nombre, telefono, pedidos, gastado, primera, ultimo, con_cuenta,
+                CASE
+                  WHEN ultimo < now() - interval '60 days' THEN 'inactivo'
+                  WHEN pedidos >= 2 THEN 'recurrente'
+                  ELSE 'nuevo'
+                END AS segmento
+           FROM (
+             SELECT ${claveSql} AS clave,
+                    (array_agg(cliente ORDER BY creado DESC))[1] AS nombre,
+                    (array_agg(telefono ORDER BY creado DESC))[1] AS telefono,
+                    COUNT(*)::int AS pedidos,
+                    COALESCE(SUM(total) FILTER (WHERE estado <> 'cancelado'), 0)::float8 AS gastado,
+                    MIN(creado) AS primera,
+                    MAX(creado) AS ultimo,
+                    BOOL_OR(cliente_id <> '') AS con_cuenta
+               FROM ${T_PEDIDOS}
+              WHERE local_id = $1
+              GROUP BY 1
+           ) c
+          WHERE TRUE ${donde.replace(/nombre ILIKE/g, 'c.nombre ILIKE').replace(/telefono ILIKE/g, 'c.telefono ILIKE')}
+          ORDER BY ultimo DESC NULLS LAST
+          LIMIT $${args.length + 1}`,
+        [...args, limite]
+      );
+
+      /* Últimos tres pedidos por cliente, para la ficha del CRM. */
+      const claves = agg.rows.map((r: any) => r.clave);
+      const ultimos: Record<string, any[]> = {};
+      if (claves.length) {
+        const u = await pool.query(
+          `SELECT clave, codigo, total::float8 AS total, estado, creado, entrega
+             FROM (
+               SELECT ${claveSql} AS clave, codigo, total, estado, creado, entrega,
+                      ROW_NUMBER() OVER (PARTITION BY ${claveSql} ORDER BY creado DESC) AS rn
+                 FROM ${T_PEDIDOS}
+                WHERE local_id = $1
+             ) x
+            WHERE rn <= 3 AND clave = ANY($2::text[])`,
+          [localId, claves]
+        );
+        for (const f of u.rows) {
+          (ultimos[f.clave] = ultimos[f.clave] || []).push({
+            codigo: f.codigo, total: f.total, estado: f.estado,
+            creado: f.creado, entrega: f.entrega,
+          });
+        }
+      }
+
+      const clientes = agg.rows
+        .filter((r: any) => !segmento || r.segmento === segmento)
+        .map((r: any) => {
+          const tel = String(r.telefono || '').replace(/[^0-9]/g, '');
+          const pedidos = Number(r.pedidos) || 0;
+          const gastado = Number(r.gastado) || 0;
+          return {
+            id: 'c-' + createHash('sha256').update('cliente:' + r.clave).digest('hex').slice(0, 10),
+            nombre: texto(r.nombre, 80).trim() || 'Cliente sin nombre',
+            telefono: tel.length >= 4 ? '**** ' + tel.slice(-4) : '',
+            con_cuenta: Boolean(r.con_cuenta),
+            pedidos,
+            gastado,
+            ticket: pedidos ? Math.round(gastado / pedidos) : 0,
+            ultimo: r.ultimo,
+            primera: r.primera,
+            segmento: r.segmento,
+            ultimos: ultimos[r.clave] || [],
+          };
+        });
+
+      const resumen = clientes.reduce((a: any, c: any) => {
+        a.total++;
+        if (c.con_cuenta) a.con_cuenta++;
+        if (c.segmento === 'recurrente') a.recurrentes++;
+        if (c.segmento === 'inactivo') a.inactivos++;
+        a.gastado += c.gastado;
+        return a;
+      }, { total: 0, con_cuenta: 0, recurrentes: 0, inactivos: 0, gastado: 0 });
+
+      return json(res, {
+        ok: true, accion, local: local.nombre,
+        resumen,
+        clientes,
+        nota: clientes.length ? '' : 'Los clientes aparecen cuando entra el primer pedido.',
+      });
     }
 
     /* ── conexión de la APK / dispositivos con la tienda ───────────────────

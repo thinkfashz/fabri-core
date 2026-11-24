@@ -1,0 +1,253 @@
+/* N09 · Clientes (CRM)
+   Listado, fichas individuales y exportación CSV de clientes del negocio.
+   Solo tokens de /components.css y /panel/comun/negocio.css; sin colores inventados. */
+
+/* ── KPIs superiores ─────────────────────────────────────────────────── */
+
+.cli-kpis {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ds-space-3);
+  margin-bottom: var(--ds-space-4);
+}
+@media (min-width: 560px) {
+  .cli-kpis { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+}
+
+/* ── buscador ────────────────────────────────────────────────────────── */
+
+.cli-barra {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-2);
+  margin-bottom: var(--ds-space-3);
+}
+.cli-label {
+  font-size: var(--ds-text-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ds-text-tertiary);
+}
+.cli-barra input[type="search"] {
+  width: 100%;
+  min-height: 46px;
+  padding: var(--ds-space-3);
+  background: var(--ds-bg-app-alt);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-md);
+  color: var(--ds-text-primary);
+  font: inherit;
+  font-size: var(--ds-text-base);
+}
+.cli-barra input[type="search"]:focus {
+  border-color: var(--ds-accent);
+  box-shadow: var(--ds-shadow-glow-accent);
+  outline: none;
+}
+.cli-contador {
+  font-size: var(--ds-text-xs);
+  color: var(--ds-text-tertiary);
+}
+
+/* ── listado ─────────────────────────────────────────────────────────── */
+
+.cli-wrap {
+  overflow: auto;
+  margin-bottom: var(--ds-space-3);
+}
+.cli-tabla { width: 100%; }
+
+.cli-contacto {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+}
+.cli-contacto__texto { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cli-contacto__nombre {
+  font-size: var(--ds-text-base);
+  font-weight: 700;
+  color: var(--ds-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.cli-tel {
+  font-size: var(--ds-text-sm);
+  color: var(--ds-text-secondary);
+}
+.cli-num { font-variant-numeric: tabular-nums; }
+
+.cli-vacio { margin-bottom: var(--ds-space-4); }
+
+/* ── esqueleto de carga ──────────────────────────────────────────────── */
+
+.cli-esqueleto {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-3);
+}
+
+/* ── ficha del cliente ─────────────────────────────────────────────────
+   Móvil: hoja a pantalla completa. Escritorio: panel lateral pegado.     */
+
+.cli-ficha { display: none; }
+.cli-ficha--abierto {
+  position: fixed;
+  inset: 0;
+  z-index: 56;
+  display: flex;
+  flex-direction: column;
+  background: var(--ds-bg-app);
+  overflow: hidden;
+}
+.cli-ficha__barra {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-2);
+  padding: var(--ds-space-3) var(--ds-space-4);
+  border-bottom: 1px solid var(--ds-border);
+  background: var(--panel-glass);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.cli-ficha__barra h2 {
+  font-family: var(--ds-font-condensed);
+  font-size: var(--ds-text-lg);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--ds-text-primary);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cli-ficha__cerrar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 var(--ds-space-3);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-pill);
+  background: var(--ds-bg-app-alt);
+  color: var(--ds-text-secondary);
+  font: inherit;
+  font-size: var(--ds-text-sm);
+  font-weight: 700;
+  cursor: pointer;
+}
+.cli-ficha__cerrar:hover {
+  background: var(--ds-bg-sunken);
+  color: var(--ds-text-primary);
+}
+.cli-ficha__cerrar-movil { display: block; }
+.cli-ficha__cerrar-escritorio { display: none; }
+
+.cli-ficha__cuerpo {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--ds-space-4);
+  padding-bottom: calc(env(safe-area-inset-bottom) + var(--ds-space-6));
+}
+.cli-ficha__cabeza {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-3);
+  margin-bottom: var(--ds-space-4);
+}
+.cli-ficha__avatar {
+  width: 56px;
+  height: 56px;
+  font-size: var(--ds-text-base);
+  flex: 0 0 auto;
+}
+.cli-ficha__etiquetas {
+  display: flex;
+  gap: var(--ds-space-1);
+  flex-wrap: wrap;
+  margin-top: var(--ds-space-1);
+}
+
+.cli-ficha__datos {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ds-space-3);
+  margin-bottom: var(--ds-space-4);
+}
+.cli-ficha__fechas {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-1);
+  margin-bottom: var(--ds-space-4);
+}
+.cli-ficha__sub {
+  font-size: var(--ds-text-xs);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ds-text-tertiary);
+  margin-bottom: var(--ds-space-2);
+}
+.cli-sin-pedidos {
+  font-size: var(--ds-text-sm);
+  color: var(--ds-text-tertiary);
+  padding: var(--ds-space-3);
+  text-align: center;
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-bg-app-alt);
+}
+.cli-pedido__codigo {
+  font-family: var(--ds-font-mono);
+  font-size: var(--ds-text-sm);
+  color: var(--ds-text-secondary);
+}
+
+/* Escritorio: el listado ocupa una columna y la ficha se pega a su derecha. */
+.cli-contenido { display: block; }
+.cli-con--ficha {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 480px);
+}
+.cli-con--ficha .cli-ficha {
+  display: block;
+  position: sticky;
+  top: 84px;
+  height: 100dvh;
+  overflow-y: auto;
+  border-left: 1px solid var(--ds-border);
+}
+.cli-con--ficha .cli-ficha__cuerpo {
+  padding: var(--ds-space-6);
+  padding-bottom: var(--ds-space-6);
+}
+.cli-con--ficha .cli-ficha__barra {
+  position: static;
+  background: transparent;
+  border-bottom: 0;
+  border-right: 1px solid var(--ds-border);
+  padding-bottom: var(--ds-space-2);
+  margin-bottom: var(--ds-space-4);
+}
+.cli-con--ficha .cli-ficha__cerrar-movil { display: none; }
+.cli-con--ficha .cli-ficha__cerrar-escritorio { display: inline-flex; }
+
+.cli-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 5, 6, 0.55);
+  z-index: 55;
+  display: none;
+}
+.cli-backdrop--on { display: block; }
+
+/* Avisos dentro de la cabecera del módulo. */
+.neg-aviso:empty { display: none; }

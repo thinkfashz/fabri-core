@@ -43,3 +43,7 @@ Thumbs.db
 !web/descargas/
 !web/descargas/*.apk
 .vercel
+
+# Artefactos del build rápido (se regeneran con build-fast.sh)
+fast/out/
+fast/lib/
