@@ -8,6 +8,69 @@
 
 Última actualización: 2026-11-24
 
+## Sesión 2026-11-24 · APK 1.2.0, SW reparado y entrega en Descargas
+
+Pedido: la APK es FORGE CORE STOCK (no «lite»), con versión de compilación;
+simplificarla; añadir CRM, edición de productos de la nube, sincronización
+estable, tablas en ambas bases y una pantalla de conexión con estado, fallos y
+conectado/desconectado. En paralelo, reparar el service worker de `/app/`.
+Entregar el APK fuera de Termux.
+
+**Versiones**
+
+- Historial real: **37 APK publicadas** en `dist/` (0.9.27 → 0.9.63), más la
+  lite 1.1.0 y esta **1.2.0**. No hay un contador de builds; lo que existe son
+  las versiones declaradas y los archivos publicados.
+- `versionCode` 1 → **2**; `versionName` `1.1.0-lite` → **1.2.0**; etiqueta
+  «FORGE CORE STOCK»; archivo `out/FORGE-CORE-STOCK-1.2.0.apk`.
+
+**APK simplificada**
+
+- Pestañas: **Inicio · Tienda · Productos · Clientes · Ajustes** (antes 7, con
+  Consola, Datos, IA y Permisos). El código de esas pantallas queda compilado
+  pero fuera de la navegación.
+- `Inicio` muestra el estado de la tienda, última sincronización, productos,
+  clientes y fallos.
+- `Ajustes` muestra `FORGE CORE STOCK 1.2.0 (build 2026-11-24)`.
+
+**Conexión y sincronización**
+
+- `Shop.kt`: `asegurar` (crea tablas en `/api/inventario` y `/api/mercado`),
+  `catalogo` (`local_ver`), `guardarProducto` (`productos_subir` + clave),
+  `clientes` (`clientes_listar`), `estadoAdmin` (`conexion_estado`), además de
+  `verificar`, `estado`, `subir`, `bajar` y reporte de `error`.
+- `Db.kt` v4: tablas locales `shop_catalogo`, `shop_clientes`, `shop_sync` y
+  `shop_fallos`; helpers de upsert y limpieza. Los fallos se guardan con su
+  motivo y se muestran en la pestaña Tienda.
+- Pantalla **Productos**: baja el catálogo publicado, permite editar nombre,
+  precio y stock y guarda en la nube; también alta de producto nuevo.
+- Pantalla **Clientes**: CRM real con teléfono enmascarado.
+- Pantalla **Tienda**: probar, asegurar tablas, subir/bajar, estado en la nube
+  (publicada, plan, productos, dispositivos, fallos) y fallos locales.
+
+**Compilación y entrega**
+
+- `bash build-fast.sh` → **263 s**, APK firmada de 112 KB.
+- Copiada fuera del proot: `/sdcard/Download/FORGE-CORE-STOCK-1.2.0.apk`
+  (md5 `07e0151ef8fe856d8507c7db7cebaf9d`).
+- Publicada en `web/descargas/FORGE-CORE-STOCK.apk` y
+  `FORGE-CORE-STOCK-1.2.0.apk`; los botones de la landing descargan con el
+  nombre versionado.
+
+**Service worker (`web/app/sw.js`, agente en paralelo)**
+
+- Causa raíz: `caches.open().then(c => c.put(req, r.clone()))` se ejecutaba
+  después de devolver `r`, cuando el navegador ya leía el body. De ahí
+  `Failed to execute 'clone' on 'Response': Response body is already used` en
+  cada navegación (líneas 63 y 71) y en silencio en `/datos/`.
+- Arreglo: `redYCache()` clona en el mismo tick y **espera** la escritura
+  dentro del `respondWith`; filtra `!r.ok`, opacas y 206; caché bump a
+  `fcore-v100` (borra la v99 envenenada); `/api/` y otro origen siguen fuera.
+- 26/26 suites web en verde y `node --check` OK.
+
+**Pendiente**: instalar la 1.2.0 en un teléfono y probar con una tienda real
+(conectar, subir/bajar, editar un producto y ver el dispositivo en el panel).
+
 ## Sesión 2026-11-24 · APK conectada, /app/ sin login y CRM de clientes
 
 Pedido: conectar la APK con la tienda y compilarla rápido; hacer que `/app/`

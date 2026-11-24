@@ -24,6 +24,7 @@ import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import org.json.JSONObject
 import java.io.File
 import java.util.concurrent.Executors
 
@@ -47,7 +48,7 @@ class LiteActivity : Activity() {
     private val pool = Executors.newSingleThreadExecutor()
     private val ui = Handler(Looper.getMainLooper())
 
-    private val tabs = listOf("Inicio", "Consola", "Datos", "Tienda", "IA", "Permisos", "Ajustes")
+    private val tabs = listOf("Inicio", "Tienda", "Productos", "Clientes", "Ajustes")
     private var tiendaMsg = ""
     private var tiendaOk = true
     private var tiendaOcupado = false
@@ -95,7 +96,7 @@ class LiteActivity : Activity() {
         }, LinearLayout.LayoutParams(dp(24), dp(24)))
         addView(Ui.text(this@LiteActivity, "FORGE CORE STOCK", 16f, C.TX, true).apply { letterSpacing = 0.08f }, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { leftMargin = dp(10) })
-        addView(Ui.text(this@LiteActivity, "v1.1 · ${db.ftsMode()}", 11f, C.MUTED).apply { gravity = Gravity.END }, LinearLayout.LayoutParams(
+        addView(Ui.text(this@LiteActivity, "v1.2.0 · ${db.ftsMode()}", 11f, C.MUTED).apply { gravity = Gravity.END }, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { weight = 1f })
     }
 
@@ -126,8 +127,7 @@ class LiteActivity : Activity() {
         try {
             content.removeAllViews()
             content.addView(when (tab) {
-                0 -> inicio(); 1 -> consola(); 2 -> datos(); 3 -> tienda()
-                4 -> ia(); 5 -> permisos(); else -> ajustes()
+                0 -> inicio(); 1 -> tienda(); 2 -> productos(); 3 -> clientes(); else -> ajustes()
             })
             navBar.removeAllViews()
             val fresh = nav()
@@ -199,79 +199,45 @@ class LiteActivity : Activity() {
     private fun inicio(): View {
         val v = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         val u = auth.current()
-        v.addView(Ui.title(this, "Hola${u?.let { ", " + it.name } ?: ""}", "Estado real de tu núcleo local"))
+        val cfg = Shop.leer(db)
+        v.addView(Ui.title(this, "Hola${u?.let { ", " + it.name } ?: ""}",
+            "FORGE CORE STOCK · tu tienda, sus productos y sus clientes"))
 
-        val mem = db.scalar("SELECT COUNT(*) FROM memory_items").toLongOrNull() ?: 0
-        val msg = db.scalar("SELECT COUNT(*) FROM messages").toLongOrNull() ?: 0
-        val logs = db.scalar("SELECT COUNT(*) FROM logs").toLongOrNull() ?: 0
-        val size = db.sizeBytes()
+        val sync = db.raw("SELECT at, ok, productos FROM shop_sync ORDER BY id DESC LIMIT 1").second.firstOrNull()
+        val catalogo = db.scalar("SELECT COUNT(*) FROM shop_catalogo").toIntOrNull() ?: 0
+        val clientes = db.scalar("SELECT COUNT(*) FROM shop_clientes").toIntOrNull() ?: 0
+        val fallos = db.scalar("SELECT COUNT(*) FROM shop_fallos").toIntOrNull() ?: 0
+
+        if (cfg == null) {
+            v.addView(Ui.card(this, "Sin tienda conectada",
+                "Conecta la app con tu tienda para sincronizar catálogo y ver tus clientes.", "desconectado", false))
+            v.addView(Ui.button(this, "Conectar mi tienda", true) { tab = 1; render() })
+        } else {
+            val ok = sync?.getOrNull(1) == "1"
+            val cuando = sync?.getOrNull(0)?.toLongOrNull()?.let { hace(it) } ?: "nunca"
+            val productos = sync?.getOrNull(2) ?: "0"
+            v.addView(Ui.card(this, cfg.local,
+                "Sincronización: $cuando\nÚltimo lote: $productos productos\nCatálogo publicado: $catalogo",
+                if (ok) "conectado" else "revisar", ok))
+        }
 
         v.addView(kpiRow(
-            listOf(
-                Triple("Memorias", mem.toString(), true),
-                Triple("Mensajes", msg.toString(), false)
-            ),
-            listOf(
-                Triple("Base local", Ui.human(size), false),
-                Triple("Texto", db.ftsMode(), true)
-            )
+            listOf(Triple("Productos", catalogo.toString(), true), Triple("Clientes", clientes.toString(), clientes > 0)),
+            listOf(Triple("Fallos", fallos.toString(), fallos == 0), Triple("Base", db.ftsMode(), true))
         ))
 
-        // actividad: eventos por día (14 días)
-        val serie = db.raw("""SELECT date(at/1000,'unixepoch','localtime') d, COUNT(*) c FROM logs
-                              GROUP BY d ORDER BY d DESC LIMIT 14""").second.reversed()
-        if (serie.isNotEmpty()) {
-            v.addView(Ui.card(this, LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                addView(Ui.text(this@LiteActivity, "Actividad (eventos por día)", 13f, C.TX2, true))
-                val vals = serie.map { it[1].toDoubleOrNull() ?: 0.0 }
-                addView(Ui.Spark(this@LiteActivity, vals, accent), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(64)))
-                addView(Ui.text(this@LiteActivity, "${vals.sum().toInt()} eventos · ${serie.size} días", 11f, C.MUTED))
-            }))
-        }
-
-        // accesos rápidos reales
         v.addView(Ui.row(this,
-            Ui.button(this, "Abrir consola", true) { tab = 1; render() },
-            Ui.button(this, "Probar IA", false) { tab = 3; render() },
-            Ui.button(this, "Exportar todo", false) { exportAll() }
+            Ui.button(this, "Tienda", true) { tab = 1; render() },
+            Ui.button(this, "Productos", false) { tab = 2; render() },
+            Ui.button(this, "Clientes", false) { tab = 3; render() }
         ))
 
-        v.addView(Ui.card(this, "Salud del núcleo", "SQLite ${db.scalar("SELECT sqlite_version()")} · ${db.tables().size} tablas · WAL ${db.scalar("PRAGMA journal_mode")}", "activo"))
-
-        val last = db.raw("SELECT at, level, tag, message FROM logs ORDER BY id DESC LIMIT 6").second
-        if (last.isNotEmpty()) {
-            val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-            col.addView(Ui.text(this, "Últimos eventos", 13f, C.TX2, true))
-            last.forEach { r ->
-                val color = when (r[1]) { "error" -> C.ERR; "warn" -> C.WARN; else -> C.TX2 }
-                col.addView(Ui.text(this, "${r[2]} · ${r[3]}", 11.5f, color))
-            }
-            v.addView(Ui.card(this, col))
-        }
-
+        v.addView(Ui.card(this, "Salud del núcleo",
+            "SQLite ${db.scalar("SELECT sqlite_version()")} · ${db.tables().size} tablas · WAL ${db.scalar("PRAGMA journal_mode")}",
+            "activo"))
         return v
     }
 
-    private fun kpiRow(a: List<Triple<String, String, Boolean>>, b: List<Triple<String, String, Boolean>>): View {
-        fun mini(t: Triple<String, String, Boolean>) = Ui.card(this, LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            addView(Ui.text(this@LiteActivity, t.first.uppercase(), 10f, C.MUTED, true).apply { letterSpacing = 0.08f })
-            addView(Ui.text(this@LiteActivity, t.second, 22f, if (t.third) accent else C.TX, true))
-        })
-        fun fila(x: Triple<String, String, Boolean>, y: Triple<String, String, Boolean>) = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            addView(mini(x), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { rightMargin = dp(5) })
-            addView(mini(y), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { leftMargin = dp(5) })
-        }
-        return LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            addView(fila(a[0], a[1]))
-            addView(fila(b[0], b[1]))
-        }
-    }
-
-    // ── 1 · CONSOLA ───────────────────────────────────────────────────────
     private fun consola(): View {
         val v = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         v.addView(Ui.title(this, "Consola", "sh del dispositivo + comandos propios · escribe help"))
@@ -463,8 +429,10 @@ class LiteActivity : Activity() {
                 trabajo("Probando la conexión…") {
                     val r = Shop.verificar(this@LiteActivity, Shop.Cfg(local, k))
                     if (r.ok) {
-                        Shop.guardar(db, Shop.Cfg(local, k))
+                        val cfgNueva = Shop.Cfg(local, k)
+                        Shop.guardar(db, cfgNueva)
                         db.kvPut("shop.ultimo", System.currentTimeMillis().toString())
+                        Shop.asegurar(db, this@LiteActivity, cfgNueva)
                     }
                     r
                 }
@@ -502,6 +470,10 @@ class LiteActivity : Activity() {
                 if (r.ok) Shop.Resp(true, r.ms, Shop.resumen(r), r.json) else r
             }
         })
+        fila1.addView(Ui.button(this, "Asegurar tablas", false) {
+            if (tiendaOcupado) return@button
+            trabajo("Creando tablas en la nube…") { Shop.asegurar(db, this@LiteActivity, cfg) }
+        })
         box.addView(fila1)
 
         val fila2 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
@@ -528,6 +500,38 @@ class LiteActivity : Activity() {
                 }
                 .show()
         })
+
+        /* Estado del panel del dueño: publicación, dispositivos y fallos. */
+        box.addView(Ui.button(this, "Estado en la nube", false) {
+            if (tiendaOcupado) return@button
+            trabajo("Leyendo el estado del panel…") {
+                val r = Shop.estadoAdmin(cfg)
+                if (r.ok) {
+                    val c = r.json?.optJSONObject("conexion")
+                    val disps = r.json?.optJSONArray("dispositivos")?.length() ?: 0
+                    val errs = r.json?.optJSONArray("errores")?.length() ?: 0
+                    val texto = buildString {
+                        append("Publicada: ").append(if (c?.optBoolean("activo") == true) "sí" else "no")
+                        append(" · plan ").append(c?.optString("plan") ?: "—")
+                        append("\nProductos en la nube: ").append(c?.optInt("productos", 0) ?: 0)
+                        append("\nDispositivos: ").append(disps)
+                        append(" · fallos: ").append(errs)
+                    }
+                    Shop.Resp(true, r.ms, texto, r.json)
+                } else r
+            }
+        })
+
+        val fallos = db.raw("SELECT at, motivo FROM shop_fallos ORDER BY id DESC LIMIT 3").second
+        if (fallos.isNotEmpty()) {
+            val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+            col.addView(Ui.text(this, "Últimos fallos", 13f, C.TX2, true))
+            fallos.forEach { f ->
+                col.addView(Ui.text(this, (f.getOrNull(0)?.toLongOrNull()?.let { hace(it) } ?: "") +
+                    " · " + (f.getOrNull(1) ?: ""), 11.5f, C.ERR))
+            }
+            box.addView(Ui.card(this, col))
+        }
 
         box.addView(Ui.text(this,
             "Subir manda el catálogo de este equipo a la tienda; bajar guarda el de la nube en la base local. " +
@@ -561,6 +565,269 @@ class LiteActivity : Activity() {
             min < 1440 -> "hace ${min / 60} h"
             else -> "hace ${min / 1440} d"
         }
+    }
+
+    /** Dos filas de dos cifras: el patrón visual de Inicio y Clientes. */
+    private fun kpiRow(a: List<Triple<String, String, Boolean>>, b: List<Triple<String, String, Boolean>>): View {
+        fun mini(t: Triple<String, String, Boolean>) = Ui.card(this, LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(Ui.text(this@LiteActivity, t.first.uppercase(), 10f, C.MUTED, true).apply { letterSpacing = 0.08f })
+            addView(Ui.text(this@LiteActivity, t.second, 22f, if (t.third) accent else C.TX, true))
+        })
+        fun fila(x: Triple<String, String, Boolean>, y: Triple<String, String, Boolean>) = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            addView(mini(x), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { rightMargin = dp(5) })
+            addView(mini(y), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { leftMargin = dp(5) })
+        }
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(fila(a[0], a[1]))
+            addView(fila(b[0], b[1]))
+        }
+    }
+
+    // ── productos publicados en la nube ─────────────────────────────────
+    /**
+     * Catálogo que ve el comprador. Se baja con `local_ver` (público) y se
+     * edita con `productos_subir` + la clave de la tienda. La copia local
+     * (`shop_catalogo`) permite editar sin red y ver qué quedó publicado.
+     */
+    private fun productos(): View {
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(14), dp(6), dp(14), dp(18))
+        }
+        box.addView(Ui.title(this, "Productos", "El catálogo que ve el comprador en tu tienda."))
+        val cfg = Shop.leer(db)
+        if (cfg == null) {
+            box.addView(Ui.card(this, "Sin tienda conectada",
+                "Conecta la tienda en la pestaña Tienda para ver y editar su catálogo.", "desconectado", false))
+            box.addView(Ui.button(this, "Ir a Tienda", true) { tab = 1; render() })
+            return box
+        }
+
+        if (tiendaMsg.isNotBlank()) {
+            box.addView(Ui.text(this, tiendaMsg, 12.5f, if (tiendaOk) C.OK else C.ERR))
+        }
+
+        box.addView(Ui.row(this,
+            Ui.button(this, "Actualizar", true) {
+                if (tiendaOcupado) return@button
+                trabajo("Bajando el catálogo publicado…") {
+                    val r = Shop.catalogo(cfg)
+                    if (r.ok) {
+                        val lista = r.json?.optJSONObject("tienda")?.optJSONArray("catalogo")
+                        db.catalogoLimpiar()
+                        for (i in 0 until (lista?.length() ?: 0)) {
+                            val p = lista?.optJSONObject(i) ?: continue
+                            db.catalogoUpsert(
+                                p.optString("sku").ifBlank { p.optString("codigo") },
+                                p.optString("nombre"),
+                                p.optDouble("precio", 0.0),
+                                p.optInt("stock", 0),
+                                p.optString("categoria"),
+                                p.optString("unidad"),
+                            )
+                        }
+                        db.syncGuardar(true, lista?.length() ?: 0, "catálogo publicado")
+                    }
+                    r
+                }
+            },
+            Ui.button(this, "Nuevo producto", false) { nuevoProducto(cfg) }
+        ))
+
+        val filas = db.raw(
+            "SELECT sku, nombre, precio, stock, unidad FROM shop_catalogo ORDER BY nombre COLLATE NOCASE"
+        ).second
+        if (filas.isEmpty()) {
+            box.addView(Ui.card(this, "Sin productos en el equipo",
+                "Pulsa Actualizar para bajar el catálogo de la nube, o crea el primero.", "vacío", false))
+            return box
+        }
+        filas.forEach { f ->
+            val sku = f.getOrNull(0).orEmpty()
+            val nombre = f.getOrNull(1).orEmpty()
+            val precio = f.getOrNull(2)?.toDoubleOrNull() ?: 0.0
+            val stock = f.getOrNull(3)?.toIntOrNull() ?: 0
+            val unidad = f.getOrNull(4).orEmpty()
+            val cuerpo = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                addView(Ui.text(this@LiteActivity, nombre.ifBlank { sku }, 14.5f, C.TX, true))
+                addView(Ui.text(this@LiteActivity,
+                    clp(precio) + " · stock " + stock + (if (unidad.isNotBlank()) " · $unidad" else "") + " · $sku",
+                    11.5f, C.MUTED))
+                addView(Ui.button(this@LiteActivity, "Editar", false) {
+                    editarProducto(cfg, sku, nombre, precio, stock, unidad)
+                })
+            }
+            box.addView(Ui.card(this, cuerpo))
+        }
+        return box
+    }
+
+    /** Diálogo de edición: nombre, precio y stock. El SKU no se cambia. */
+    private fun editarProducto(cfg: Shop.Cfg, sku: String, nombre: String, precio: Double, stock: Int, unidad: String) {
+        val campos = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(8), dp(16), 0)
+        }
+        val n = Ui.field(this, "Nombre", value = nombre)
+        val p = Ui.field(this, "Precio (CLP)", value = if (precio == 0.0) "" else precio.toLong().toString())
+        val st = Ui.field(this, "Stock", value = stock.toString())
+        campos.addView(n); campos.addView(p); campos.addView(st)
+        android.app.AlertDialog.Builder(this)
+            .setTitle("Editar $sku")
+            .setView(campos)
+            .setNegativeButton("Cancelar", null)
+            .setPositiveButton("Guardar") { _, _ ->
+                val nuevoNombre = n.text.toString().trim()
+                val nuevoPrecio = p.text.toString().replace(",", ".").toDoubleOrNull() ?: 0.0
+                val nuevoStock = st.text.toString().toIntOrNull() ?: 0
+                if (nuevoNombre.length < 2) {
+                    tiendaOk = false; tiendaMsg = "El nombre necesita al menos 2 caracteres."; render(); return@setPositiveButton
+                }
+                trabajo("Guardando $sku en la nube…") {
+                    val prod = JSONObject()
+                        .put("sku", sku)
+                        .put("nombre", nuevoNombre)
+                        .put("precio", nuevoPrecio)
+                        .put("stock", nuevoStock)
+                        .put("unidad", unidad.ifBlank { "unidad" })
+                        .put("categoria", "general")
+                    val r = Shop.guardarProducto(cfg, prod)
+                    if (r.ok) {
+                        db.catalogoUpsert(sku, nuevoNombre, nuevoPrecio, nuevoStock, "general", unidad)
+                        db.syncGuardar(true, 1, "producto $sku")
+                    } else {
+                        db.falloGuardar(r.texto)
+                        db.syncGuardar(false, 0, r.texto)
+                    }
+                    r
+                }
+            }
+            .show()
+    }
+
+    /** Alta rápida de un producto nuevo en el catálogo publicado. */
+    private fun nuevoProducto(cfg: Shop.Cfg) {
+        val campos = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(8), dp(16), 0)
+        }
+        val sku = Ui.field(this, "SKU / código")
+        val n = Ui.field(this, "Nombre")
+        val p = Ui.field(this, "Precio (CLP)")
+        val st = Ui.field(this, "Stock", value = "0")
+        campos.addView(sku); campos.addView(n); campos.addView(p); campos.addView(st)
+        android.app.AlertDialog.Builder(this)
+            .setTitle("Nuevo producto")
+            .setView(campos)
+            .setNegativeButton("Cancelar", null)
+            .setPositiveButton("Guardar") { _, _ ->
+                val s1 = sku.text.toString().trim()
+                val n1 = n.text.toString().trim()
+                if (s1.isBlank() || n1.length < 2) {
+                    tiendaOk = false; tiendaMsg = "El SKU y el nombre son obligatorios."; render(); return@setPositiveButton
+                }
+                trabajo("Creando $s1 en la nube…") {
+                    val prod = JSONObject()
+                        .put("sku", s1).put("nombre", n1)
+                        .put("precio", p.text.toString().replace(",", ".").toDoubleOrNull() ?: 0.0)
+                        .put("stock", st.text.toString().toIntOrNull() ?: 0)
+                        .put("unidad", "unidad").put("categoria", "general")
+                    val r = Shop.guardarProducto(cfg, prod)
+                    if (r.ok) db.syncGuardar(true, 1, "producto $s1")
+                    else { db.falloGuardar(r.texto); db.syncGuardar(false, 0, r.texto) }
+                    r
+                }
+            }
+            .show()
+    }
+
+    // ── clientes (CRM) ──────────────────────────────────────────────────
+    /**
+     * El CRM no inventa una agenda: son quienes compraron. La nube agrega los
+     * pedidos y devuelve el teléfono enmascarado y un id opaco; aquí sólo se
+     * listan y se guardan como espejo local.
+     */
+    private fun clientes(): View {
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(14), dp(6), dp(14), dp(18))
+        }
+        box.addView(Ui.title(this, "Clientes", "Quienes compraron en tu tienda, con lo que gastan."))
+        val cfg = Shop.leer(db)
+        if (cfg == null) {
+            box.addView(Ui.card(this, "Sin tienda conectada",
+                "Conecta la tienda para ver sus clientes.", "desconectado", false))
+            box.addView(Ui.button(this, "Ir a Tienda", true) { tab = 1; render() })
+            return box
+        }
+        if (tiendaMsg.isNotBlank()) {
+            box.addView(Ui.text(this, tiendaMsg, 12.5f, if (tiendaOk) C.OK else C.ERR))
+        }
+        box.addView(Ui.button(this, "Actualizar clientes", true) {
+            if (tiendaOcupado) return@button
+            trabajo("Leyendo los clientes de la nube…") {
+                val r = Shop.clientes(cfg)
+                if (r.ok) {
+                    val lista = r.json?.optJSONArray("clientes")
+                    db.clientesLimpiar()
+                    for (i in 0 until (lista?.length() ?: 0)) {
+                        val c = lista?.optJSONObject(i) ?: continue
+                        db.clienteUpsert(
+                            c.optString("id"),
+                            c.optString("nombre"),
+                            c.optString("telefono"),
+                            c.optInt("pedidos", 0),
+                            c.optDouble("gastado", 0.0),
+                            c.optDouble("ticket", 0.0),
+                            c.optString("segmento"),
+                            System.currentTimeMillis(),
+                        )
+                    }
+                    db.syncGuardar(true, 0, "clientes")
+                }
+                r
+            }
+        })
+
+        val filas = db.raw(
+            "SELECT nombre, telefono, pedidos, gastado, segmento FROM shop_clientes ORDER BY gastado DESC"
+        ).second
+        if (filas.isEmpty()) {
+            box.addView(Ui.card(this, "Todavía no hay clientes",
+                "Aparecen cuando entra el primer pedido. Pulsa Actualizar.", "vacío", false))
+            return box
+        }
+        val total = filas.size
+        val recurrentes = filas.count { (it.getOrNull(4) ?: "") == "recurrente" }
+        val gastado = filas.sumOf { it.getOrNull(3)?.toDoubleOrNull() ?: 0.0 }
+        box.addView(kpiRow(
+            listOf(Triple("Clientes", total.toString(), true), Triple("Recurrentes", recurrentes.toString(), recurrentes > 0)),
+            listOf(Triple("Gasto", clp(gastado), true), Triple("Datos", "nube", true))
+        ))
+        filas.forEach { f ->
+            val cuerpo = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                addView(Ui.text(this@LiteActivity, f.getOrNull(0).orEmpty(), 14.5f, C.TX, true))
+                addView(Ui.text(this@LiteActivity,
+                    (f.getOrNull(1) ?: "") + " · " + (f.getOrNull(2) ?: "0") + " pedidos · " +
+                        clp(f.getOrNull(3)?.toDoubleOrNull() ?: 0.0),
+                    11.5f, C.MUTED))
+            }
+            box.addView(Ui.card(this, cuerpo))
+            box.addView(Ui.text(this,
+                f.getOrNull(4).orEmpty().ifBlank { "—" }, 11f,
+                if ((f.getOrNull(4) ?: "") == "inactivo") C.MUTED else C.ACC, true))
+        }
+        return box
+    }
+
+    private fun clp(v: Double): String {
+        val n = v.toLong()
+        return "$" + n.toString().reversed().chunked(3).joinToString(".").reversed()
     }
 
     private fun ia(): View {
@@ -801,7 +1068,7 @@ class LiteActivity : Activity() {
             }
         }))
 
-        v.addView(Ui.card(this, "Sobre", "FORGE CORE STOCK lite · ${packageName}\nSQLite ${db.scalar("SELECT sqlite_version()")} · ${db.ftsMode()} · ${tabs.size} módulos\nSin librerías externas: solo el SDK de Android.", "v1.1"))
+        v.addView(Ui.card(this, "Sobre", "FORGE CORE STOCK 1.2.0 (build 2026-11-24) · ${packageName}\nSQLite ${db.scalar("SELECT sqlite_version()")} · ${db.ftsMode()} · ${tabs.size} módulos\nSin librerías externas: solo el SDK de Android.", "v1.2.0"))
         return v
     }
 

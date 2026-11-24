@@ -27,6 +27,7 @@ import java.net.URL
 object Shop {
 
     private const val API = "https://fabri-api.vercel.app/api/inventario"
+    private const val MERCADO = "https://fabri-api.vercel.app/api/mercado"
     private const val LOTE = 200
 
     data class Cfg(val local: String, val clave: String)
@@ -80,11 +81,15 @@ object Shop {
 
     /* ── transporte ───────────────────────────────────────────────────── */
 
-    private fun post(cuerpo: JSONObject): Resp {
+    private fun post(cuerpo: JSONObject): Resp = postA(API, cuerpo)
+
+    private fun postMercado(cuerpo: JSONObject): Resp = postA(MERCADO, cuerpo)
+
+    private fun postA(url: String, cuerpo: JSONObject): Resp {
         val t0 = System.currentTimeMillis()
         var c: HttpURLConnection? = null
         return try {
-            c = (URL(API).openConnection() as HttpURLConnection).apply {
+            c = (URL(url).openConnection() as HttpURLConnection).apply {
                 connectTimeout = 15000
                 readTimeout = 25000
                 requestMethod = "POST"
@@ -219,6 +224,63 @@ object Shop {
             db.log("warn", "tienda", "fallo reportado: ${texto.take(200)}")
         } catch (_: Throwable) { }
     }
+
+    /* ── catálogo publicado, CRM y estado del panel ─────────────────────── */
+
+    /**
+     * Crea las tablas que falten en la nube y en el equipo. `asegurar` es
+     * público en ambos endpoints (sólo DDL con columnas fijas, sin datos).
+     * Se llama al conectar y antes de la primera sincronización.
+     */
+    fun asegurar(db: Db, ctx: Context, cfg: Cfg): Resp {
+        val inv = post(JSONObject().put("accion", "asegurar"))
+        val mer = postMercado(JSONObject().put("accion", "asegurar"))
+        val ok = inv.ok && mer.ok
+        if (!ok) db.falloGuardar("asegurar: " + (inv.texto.ifBlank { mer.texto }))
+        return Resp(ok, inv.ms + mer.ms,
+            if (ok) "Tablas listas en la nube." else "No se pudieron crear las tablas: " + inv.texto.ifBlank { mer.texto },
+            mer.json)
+    }
+
+    /** Catálogo publicado de la tienda (lectura pública: no expone al dueño). */
+    fun catalogo(cfg: Cfg): Resp {
+        val r = postMercado(JSONObject().put("accion", "local_ver").put("local_id", cfg.local))
+        if (!r.ok) return r
+        val tienda = r.json?.optJSONObject("tienda")
+        val lista = tienda?.optJSONArray("catalogo") ?: JSONArray()
+        return Resp(true, r.ms, "${lista.length()} productos publicados.", r.json)
+    }
+
+    /**
+     * Guarda un producto en el catálogo de la nube. Usa `productos_subir`, que
+     * acepta la clave de la tienda; el servidor respeta el tope del plan y
+     * valida el precio. Devuelve la respuesta tal cual.
+     */
+    fun guardarProducto(cfg: Cfg, producto: JSONObject): Resp {
+        val arr = JSONArray().put(producto)
+        val r = postMercado(JSONObject()
+            .put("accion", "productos_subir")
+            .put("local_id", cfg.local)
+            .put("clave", cfg.clave)
+            .put("productos", arr))
+        if (!r.ok) return r
+        return Resp(true, r.ms, "Producto guardado en la nube.", r.json)
+    }
+
+    /** Clientes del CRM (agregados por la nube; teléfono ya enmascarado). */
+    fun clientes(cfg: Cfg, q: String = ""): Resp =
+        postMercado(JSONObject()
+            .put("accion", "clientes_listar")
+            .put("local_id", cfg.local)
+            .put("clave", cfg.clave)
+            .put("q", q))
+
+    /** Estado del panel del dueño: dispositivos, fallos y publicación. */
+    fun estadoAdmin(cfg: Cfg): Resp =
+        postMercado(JSONObject()
+            .put("accion", "conexion_estado")
+            .put("local_id", cfg.local)
+            .put("clave", cfg.clave))
 
     /** Resumen legible del estado del puente. */
     fun resumen(r: Resp): String {

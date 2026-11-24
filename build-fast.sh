@@ -110,7 +110,7 @@ step "1/5 recursos (aapt2)"
   --manifest "$PROJECT/fast/AndroidManifest.xml" \
   --java "$OUT/gen" \
   --min-sdk-version 26 --target-sdk-version 34 \
-  --version-code 1 --version-name 1.1.0-lite \
+  --version-code 2 --version-name 1.2.0 \
   "$OUT/compiled/res.zip" || die "aapt2 link falló"
 
 # ── 2/5 kotlin ───────────────────────────────────────────────────────────────
@@ -151,5 +151,6 @@ fi
 [ "${VERIFY:-0}" = "1" ] && "$BT/apksigner" verify --verbose "$OUT/forge-core-stock-lite.apk" | head -4
 
 mkdir -p "$PROJECT/out"
-cp "$OUT/forge-core-stock-lite.apk" "$PROJECT/out/forge-core-stock-lite.apk"
-say "APK lista: $PROJECT/out/forge-core-stock-lite.apk ($(du -h "$PROJECT/out/forge-core-stock-lite.apk" | cut -f1)) · total $(( $(date +%s) - T0 ))s"
+APK_FINAL="$PROJECT/out/FORGE-CORE-STOCK-1.2.0.apk"
+cp "$OUT/forge-core-stock-lite.apk" "$APK_FINAL"
+say "APK lista: $APK_FINAL ($(du -h "$APK_FINAL" | cut -f1)) · total $(( $(date +%s) - T0 ))s"

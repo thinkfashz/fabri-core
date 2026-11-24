@@ -18,7 +18,7 @@ class Db(ctx: Context) : SQLiteOpenHelper(ctx, NAME, null, VERSION) {
 
     companion object {
         const val NAME = "fabri_core.db"
-        const val VERSION = 3
+        const val VERSION = 4
 
         @Volatile private var inst: Db? = null
         fun get(ctx: Context): Db = inst ?: synchronized(this) {
@@ -134,7 +134,44 @@ class Db(ctx: Context) : SQLiteOpenHelper(ctx, NAME, null, VERSION) {
             """CREATE TABLE IF NOT EXISTS brand_settings(id INTEGER PRIMARY KEY CHECK(id=1), business_name TEXT, logo_path TEXT, logo_position TEXT DEFAULT 'left', logo_scale REAL DEFAULT 1.0, accent TEXT, header TEXT, footer TEXT, contact TEXT, updated_at INTEGER)""",
 
             // índice de texto completo: se intenta FTS4; si el motor no lo trae, queda LIKE
-            """CREATE TABLE IF NOT EXISTS app_settings(key TEXT PRIMARY KEY, value TEXT)"""
+            """CREATE TABLE IF NOT EXISTS app_settings(key TEXT PRIMARY KEY, value TEXT)""",
+
+            // ── tienda: espejo local de la nube ──────────────────────────
+            // Catálogo de la tienda (lo que ve el comprador). Es distinto de
+            // `products` (base de trabajo): aquí se edita lo que está publicado.
+            """CREATE TABLE IF NOT EXISTS shop_catalogo(
+                 sku TEXT PRIMARY KEY,
+                 nombre TEXT NOT NULL DEFAULT '',
+                 precio REAL NOT NULL DEFAULT 0,
+                 stock INTEGER NOT NULL DEFAULT 0,
+                 categoria TEXT NOT NULL DEFAULT '',
+                 unidad TEXT NOT NULL DEFAULT '',
+                 actualizado INTEGER NOT NULL DEFAULT 0)""",
+            // Clientes del CRM tal como los entrega la nube (sin teléfono completo).
+            """CREATE TABLE IF NOT EXISTS shop_clientes(
+                 id TEXT PRIMARY KEY,
+                 nombre TEXT NOT NULL DEFAULT '',
+                 telefono TEXT NOT NULL DEFAULT '',
+                 pedidos INTEGER NOT NULL DEFAULT 0,
+                 gastado REAL NOT NULL DEFAULT 0,
+                 ticket REAL NOT NULL DEFAULT 0,
+                 segmento TEXT NOT NULL DEFAULT '',
+                 ultimo INTEGER NOT NULL DEFAULT 0,
+                 actualizado INTEGER NOT NULL DEFAULT 0)""",
+            // Historial de sincronizaciones: la app muestra la última y su resultado.
+            """CREATE TABLE IF NOT EXISTS shop_sync(
+                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                 at INTEGER NOT NULL,
+                 ok INTEGER NOT NULL DEFAULT 0,
+                 productos INTEGER NOT NULL DEFAULT 0,
+                 detalle TEXT NOT NULL DEFAULT '')""",
+            // Fallos con su motivo, para la pantalla de conexión.
+            """CREATE TABLE IF NOT EXISTS shop_fallos(
+                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                 at INTEGER NOT NULL,
+                 motivo TEXT NOT NULL DEFAULT '')""",
+            """CREATE INDEX IF NOT EXISTS idx_shop_sync_at ON shop_sync(at)""",
+            """CREATE INDEX IF NOT EXISTS idx_shop_fallos_at ON shop_fallos(at)"""
         )
         ddl.forEach { db.execSQL(it) }
 
@@ -230,6 +267,48 @@ class Db(ctx: Context) : SQLiteOpenHelper(ctx, NAME, null, VERSION) {
             put("unit", unit)
             put("description", description.take(1000))
         }, SQLiteDatabase.CONFLICT_REPLACE)
+        Unit
+    } catch (_: Throwable) { Unit }
+
+    /* ── espejo local de la tienda ────────────────────────────────────── */
+    fun catalogoUpsert(sku: String, nombre: String, precio: Double, stock: Int, categoria: String, unidad: String) = try {
+        writableDatabase.insertWithOnConflict("shop_catalogo", null, ContentValues().apply {
+            put("sku", sku); put("nombre", nombre); put("precio", precio)
+            put("stock", stock); put("categoria", categoria); put("unidad", unidad)
+            put("actualizado", System.currentTimeMillis())
+        }, SQLiteDatabase.CONFLICT_REPLACE)
+        Unit
+    } catch (_: Throwable) { Unit }
+
+    fun catalogoLimpiar() = try { writableDatabase.delete("shop_catalogo", null, null); Unit } catch (_: Throwable) { Unit }
+
+    fun clienteUpsert(id: String, nombre: String, telefono: String, pedidos: Int,
+                      gastado: Double, ticket: Double, segmento: String, ultimo: Long) = try {
+        writableDatabase.insertWithOnConflict("shop_clientes", null, ContentValues().apply {
+            put("id", id); put("nombre", nombre); put("telefono", telefono)
+            put("pedidos", pedidos); put("gastado", gastado); put("ticket", ticket)
+            put("segmento", segmento); put("ultimo", ultimo)
+            put("actualizado", System.currentTimeMillis())
+        }, SQLiteDatabase.CONFLICT_REPLACE)
+        Unit
+    } catch (_: Throwable) { Unit }
+
+    fun clientesLimpiar() = try { writableDatabase.delete("shop_clientes", null, null); Unit } catch (_: Throwable) { Unit }
+
+    fun syncGuardar(ok: Boolean, productos: Int, detalle: String) = try {
+        writableDatabase.insert("shop_sync", null, ContentValues().apply {
+            put("at", System.currentTimeMillis()); put("ok", if (ok) 1 else 0)
+            put("productos", productos); put("detalle", detalle.take(500))
+        })
+        writableDatabase.delete("shop_sync", "id NOT IN (SELECT id FROM shop_sync ORDER BY id DESC LIMIT 50)", null)
+        Unit
+    } catch (_: Throwable) { Unit }
+
+    fun falloGuardar(motivo: String) = try {
+        writableDatabase.insert("shop_fallos", null, ContentValues().apply {
+            put("at", System.currentTimeMillis()); put("motivo", motivo.take(300))
+        })
+        writableDatabase.delete("shop_fallos", "id NOT IN (SELECT id FROM shop_fallos ORDER BY id DESC LIMIT 30)", null)
         Unit
     } catch (_: Throwable) { Unit }
 
