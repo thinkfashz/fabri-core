@@ -2681,6 +2681,12 @@ window.Placer = (function () {
   function erroresPago() {
     const e = {};
     const p = ESTADO.pedido;
+    /* La hoja puede cerrarse mientras se confirma (botón atrás, Escape, otra
+       pestaña). Sin esta guardia, `pagar` seguía y reventaba al leer el pago. */
+    if (!p || !ESTADO.pago) {
+      e.general = "El pedido se cerró. Vuelve a abrirlo desde el carrito.";
+      return e;
+    }
     if (!p.nombre || p.nombre.trim().length < 2) e.nombre = "Escribe tu nombre para el pedido.";
     // La API ya lo exige: sin teléfono el local no puede coordinar la entrega.
     if ((p.telefono || "").replace(/\D/g, "").length < 8) {
@@ -2988,6 +2994,10 @@ window.Placer = (function () {
         avisar("Entra a tu cuenta para confirmar el pedido. Tu carrito queda guardado.");
         return;
       }
+    }
+    if (!ESTADO.pago) {
+      avisar("El pedido se cerró. Vuelve a abrirlo desde el carrito.");
+      return;
     }
     const problemas = erroresPago();
     if (Object.keys(problemas).length) {
