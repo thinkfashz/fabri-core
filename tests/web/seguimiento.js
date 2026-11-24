@@ -177,7 +177,7 @@ ok('abre por código + últimos 4', /right\(regexp_replace\(p\.telefono, '\[\^0-
 ok('el código se compara con o sin prefijo MP', /s\.startsWith\('MP'\)/.test(api) && /'MP' \+ s\.slice\(0, 5\)/.test(api));
 ok('no devuelve el teléfono del comprador', !/telefono: fila\.telefono/.test(api));
 ok('no devuelve el token en la respuesta', !/seguimiento: fila\.seguimiento/.test(api));
-ok('el listado del dueño sí trae el enlace', /p\.seguimiento,p\.cliente/.test(api));
+ok('el listado del dueño sí trae el enlace', /p\.seguimiento,p\.verificacion,p\.cliente/.test(api));
 
 /* ── 9. checkout y panel del dueño ───────────────────────────────────────── */
 console.log('\nCheckout y panel del dueño');

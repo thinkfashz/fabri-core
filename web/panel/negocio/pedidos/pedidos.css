@@ -149,6 +149,19 @@
 .ped-detalle__items b { font-variant-numeric: tabular-nums; }
 .ped-detalle p { font-size: 12px; }
 .ped-detalle__tenue { color: var(--ds-text-tertiary); }
+.ped-detalle__cod {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 14px; font-weight: 800; letter-spacing: .08em;
+  color: var(--ds-accent);
+}
+.ped-detalle__copiar {
+  font: inherit; font-size: 11px; font-weight: 700; letter-spacing: .02em;
+  text-transform: none; color: var(--ds-text-secondary);
+  background: var(--ds-bg-sunken); border: 1px solid var(--ds-border-strong);
+  border-radius: 999px; padding: 3px 9px; cursor: pointer;
+}
+.ped-detalle__copiar:hover { color: var(--ds-text-primary); border-color: var(--ds-border-focus); }
 .ped-detalle__eventos { list-style: none; display: grid; gap: 3px; font-size: 11px; color: var(--ds-text-secondary); }
 
 .ped-vacio {

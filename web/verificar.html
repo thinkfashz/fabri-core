@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>FORGE CORE STOCK · Verifica tu envío</title>
+<meta name="description" content="Verifica el estado real de tu pedido con su código único y mira el recorrido del reparto en 3D.">
+<meta name="theme-color" content="#08090A">
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="./components.css">
+<link rel="stylesheet" href="./tienda.css">
+<link rel="stylesheet" href="./verificar.css">
+</head>
+<body data-pg="pago">
+
+<div class="aurora" aria-hidden="true"></div>
+<div class="grain" aria-hidden="true"></div>
+<div id="fcs-nav"></div>
+
+<main class="ti-main ti-main--estrecho vf-main">
+
+  <section class="vf-cab" aria-label="Verificación de entrega">
+    <p class="ti-eyebrow">Verificación de entrega</p>
+    <h1 class="vf-tit">Mira dónde va tu pedido</h1>
+    <p class="ti-sub" id="vfSub">Escribe el <b>código único</b> de tu pedido
+      (<b>V-XXXX-XXXX</b>). Con él se abre el recorrido y se comprueba el
+      estado real del envío.</p>
+  </section>
+
+  <form class="vf-form" id="vfForm" autocomplete="off" novalidate>
+    <label class="vf-campo" for="vfCodigo">
+      <span class="vf-label">Código de verificación</span>
+      <input id="vfCodigo" class="ds-input vf-input" type="text" name="verificacion"
+             placeholder="V-7K2M-9Q4P" autocapitalize="characters" spellcheck="false"
+             autocomplete="off" enterkeyhint="go" maxlength="16" inputmode="text">
+    </label>
+    <button class="ds-btn ds-btn--block" type="submit" id="vfBuscar">Verificar envío</button>
+    <p class="vf-error" id="vfError" role="alert" hidden></p>
+    <p class="vf-ayuda">El código viaja en el comprobante del pedido y en la
+      pantalla de seguimiento. ¿No lo tienes? <a href="./seguir.html">Busca con
+      el código MP-XXXXX y los últimos 4 dígitos de tu teléfono</a>.</p>
+  </form>
+
+  <section id="vfResultado" class="vf-resultado" aria-live="polite" hidden>
+
+    <div class="vf-estado" id="vfEstado"></div>
+
+    <div class="vf-escena" id="vfEscena">
+      <div class="vf-hud" id="vfHud" aria-hidden="true"></div>
+      <canvas id="vfCanvas" width="760" height="460" aria-hidden="true"></canvas>
+      <div class="vf-fallback" id="vfFallback" hidden>
+        <p><b>Tu navegador no puede dibujar la escena 3D.</b><br>
+          El estado real del pedido sigue abajo, en las paradas y en el detalle.</p>
+      </div>
+      <p class="vf-nota">El recorrido es una ilustración. La parada, el estado y
+        las horas salen del pedido real; no se adelanta nada que el local no
+        haya marcado.</p>
+    </div>
+
+    <ol class="vf-paradas" id="vfParadas" aria-label="Paradas del envío"></ol>
+
+    <div class="vf-datos" id="vfDatos"></div>
+
+    <div class="vf-acciones">
+      <button class="ds-btn ds-btn--secondary" type="button" id="vfRefrescar">Actualizar estado</button>
+      <button class="ds-btn ds-btn--ghost" type="button" id="vfOtra">Ver otro pedido</button>
+    </div>
+
+    <p class="vf-pie" id="vfPie"></p>
+  </section>
+
+</main>
+
+<script src="./tienda-nucleo.js"></script>
+<script src="./verificar.js"></script>
+</body>
+</html>

@@ -3024,7 +3024,8 @@ window.Placer = (function () {
         comuna: ESTADO.pago.comuna || "",
         referencia: ESTADO.pago.referencia || "",
         cliente: { nombre: ESTADO.pedido.nombre || "", telefono: ESTADO.pedido.telefono || "" },
-        estado: "pagado"
+        estado: "pagado",
+        verificacion: ESTADO.pago.verificacion || ""
       });
       guardar(CLAVE_PEDIDOS, lista.slice(0, 300));
       if (window.Negocio) window.Negocio.render();
@@ -3047,11 +3048,18 @@ window.Placer = (function () {
       caja.innerHTML = '<small class="mp-seguir-pend">El seguimiento aparecerá acá cuando el local reciba el pedido.</small>';
       return;
     }
+    var ver = ESTADO.pago.verificacion || "";
     caja.innerHTML =
       '<a class="mp-seguir-link" href="./seguir.html?t=' + encodeURIComponent(seg) + '">' +
         '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-5.2-7-11a7 7 0 1 1 14 0c0 5.8-7 11-7 11Z"/><circle cx="12" cy="10" r="2.6"/></svg>' +
         "<span>Seguir mi pedido<b>" + esc(cod) + "</b></span>" +
       "</a>" +
+      (ver
+        ? '<a class="mp-seguir-link" href="/verificar.html?v=' + encodeURIComponent(ver) + '">' +
+            '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 13h3l2-5 3 10 2-6 2 4h6"/></svg>' +
+            "<span>Ver el recorrido 3D<b>" + esc(ver.replace(/^V?/, "V-").replace(/^(V-.{4})/, "$1-")) + "</b></span>" +
+          "</a>"
+        : "") +
       '<small class="mp-seguir-pend">Guarda este enlace: muestra el estado del pedido sin crear cuenta.</small>';
   }
 
@@ -3127,6 +3135,9 @@ window.Placer = (function () {
         }
         ESTADO.pago.nube = d.codigo;
         ESTADO.pago.seguimiento = d.seguimiento || "";
+        // Código único de verificación: abre /verificar.html con el recorrido 3D
+        // y el estado real. Viaja con el pedido, no se inventa en el cliente.
+        ESTADO.pago.verificacion = d.verificacion || "";
         // El código de entrega y el vuelto definitivo vienen del servidor.
         ESTADO.pago.claveEntrega = d.clave_entrega || "";
         ESTADO.pago.pagoConfirmado = Number(d.pago_con) || 0;

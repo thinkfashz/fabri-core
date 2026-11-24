@@ -12,7 +12,7 @@ Hoy conviven tres superficies:
 | Superficie | Ruta actual | Para qué |
 |---|---|---|
 | PWA de compra rápida | `/app/` | mapa, escaneo, carrito y pedido en el teléfono |
-| Páginas sueltas | `/producto.html`, `/carrito.html`, `/checkout.html`, `/seguir.html` | enlaces directos y compartir |
+| Páginas sueltas | `/producto.html`, `/carrito.html`, `/checkout.html`, `/seguir.html`, `/verificar.html` | enlaces directos y compartir |
 | Panel del dueño embebido | `/app/` → pestaña «Panel» (`negocio.js`) | resumen, pedidos, catálogo, reseñas y ajustes |
 
 Esta especificación agrega **dos paneles profesionales independientes**, sin romper lo anterior:
@@ -524,6 +524,19 @@ La forma elegida es **BFF**: InsForge valida la contraseña y `fabri-api` sigue 
 - **Diseño propio:** kanban de 4 columnas en escritorio (`nuevo`, `visto`, `listo`, `entregado`) con contador y tiempo; tabla compacta alternativa; detalle en panel lateral, no en modal. En móvil, lista por estado con acciones grandes.
 - **Estados:** sin pedidos, pedido cancelado, sin permiso, push no soportado.
 - **Fase:** 2 · **Estado: ✅ desplegado.** Detalle dentro de la tarjeta (sin modal); aviso de entrega con código cuando el pedido lo exige; avisos push del local con `push_local_suscribir`/`push_local_baja`.
+- **Código de verificación:** el detalle muestra el código único del envío (`V-XXXX-XXXX`) con botón para copiarlo y enlace al recorrido 3D. El historial usa la hora real del evento (`ts`).
+
+### V · Verificación de envío con recorrido 3D
+
+- **Carpeta:** `web/verificar.html`, `web/verificar.css`, `web/verificar.js` · **Ruta:** `/verificar.html?v=V-XXXX-XXXX`
+- **Objetivo:** comprobar el estado real de un pedido con su **código único** y ver el reparto (distribuidor → carretera → casa o local) en una escena 3D.
+- **Conexión:** `pedido_seguir` con `{ accion, verificacion }` ✅ (público, sin cuenta). Devuelve `pedido.verificacion`, `estado`, `eventos` con su `ts` y los datos del local.
+- **Código único:** lo genera `pedido_crear` (`codigoVerificacion()`, 1 letra + 8 caracteres sin confundibles) y se guarda en `mercado_pedidos.verificacion` con índice único. Los pedidos anteriores lo reciben la primera vez que se abren por token o por código + teléfono: no hace falta migración manual.
+- **Escena:** Three.js (vendor del repo) con cámara ortográfica, carretera, distribuidor, casa con techo y ventanas, poste de luz, anillos de parada y un auto de reparto que **se estaciona en la parada del estado real** (`nuevo` → origen, `visto` → salida, `listo` → mitad de ruta, `entregado` → casa). No simula un avance que el local no marcó.
+- **Estados:** sin WebGL o con el contexto perdido se muestra un aviso honesto y el detalle textual completo; sin red se conserva el último estado verificado con su hora; código inexistente responde 404 y no inventa pedido.
+- **Accesibilidad:** respeta `prefers-reduced-motion` (el auto aparece en su parada, sin animación), pausa el render con la pestaña oculta y libera geometrías y materiales al salir.
+- **Integración:** el código aparece en el seguimiento del comprador (`seguir.html`), en el detalle de N02 (copiar), en el alta de la PWA (`placer.js`) y en C12 para pedidos entregados.
+- **Fase:** 2 (extensión) · **Estado: ✅ desplegado.** Verificado contra producción: alta devuelve el código, se abre por código y por token, un código inexistente da 404, y el estado intermedio se ve «En camino» con «En ruta» activo. La escena se probó con un Three.js simulado (posición del auto por estado); el render WebGL no se puede verificar en el headless de este teléfono (el GPU no soporta `OES_packed_depth_stencil`).
 
 ### N03 · Productos
 
@@ -704,7 +717,7 @@ La forma elegida es **BFF**: InsForge valida la contraseña y `fabri-api` sigue 
 | `codigo_buscar` | GET/POST | pública | marcas que tienen un EAN | C03 (escáner) |
 | `imagen_ver` | GET | pública | foto versionada del producto | C04, C05, N03 |
 | `pedido_crear` | POST | pública + idempotencia | pedido, total, `seguimiento` | C07 |
-| `pedido_seguir` | POST | token o código+contacto | estado y línea de tiempo | C08, C09 |
+| `pedido_seguir` | POST | token, código+contacto o `verificacion` | estado y línea de tiempo | C08, C09, `/verificar.html` |
 | `push_suscribir` / `push_baja` | POST | token del pedido | suscripción del comprador | C08 |
 | `resenas_listar` | POST | pública | reseñas visibles + promedio | C12, C04 |
 | `resena_crear` | POST | token del pedido | reseña creada | C12 |

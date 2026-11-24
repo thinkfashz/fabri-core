@@ -80,6 +80,7 @@ function pendienteNube(p) {
   return {
     codigo: p.codigo || '',
     seguimiento: p.seguimiento || '',
+    verificacion: p.verificacion || '',
     local_id: p.local_id || '',
     local_nombre: p.local_nombre || 'Tienda',
     ico: p.local_ico || 'tienda',
@@ -141,6 +142,10 @@ function pendienteHtml(p) {
         codigo: p.codigo,
         cliente: { telefono: p.telefono || '' },
       })) + '">Ver el pedido</a>' +
+      (p.verificacion
+        ? '<a class="ds-btn ds-btn--ghost" href="/verificar.html?v=' +
+            encodeURIComponent(p.verificacion) + '">Recorrido 3D</a>'
+        : '') +
     '</div>' +
   '</article>';
 }

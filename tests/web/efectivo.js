@@ -60,9 +60,9 @@ ok('el efectivo corto se rechaza con PAGO_CORTO',
   /codigo: 'PAGO_CORTO'/.test(api) && /faltan: efectivo\.faltan, total/.test(api));
 ok('el delivery exige calle y número', /codigo: 'SIN_DIRECCION'/.test(api) && /direccion\.length < 5/.test(api));
 ok('el delivery exige comuna', /codigo: 'SIN_COMUNA'/.test(api) && /comunaEntrega\.length < 2/.test(api));
-ok('el pedido guarda método, efectivo, vuelto y código',
-  /metodo_pago,pago_con,vuelto,clave_entrega,\s*cliente_id\)/.test(api) &&
-  /comunaEntrega, referenciaEntrega, pago, efectivo\.dado, efectivo\.vuelto, claveEntrega,\s*clienteId\]/.test(api));
+ok('el pedido guarda método, efectivo, vuelto, código y verificación',
+  /metodo_pago,pago_con,vuelto,clave_entrega,\s*cliente_id,verificacion\)/.test(api) &&
+  /comunaEntrega, referenciaEntrega, pago, efectivo\.dado, efectivo\.vuelto, claveEntrega,\s*clienteId, verificacion\]/.test(api));
 ok('la respuesta del pedido devuelve el código al comprador',
   /clave_entrega: claveEntrega/.test(api) &&
   /metodo_pago: pago, pago_con: efectivo\.dado, vuelto: efectivo\.vuelto/.test(api));

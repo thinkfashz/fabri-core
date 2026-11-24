@@ -408,9 +408,9 @@ console.log('\n▸ panel · fase 2 (pedidos, favoritos, direcciones, reseñas)')
   const enLista = acciones.filter((a) => !bloque.includes("'" + a + "'"));
   ok('las acciones nuevas están en la lista pública del GET', enLista.length === 0, enLista.join(', '));
 
-  ok('el pedido recuerda la cuenta (cliente_id)',
+  ok('el pedido recuerda la cuenta (cliente_id) y su código de verificación',
     /cliente_id TEXT NOT NULL DEFAULT ''/.test(api) &&
-    /INSERT INTO \$\{T_PEDIDOS\}[\s\S]{0,400}cliente_id\)/.test(api));
+    /INSERT INTO \$\{T_PEDIDOS\}[\s\S]{0,400}cliente_id,verificacion\)/.test(api));
   ok('la reseña recuerda la cuenta (usuario_id)',
     /usuario_id TEXT NOT NULL DEFAULT ''/.test(api) &&
     /INSERT INTO \$\{T_RESENAS\} \(id, local_id, pedido_id, autor, estrellas, texto, usuario_id\)/.test(api));

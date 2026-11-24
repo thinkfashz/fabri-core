@@ -46,11 +46,15 @@
 //   POST { accion: "pedido_crear", local_id, items, cliente... }
 //                                              → pedido del comprador (PÚBLICO)
 //                                              → precio y descuento del servidor
-//                                              → devuelve `seguimiento` (token)
+//                                              → devuelve `seguimiento` (token) y
+//                                                `verificacion` (código único)
 //   POST { accion: "pedido_seguir", token }     → estado del pedido (PÚBLICO)
 //   POST { accion: "pedido_seguir", codigo, contacto }
 //                                              → igual, con código MP-XXXXX y
 //                                                los últimos 4 del teléfono
+//   POST { accion: "pedido_seguir", verificacion }
+//                                              → igual, con el código único
+//                                                V-XXXX-XXXX de /verificar.html
 //   POST { accion: "push_suscribir", token, suscripcion } → avisos push del pedido (PÚBLICO)
 //   POST { accion: "push_baja", token, endpoint }         → deja de avisar (PÚBLICO)
 //   POST { accion: "push_local_suscribir", local_id, suscripcion } → avisos de la tienda (DUEÑO · ADMIN)
@@ -295,6 +299,26 @@ function codigoPedido(): string {
   return 'MP-' + s;
 }
 
+/* Código único de verificación del pedido: 8 caracteres sin confundibles
+   (nada de 0/O ni 1/I), con prefijo V para no confundirlo con el MP-XXXXX.
+   Se guarda compacto y en mayúsculas (`V7K2M9Q4P`) y se muestra como
+   `V-7K2M-9Q4P`. Es la credencial de la página `/verificar.html`. */
+function codigoVerificacion(): string {
+  const abc = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const b = randomBytes(8);
+  let s = 'V';
+  for (let i = 0; i < 8; i++) s += abc[b[i] % abc.length];
+  return s;
+}
+
+/** Deja el código de verificación como se guarda: `V7K2M9Q4P`. */
+function verificacionComparable(v: unknown): string {
+  let s = String(v == null ? '' : v).toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (!s) return '';
+  if (!s.startsWith('V')) s = 'V' + s;
+  return s.slice(0, 9);
+}
+
 /* ── límite del seguimiento público ──────────────────────────────────────── */
 
 function ipDe(req: IncomingMessage): string {
@@ -523,6 +547,15 @@ async function asegurar(pool: any) {
   await pool.query(`ALTER TABLE ${T_PEDIDOS} ADD COLUMN IF NOT EXISTS pago_con BIGINT NOT NULL DEFAULT 0`);
   await pool.query(`ALTER TABLE ${T_PEDIDOS} ADD COLUMN IF NOT EXISTS vuelto BIGINT NOT NULL DEFAULT 0`);
   await pool.query(`ALTER TABLE ${T_PEDIDOS} ADD COLUMN IF NOT EXISTS clave_entrega TEXT NOT NULL DEFAULT ''`);
+  // Código único de verificación del envío: lo usa `/verificar.html` para
+  // abrir el recorrido 3D con el estado real. Es independiente del enlace de
+  // seguimiento (token) y del código + teléfono: una credencial corta por
+  // pedido. Los pedidos viejos se completan cuando alguien abre su seguimiento.
+  await pool.query(`ALTER TABLE ${T_PEDIDOS} ADD COLUMN IF NOT EXISTS verificacion TEXT NOT NULL DEFAULT ''`);
+  try {
+    await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_mercado_pedidos_verificacion
+                        ON ${T_PEDIDOS} (verificacion) WHERE verificacion <> ''`);
+  } catch (e) { /* base vieja con repetidos: la creación reintenta con otro */ }
   // El código corto se usa para buscar el pedido: dos pedidos con el mismo
   // código harían ambigua la búsqueda. En una base vieja puede haber repetidos,
   // así que si el índice no entra no se tumba el arranque (la creación igual
@@ -2179,6 +2212,9 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       const id = 'ped-' + Date.now().toString(36) + randomBytes(3).toString('hex');
       // El token de seguimiento no se deriva del id ni del código.
       const seguimiento = randomBytes(10).toString('hex');
+      // Código único de verificación: lo comparte el comprador con quien deba
+      // comprobar el envío. Si choca con otro (poco probable), se reintenta.
+      let verificacion = codigoVerificacion();
       const nota = texto(cuerpo.nota, 300).trim();
 
       // La transacción descuenta stock y crea el pedido como una sola cosa: si
@@ -2212,9 +2248,9 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
                (id,local_id,codigo,cliente,telefono,items,subtotal,envio,total,entrega,
                 direccion,nota,estado,seguimiento,idempotencia,ahorro,
                 comuna_entrega,referencia_entrega,metodo_pago,pago_con,vuelto,clave_entrega,
-                cliente_id)
+                cliente_id,verificacion)
              VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,$12,'nuevo',$13,$14,$15,
-                     $16,$17,$18,$19,$20,$21,$22)`,
+                     $16,$17,$18,$19,$20,$21,$22,$23)`,
             [id, localId, codigo, nombreCliente, telefono,
               JSON.stringify(items.map((x) => ({
                 sku: x.sku, codigo: x.codigo || '', nombre: x.nombre, precio: x.precio,
@@ -2225,7 +2261,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
               subtotal, envio, total, entrega,
               direccion, nota, seguimiento, idem, ahorro,
               comunaEntrega, referenciaEntrega, pago, efectivo.dado, efectivo.vuelto, claveEntrega,
-              clienteId]
+              clienteId, verificacion]
           );
           await cliente_pg.query(
             `INSERT INTO ${T_EVENTOS} (pedido_id, estado, actor, nota)
@@ -2239,7 +2275,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
           // Otro intento con la misma clave ganó la carrera: se devuelve ese.
           if (cons === 'idx_mercado_pedidos_idempotencia' && idem) {
             const ya = await pool.query(
-              `SELECT id,codigo,seguimiento,subtotal::float8 AS subtotal,envio::float8 AS envio,
+              `SELECT id,codigo,seguimiento,verificacion,subtotal::float8 AS subtotal,envio::float8 AS envio,
                       total::float8 AS total,ahorro::float8 AS ahorro,estado,
                       metodo_pago,pago_con::float8 AS pago_con,vuelto::float8 AS vuelto,clave_entrega
                  FROM ${T_PEDIDOS} WHERE local_id = $1 AND idempotencia = $2 LIMIT 1`,
@@ -2253,11 +2289,17 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
                 estado: p.estado, repetido: true,
                 metodo_pago: p.metodo_pago, pago_con: p.pago_con, vuelto: p.vuelto,
                 clave_entrega: p.clave_entrega,
+                verificacion: p.verificacion || '',
               });
             }
           }
           // Código repetido (32^5 combinaciones): se prueba con otro.
           if (cons === 'idx_mercado_pedidos_codigo' && intento < 5) continue;
+          // El código de verificación también es único: si chocó, se genera otro.
+          if (cons === 'idx_mercado_pedidos_verificacion' && intento < 5) {
+            verificacion = codigoVerificacion();
+            continue;
+          }
           throw e;
         } finally {
           try { cliente_pg.release(); } catch (e) { /* ya liberado */ }
@@ -2272,7 +2314,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
           // Fase 3: el comprador necesita ver el vuelto y el código de entrega
           // en el momento; el local recibe el pago y el resumen, sin el código.
           metodo_pago: pago, pago_con: efectivo.dado, vuelto: efectivo.vuelto,
-          clave_entrega: claveEntrega,
+          clave_entrega: claveEntrega, verificacion,
           comuna_entrega: comunaEntrega, referencia_entrega: referenciaEntrega,
         });
       }
@@ -2297,17 +2339,18 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       const token = texto(cuerpo.token, 64).trim().toLowerCase();
       const codigo = codigoComparable(cuerpo.codigo);
       const contacto = ultimos4(cuerpo.contacto);
+      const verificacion = verificacionComparable(cuerpo.verificacion);
 
-      if (!token && !(codigo && contacto)) {
+      if (!token && !verificacion && !(codigo && contacto)) {
         return json(res, {
           ok: false, codigo: 'FALTAN_DATOS',
           error: token === '' && codigo
             ? 'faltan los últimos 4 dígitos del teléfono'
-            : 'escribe el código del pedido y los últimos 4 dígitos del teléfono',
+            : 'escribe el código de verificación del pedido',
         }, 400);
       }
 
-      const columnas = `p.id, p.codigo, p.cliente, p.items,
+      const columnas = `p.id, p.codigo, p.verificacion, p.cliente, p.items,
               p.subtotal::float8 AS subtotal, p.envio::float8 AS envio, p.total::float8 AS total,
               p.entrega, p.direccion, p.comuna_entrega, p.referencia_entrega,
               p.metodo_pago, p.pago_con::float8 AS pago_con, p.vuelto::float8 AS vuelto,
@@ -2322,6 +2365,13 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
           `SELECT ${columnas} FROM ${T_PEDIDOS} p
              LEFT JOIN ${T_LOCALES} l ON l.id = p.local_id
             WHERE p.seguimiento = $1 LIMIT 1`, [token]
+        );
+        fila = r.rows[0] || null;
+      } else if (verificacion) {
+        const r = await pool.query(
+          `SELECT ${columnas} FROM ${T_PEDIDOS} p
+             LEFT JOIN ${T_LOCALES} l ON l.id = p.local_id
+            WHERE p.verificacion = $1 LIMIT 1`, [verificacion]
         );
         fila = r.rows[0] || null;
       } else {
@@ -2340,8 +2390,37 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         anotarFallo(ip);
         return json(res, {
           ok: false, codigo: 'NO_ENCONTRADO',
-          error: 'no encontramos ese pedido: revisa el código y el teléfono',
+          error: token || verificacion
+            ? 'no encontramos ese pedido: revisa el código de verificación'
+            : 'no encontramos ese pedido: revisa el código y el teléfono',
         }, 404);
+      }
+
+      // Pedidos anteriores al código de verificación: se completa la primera
+      // vez que alguien los abre (por token o por código + teléfono). Así no
+      // hace falta una migración pesada ni se inventa un código en el cliente.
+      if (!fila.verificacion) {
+        for (let i = 0; i < 4 && !fila.verificacion; i++) {
+          const nuevo = codigoVerificacion();
+          try {
+            const up = await pool.query(
+              `UPDATE ${T_PEDIDOS} SET verificacion = $2
+                WHERE id = $1 AND verificacion = '' RETURNING verificacion`,
+              [fila.id, nuevo]
+            );
+            if (up.rowCount) {
+              fila.verificacion = up.rows[0].verificacion;
+            } else {
+              // Otra petición lo completó primero: se usa el que quedó.
+              const re = await pool.query(
+                `SELECT verificacion FROM ${T_PEDIDOS} WHERE id = $1 LIMIT 1`, [fila.id]
+              );
+              fila.verificacion = (re.rows[0] && re.rows[0].verificacion) || '';
+            }
+          } catch (e: any) {
+            if (String(e && e.constraint || '') !== 'idx_mercado_pedidos_verificacion') throw e;
+          }
+        }
       }
 
       const ev = await pool.query(
@@ -2352,6 +2431,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         ok: true, accion,
         pedido: {
           codigo: fila.codigo,
+          verificacion: fila.verificacion || '',
           cliente: fila.cliente,
           items: fila.items,
           subtotal: fila.subtotal,
@@ -2835,7 +2915,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         [acceso.usuario.id]
       );
       const pendientes = await pool.query(
-        `SELECT p.codigo, p.seguimiento, p.local_id, p.creado, p.total::float8 AS total, p.items,
+        `SELECT p.codigo, p.seguimiento, p.verificacion, p.local_id, p.creado, p.total::float8 AS total, p.items,
                 l.nombre AS local_nombre, l.ico AS local_ico
            FROM ${T_PEDIDOS} p
            LEFT JOIN ${T_LOCALES} l ON l.id = p.local_id
@@ -3043,7 +3123,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       // El historial viaja con cada pedido: el dueño ve quién hizo qué y
       // cuándo, sin una llamada por pedido.
       const r = await pool.query(
-        `SELECT p.id,p.codigo,p.seguimiento,p.cliente,p.telefono,p.items,
+        `SELECT p.id,p.codigo,p.seguimiento,p.verificacion,p.cliente,p.telefono,p.items,
                 p.subtotal::float8 AS subtotal, p.envio::float8 AS envio, p.total::float8 AS total,
                 p.ahorro::float8 AS ahorro,
                 p.entrega,p.direccion,p.comuna_entrega,p.referencia_entrega,

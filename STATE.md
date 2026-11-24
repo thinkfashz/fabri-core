@@ -8,6 +8,87 @@
 
 Última actualización: 2026-11-24
 
+## Sesión 2026-11-24 · Verificación de envío con código único y recorrido 3D
+
+Pedido: añadir al ciclo una página de verificación con un código único por
+pedido y un recorrido 3D del reparto (distribuidor → carretera → casa) que
+muestre el estado **real** del envío.
+
+**Código único (`api-telefono/api/mercado.ts`)**
+
+- `codigoVerificacion()`: 9 caracteres (`V` + 8 del alfabeto sin confundibles,
+  nada de 0/O ni 1/I). Se muestra `V-XXXX-XXXX`.
+- Nueva columna `mercado_pedidos.verificacion` con índice único; el `INSERT`
+  del alta la guarda y `pedido_crear` la devuelve junto al seguimiento.
+- `pedido_seguir` acepta `{ verificacion }` además de token y código+teléfono.
+  Un código inexistente responde 404 `NO_ENCONTRADO`, con su propio texto.
+- Los pedidos anteriores a la columna se completan la primera vez que alguien
+  los abre (por token o por código + teléfono), con `UPDATE ... RETURNING` para
+  no pisar el valor si dos peticiones coinciden. Sin migración manual.
+- `pedidos_listar` y `resenas_mias` devuelven `verificacion` para que el panel y
+  C12 puedan enlazar el recorrido.
+
+**Página `/verificar.html` (`verificar.html`, `verificar.css`, `verificar.js`)**
+
+- Pública, sin cuenta: se abre con `?v=V-XXXX-XXXX` o escribiendo el código; se
+  formatea solo y tolera minúsculas y guiones.
+- Estado real con chip, título y hora de actualización; refresco cada 20 s.
+- Cuatro paradas con su hora real (de `eventos[].ts`): recibido, preparación,
+  en camino/listo, entregado/retirado.
+- Detalle real: tienda, dirección, contacto, entrega, total, pago con vuelto y
+  el código de entrega mientras no se entrega.
+- Escena Three.js: cámara ortográfica, carretera con guías, distribuidor con
+  portón y paquetes, casa con techo, ventanas y buzón (o local, si es retiro),
+  poste de luz, anillos de parada y auto de reparto. El auto **se estaciona en
+  la parada del estado real**: `nuevo` origen, `visto` salida, `listo` mitad de
+  ruta, `entregado` casa, `cancelado` origen. No inventa progreso.
+- Honestidad: sin WebGL, con `webglcontextlost` o si Three.js no carga en 8 s,
+  se muestra el aviso y el detalle textual completo. Sin red se conserva el
+  último estado verificado con la hora de esa comprobación.
+- Accesibilidad y peso: `prefers-reduced-motion` (sin animación), pausa el
+  render con la pestaña oculta, `devicePixelRatio` tope 2 y `dispose()` de
+  geometrías y materiales al salir.
+
+**Integración con el ciclo**
+
+- `seguir.html`: bloque con el código único y botón al recorrido 3D.
+- N02: el detalle muestra el código con botón «Copiar» y el enlace al 3D.
+- PWA (`placer.js`): guarda `verificacion` del alta y ofrece el recorrido en la
+  pantalla de éxito.
+- C12: botón «Recorrido 3D» en los pedidos entregados pendientes.
+- N02 corregido: el historial usaba `ev.creado` (las filas traen `ts`), así que
+  mostraba 1970; ahora usa `ev.ts`.
+
+**Verificación real (producción, datos temporales borrados)**
+
+- API `fabri-api`: alta devuelve `VTJKYKB9W` con formato válido; abrir por
+  código y por token devuelve el mismo pedido y la misma verificación; código
+  inexistente → 404; `nuevo → visto → listo → entregado` con clave; el panel
+  recibe la verificación.
+- Web (CDP, headless sin WebGL): el código escrito en minúsculas se formatea a
+  `V-TJKY-KB9W` y abre; pedido en `listo` se lee «Tu pedido va en camino» con
+  «En ruta» activo y el código de entrega visible; entregado muestra las cuatro
+  paradas hechas y «Tu casa» activa; código inexistente muestra el error sin
+  pintar pedido; sin red conserva el pedido y avisa con la hora; `seguir.html`
+  muestra el bloque con el código y el enlace.
+- Escena: el WebGL del headless de este teléfono es inestable (el GPU crashea
+  con `OES_packed_depth_stencil` a los pocos segundos). En las pruebas la escena
+  **se construyó y renderizó** (three creó el contexto y dibujó), y cuando el
+  sistema se llevó el contexto entró el manejador `webglcontextlost` con el
+  mensaje `[verificar] contexto WebGL perdido: se usa el detalle textual`. Es
+  decir: el camino feliz y el de respaldo se ejercitaron de verdad. La posición
+  del auto por estado se probó aparte con un Three.js simulado en Node:
+  arranca en origen, `listo` → 0,58, `entregado` → 0,95, `cancelado` → origen,
+  y `destruir()` no lanza.
+- Tests: `tests/web/verificar-negocio.js` (53 comprobaciones) y 23/23 suites
+  web en verde. Tres regex de contrato actualizadas (`efectivo`, `panel`,
+  `seguimiento`) por el nuevo `verificacion` en el `INSERT` y el listado.
+- Desplegado: API `dpl` de `fabri-api` y web `forge-core-stock` con
+  `/verificar.html`, `/verificar.js` y `/verificar.css` en 200.
+
+**Pendiente**: ver la escena en un navegador con GPU estable (el teléfono del
+usuario). En este entorno el GPU del headless crashea y queda el modo texto.
+
 ## Sesión 2026-11-24 · Ciclo real pedido → entregado → reseña verificado
 
 Cierra el último pendiente de la fase 2 del Panel Negocio: probar el ciclo

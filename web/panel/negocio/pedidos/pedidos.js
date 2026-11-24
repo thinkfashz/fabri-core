@@ -29,6 +29,12 @@ const estado = {
   reloj: null,
 };
 
+/* El código único se muestra agrupado: V7K2M9Q4P → V-7K2M-9Q4P. */
+function codigoVisible(v) {
+  const s = String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 9);
+  return s.length === 9 ? 'V-' + s.slice(1, 5) + '-' + s.slice(5, 9) : '';
+}
+
 function hace(ts) {
   const ms = Date.now() - new Date(ts).getTime();
   const min = Math.max(0, Math.round(ms / 60000));
@@ -97,11 +103,20 @@ function tarjeta(p) {
             ? '<p class="ped-detalle__tenue">' + esc([p.direccion, p.comuna_entrega, p.referencia_entrega].filter(Boolean).join(' · ')) + '</p>'
             : '<p class="ped-detalle__tenue">Retiro en el local</p>') +
         '</div>' +
+        (codigoVisible(p.verificacion)
+          ? '<div class="ped-detalle__bloque"><span class="ped-detalle__rotulo">Verificación del envío</span>' +
+              '<p class="ped-detalle__cod">' + esc(codigoVisible(p.verificacion)) +
+                ' <button class="ped-detalle__copiar" type="button" data-copiar="' +
+                esc(codigoVisible(p.verificacion)) + '">Copiar</button></p>' +
+              '<a class="ped-detalle__tenue" href="/verificar.html?v=' +
+                encodeURIComponent(p.verificacion) + '" target="_blank" rel="noopener">Abrir el recorrido 3D</a>' +
+            '</div>'
+          : '') +
         (p.nota ? '<div class="ped-detalle__bloque"><span class="ped-detalle__rotulo">Nota</span><p>' + esc(p.nota) + '</p></div>' : '') +
         '<div class="ped-detalle__bloque"><span class="ped-detalle__rotulo">Historial</span>' +
           '<ul class="ped-detalle__eventos">' + (Array.isArray(p.eventos) && p.eventos.length
             ? p.eventos.map((ev) => '<li><b>' + esc(estadoDe(ev.estado).t) + '</b> · ' +
-              esc(new Date(ev.creado || ev.fecha || ev.creado_en || 0).toLocaleString('es-CL')) + '</li>').join('')
+              esc(new Date(ev.ts || ev.creado || 0).toLocaleString('es-CL')) + '</li>').join('')
             : '<li class="ped-detalle__tenue">Sin eventos registrados.</li>') + '</ul>' +
         '</div>' +
       '</div>'
@@ -202,6 +217,15 @@ function pintar(caja, ctx) {
     pintar(caja, ctx);
   }));
   $$('[data-accion]', caja).forEach((b) => b.addEventListener('click', () => mover(caja, ctx, b.dataset.id, b.dataset.accion)));
+  $$('[data-copiar]', caja).forEach((b) => b.addEventListener('click', async () => {
+    const texto = b.dataset.copiar || '';
+    try {
+      await navigator.clipboard.writeText(texto);
+      aviso('Código copiado: ' + texto, 'ok');
+    } catch (_) {
+      aviso('No se pudo copiar. El código es ' + texto, 'warn');
+    }
+  }));
 }
 
 async function mover(caja, ctx, id, nuevo) {

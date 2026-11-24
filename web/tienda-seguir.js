@@ -608,6 +608,30 @@
     "</div>";
   }
 
+  /* Código único de verificación + acceso al recorrido 3D. Sólo aparece si
+     la nube lo devolvió (pedidos nuevos o abiertos por primera vez). */
+  function mostrarVerif(v) {
+    var s = String(v == null ? "" : v).toUpperCase().replace(/[^A-Z0-9]/g, "");
+    if (!s) return "";
+    if (s.charAt(0) !== "V") s = "V" + s;
+    s = s.slice(0, 9);
+    return s.length === 9 ? "V-" + s.slice(1, 5) + "-" + s.slice(5, 9) : "";
+  }
+
+  function bloqueVerificacion(pedido) {
+    var verif = mostrarVerif(pedido && pedido.verificacion);
+    if (!verif) return "";
+    return '<div class="sg-verif">' +
+      '<div class="sg-verif__cabeza">' +
+        '<small>Código único de verificación</small>' +
+        '<b class="sg-verif__cod">' + esc(verif) + "</b>" +
+      "</div>" +
+      '<a class="ds-btn ds-btn--block" href="./verificar.html?v=' + encodeURIComponent(verif) + '">' +
+        "Ver el recorrido 3D del envío</a>" +
+      '<small class="sg-verif__nota">Con este código se comprueba el estado real del pedido en cualquier equipo.</small>' +
+    "</div>";
+  }
+
   function pintar(pedido) {
     var cont = document.getElementById("sgResultado");
     if (!cont) return;
@@ -623,6 +647,7 @@
       "</div>" +
       linea(pedido) +
       resumen(pedido) +
+      bloqueVerificacion(pedido) +
       localHtml(pedido) +
       bloqueAvisos(pedido) +
       bloqueResena(pedido, CRED);
