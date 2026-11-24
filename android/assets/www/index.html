@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="impuestos.css" />
   <link rel="stylesheet" href="contabilidad.css" />
   <link rel="stylesheet" href="dte.css" />
+  <link rel="stylesheet" href="tienda.css" />
 </head>
 <body>
   <!-- ===================== ACCESO · HUELLA + PIN ===================== -->
@@ -127,6 +128,7 @@
       <button class="nav-drawer" data-vista="contabilidad"><span>▤</span>Contribuyentes</button>
       <button class="nav-drawer" data-vista="dte"><span>▧</span>Boletas electrónicas</button>
       <button class="nav-drawer" data-vista="catalogo"><span>◈</span>Catálogo</button>
+      <button class="nav-drawer" data-vista="tienda"><span>◫</span>Tienda y CRM</button>
       <button class="nav-drawer" data-vista="flujo"><span>⇄</span>Flujo en tiempo real</button>
       <button class="nav-drawer" data-vista="modulos"><span>⬡</span>Módulos</button>
       <button class="nav-drawer" data-vista="consola"><span>▸</span>Consola</button>
@@ -2970,6 +2972,10 @@ CREATE INDEX IF NOT EXISTS idx_inv_productos_actualizado
       </div>
     </section>
 
+  <section class="vista" id="v-tienda">
+    <div id="tdApp"></div>
+  </section>
+
   </main>
 
   <!-- ===================== NAVEGACIÓN ===================== -->
@@ -3221,6 +3227,7 @@ CREATE INDEX IF NOT EXISTS idx_inv_productos_actualizado
   <script src="marcas.js"></script>
   <script src="diagnostico.js"></script>
   <script src="marcas-ia.js"></script>
+  <script src="tienda.js"></script>
   <script src="app.js"></script>
   <script src="ui-icons.js"></script>
   <script src="datos.js"></script>

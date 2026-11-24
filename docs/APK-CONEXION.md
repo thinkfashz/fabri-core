@@ -11,20 +11,26 @@ segunda llave: el puente es `/api/inventario`, multi-inquilino por `local_id`.
    una nueva** (se muestra una sola vez).
 3. La clave se guarda sólo como `SHA-256` en `mercado_locales.clave_hash`.
 
-## 2 · Pestañas de la app (simplificada)
+## 2 · Vista «Tienda y CRM» en el menú lateral
 
-`Inicio · Tienda · Productos · Clientes · Ajustes`
+La 0.9.64 no cambia las pantallas existentes: añade **una vista** al menú
+lateral (`data-vista="tienda"`), con tres pestañas internas.
 
-- **Inicio:** estado de la tienda, última sincronización, productos, clientes y
-  fallos; accesos directos a las otras pestañas.
-- **Tienda:** conectar, probar, crear tablas, subir/bajar catálogo, estado en la
-  nube (publicada, plan, dispositivos, fallos) y fallos locales con su motivo.
-- **Productos:** catálogo publicado (`local_ver`), edición de nombre, precio y
-  stock con `productos_subir` + clave, y alta de producto nuevo.
-- **Clientes:** CRM real desde `clientes_listar` (teléfono enmascarado).
-- **Ajustes:** cuenta local, exportar, versión 1.2.0.
+- **Conexión:** identificador + clave, probar, estado de la nube (publicada,
+  plan, productos, dispositivos), **asegurar tablas**, subir/bajar catálogo y
+  desconectar. Muestra conectado/revisar y los últimos fallos con su motivo.
+- **Productos:** lee el catálogo publicado (`local_ver`) y permite editar
+  nombre, precio y stock de cada producto; guarda con `productos_subir` + clave.
+- **Clientes:** CRM real con `clientes_listar` (teléfono enmascarado).
 
-## 3 · Qué hace la pestaña «Tienda»
+El resto de la app (inventario, catálogo, DTE, impuestos, contabilidad, flujo,
+identidad, consola, diagnóstico) queda **igual**. No se tocó Java ni Rust: se
+reutilizaron las 7 bibliotecas nativas de la 0.9.63.
+
+Archivos: `android/assets/www/tienda.js`, `tienda.css` y tres líneas de
+integración en `index.html` (menú, sección, script) y `app.js` (router).
+
+## 3 · Qué hace la vista «Tienda»
 
 | Acción | Llamada | Qué pasa |
 |---|---|---|
@@ -35,7 +41,7 @@ segunda llave: el puente es `/api/inventario`, multi-inquilino por `local_id`.
 | Bajar catálogo | `bajar` | guarda el catálogo de la nube en SQLite (upsert por `sku`) |
 | Asegurar tablas | `asegurar` (inventario + mercado) | crea las tablas que falten en la nube |
 | Estado en la nube | `conexion_estado` | publicada, plan, productos, dispositivos y fallos |
-| Cambiar de tienda | — | olvida la credencial y conserva el catálogo local |
+| Desconectar | — | olvida la credencial y conserva el catálogo local |
 
 Cada llamada envía `huella` (Android ID), `etiqueta` (marca y modelo),
 `plataforma: "android"` y `version`. Así el panel muestra **dispositivos reales**
@@ -45,15 +51,13 @@ Si una llamada falla, la APK la reporta con `accion: "error"` y el panel la
 muestra en «Fallos recientes». La clave nunca se escribe en claro ni se registra
 en logs; se cifra con `Sec` (AES-256-GCM, clave del Android Keystore).
 
-Archivos: `fast/lite/Shop.kt` (puente), `fast/lite/Db.kt` (tablas
-`shop_catalogo`, `shop_clientes`, `shop_sync`, `shop_fallos` + helpers),
-`fast/lite/MainActivity.kt` (pestañas).
+La credencial y el catálogo leído se guardan en `localStorage`
+(`fcore.tienda.*`); los fallos también, con tope de 10. La base SQLite nativa y
+las tablas de la app estable no se tocan (2,07 GB de datos intactos).
 
-**Tablas locales (SQLite, versión 4):** `products` (base de trabajo) y
-`shop_catalogo`, `shop_clientes`, `shop_sync`, `shop_fallos` (espejo de la
-nube). **Tablas en la nube:** `inv_productos`, `inv_conexiones` (creadas por
+**Tablas en la nube:** `inv_productos`, `inv_conexiones` (creadas por
 `/api/inventario`) y `mercado_locales`/`mercado_productos` (por `/api/mercado`).
-La APK llama `asegurar` en ambos endpoints al conectar.
+La vista llama `asegurar` en ambos endpoints al conectar.
 
 ## 3 · Compilar rápido (sin Gradle)
 
@@ -61,9 +65,13 @@ El build lite no levanta daemon ni resuelve dependencias. En este equipo tarda
 ~4 minutos y deja la APK firmada:
 
 ```sh
-bash build-fast.sh
-# APK: out/FORGE-CORE-STOCK-1.2.0.apk  (~4 min, firmada)
+FORGE_SALTAR_RUST=1 bash scripts/compilar.sh
+# APK: dist/FORGE-CORE-STOCK-0.9.64.apk  (~1m 47s, firmada)
 ```
+
+`FORGE_SALTAR_RUST=1` reutiliza las bibliotecas nativas del APK 0.9.63 (mismas,
+ya probadas) y solo recompila Java, recursos y assets. Sin esa variable, el
+script compila Rust y tarda bastante más.
 
 Si el SDK no está en `/root/android-sdk`, el script lo busca en
 `/data/data/com.termux/files/home/android-sdk` y en `$HOME/android-sdk`. Para
@@ -84,11 +92,15 @@ unzip -l out/forge-core-stock-lite.apk | tail
 $ANDROID_SDK_ROOT/build-tools/34.0.0/apksigner verify --print-certs out/forge-core-stock-lite.apk
 ```
 
-## 4 · Entrega
+## 4 · Entrega e instalación encima de la 0.9.63
 
-- Copia local fuera del proot: `/sdcard/Download/FORGE-CORE-STOCK-1.2.0.apk`
-- Descarga pública: `https://forge-core-stock.vercel.app/descargas/FORGE-CORE-STOCK.apk`
-  (el mismo archivo, con nombre versionado al descargar)
+- `/storage/emulated/0/Download/FORGE-CORE-STOCK.apk` (nombre estable)
+- `/storage/emulated/0/Download/FORGE-CORE-STOCK-0.9.64.apk`
+- `https://forge-core-stock.vercel.app/descargas/FORGE-CORE-STOCK.apk`
+
+Misma firma de depuración (`SHA-256 959b85cc…`) y mismo package
+`cl.fabrick.core`, con `versionCode 79 > 78`: Android la trata como
+**actualización** y conserva los datos.
 
 ## 5 · Contrato del puente (resumen)
 
@@ -105,9 +117,12 @@ Acciones: `verificar`, `estado`, `error`, `desconectar`, `subir`, `bajar`,
 - `estado` y `subir` registran el dispositivo; `verificar` no.
 - Nada devuelve la clave, su hash, el correo del dueño ni el teléfono completo.
 
-## 6 · Pendiente del lado Android
+## 6 · Pendiente de prueba en el teléfono
 
-La pantalla ya existe y compila. Falta probarla en un teléfono con una tienda
-real (el build no se puede ejecutar en este entorno). El panel
-`/panel/negocio/conexion/` sirve para comprobar, desde el navegador, que el
-dispositivo aparece y que el catálogo subió.
+La vista compila y el APK conserva package, firma, icono e IDs de recursos de
+la 0.9.63. Falta abrirla en el teléfono y probar con una tienda real:
+conectar, asegurar tablas, subir/bajar y editar un producto. El panel
+`/panel/negocio/conexion/` sirve para comprobar que el dispositivo aparece.
+
+Si algo falla al abrir, el registro queda en la app (Diagnóstico → Revisión) y
+en `Bitacora`; no se pierde nada porque la base local no se migra.

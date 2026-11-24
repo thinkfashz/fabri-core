@@ -503,7 +503,8 @@ const RAMAS_VISTA = {
   sql: () => { if (typeof hojaIniciar === "function") hojaIniciar(); },
   conexiones: () => { if (typeof conexionesIniciar === "function") conexionesIniciar(); },
   id: () => { if (typeof idIniciar === "function") idIniciar(); },
-  inicio: () => pintarInicio()
+  inicio: () => pintarInicio(),
+  tienda: () => { if (typeof tiendaIniciar === "function") tiendaIniciar(); }
 };
 
 function navegar(vista) {

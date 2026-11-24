@@ -38,7 +38,7 @@ CACHE_CARGO="${CACHE_CARGO:-/data/data/com.termux/files/home/.cargo}"
 
 B="$RAIZ/build"
 DIST="$RAIZ/dist"
-NOMBRE="FORGE-CORE-STOCK-0.9.63"
+NOMBRE="FORGE-CORE-STOCK-0.9.64"
 # Con firma de release el archivo se distingue para no confundir las versiones.
 if [ "$RELEASE" = "1" ]; then NOMBRE="$NOMBRE-release"; fi
 
@@ -69,6 +69,18 @@ rm -rf "$B"
 mkdir -p "$B/classes" "$B/dex" "$B/res" "$B/lib/arm64-v8a" "$DIST"
 
 # --- 1. Núcleo Rust ----------------------------------------------------------
+# Con FORGE_SALTAR_RUST=1 se reutilizan las bibliotecas del APK estable anterior.
+# Es el modo rápido para cambiar sólo la interfaz: el núcleo nativo ya está
+# probado y no hay razón para recompilarlo en cada ajuste de pantalla.
+if [ "${FORGE_SALTAR_RUST:-0}" = "1" ]; then
+  log "1/7 reutilizando el núcleo nativo del APK estable"
+  ANTERIOR="$RAIZ/dist/FORGE-CORE-STOCK-0.9.63.apk"
+  [ -f "$ANTERIOR" ] || fallo "no encuentro $ANTERIOR para reutilizar el núcleo"
+  mkdir -p "$B/lib/arm64-v8a"
+  unzip -o -j "$ANTERIOR" 'lib/arm64-v8a/*.so' -d "$B/lib/arm64-v8a" >/dev/null \
+    || fallo "no pude extraer las bibliotecas del APK anterior"
+  log "   runtime: $(find "$B/lib/arm64-v8a" -name '*.so' | wc -l) bibliotecas reutilizadas"
+else
 log "1/7 compilando el núcleo Rust (aarch64-linux-android)"
 cd "$RAIZ/src-tauri"
 CARGO_HOME="$CACHE_CARGO" \
@@ -103,6 +115,7 @@ clang --target=aarch64-linux-android24 -shared -fPIC \
   -L "$RUNTIME/arm64-v8a" -lllama \
   -o "$B/lib/arm64-v8a/libfabrick_llama.so"
 log "   runtime: $(find "$B/lib/arm64-v8a" -name '*.so' | wc -l) bibliotecas"
+fi
 
 # --- 2. Java -----------------------------------------------------------------
 log "2/7 compilando el contenedor Java"

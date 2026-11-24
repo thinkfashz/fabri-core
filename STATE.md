@@ -8,6 +8,60 @@
 
 Última actualización: 2026-11-24
 
+## Sesión 2026-11-24 · APK 0.9.64 sobre la estable (0.9.63)
+
+Pedido: la 1.2.0 no abría; conservar la app estable 0.9.63 con su logo, añadir
+las funciones nuevas sin reescribir nada, compilar rápido y poder actualizar
+encima.
+
+**Por qué la 1.2.0 no servía**
+
+- Era `cl.fabri.core.lite`: **otro package** distinto del de la estable
+  (`cl.fabrick.core`). Android la trata como una app nueva, no como
+  actualización; encima su arranque nunca se probó en el teléfono.
+- Se descartó y se borró de Descargas para no confundir. No se puede
+  diagnosticar el crash exacto sin el log del dispositivo.
+
+**Qué es la 0.9.63**
+
+- `cl.fabrick.core`, versionCode 78, contenedor Java + núcleo Rust que hospeda
+  `android/assets/www` en una WebView (`appassets.local`).
+- 4,4 MB, 7 bibliotecas nativas, misma firma de depuración.
+
+**0.9.64 (aditiva, sin tocar Java ni Rust)**
+
+- `android/AndroidManifest.xml`: versionCode **79**, versionName **0.9.64**.
+- Nueva vista **«Tienda y CRM»** en el menú lateral:
+  - conexión con identificador + clave, probar, estado de la nube
+    (publicada, plan, productos, dispositivos), **asegurar tablas**,
+    subir/bajar catálogo y desconectar;
+  - **Productos**: lee el catálogo publicado y edita nombre, precio y stock
+    con `productos_subir` + clave;
+  - **Clientes**: CRM desde `clientes_listar` (teléfono enmascarado);
+  - estado conectado/revisar y últimos fallos con su motivo.
+- Archivos: `android/assets/www/tienda.js` y `tienda.css`; integración en
+  `index.html` (menú, sección, script) y `app.js` (router).
+- No se toca la base local ni las pantallas existentes: se conservan los
+  2,07 GB de datos y el logo (mismos mipmaps).
+- `scripts/compilar.sh`: `NOMBRE` 0.9.64 y `FORGE_SALTAR_RUST=1` para reutilizar
+  las 7 bibliotecas del APK 0.9.63.
+
+**Compilación y verificación**
+
+- `FORGE_SALTAR_RUST=1 bash scripts/compilar.sh` → **1m 47s**, 4.442 KB.
+- Package `cl.fabrick.core`, versionCode 79, versionName 0.9.64, label
+  «FORGE CORE STOCK», icono `mipmap-anydpi-v26/ic_launcher.xml`.
+- Firma idéntica a la 0.9.63 (`959b85cc…`): **actualiza encima** y conserva
+  datos.
+- Los IDs de recursos coinciden con la 0.9.63 (`0x7f030000` ic_launcher,
+  `0x7f040000` app_name): el dex recompilado no queda desalineado.
+- Entregada en `/storage/emulated/0/Download/FORGE-CORE-STOCK.apk` y
+  `…-0.9.64.apk` (md5 `76c5910e8eb1a1cc14cfea2819d46ade`), y publicada en
+  `web/descargas/FORGE-CORE-STOCK.apk`.
+
+**Pendiente**: abrirla en el teléfono y probar la vista con una tienda real.
+Si algo falla, el registro queda en Diagnóstico → Revisión.
+
 ## Sesión 2026-11-24 · APK 1.2.0, SW reparado y entrega en Descargas
 
 Pedido: la APK es FORGE CORE STOCK (no «lite»), con versión de compilación;
