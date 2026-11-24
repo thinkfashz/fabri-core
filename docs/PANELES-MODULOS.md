@@ -891,6 +891,8 @@ N01–N04, N06, N07, N08, N14 y N16 **desplegados**. `local_mio` es la fuente de
 
 **Aceptación:** el dueño entra con su cuenta, ve ventas de 7 días, avanza un pedido, edita stock y ficha, gestiona horario/entrega, modera reseñas, activa/desactiva avisos en este navegador y exporta o borra la tienda con confirmación; nada de esto requiere la `clave` si hay sesión. Hoy: resumen, cola de pedidos, catálogo, inventario, ficha, horarios, reseñas, notificaciones y ajustes funcionan con datos reales; faltan ofertas, clientes, reportes, cupones, pagos, equipo, auditoría e integraciones.
 
+**Verificado el 2026-11-24:** ciclo completo con dos cuentas reales (dueña y compradora) por la interfaz: pedido de la compradora, entrega por N02 con código (`nuevo → visto → listo → entregado`), reseña 5★ en C12 y promedio 5,0 en N08. Datos temporales borrados al terminar; sin errores de consola.
+
 ### Fase 3 · Crecimiento (5–7 días)
 
 N05, N09–N12, cupones en checkout, reportes exportados y cliente recurrente. Las acciones `mis_pedidos`, `favoritos_*`, `direcciones_*` y `resenas_mias` ya están en la nube (fase 2).

@@ -6,7 +6,37 @@
 > `cl.fabrick.core`, crate `fabrick-core`, dominio `forge-core-stock.vercel.app`,
 > repo `thinkfashz/fabri-core`.
 
-Última actualización: 2026-11-20
+Última actualización: 2026-11-24
+
+## Sesión 2026-11-24 · Ciclo real pedido → entregado → reseña verificado
+
+Cierra el último pendiente de la fase 2 del Panel Negocio: probar el ciclo
+completo con cuentas reales, sin datos sembrados a mano.
+
+- **Preparación:** dos cuentas temporales (dueña y compradora), tienda con un
+  producto, y un pedido creado por la compradora con `pedido_crear` (queda
+  ligado a `cliente_id`, requisito de `resenas_mias`).
+- **Entrega por UI (N02, sesión dueña):** `nuevo → visto → listo → entregado`;
+  el paso a `entregado` abrió el `prompt()` de la clave de entrega y se
+  respondió el código real; `pedidos_listar` confirmó `estado = entregado`.
+- **Reseña por UI (C12, sesión compradora):** el pedido apareció como
+  pendiente desde `resenas_mias`, se eligieron 5★ y texto, y se publicó;
+  `resenas_mias` quedó con 1 reseña y 0 pendientes.
+- **Panel (N08, sesión dueña):** promedio público **5,0** con 1 visible,
+  distribución 5★ = 1, filtros y botón de moderación; 0 errores de consola en
+  las tres pantallas.
+- **Limpieza:** `local_borrar` (tienda, productos, pedidos y reseñas) y
+  `borrar` para ambas cuentas; `local_mio` respondió `SESION` al final.
+
+**Hallazgo técnico (pruebas por CDP):** `dispositivo()` en
+`web/panel/comun/sesion.js` sólo acepta ids de 16–64 chars `[A-Za-z0-9_-]`.
+Sembrar una etiqueta corta (p. ej. `cierrea01`) hace que el navegador genere
+otro id, la huella `huellaDispositivo()` no coincida y la API responda 401
+«esta sesión se abrió en otro dispositivo». Para probar por navegador hay que
+sembrar un id válido y re-loguear con ese mismo id; `fcore.nube` se guarda
+como texto JSON, `fcore.dispositivo` y `fcore.panel.negocio.tienda` en crudo.
+
+Sin cambios de código: sólo verificación. Repo limpio y pusheado.
 
 ## Sesión 2026-11-20 · Panel Negocio: N01–N04, N06, N07, N08, N14 y N16 desplegados
 
@@ -90,8 +120,8 @@ N15 Auditoría, N17 Integraciones — quedan `pronto` en el menú (sin página).
 - Sin sesión, la pantalla de acceso se muestra sin errores de consola.
 
 **Hecho**: N07, N08, N14 y N16 ya no están `pronto` en el menú.
-**Pendiente**: ciclo completo pedido → entregado → reseña con una cuenta real
-(pendiente de credenciales/stock entregado disponibles).
+**Pendiente**: nada de la fase 2; el ciclo real pedido → entregado → reseña se
+verificó el 2026-11-24 (ver la sesión de esa fecha).
 
 ## Sesión 2026-11-20 · Mapa con canvas y cuenta conectada a InsForge
 
