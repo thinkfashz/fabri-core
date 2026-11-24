@@ -22,6 +22,10 @@ const estado = {
   nube: null,
   nubeError: '',
   cargandoNube: false,
+  /* Tiendas que administra ESTA cuenta. Es el único puente entre la vista del
+     cliente y la del negocio: si está vacío, no se muestra nada del negocio. */
+  tiendas: [],
+  leyendoTiendas: false,
 };
 
 function aviso(html, tipo) {
@@ -174,6 +178,26 @@ function bloqueNube() {
   '</section>';
 }
 
+/* Bloque «Tu negocio»: aparece SOLO si esta cuenta administra una tienda. Es
+   un enlace de salida hacia /panel/negocio/, no un panel dentro del Cliente:
+   las dos vistas siguen separadas y ninguna hereda datos de la otra. */
+function bloqueNegocio() {
+  if (!estado.tiendas.length) return '';
+  const nombres = estado.tiendas.map((t) => t.nombre).filter(Boolean);
+  const lista = nombres.length === 1
+    ? esc(nombres[0])
+    : esc(nombres.slice(0, 2).join(', ')) + (nombres.length > 2 ? ' y ' + (nombres.length - 2) + ' más' : '');
+  return '<section class="bloque-cuenta" aria-labelledby="negocioTitulo">' +
+    '<div class="bloque-cuenta__cabeza"><h2 id="negocioTitulo">Tu negocio</h2>' +
+      '<span class="pill pill--ok">' + estado.tiendas.length + '</span></div>' +
+    '<div class="bloque-cuenta__cuerpo">' +
+      '<p class="nube-nota">Esta cuenta administra ' + lista + '. El panel del negocio es aparte: ' +
+        'pedidos, catálogo, stock, horarios y ajustes.</p>' +
+      '<a class="ds-btn ds-btn--secondary ds-btn--sm" href="/panel/negocio/resumen/">Ir al panel del negocio</a>' +
+    '</div>' +
+  '</section>';
+}
+
 function pantallaCuenta() {
   const d = leer() || {};
   const u = d.usuario || {};
@@ -195,6 +219,8 @@ function pantallaCuenta() {
       '</section>' +
 
       bloqueNube() +
+
+      bloqueNegocio() +
 
       '<section class="bloque-cuenta" aria-labelledby="seguridadTitulo">' +
         '<div class="bloque-cuenta__cabeza"><h2 id="seguridadTitulo">Seguridad</h2>' +
@@ -263,6 +289,17 @@ async function cargarNube() {
   if (!activa() || estado.cargandoNube || estado.nube || estado.nubeError) return;
   estado.cargandoNube = true;
   const opts = { token: token(), dispositivo: dispositivo() };
+  /* `local_mio` sólo dice si esta cuenta tiene tienda; nunca se pinta nada de
+     otra cuenta ni datos del dueño en esta pantalla. */
+  estado.leyendoTiendas = true;
+  mercadoPost('local_mio', {}, opts).then((m) => {
+    estado.tiendas = Array.isArray(m && m.tiendas) ? m.tiendas : [];
+  }).catch(() => {
+    estado.tiendas = [];
+  }).finally(() => {
+    estado.leyendoTiendas = false;
+    if (activa() && estado.nube) pintar();
+  });
   try {
     const [p, f, d, r] = await Promise.all([
       mercadoPost('mis_pedidos', {}, opts),

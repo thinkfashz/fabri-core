@@ -920,6 +920,53 @@ N13, N15, N17, `perfil_actualizar`, `pass_cambiar`, auditoría e integraciones.
 
 ---
 
+## 7-bis. Separación Cliente ↔ Negocio
+
+Las dos superficies **comparten sesión y backend, pero no se mezclan**. Regla:
+un comprador nunca ve administración, y un dueño no hereda pantallas de compra
+dentro de su panel de trabajo.
+
+| Regla | Dónde se cumple |
+|---|---|
+| El menú del Cliente no tiene rutas del Negocio | `panel/comun/nav-cliente.js` |
+| El menú del Negocio no tiene módulos de compra | `panel/comun/nav-negocio.js` |
+| El texto del sidebar depende del panel («comprar y seguir tus pedidos» vs «administrar tu negocio») | `panel/comun/shell.js` |
+| El diagnóstico técnico sólo aparece en el panel del Negocio | `panel/comun/shell.js` (`pie` por contexto) |
+| Ningún panel se indexa | `noindex,nofollow` en los 26 HTML de `panel/` y en `/app/` |
+| La app no muestra «Negocio» a un comprador | `app/negocio-acceso.js` + botón `hidden` |
+| `#negocio` sin permiso se corrige a `#panel` | `app/negocio-acceso.js` (`hashchange`) |
+| Sin tienda, el panel del Negocio muestra el estado honesto, no datos | `panel/comun/negocio.js` (`sinTiendaHtml`) |
+| El puente Cliente → Negocio sólo existe si la cuenta administra una tienda | `panel/cliente/cuenta/cuenta.js` (`bloqueNegocio`) |
+| `local_mio` filtra por `dueno_id` de la cuenta | `api/mercado.ts` |
+| La ficha pública (`aTienda`) no expone dueño, plan, clave ni activo | `api/mercado.ts` |
+| `pedido_seguir` no devuelve token, id interno, teléfono completo ni `cliente_id` | `api/mercado.ts` |
+| Las reseñas públicas no incluyen `usuario_id` ni correo | `api/mercado.ts` |
+
+**Cómo se comunican (sin mezclarse):**
+
+1. **Sesión única** (`fcore.nube` + `fcore.dispositivo`): entrar en cualquiera de
+   los tres sirve para todos. El pedido, la reseña y la tienda son los mismos.
+2. **Cliente → Negocio:** en *Cuenta* aparece el bloque «Tu negocio» **sólo** si
+   `local_mio` devuelve tiendas propias; es un enlace de salida a
+   `/panel/negocio/resumen/`, no un panel embebido.
+3. **Negocio → Cliente:** la ficha pública (`/panel/cliente/tienda/?id=`) y los
+   enlaces de compartir. No se lleva sesión de administración ni datos internos.
+4. **Dentro de `/app/`:** el botón «Negocio» nace oculto y lo revela
+   `negocio-acceso.js` sólo si la cuenta administra una tienda o es admin. Si la
+   nube no responde, queda oculto.
+
+**Verificado el 2026-11-24** con cuenta dueña y cuenta compradora reales:
+sin sesión el botón está oculto y `#negocio` vuelve a `#panel`; con sesión de
+comprador el botón sigue oculto, su Cuenta no muestra el puente y el panel del
+Negocio le dice «Tu cuenta no tiene una tienda publicada» sin pedidos; con la
+cuenta dueña aparece el botón, el puente en Cuenta y su tienda en el panel, con
+`local_mio` devolviendo sólo `tienda-sep`. Datos de prueba borrados al terminar.
+
+**Deuda detectada (no de separación):** `web/app/sw.js` lanza
+`Failed to execute 'clone' on 'Response': Response body is already used` en cada
+navegación. Conviene arreglarlo en una sesión aparte, con subida de versión del
+service worker.
+
 ## 8. Checklist de aceptación por módulo
 
 Cada página se considera terminada solo si cumple:

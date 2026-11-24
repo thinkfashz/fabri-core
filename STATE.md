@@ -8,6 +8,60 @@
 
 Última actualización: 2026-11-24
 
+## Sesión 2026-11-24 · Separación estricta Cliente ↔ Negocio
+
+Pedido: dejar separada la vista del cliente de la del negocio, que se comuniquen
+sin mezclarse, y que no se muestre administración ni datos del dueño en las
+pantallas de los usuarios.
+
+**Lo que estaba mal**
+
+- Los 26 HTML del panel no tenían `noindex`: se podían indexar.
+- En `/app/` el botón «Negocio» (el panel del dueño embebido) estaba siempre
+  visible, incluso para un comprador o un visitante.
+- El sidebar del panel Cliente decía «Entrar para administrar tu negocio» a
+  quien entraba a comprar.
+- El pie del sidebar ofrecía «Estado y diagnóstico» también en la vista del
+  comprador.
+- No existía un puente explícito de Cliente a Negocio: un dueño no tenía cómo
+  llegar a su panel desde su cuenta.
+
+**Lo que se hizo**
+
+- `noindex,nofollow` en los 26 HTML de `panel/` y en `/app/`.
+- `web/app/negocio-acceso.js` (nuevo): el botón «Negocio» nace `hidden`; se
+  revela sólo si `local_mio` devuelve tiendas propias o rol admin. Sin sesión,
+  con la nube caída o sin tienda queda oculto; `#negocio` se corrige a `#panel`
+  (incluye `hashchange`), se protege el clic y reacciona a `fcore:sesion`.
+- `panel/comun/shell.js`: el texto del acceso y el pie dependen del panel. El
+  comprador ve «comprar y seguir tus pedidos» y sólo «Abrir la app»; el negocio
+  conserva diagnóstico y app de compra.
+- `panel/cliente/cuenta/cuenta.js`: bloque «Tu negocio» que aparece **sólo** si
+  `local_mio` devuelve tiendas; es un enlace de salida al panel del negocio, no
+  un panel embebido. Una cuenta compradora no ve nada de negocio.
+
+**Sin cambios de API**: la separación ya era correcta en el backend
+(`aTienda` sin dueño/plan/clave, `pedido_seguir` sin token/teléfono/id,
+`resenas_listar` sin `usuario_id`, `local_mio` filtrado por `dueno_id`). Se fijó
+con tests para que no se rompa.
+
+**Verificación real (cuentas dueña y compradora temporales, borradas al final)**
+
+- Sin sesión: botón oculto; `/app/#negocio` → `#panel` y `s-negocio` no visible.
+- Compradora: botón oculto; su Cuenta sin puente ni enlaces a `/panel/negocio/`;
+  `/panel/negocio/pedidos/` muestra «Tu cuenta no tiene una tienda publicada»,
+  0 pedidos y ningún dato sensible.
+- Dueña: botón visible; Cuenta con «Tu negocio» y enlace a
+  `/panel/negocio/resumen/`; el panel muestra su tienda.
+- API: `local_mio` devuelve sólo `tienda-sep` a la dueña, 0 a la compradora y
+  401 `SIN_CUENTA` sin token.
+- `tests/web/separacion.js`: 43 comprobaciones. 24/24 suites web en verde.
+- Desplegado en `forge-core-stock` (web). Sin cambios de API.
+
+**Deuda anotada (no de separación):** `web/app/sw.js` lanza
+`Failed to execute 'clone' on 'Response': Response body is already used` en cada
+navegación; arreglarlo aparte, con subida de versión del service worker.
+
 ## Sesión 2026-11-24 · Verificación de envío con código único y recorrido 3D
 
 Pedido: añadir al ciclo una página de verificación con un código único por

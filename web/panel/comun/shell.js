@@ -77,10 +77,14 @@ function pintarNav(contenedor, nav, panel) {
 
 function pintarCuenta() {
   const slots = document.querySelectorAll('[data-cuenta-slot]');
-  // La cuenta es la misma en los dos paneles: C13 es donde se administra.
+  /* La cuenta es compartida, pero el panel NO: en el Cliente se compra y se
+     siguen pedidos; en el Negocio se administra una tienda. El texto no debe
+     prometer administración a un comprador. */
+  const negocio = document.body.dataset.panel === 'negocio';
   const destino = '/panel/cliente/cuenta/';
   const d = leerSesion();
   const u = d && d.usuario;
+  const invita = negocio ? 'para administrar tu negocio' : 'para comprar y seguir tus pedidos';
   const html = u
     ? '<a class="sidebar__cuenta" href="' + destino + '">' +
       '<span class="cuenta-chip__ini">' + iniciales(u.nombre || u.email) + '</span>' +
@@ -88,7 +92,7 @@ function pintarCuenta() {
       '<small>' + (u.email || '') + '</small></span></a>'
     : '<a class="sidebar__cuenta" href="' + destino + '">' +
       '<span class="cuenta-chip__ini">?</span>' +
-      '<span class="crece"><b>Entrar</b><small>para administrar tu negocio</small></span></a>';
+      '<span class="crece"><b>Entrar</b><small>' + invita + '</small></span></a>';
   slots.forEach((s) => { s.innerHTML = html; });
 
   const chip = document.querySelector('[data-cuenta-chip]');
@@ -164,6 +168,12 @@ async function iniciar() {
     : (await import('./nav-cliente.js')).NAV;
 
   const inicio = panel === 'negocio' ? '/panel/negocio/resumen/' : '/panel/cliente/inicio/';
+  /* El pie también es del contexto: el diagnóstico técnico y la app de trabajo
+     son del negocio; al comprador no se le ofrecen herramientas internas. */
+  const pie = panel === 'negocio'
+    ? '<a href="/panel/doctor/">Estado y diagnóstico</a>' +
+      '<a href="/app/">Abrir la app de compra</a>'
+    : '<a href="/app/">Abrir la app</a>';
   sidebar.innerHTML =
     '<a class="marca" href="' + inicio + '">' +
       '<img src="/logo-f.svg" alt="">' +
@@ -172,8 +182,7 @@ async function iniciar() {
     '<nav class="nav"></nav>' +
     '<div class="sidebar__pie">' +
       '<div data-cuenta-slot></div>' +
-      '<a href="/panel/doctor/">Estado y diagnóstico</a>' +
-      '<a href="/app/">Abrir la app de compra</a>' +
+      pie +
       '<span>Precios en CLP · Chile</span>' +
     '</div>';
 
