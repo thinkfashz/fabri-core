@@ -33,15 +33,16 @@ function pintarUbicacion() {
 
 function logo(tienda, clase) {
   const c = clase ? ' ' + clase : '';
-  const nombre = tienda.nombre || tienda.marca || '?';
-  if (tienda.logo) {
-    return '<span class="logo-tienda' + c + '"><img src="' + esc(tienda.logo) + '" alt="" loading="lazy"></span>';
+  const t = tienda || {};
+  const nombre = t.nombre || t.marca || '?';
+  if (t.logo) {
+    return '<span class="logo-tienda' + c + '"><img src="' + esc(t.logo) + '" alt="" loading="lazy"></span>';
   }
   return '<span class="logo-tienda' + c + '" aria-hidden="true">' + esc(iniciales(nombre)) + '</span>';
 }
 
 function tarjetaTienda(item) {
-  const t = item.tienda;
+  const t = (item && item.tienda) || {};
   const abierta = t.abierto !== false;
   const dist = item.dist;
   return '<a class="tienda' + (abierta ? '' : ' tienda--cerrada') + '" href="/panel/cliente/tienda/?id=' +

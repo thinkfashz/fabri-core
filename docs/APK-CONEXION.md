@@ -28,7 +28,7 @@ La aceptación se guarda con versión (`2026-11-24`) y fecha. Se puede releer de
 Integración → «Aviso de datos y responsabilidad». La versión web está en
 `/privacidad.html` y `/terminos.html`.
 
-## 3 · Integración rediseñada (0.9.66)
+## 3 · Integración rediseñada (0.9.68)
 
 Interfaz nueva, móvil primero, con cards y una miniatura animada del flujo:
 
@@ -48,7 +48,7 @@ Los estados se guardan en `fcore.int`; no se muestra «conectado» sin prueba.
 
 ## 4 · Vista «Tienda y CRM» en el menú lateral
 
-La 0.9.66 no cambia las pantallas existentes: añade **una vista** al menú
+La 0.9.68 no cambia las pantallas existentes: añade **una vista** al menú
 lateral (`data-vista="tienda"`), con tres pestañas internas.
 
 - **Conexión:** identificador + clave, probar, estado de la nube (publicada,
@@ -64,6 +64,24 @@ reutilizaron las 7 bibliotecas nativas de la 0.9.63.
 
 Archivos: `android/assets/www/tienda.js`, `tienda.css` y tres líneas de
 integración en `index.html` (menú, sección, script) y `app.js` (router).
+
+## 4-ter · Sincronización del catálogo y fotos (0.9.68)
+
+- **Base de datos → Sincronizar Nube** ahora hace dos cosas: sube al
+  inventario (`inv_productos`) y **publica en el catálogo de la tienda**
+  (`mercado_productos`) con el ID y la clave. Antes solo subía al inventario,
+  por eso la tienda seguía vacía. El mensaje dice cuántos fueron a cada uno.
+- **Catálogo → ficha del producto → «Editar producto»**: nombre, precio, stock,
+  proveedor, descripción y hasta **5 fotos** desde la galería. Al guardar se
+  actualiza la base local y se sincroniza con la nube; la tienda cambia al
+  instante.
+- Las fotos se achican en el equipo (900 px, JPEG 0.72). Si Cloudinary está
+  configurado, se suben allí y se guardan sus URL; si no, se guardan como data
+  URL y el backend las publica por `imagen_ver`.
+- El catálogo de la nube acepta `imagenes` (hasta 5) y usa la URL directa
+  cuando la foto vive en Cloudinary.
+- **Integración → Cloudinary**: cloud name + upload preset unsigned, guardar,
+  probar subida y quitar. La app usa esa configuración al editar productos.
 
 ## 4-bis · Base de datos en la app
 
@@ -107,7 +125,7 @@ El build lite no levanta daemon ni resuelve dependencias. En este equipo tarda
 
 ```sh
 FORGE_SALTAR_RUST=1 bash scripts/compilar.sh
-# APK: dist/FORGE-CORE-STOCK-0.9.66.apk  (~1m 47s, firmada)
+# APK: dist/FORGE-CORE-STOCK-0.9.68.apk  (~1m 47s, firmada)
 ```
 
 `FORGE_SALTAR_RUST=1` reutiliza las bibliotecas nativas del APK 0.9.63 (mismas,
@@ -136,7 +154,7 @@ $ANDROID_SDK_ROOT/build-tools/34.0.0/apksigner verify --print-certs out/forge-co
 ## 6 · Entrega e instalación encima de la 0.9.63
 
 - `/storage/emulated/0/Download/FORGE-CORE-STOCK.apk` (nombre estable)
-- `/storage/emulated/0/Download/FORGE-CORE-STOCK-0.9.66.apk`
+- `/storage/emulated/0/Download/FORGE-CORE-STOCK-0.9.68.apk`
 - `https://forge-core-stock.vercel.app/descargas/FORGE-CORE-STOCK.apk`
 
 Misma firma de depuración (`SHA-256 959b85cc…`) y mismo package

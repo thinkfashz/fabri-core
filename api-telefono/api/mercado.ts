@@ -532,6 +532,9 @@ async function asegurar(pool: any) {
   // cuando cambia la imagen y así el navegador no muestra la vieja.
   await pool.query(`ALTER TABLE ${T_PRODUCTOS} ADD COLUMN IF NOT EXISTS imagen TEXT NOT NULL DEFAULT ''`);
   await pool.query(`ALTER TABLE ${T_PRODUCTOS} ADD COLUMN IF NOT EXISTS imagen_hash TEXT NOT NULL DEFAULT ''`);
+  /* Galería de hasta cinco fotos por producto. `imagen` sigue siendo la
+     principal para no romper la ficha ni el carrito. */
+  await pool.query(`ALTER TABLE ${T_PRODUCTOS} ADD COLUMN IF NOT EXISTS imagenes JSONB NOT NULL DEFAULT '[]'::jsonb`);
   // Código de barras real (EAN-8/UPC-A/EAN-13/GTIN-14 o Code 128/39). Es el
   // puente entre una marca y otra: el comprador escanea y ve quién lo tiene.
   await pool.query(`ALTER TABLE ${T_PRODUCTOS} ADD COLUMN IF NOT EXISTS codigo TEXT NOT NULL DEFAULT ''`);
@@ -721,7 +724,7 @@ async function asegurar(pool: any) {
 const camposProducto = (k = '') => `${k}local_id,${k}sku,${k}nombre,${k}precio::float8 AS precio,${k}stock,${k}categoria,${k}unidad,
   ${k}descuento::int AS descuento, ${dctoVigente(k)}::int AS descuento_vigente,
   ${precioEfectivo(k)}::float8 AS precio_efectivo, ${k}oferta_hasta::float8 AS oferta_hasta,
-  ${k}codigo,${k}imagen_hash`;
+  ${k}codigo,${k}imagen_hash,${k}imagen,${k}imagenes`;
 
 const CAMPOS_PRODUCTO = camposProducto();
 
@@ -729,12 +732,15 @@ const CAMPOS_PRODUCTO = camposProducto();
 function productoDeFila(f: any) {
   /* La foto no viaja como data URL en el catálogo: sería un JSON enorme. Se
      publica una URL corta y versionada; `imagen_ver` devuelve los bytes. */
-  const imagen = f.imagen_hash
+  /* Si la foto vive en Cloudinary (o cualquier HTTPS), se usa su URL directa.
+     Si es una data URL, se publica por `imagen_ver` para no inflar el JSON. */
+  const directa = /^https:\/\//.test(String(f.imagen || '')) ? String(f.imagen) : '';
+  const imagen = directa || (f.imagen_hash
     ? API_PUBLICA + '/api/mercado?accion=imagen_ver&local_id=' +
       encodeURIComponent(String(f.local_id || '')) + '&sku=' +
       encodeURIComponent(String(f.sku || '')) + '&v=' +
       encodeURIComponent(String(f.imagen_hash))
-    : '';
+    : '');
   return {
     sku: f.sku,
     nombre: f.nombre,
@@ -748,6 +754,9 @@ function productoDeFila(f: any) {
     unidad: f.unidad || '',
     codigo: f.codigo || '',
     imagen,
+    /* Hasta cinco fotos: la principal sigue en `imagen` (compatibilidad) y la
+       galería completa viaja acá. Son URLs o data URLs ya achicadas. */
+    imagenes: Array.isArray(f.imagenes) ? f.imagenes : [],
   };
 }
 
@@ -2307,7 +2316,11 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
            lote no trae `imagen`, se conserva la que ya estaba: importar stock
            no debe borrar las fotos. */
         const tocaImagen = 'imagen' in p;
-        const foto = tocaImagen ? normalizarImagen(p.imagen) : { ok: false, valor: '' };
+        const foto = tocaImagen
+          ? (/^https:\/\//.test(String(p.imagen || '').trim())
+              ? { ok: true, valor: String(p.imagen).trim() }
+              : normalizarImagen(p.imagen))
+          : { ok: false, valor: '' };
         const imagen = foto.ok ? foto.valor : '';
         const imagenHash = imagen
           ? createHash('sha256').update(imagen).digest('hex').slice(0, 12)
@@ -2321,10 +2334,22 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         if (tocaCodigo && String(p.codigo == null ? '' : p.codigo).trim() && !cod.ok) {
           codigosInvalidos.push({ sku, codigo: texto(p.codigo, 60).trim() });
         }
+        /* Galería: hasta 5 fotos, cada una URL https o data URL de imagen ya
+           comprimida. Si el lote no la trae, se conserva la que estaba. */
+        const tocaImagenes = Array.isArray(p.imagenes);
+        let galeria: string[] = [];
+        if (tocaImagenes) {
+          galeria = (p.imagenes as unknown[])
+            .filter((x) => typeof x === 'string')
+            .map((x) => String(x).trim())
+            .filter((x) => /^https:\/\//.test(x) || /^data:image\/(jpeg|png|webp);base64,/.test(x))
+            .filter((x) => x.length <= 400000)
+            .slice(0, 5);
+        }
         await cliente.query(
           `INSERT INTO ${T_PRODUCTOS}
-             (local_id,sku,nombre,precio,stock,categoria,unidad,actualizado,descuento,oferta_hasta,imagen,imagen_hash,codigo)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+             (local_id,sku,nombre,precio,stock,categoria,unidad,actualizado,descuento,oferta_hasta,imagen,imagen_hash,codigo,imagenes)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$17::jsonb)
            ON CONFLICT (local_id,sku) DO UPDATE SET
              nombre = EXCLUDED.nombre, precio = EXCLUDED.precio, stock = EXCLUDED.stock,
              categoria = EXCLUDED.categoria, unidad = EXCLUDED.unidad,
@@ -2338,11 +2363,14 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
                                 ELSE ${T_PRODUCTOS}.imagen_hash END,
              codigo = CASE WHEN $16::boolean THEN EXCLUDED.codigo
                            ELSE ${T_PRODUCTOS}.codigo END,
+             imagenes = CASE WHEN $18::boolean THEN EXCLUDED.imagenes
+                             ELSE ${T_PRODUCTOS}.imagenes END,
              actualizado = EXCLUDED.actualizado, nube_ts = now()`,
           [localId, sku, nombre, precio,
             p.stock === null || p.stock === undefined || p.stock === '' ? null : entero(p.stock),
             texto(p.categoria, 40).trim(), texto(p.unidad, 30).trim(), ahora, dcto, hasta,
-            imagen, imagenHash, codigo, tocaOferta, foto.ok, cod.ok]
+            imagen, imagenHash, codigo, tocaOferta, foto.ok, cod.ok,
+            JSON.stringify(galeria), tocaImagenes]
         );
         subidos++;
       }

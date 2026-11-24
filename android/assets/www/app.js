@@ -7134,6 +7134,13 @@ function integracionIniciar() {
   const prov = document.getElementById("intProveedor");
   const resUrl = document.getElementById("intResUrl");
   const resTok = document.getElementById("intResToken");
+  let cloud = null;
+  try { cloud = JSON.parse(localStorage.getItem("fcore.cloudinary") || "null"); } catch (e) { cloud = null; }
+  const cn = document.getElementById("intCloudName");
+  const cp = document.getElementById("intCloudPreset");
+  if (cn && cloud) cn.value = cloud.cloud || "";
+  if (cp && cloud) cp.value = cloud.preset || "";
+  intEstado("intCloudEstado", Boolean(cloud && cloud.cloud && cloud.preset), cloud && cloud.cloud ? "configurado" : "sin probar");
 
   if (url && !url.value.trim()) url.value = intLeerTexto("fabrick.nube.url", "https://fabri-api.vercel.app");
   if (local) local.value = intLeerTexto("fabrick.nube.local", "");
@@ -7518,6 +7525,51 @@ async function integracionIAProbar() {
   }
 }
 
+/* ── Cloudinary: guardar y probar ──────────────────────────────────────── */
+
+function cloudGuardar() {
+  const cloud = (document.getElementById("intCloudName").value || "").trim();
+  const preset = (document.getElementById("intCloudPreset").value || "").trim();
+  if (!/^[a-z0-9_-]{2,}$/i.test(cloud) || !preset) {
+    intMsg("intCloudMsg", "Cloud name y upload preset son obligatorios.", "mal");
+    return;
+  }
+  try { localStorage.setItem("fcore.cloudinary", JSON.stringify({ cloud, preset })); }
+  catch (e) { /* privado */ }
+  intEstado("intCloudEstado", true, "configurado");
+  intMsg("intCloudMsg", "Guardado. Pulsa «Probar subida» para confirmar el preset.", "ok");
+}
+
+async function cloudProbar() {
+  const cloud = (document.getElementById("intCloudName").value || "").trim();
+  const preset = (document.getElementById("intCloudPreset").value || "").trim();
+  if (!cloud || !preset) { intMsg("intCloudMsg", "Faltan cloud name y preset.", "mal"); return; }
+  try { localStorage.setItem("fcore.cloudinary", JSON.stringify({ cloud, preset })); }
+  catch (e) { /* privado */ }
+  intMsg("intCloudMsg", "Subiendo una imagen de prueba…", "");
+  const pixel = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
+  try {
+    if (typeof catCloudSubir !== "function") throw new Error("el módulo de imágenes no está cargado");
+    const url = await catCloudSubir(pixel);
+    if (!url) throw new Error("Cloudinary no devolvió URL");
+    intEstado("intCloudEstado", true, "sube imágenes");
+    intMsg("intCloudMsg", "Subida OK: " + url.slice(0, 60) + "…", "ok");
+  } catch (e) {
+    intEstado("intCloudEstado", false, "rechazó");
+    intMsg("intCloudMsg", "Error: " + (e && e.message ? e.message : "no se pudo subir"), "mal");
+  }
+}
+
+function cloudQuitar() {
+  try { localStorage.removeItem("fcore.cloudinary"); } catch (e) { /* privado */ }
+  const cn = document.getElementById("intCloudName");
+  const cp = document.getElementById("intCloudPreset");
+  if (cn) cn.value = "";
+  if (cp) cp.value = "";
+  intEstado("intCloudEstado", false, "sin probar");
+  intMsg("intCloudMsg", "Cloudinary desactivado: las fotos se guardan en el equipo y en la nube como data URL.", "");
+}
+
 /* Enganches del DOM (una vez) */
 (function engancharIntegracion() {
   const listo = () => {
@@ -7545,6 +7597,12 @@ async function integracionIAProbar() {
     };
     const x = document.getElementById("intConCancelar");
     if (x) x.onclick = () => { document.getElementById("intConectorForm").hidden = true; };
+    const cg = document.getElementById("intCloudGuardar");
+    if (cg) cg.onclick = cloudGuardar;
+    const cpr = document.getElementById("intCloudProbar");
+    if (cpr) cpr.onclick = cloudProbar;
+    const cq = document.getElementById("intCloudQuitar");
+    if (cq) cq.onclick = cloudQuitar;
   };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", listo);
   else listo();

@@ -1014,13 +1014,54 @@ async function hojaSincronizarNube() {
       throw new Error(String(salida.error || "la nube rechazó la subida"));
     }
 
-    progreso("Confirmando integridad de la base…", 90);
+    progreso("Confirmando integridad de la base…", 85);
     if (pendientes.length) {
       const codigos = pendientes.map((p) => p.codigo);
       await invApiTarde("sync_marcar", { codigos: codigos }, { maxMs: 10000 });
     }
+
+    /* El inventario y el catálogo de la tienda son dos tablas distintas.
+       Subir sólo a `inv_productos` deja la tienda sin productos: aquí se
+       publica también en `mercado_productos`, que es lo que ve el comprador. */
+    progreso("Publicando en el catálogo de la tienda…", 90);
+    if (!local || !clave) {
+      throw new Error("conecta la tienda en Integración (ID y clave) para publicar el catálogo");
+    }
+    const todos = await invApiTarde("listar", { limite: 500 }, { maxMs: 20000 });
+    const lista = (todos.ok && todos.data && Array.isArray(todos.data.productos)) ? todos.data.productos : [];
+    const paraTienda = lista
+      .map((p) => ({
+        sku: p.codigo || p.sku || "",
+        nombre: p.nombre || "",
+        precio: Number(p.precio) || 0,
+        stock: p.stock == null ? null : Number(p.stock),
+        categoria: p.categoria || "",
+        unidad: p.unidad || "unidad",
+        imagen: p.imagen || (p.ficha && p.ficha.imagen) || "",
+        imagenes: (p.ficha && Array.isArray(p.ficha.imagenes)) ? p.ficha.imagenes : [],
+      }))
+      .filter((p) => p.sku && p.nombre && p.precio > 0);
+    let publicados = 0;
+    if (paraTienda.length) {
+      const rm = await fetch(base.replace(/\/api\/inventario$/, "") + "/api/mercado", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          accion: "productos_subir", local_id: local, clave: clave, productos: paraTienda,
+        }),
+      });
+      const dm = await rm.json().catch(() => ({}));
+      if (!rm.ok || dm.ok === false) {
+        throw new Error("el catálogo rechazó la publicación: " + (dm.error || ("HTTP " + rm.status)));
+      }
+      publicados = Number(dm.subidos) || paraTienda.length;
+    }
+
     hojaCargarTablas();
-    return { ok: true, mensaje: `${pendientes.length} productos sincronizados con Postgres en la nube.` };
+    return {
+      ok: true,
+      mensaje: `${pendientes.length} al inventario y ${publicados} al catálogo de la tienda.`,
+    };
   });
 }
 

@@ -1472,3 +1472,45 @@
 @media (prefers-reduced-motion: reduce) {
   .cat-banner, .cat-lista .cat-card { animation: none; }
 }
+
+/* ── edición de producto desde la ficha ─────────────────────────────────── */
+.cat-detalle-acciones { margin: 12px 0; display: grid; gap: 10px; }
+.cat-editor {
+  display: grid;
+  gap: 10px;
+  background: #0b0b0b;
+  border: 1px solid #222;
+  border-radius: 14px;
+  padding: 12px;
+}
+.cat-editor h3 { margin: 0; font-size: 14px; color: #fff; }
+.cat-editor label { display: grid; gap: 4px; font-size: 10.5px; letter-spacing: .05em; text-transform: uppercase; color: #8a8a8a; }
+.cat-editor input, .cat-editor textarea {
+  width: 100%; box-sizing: border-box;
+  background: #111; border: 1px solid #262626; border-radius: 10px;
+  color: #fff; padding: 9px 10px; font: inherit; font-size: 14px;
+}
+.cat-editor__dos { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.cat-editor__fila { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* Galería de hasta cinco fotos en la ficha */
+.cat-galeria {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.cat-galeria::-webkit-scrollbar { display: none; }
+.cat-galeria__foto {
+  flex: 0 0 auto;
+  width: 54px;
+  height: 54px;
+  padding: 0;
+  border: 1px solid #2a2a2a;
+  border-radius: 9px;
+  overflow: hidden;
+  background: #111;
+  cursor: pointer;
+}
+.cat-galeria__foto img { width: 100%; height: 100%; object-fit: cover; display: block; }

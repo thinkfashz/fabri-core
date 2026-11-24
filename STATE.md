@@ -8,6 +8,52 @@
 
 Última actualización: 2026-11-24
 
+## Sesión 2026-11-24 · APK 0.9.68: sync al catálogo, edición con fotos y Cloudinary
+
+Pedido: reparar lo que reporta el doctor, hacer que la sincronización de la base
+APK publique en el catálogo de la tienda, editar productos desde el catálogo y
+subir hasta 5 fotos por producto, con Cloudinary integrado.
+
+**Doctor (reparado)**
+
+- `inicio.js`: `logo()` y `tarjetaTienda()` se blindan si la tienda viene vacía
+  (el error apuntaba a `inicio.js:42`).
+- `negocio.js`: `arrancar()` corta a los 12 s con un error y «Reintentar» en vez
+  de dejar tres esqueletos para siempre en `/panel/negocio/conexion`.
+- `api.js`: un 401/403 ya no se reporta como caída de API (eran las pruebas de
+  clave las que ensuciaban el informe).
+- Verificado: `GET /api/mercado?accion=locales` responde 200 y `asegurar` 200;
+  el 404/503 del informe no se reproduce.
+
+**Sincronización real al catálogo**
+
+- `hojaSincronizarNube` subía solo a `inv_productos`. Ahora, tras el inventario,
+  lee todos los productos locales y los publica en `mercado_productos` con
+  `productos_subir` + ID + clave, y el mensaje informa ambos conteos.
+
+**Edición y fotos en la APK**
+
+- Ficha del catálogo → «Editar producto»: nombre, precio, stock, proveedor,
+  descripción y hasta 5 fotos desde la galería.
+- Las fotos se comprimen en el equipo (900 px, JPEG 0.72); se guardan en local y
+  se sincronizan con la nube. Galería de miniaturas en la ficha.
+- Backend: `mercado_productos.imagenes` (JSONB, hasta 5) y `imagen` acepta URL
+  https (Cloudinary) además de data URL; `productoDeFila` devuelve la galería y
+  la URL directa.
+
+**Cloudinary**
+
+- Card en Integración: cloud name + upload preset unsigned, guardar, probar
+  subida y quitar. Al editar un producto, las fotos se suben allí y la tienda
+  usa esas URL.
+
+**Verificación**
+
+- Prueba real: producto con `imagen` y `imagenes` de Cloudinary → `local_ver`
+  devuelve la URL directa y las dos fotos.
+- APK 0.9.68 (versionCode 83), package y firma intactos; 26/26 suites.
+- Datos de prueba borrados.
+
 ## Sesión 2026-11-24 · APK 0.9.66: vínculo real y flujo Matrix
 
 Pedido: ver el flujo de trabajo en la app y en la nube, mejorar por completo la

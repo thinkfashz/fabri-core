@@ -218,7 +218,12 @@ export async function arrancar(opciones) {
   caja.innerHTML = cargandoHtml();
   let datos;
   try {
-    datos = await misTiendas();
+    /* Si la nube tarda, no se dejan tres esqueletos para siempre: a los 12 s
+       se muestra un error con «Reintentar» y el dueño sabe qué pasó. */
+    datos = await Promise.race([
+      misTiendas(),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('la nube tardó demasiado')), 12000)),
+    ]);
   } catch (fallo) {
     if (fallo && fallo.status === 401) {
       enAcceso = true;

@@ -1624,7 +1624,24 @@ npx -y omniroute@latest
       </div>
 
       <div class="int-card">
-        <div class="int-card__cab"><h3><span class="int-num">5</span>Respaldo externo</h3>
+        <div class="int-card__cab"><h3><span class="int-num">5</span>Cloudinary · imágenes</h3>
+          <span class="int-estado" id="intCloudEstado" data-ok="no">sin probar</span></div>
+        <p class="int-nota">Guarda el <b>cloud name</b> y un <b>upload preset unsigned</b>. Al editar un producto,
+          sus fotos se suben a Cloudinary y la tienda usa esas URL (hasta 5 por producto).</p>
+        <label class="int-campo"><span>Cloud name</span>
+          <input id="intCloudName" type="text" placeholder="mi-cuenta" autocomplete="off" spellcheck="false"></label>
+        <label class="int-campo"><span>Upload preset (unsigned)</span>
+          <input id="intCloudPreset" type="text" placeholder="forge_productos" autocomplete="off" spellcheck="false"></label>
+        <div class="int-fila">
+          <button class="int-btn int-btn--pri" id="intCloudGuardar" type="button">Guardar</button>
+          <button class="int-btn" id="intCloudProbar" type="button">Probar subida</button>
+          <button class="int-btn int-btn--peligro" id="intCloudQuitar" type="button">Quitar</button>
+        </div>
+        <p class="int-msg" id="intCloudMsg" hidden></p>
+      </div>
+
+      <div class="int-card">
+        <div class="int-card__cab"><h3><span class="int-num">6</span>Respaldo externo</h3>
           <span class="int-estado" id="intResEstado" data-ok="no">sin probar</span></div>
         <p class="int-nota">Endpoint HTTPS que reciba JSON. No es conexión SQL directa: se envía un sobre con
           tu tienda y la fecha. El respaldo completo se exporta desde Datos.</p>
@@ -1641,7 +1658,7 @@ npx -y omniroute@latest
       </div>
 
       <div class="int-card">
-        <div class="int-card__cab"><h3><span class="int-num">6</span>IA remota</h3>
+        <div class="int-card__cab"><h3><span class="int-num">7</span>IA remota</h3>
           <span class="int-estado" id="intIAEstado" data-ok="no">sin probar</span></div>
         <label class="int-campo"><span>Proveedor</span>
           <select id="intProveedor">

@@ -93,12 +93,12 @@ ok('CAMPOS_PRODUCTO trae el código',
   /\$\{k\}codigo,\$\{k\}imagen_hash/.test(API) &&
   /const CAMPOS_PRODUCTO = camposProducto\(\)/.test(API));
 ok('productoDeFila expone el código', /codigo: f\.codigo \|\| ''/.test(API));
-ok('el INSERT guarda el código',
-  /\(local_id,sku,nombre,precio,stock,categoria,unidad,actualizado,descuento,oferta_hasta,imagen,imagen_hash,codigo\)/.test(API));
+ok('el INSERT guarda el código y la galería',
+  /\(local_id,sku,nombre,precio,stock,categoria,unidad,actualizado,descuento,oferta_hasta,imagen,imagen_hash,codigo,imagenes\)/.test(API));
 ok('conserva el código cuando el lote no lo trae',
   /codigo = CASE WHEN \$16::boolean THEN EXCLUDED\.codigo[\s\S]{0,90}ELSE \$\{T_PRODUCTOS\}\.codigo END/.test(API));
 ok('un código inválido no borra el anterior',
-  /imagen, imagenHash, codigo, tocaOferta, foto\.ok, cod\.ok\]/.test(API));
+  /imagen, imagenHash, codigo, tocaOferta, foto\.ok, cod\.ok,/.test(API));
 ok('informa códigos inválidos',
   /codigos_invalidos: codigosInvalidos\.length/.test(API) &&
   /detalle_codigos_invalidos/.test(API));

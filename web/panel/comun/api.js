@@ -43,6 +43,9 @@ function avisarDoctor(datos) {
 }
 
 function falloApi(metodo, url, status, codigo, ms, mensaje) {
+  /* Un 401/403 es autenticación, no una caída: no se reporta al doctor como
+     fallo de API (ensuciaba el informe con las pruebas de clave). */
+  if (status === 401 || status === 403) return;
   const ub = ubicacionLlamador();
   avisarDoctor({
     metodo,

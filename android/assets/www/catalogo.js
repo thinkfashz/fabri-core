@@ -730,6 +730,176 @@ function catMercadoExt(html, ok) {
 }
 
 /* ── página de producto ────────────────────────────────────────────────── */
+/* ── edición de producto + imágenes + Cloudinary ───────────────────────── */
+
+function catCloudCfg() {
+  try { return JSON.parse(localStorage.getItem("fcore.cloudinary") || "null"); } catch (e) { return null; }
+}
+
+/** Sube una imagen a Cloudinary (unsigned preset). Devuelve la URL o ''. */
+async function catCloudSubir(dataUrl) {
+  const c = catCloudCfg();
+  if (!c || !c.cloud || !c.preset) return "";
+  const fd = new FormData();
+  fd.append("file", dataUrl);
+  fd.append("upload_preset", c.preset);
+  const r = await fetch("https://api.cloudinary.com/v1_1/" + encodeURIComponent(c.cloud) + "/image/upload", {
+    method: "POST",
+    body: fd,
+  });
+  const d = await r.json().catch(function () { return {}; });
+  if (!r.ok || !d.secure_url) {
+    throw new Error((d.error && d.error.message) || "Cloudinary rechazó la imagen");
+  }
+  return String(d.secure_url);
+}
+
+/** Achica la foto en el equipo antes de subirla (900 px, JPEG 0.72). */
+function catComprimir(file) {
+  return new Promise(function (resolver, rechazar) {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = function () {
+      const max = 900;
+      let w = img.width, h = img.height;
+      if (w > max || h > max) {
+        const k = Math.min(max / w, max / h);
+        w = Math.round(w * k); h = Math.round(h * k);
+      }
+      const cv = document.createElement("canvas");
+      cv.width = w; cv.height = h;
+      const g = cv.getContext("2d");
+      g.drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      try { resolver(cv.toDataURL("image/jpeg", 0.72)); }
+      catch (e) { rechazar(new Error("no se pudo comprimir la imagen")); }
+    };
+    img.onerror = function () { URL.revokeObjectURL(url); rechazar(new Error("imagen inválida")); };
+    img.src = url;
+  });
+}
+
+function catEditarProducto(p) {
+  const caja = document.getElementById("catEditor");
+  if (!caja) return;
+  const f = (p && p.ficha) || {};
+  const fotos = Array.isArray(f.imagenes) ? f.imagenes : [];
+  caja.innerHTML =
+    '<div class="cat-editor">' +
+      '<h3>Editar «' + esc(p.nombre || p.codigo || "") + '»</h3>' +
+      '<label>Nombre<input id="ceNombre" type="text" value="' + esc(p.nombre || "") + '"></label>' +
+      '<div class="cat-editor__dos">' +
+        '<label>Precio (CLP)<input id="cePrecio" type="number" inputmode="numeric" value="' + Number(p.precio || 0) + '"></label>' +
+        '<label>Stock<input id="ceStock" type="number" inputmode="numeric" value="' + Number(p.stock || 0) + '"></label>' +
+      '</div>' +
+      '<label>Proveedor<input id="ceProveedor" type="text" value="' + esc(p.proveedor || "") + '"></label>' +
+      '<label>Descripción<textarea id="ceDesc" rows="3">' + esc(f.descripcion || f.desc || "") + '</textarea></label>' +
+      '<label>Fotos (hasta 5)<input id="ceFotos" type="file" accept="image/*" multiple></label>' +
+      '<p class="nota" id="ceFotosNota">' + (fotos.length ? fotos.length + " foto(s) guardadas." : "Sin fotos todavía.") + '</p>' +
+      '<div class="cat-editor__fila">' +
+        '<button class="btn btn-primario" type="button" id="ceGuardar">Guardar y sincronizar</button>' +
+        '<button class="btn" type="button" id="ceCancelar">Cancelar</button>' +
+      '</div>' +
+      '<p class="nota" id="ceEstado"></p>' +
+    '</div>';
+  const cerrar = function () { caja.innerHTML = ""; };
+  document.getElementById("ceCancelar").onclick = cerrar;
+  document.getElementById("ceGuardar").onclick = function () { catGuardarProducto(p, cerrar); };
+}
+
+async function catGuardarProducto(p, cerrar) {
+  const estado = document.getElementById("ceEstado");
+  const nota = document.getElementById("ceFotosNota");
+  const set = function (t, malo) {
+    if (!estado) return;
+    estado.textContent = t;
+    estado.style.color = malo ? "#FF6B6B" : "#C8FF00";
+  };
+  const nombre = String((document.getElementById("ceNombre") || {}).value || "").trim();
+  const precio = Number(document.getElementById("cePrecio").value) || 0;
+  const stock = parseInt(document.getElementById("ceStock").value, 10) || 0;
+  const proveedor = String(document.getElementById("ceProveedor").value || "").trim();
+  const descripcion = String(document.getElementById("ceDesc").value || "").trim();
+  if (nombre.length < 2 || precio <= 0) { set("Nombre y precio son obligatorios.", true); return; }
+
+  const input = document.getElementById("ceFotos");
+  const archivos = input && input.files ? Array.prototype.slice.call(input.files).slice(0, 5) : [];
+  const ficha = Object.assign({}, p.ficha || {});
+  let imagenes = Array.isArray(ficha.imagenes) ? ficha.imagenes.slice(0, 5) : [];
+
+  try {
+    if (archivos.length) {
+      set("Preparando " + archivos.length + " foto(s)…");
+      const comprimidas = [];
+      for (const a of archivos) comprimidas.push(await catComprimir(a));
+      const cloud = catCloudCfg();
+      if (cloud && cloud.cloud && cloud.preset) {
+        set("Subiendo fotos a Cloudinary…");
+        imagenes = [];
+        for (const d of comprimidas) imagenes.push(await catCloudSubir(d));
+      } else {
+        imagenes = comprimidas;
+      }
+      if (nota) nota.textContent = imagenes.length + " foto(s) listas.";
+    }
+    ficha.imagenes = imagenes;
+    if (imagenes.length) ficha.imagen = imagenes[0];
+    if (descripcion) ficha.descripcion = descripcion;
+
+    const producto = Object.assign({}, p, {
+      nombre: nombre,
+      precio: precio,
+      stock: stock,
+      proveedor: proveedor,
+      ficha: ficha,
+    });
+    set("Guardando en este equipo…");
+    const local = await invApiTarde("guardar", { producto: producto }, { maxMs: 15000 });
+    if (!local.ok) throw new Error(local.error || "no se pudo guardar en el equipo");
+
+    const base = (localStorage.getItem("fabrick.nube.url") || "https://fabri-api.vercel.app").replace(/\/+$/, "");
+    const localId = localStorage.getItem("fabrick.nube.local") || "";
+    const clave = localStorage.getItem("fabrick.nube.clave") || "";
+    if (localId && clave) {
+      set("Sincronizando con la tienda…");
+      const r = await fetch(base + "/api/mercado", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          accion: "productos_subir",
+          local_id: localId,
+          clave: clave,
+          productos: [{
+            sku: p.codigo || p.sku || "",
+            nombre: nombre,
+            precio: precio,
+            stock: stock,
+            categoria: p.categoria || "",
+            unidad: p.unidad || "unidad",
+            proveedor: proveedor,
+            imagen: ficha.imagen || "",
+            imagenes: imagenes,
+          }],
+        }),
+      });
+      const d = await r.json().catch(function () { return {}; });
+      if (!r.ok || d.ok === false) throw new Error(d.error || ("la nube respondió " + r.status));
+      set("Guardado y sincronizado en la tienda.");
+    } else {
+      set("Guardado en el equipo. Conecta la tienda en Integración para publicarlo.");
+    }
+
+    /* Refresca la ficha con lo que quedó. */
+    const enLista = CAT.productos.find(function (x) { return x.codigo === p.codigo; });
+    if (enLista) Object.assign(enLista, producto);
+    catPintarProducto(enLista || producto);
+    if (cerrar) cerrar();
+    if (typeof toast === "function") toast("Producto actualizado", "");
+  } catch (e) {
+    set("Error: " + (e && e.message ? e.message : "no se pudo guardar"), true);
+  }
+}
+
 function catAbrirProducto(codigo) {
   if (!codigo) return;
   const p = CAT.productos.find(function (x) { return x.codigo === codigo; });
@@ -751,8 +921,24 @@ function catPintarProducto(p) {
 
   const cajaImg = document.getElementById("catDetalleImg");
   if (cajaImg) {
+    const fotos = Array.isArray(p.imagenes) ? p.imagenes
+      : (f && Array.isArray(f.imagenes) ? f.imagenes : []);
+    const galeria = fotos.length > 1
+      ? '<div class="cat-galeria">' + fotos.slice(0, 5).map(function (u, i) {
+          return '<button type="button" class="cat-galeria__foto" data-foto="' + i + '">' +
+            '<img src="' + esc(u) + '" alt="" loading="lazy"></button>';
+        }).join("") + '</div>'
+      : '';
     cajaImg.innerHTML = img + '<span class="cat-card-stock cat-detalle-stock' + claseStock + '">' +
-      stock + " und</span>";
+      stock + " und</span>" + galeria;
+    cajaImg.querySelectorAll("[data-foto]").forEach(function (b) {
+      b.onclick = function () {
+        const src = fotos[Number(b.dataset.foto)];
+        if (!src) return;
+        const grande = cajaImg.querySelector("img");
+        if (grande) grande.src = src;
+      };
+    });
   }
 
   const cab = document.getElementById("catDetalleCab");
@@ -774,6 +960,21 @@ function catPintarProducto(p) {
       '<div class="cat-dato"><span>Stock</span><b>' + stock + ' und</b></div>' +
       '<div class="cat-dato"><span>Stock mínimo</span><b>' + minimo + ' und</b></div>' +
       '<div class="cat-dato"><span>Proveedor</span><b>' + esc(p.proveedor || "—") + '</b></div>';
+  }
+
+  /* Edición desde la ficha: el mismo producto que se ve en la tienda. */
+  let acciones = document.getElementById("catDetalleAcciones");
+  if (!acciones && datos) {
+    acciones = document.createElement("div");
+    acciones.id = "catDetalleAcciones";
+    acciones.className = "cat-detalle-acciones";
+    datos.parentNode.insertBefore(acciones, datos.nextSibling);
+  }
+  if (acciones) {
+    acciones.innerHTML = '<button class="btn btn-primario" type="button" id="catEditarBtn">Editar producto</button>' +
+      '<div id="catEditor"></div>';
+    const b = document.getElementById("catEditarBtn");
+    if (b) b.onclick = function () { catEditarProducto(p); };
   }
 
   const wiki = document.getElementById("catDetalleWiki");
