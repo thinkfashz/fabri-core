@@ -6,6 +6,9 @@ export const API_BASE = 'https://fabri-api.vercel.app';
 export const AUTH_URL = API_BASE + '/api/auth';
 export const MERCADO_URL = API_BASE + '/api/mercado';
 export const DIAG_URL = API_BASE + '/api/diagnostico';
+/* Puente de inventario/APK: misma base, otra función. La clave de la tienda
+   viaja en el cuerpo; el panel nunca la guarda. */
+export const INVENTARIO_URL = API_BASE + '/api/inventario';
 
 const ESPERA_MS = 14000;
 
@@ -192,6 +195,36 @@ export async function mercadoPost(accion, datos, opts) {
       datos: d,
     });
     falloApi('POST', MERCADO_URL, r.status, err.codigo, Date.now() - t0, err.message);
+    throw err;
+  }
+  return d;
+}
+
+/** POST a `/api/inventario`. Lo usa la página de conexión para verificar la
+ *  clave y leer el estado del puente. Mismo manejo de errores que mercado. */
+export async function inventarioPost(accion, datos, opts) {
+  const o = opts || {};
+  let r;
+  const t0 = Date.now();
+  try {
+    r = await conTiempo(INVENTARIO_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(Object.assign({ accion }, datos || {})),
+    }, o.ms || 15000);
+  } catch (e) {
+    const err = new ErrorApi(mensajeDeError(e), { codigo: 'SIN_RED' });
+    falloApi('POST', INVENTARIO_URL, 0, err.codigo, Date.now() - t0, err.message);
+    throw err;
+  }
+  const d = await leerJson(r);
+  if (!r.ok || d.ok === false) {
+    const err = new ErrorApi(d.error || ('la nube respondió ' + r.status), {
+      codigo: d.codigo || 'HTTP_' + r.status,
+      status: r.status,
+      datos: d,
+    });
+    falloApi('POST', INVENTARIO_URL, r.status, err.codigo, Date.now() - t0, err.message);
     throw err;
   }
   return d;

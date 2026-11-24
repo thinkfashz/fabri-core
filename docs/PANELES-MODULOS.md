@@ -340,6 +340,7 @@ La forma elegida es **BFF**: InsForge valida la contraseña y `fabri-api` sigue 
 | N15 | Auditoría | `/panel/negocio/auditoria/` | `web/panel/negocio/auditoria/` | `auditoria_listar` 🟡🧩 | 4 | 🟡 pendiente |
 | N16 | Ajustes | `/panel/negocio/ajustes/` | `web/panel/negocio/ajustes/` | `local_actualizar`, `local_borrar` ✅ | 2 | ✅ desplegado |
 | N17 | Integraciones | `/panel/negocio/integraciones/` | `web/panel/negocio/integraciones/` | `integraciones_*` 🟡🧩 | 4 | 🟡 pendiente |
+| N18 | Conexión APK | `/panel/negocio/conexion/` | `web/panel/negocio/conexion/` | `conexion_estado`, `conexion_rotar` ✅ + `/api/inventario` ✅ | 2 | ✅ desplegado |
 
 ---
 
@@ -750,6 +751,8 @@ La forma elegida es **BFF**: InsForge valida la contraseña y `fabri-api` sigue 
 | `resenas_mias` | POST | Bearer | reseñas del comprador | C12 | 2 |
 | `perfil_actualizar` | POST | Bearer | nombre y teléfono | C13 | 1 |
 | `pass_cambiar` | POST | Bearer | contraseña | C13 | 2 |
+| `conexion_estado` | POST | dueño/clave/admin | clave configurada, productos en la nube, dispositivos reales y fallos | N18 | 2 |
+| `conexion_rotar` | POST | dueño/clave/admin | clave nueva (una sola vez) y desconexión de los dispositivos | N18 | 2 |
 | `clientes_listar` | POST | dueño/clave/admin | clientes agregados de los pedidos | N09 | 3 |
 | `reportes_exportar` | POST | dueño/clave/admin | CSV de pedidos del rango | N10 | 3 |
 | `cupones_listar` | POST | dueño/clave/admin | cupones del local | N11 | 3 |
@@ -767,6 +770,42 @@ La forma elegida es **BFF**: InsForge valida la contraseña y `fabri-api` sigue 
 | `integraciones_listar` | POST | dueño/admin | claves y webhooks | N17 | 4 |
 | `integracion_crear` | POST | dueño/admin | alta de clave/webhook | N17 | 4 |
 | `integracion_borrar` | POST | dueño/admin | revocar | N17 | 4 |
+
+### N18 · Conexión APK / dispositivos
+
+- **Carpeta:** `web/panel/negocio/conexion/` · **Ruta:** `/panel/negocio/conexion/`
+- **Objetivo:** conectar la app y la APK con una tienda usando **una clave por
+  tienda**, verificar esa clave, y ver el estado real de la sincronización, los
+  dispositivos y los fallos.
+- **Credencial:** la MISMA `clave` de 8 caracteres que `local_crear` genera y
+  que ya usa `/api/inventario` (guarda sólo `clave_hash`). No hay una segunda
+  llave ni se toca la APK: el puente es el que ya existía.
+- **Conexión:** `conexion_estado` ✅ y `conexion_rotar` ✅ (sesión de dueño o
+  clave); `/api/inventario` con `local_id` + `clave` para `verificar`, `estado`,
+  `error`, `desconectar`, `subir`, `bajar` y `respaldo` ✅.
+- **Endpoint:** `conexion_estado`, `conexion_rotar`, y el puente
+  `/api/inventario` (multi-inquilino por `local_id`).
+- **Uso:** 1) abre la página; 2) prueba la clave con el verificador; 3) conecta
+  el dispositivo con el identificador y la clave; 4) sube el catálogo; 5) mira
+  el dispositivo, su hora y sus fallos; 6) si perdiste la clave, genera una
+  nueva.
+- **Diseño propio:** escena en **canvas 2D** (funciona sin GPU) con la tienda y
+  sus dispositivos, pulsos según el estado real, disposición vertical en
+  pantallas angostas, `prefers-reduced-motion` y pausa con la pestaña oculta.
+  Debajo, verificador con latencia y resultado, estado, dispositivos, fallos y
+  los pasos de conexión. Sin tabla.
+- **Estados:** sin tienda, sin clave, sin dispositivos, clave mala, sin red,
+  nube sin base (503), dispositivo sin conexión y fallos reportados.
+- **Honestidad:** la clave nueva se muestra **una sola vez** y se avisa que los
+  dispositivos anteriores dejan de sincronizar; la lista de dispositivos sale de
+  `inv_conexiones` (vacía si no hay), no se inventan equipos; el respaldo es un
+  archivo real del catálogo (enlace a Ajustes, que ya exporta CSV/JSON).
+- **Fase:** 2 (extensión) · **Estado: ✅ desplegado.** Verificado contra
+  producción con una tienda real: estado inicial con clave, verificación buena
+  (897 ms), clave mala 401, sincronización de 2 productos, dispositivo
+  registrado, fallo reportado y visible, `bajar` con 2 productos, rotación con
+  confirmación, clave vieja 401 y nueva 200, y 0 dispositivos tras rotar.
+  Canvas 2D pintando (5.113 px), sin scroll horizontal en 320/390/1024 px.
 
 ### 5.3 Ejemplos de contrato
 
@@ -900,7 +939,7 @@ C01–C08, C13, C14. C09–C12 se completaron en la fase 2 con datos en InsForge
 
 ### Fase 2 · Negocio MVP (6–8 días)
 
-N01–N04, N06, N07, N08, N14 y N16 **desplegados**. `local_mio` es la fuente de verdad del panel; `aTienda` (ficha pública y mapa) no expone el plan del dueño.
+N01–N04, N06, N07, N08, N14, N16 y N18 **desplegados**. `local_mio` es la fuente de verdad del panel; `aTienda` (ficha pública y mapa) no expone el plan del dueño.
 
 **Aceptación:** el dueño entra con su cuenta, ve ventas de 7 días, avanza un pedido, edita stock y ficha, gestiona horario/entrega, modera reseñas, activa/desactiva avisos en este navegador y exporta o borra la tienda con confirmación; nada de esto requiere la `clave` si hay sesión. Hoy: resumen, cola de pedidos, catálogo, inventario, ficha, horarios, reseñas, notificaciones y ajustes funcionan con datos reales; faltan ofertas, clientes, reportes, cupones, pagos, equipo, auditoría e integraciones.
 

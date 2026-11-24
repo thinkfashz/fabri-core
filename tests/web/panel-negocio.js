@@ -39,7 +39,7 @@ const ok = (nombre, cond, detalle) => {
 
 /* Los módulos de la fase 2 del negocio que ya tienen página. */
 const MODULOS = ['resumen', 'pedidos', 'productos', 'inventario', 'tienda',
-  'horarios', 'resenas', 'notificaciones', 'ajustes'];
+  'horarios', 'resenas', 'notificaciones', 'ajustes', 'conexion'];
 
 console.log('\n▸ panel Negocio · estructura de los módulos');
 

@@ -32,6 +32,13 @@
 //   POST { accion: "borrar", codigos: [ ... ] }       → elimina por código
 //   POST { accion: "subir_boletas", boletas: [...] }  → upsert de ventas por folio
 //   POST { accion: "resumen" }                        → totales y stock bajo
+//   POST { accion: "verificar" }                      → ¿la clave abre esta tienda?
+//   POST { accion: "estado", huella, etiqueta... }     → igual + registra el
+//                                                        dispositivo y devuelve
+//                                                        dispositivos y fallos
+//   POST { accion: "error", error }                   → registra un fallo del dispositivo
+//   POST { accion: "desconectar" }                    → da de baja este dispositivo
+//   POST { accion: "respaldo" }                       → catálogo de la nube (JSON)
 //   GET  /api/inventario                              → estado del puente
 //
 // Seguridad: `asegurar` es público (sólo DDL con columnas fijas, sin datos y
@@ -47,6 +54,7 @@ export const config = { api: { bodyParser: false } };
 
 const TABLA = 'inv_productos';
 const T_BOLETAS = 'inv_boletas';
+const T_CONEX = 'inv_conexiones';
 const T_LOCALES = 'mercado_locales';
 const MAX_FILAS = 500;
 const MAX_TEXTO = 500;
@@ -250,8 +258,7 @@ async function asegurar(pool: any) {
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_inv_productos_actualizado ON ${TABLA} (actualizado)`);
 }
 
-async function asegurarBoletas(pool: any) {
-  await pool.query(`
+async function asegurarBoletas(pool: any) {  await pool.query(`
     CREATE TABLE IF NOT EXISTS ${T_BOLETAS} (
       local_id TEXT NOT NULL DEFAULT '',
       folio    BIGINT NOT NULL,
@@ -270,6 +277,66 @@ async function asegurarBoletas(pool: any) {
   await pool.query(`ALTER TABLE ${T_BOLETAS} ADD COLUMN IF NOT EXISTS local_id TEXT NOT NULL DEFAULT ''`);
   await pool.query(`ALTER TABLE ${T_BOLETAS} DROP CONSTRAINT IF EXISTS ${T_BOLETAS}_pkey`);
   await pool.query(`ALTER TABLE ${T_BOLETAS} ADD PRIMARY KEY (local_id, folio)`);
+}
+
+/* Dispositivos que se conectaron con la clave de la tienda.
+   Es lo que permite mostrar «estado de conexión» de verdad: cada APK o
+   navegador que sincroniza deja su huella, su etiqueta y su última conexión.
+   No se inventan dispositivos: si la tabla está vacía, la lista va vacía. */
+async function asegurarConexiones(pool: any) {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ${T_CONEX} (
+      local_id     TEXT NOT NULL DEFAULT '',
+      huella       TEXT NOT NULL,
+      etiqueta     TEXT NOT NULL DEFAULT '',
+      plataforma   TEXT NOT NULL DEFAULT '',
+      version      TEXT NOT NULL DEFAULT '',
+      productos    INTEGER NOT NULL DEFAULT 0,
+      conectado    TIMESTAMPTZ NOT NULL DEFAULT now(),
+      ultimo_error TEXT NOT NULL DEFAULT '',
+      error_ts     TIMESTAMPTZ,
+      creado       TIMESTAMPTZ NOT NULL DEFAULT now(),
+      PRIMARY KEY (local_id, huella)
+    )`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_inv_conex_local ON ${T_CONEX} (local_id, conectado DESC)`);
+}
+
+/** Huella del dispositivo: no guarda el identificador crudo, sólo su hash. */
+function huellaDe(v: unknown): string {
+  const s = texto(v, 200).trim();
+  if (!s) return '';
+  return createHash('sha256').update('conexion:' + s).digest('hex').slice(0, 40);
+}
+
+/** Registra o actualiza el dispositivo que acaba de hablar con la nube. */
+async function anotarDispositivo(
+  pool: any, localId: string, cuerpo: Fila,
+  extra: { productos?: number; error?: string } = {}
+) {
+  const huella = huellaDe(cuerpo.huella || cuerpo.dispositivo_id) || huellaDe('sin-huella');
+  const etiqueta = texto(cuerpo.etiqueta || cuerpo.dispositivo, 80).trim().slice(0, 80);
+  const plataforma = texto(cuerpo.plataforma, 30).trim().slice(0, 30) || 'desconocida';
+  const version = texto(cuerpo.version, 40).trim().slice(0, 40);
+  const productos = entero(extra.productos, MAX_FILAS);
+  const error = texto(extra.error, 300).trim();
+
+  await pool.query(
+    `INSERT INTO ${T_CONEX}
+       (local_id, huella, etiqueta, plataforma, version, productos, conectado,
+        ultimo_error, error_ts)
+     VALUES ($1,$2,$3,$4,$5,$6,now(),$7,$8)
+     ON CONFLICT (local_id, huella) DO UPDATE SET
+       etiqueta = CASE WHEN EXCLUDED.etiqueta <> '' THEN EXCLUDED.etiqueta ELSE ${T_CONEX}.etiqueta END,
+       plataforma = CASE WHEN EXCLUDED.plataforma <> '' THEN EXCLUDED.plataforma ELSE ${T_CONEX}.plataforma END,
+       version = CASE WHEN EXCLUDED.version <> '' THEN EXCLUDED.version ELSE ${T_CONEX}.version END,
+       productos = ${T_CONEX}.productos,
+       conectado = now(),
+       ultimo_error = CASE WHEN $7 <> '' THEN $7 ELSE ${T_CONEX}.ultimo_error END,
+       error_ts = CASE WHEN $7 <> '' THEN now() ELSE ${T_CONEX}.error_ts END`,
+    [localId, huella, etiqueta, plataforma, version, productos,
+      error, error ? new Date() : null]
+  );
+  return huella;
 }
 
 /* ── handler ────────────────────────────────────────────────────────────── */
@@ -316,7 +383,8 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       token_configurado: Boolean(process.env.FABRI_API_TOKEN),
       tabla_existe,
       base_detalle,
-      acciones: ['asegurar', 'subir', 'bajar', 'buscar', 'borrar', 'subir_boletas', 'resumen'],
+      acciones: ['asegurar', 'subir', 'bajar', 'buscar', 'borrar', 'subir_boletas', 'resumen',
+        'verificar', 'estado', 'error', 'desconectar', 'respaldo'],
     });
   }
 
@@ -354,6 +422,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     });
 
     await asegurar(pool);
+    await asegurarConexiones(pool);
 
     // `asegurar` es la única acción que no exige credenciales: sólo ejecuta un
     // CREATE TABLE IF NOT EXISTS con columnas fijas (sin datos del cliente y
@@ -575,6 +644,127 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         subidas++;
       }
       return json(res, { ok: true, accion, local_id: localId, subidas, omitidas });
+    }
+
+    /* ── puente de conexión: estado, verificación y fallos ────────────────
+       Estas acciones son las que usa la página /panel/negocio/conexion/ y la
+       APK. Nunca devuelven correo del dueño, hash de clave ni la clave: sólo
+       lo necesario para saber si el enlace está vivo. */
+
+    if (accion === 'verificar' || accion === 'estado') {
+      if (!alcance.local_id) {
+        return json(res, {
+          ok: false,
+          error: 'indica la tienda (local_id) para verificar la conexión',
+          codigo: 'SIN_LOCAL',
+        }, 400);
+      }
+      const tienda = await pool.query(
+        `SELECT id, nombre, activo FROM ${T_LOCALES} WHERE id = $1 LIMIT 1`, [localId]
+      );
+      if (!tienda.rowCount) {
+        return json(res, { ok: false, error: 'esa tienda no existe', codigo: 'NO_ENCONTRADO' }, 404);
+      }
+      const resumen = await pool.query(
+        `SELECT COUNT(*)::int AS productos,
+                COALESCE(MAX(actualizado), 0)::bigint AS ultimo_unix,
+                MAX(nube_ts) AS ultima_nube
+           FROM ${TABLA} WHERE local_id = $1`, [localId]
+      );
+      const fila = resumen.rows[0] || {};
+
+      let dispositivos: any[] = [];
+      let errores: any[] = [];
+      if (accion === 'estado') {
+        await anotarDispositivo(pool, localId, cuerpo, {
+          productos: entero(cuerpo.productos, MAX_FILAS),
+        });
+        const d = await pool.query(
+          `SELECT etiqueta, plataforma, version, productos, conectado,
+                  ultimo_error, error_ts
+             FROM ${T_CONEX} WHERE local_id = $1
+            ORDER BY conectado DESC LIMIT 20`, [localId]
+        );
+        dispositivos = d.rows.map((x: any) => ({
+          etiqueta: x.etiqueta || 'Dispositivo sin nombre',
+          plataforma: x.plataforma || 'desconocida',
+          version: x.version || '',
+          productos: Number(x.productos) || 0,
+          conectado: x.conectado,
+          ultimo_error: x.ultimo_error || '',
+          error_ts: x.error_ts || null,
+        }));
+        const e = await pool.query(
+          `SELECT etiqueta, ultimo_error, error_ts FROM ${T_CONEX}
+            WHERE local_id = $1 AND ultimo_error <> ''
+            ORDER BY error_ts DESC NULLS LAST LIMIT 10`, [localId]
+        );
+        errores = e.rows.map((x: any) => ({
+          etiqueta: x.etiqueta || 'Dispositivo',
+          error: x.ultimo_error,
+          ts: x.error_ts,
+        }));
+      }
+
+      return json(res, {
+        ok: true,
+        accion,
+        conexion: {
+          local_id: localId,
+          tienda: tienda.rows[0].nombre,
+          activo: tienda.rows[0].activo !== false,
+          productos: Number(fila.productos) || 0,
+          ultimo_unix: Number(fila.ultimo_unix) || 0,
+          ultima_nube: fila.ultima_nube || null,
+          rol: alcance.admin ? 'admin' : 'dueno',
+        },
+        dispositivos,
+        errores,
+      });
+    }
+
+    if (accion === 'error') {
+      if (!alcance.local_id) {
+        return json(res, { ok: false, error: 'falta local_id', codigo: 'SIN_LOCAL' }, 400);
+      }
+      const detalle = texto(cuerpo.error, 300).trim() || 'error sin detalle';
+      const huella = await anotarDispositivo(pool, localId, cuerpo, { error: detalle });
+      return json(res, { ok: true, accion, huella, registrado: true });
+    }
+
+    if (accion === 'desconectar') {
+      if (!alcance.local_id) {
+        return json(res, { ok: false, error: 'falta local_id', codigo: 'SIN_LOCAL' }, 400);
+      }
+      const huella = huellaDe(cuerpo.huella || cuerpo.dispositivo_id);
+      if (!huella) {
+        return json(res, { ok: false, error: 'falta la huella del dispositivo' }, 400);
+      }
+      const r = await pool.query(
+        `DELETE FROM ${T_CONEX} WHERE local_id = $1 AND huella = $2`, [localId, huella]
+      );
+      return json(res, { ok: true, accion, quitados: r.rowCount });
+    }
+
+    /* Copia de seguridad real: el catálogo de la nube tal cual está, para que
+       el dueño pueda bajarlo antes de cambiar de dispositivo. No se maquilla
+       ni se mezcla con datos del dispositivo. */
+    if (accion === 'respaldo') {
+      const r = filtrar
+        ? await pool.query(
+            `SELECT * FROM ${TABLA} WHERE local_id = $1 ORDER BY categoria, nombre`, [localId])
+        : await pool.query(`SELECT * FROM ${TABLA} ORDER BY local_id, categoria, nombre`);
+      const tienda = await pool.query(
+        `SELECT id, nombre FROM ${T_LOCALES} WHERE id = $1 LIMIT 1`, [localId]
+      );
+      return json(res, {
+        ok: true,
+        accion,
+        local_id: localId,
+        tienda: tienda.rows[0] ? tienda.rows[0].nombre : '',
+        generado: new Date().toISOString(),
+        productos: r.rows,
+      });
     }
 
     if (accion === 'resumen') {

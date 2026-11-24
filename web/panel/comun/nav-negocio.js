@@ -27,6 +27,7 @@ export const NAV = [
       { ruta: '/panel/negocio/tienda/', texto: 'Mi tienda', icono: 'tienda' },
       { ruta: '/panel/negocio/horarios/', texto: 'Horarios y entrega', icono: 'reloj' },
       { ruta: '/panel/negocio/resenas/', texto: 'Reseñas', icono: 'estrella' },
+      { ruta: '/panel/negocio/conexion/', texto: 'Conexión', icono: 'nube' },
     ],
   },
   {

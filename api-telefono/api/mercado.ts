@@ -35,6 +35,14 @@
 //                                              → edita (DUEÑO por cuenta/clave · ADMIN)
 //   POST { accion: "local_estado", local_id, clave?, abierto }
 //                                              → ABIERTO/CERRADO (DUEÑO · ADMIN)
+//   POST { accion: "conexion_estado", local_id }     → estado del puente APK/tienda
+//                                              (DUEÑO · ADMIN): clave configurada,
+//                                              productos en la nube, dispositivos
+//                                              reales y últimos fallos
+//   POST { accion: "conexion_rotar", local_id, confirmar:true }
+//                                              → clave nueva de conexión, una vez
+//                                              (DUEÑO · ADMIN); desconecta los
+//                                              dispositivos anteriores
 //   POST { accion: "local_borrar", local_id, clave? }
 //                                              → baja (DUEÑO · ADMIN)
 //   POST { accion: "productos_subir", local_id, clave?, productos:[...] }
@@ -1339,7 +1347,7 @@ function mensajeCuenta(motivo: string | null, siFalta: string): string {
 /** Dueño (cuenta o clave) o admin. Devuelve la fila del local si pasa, o null. */
 async function autorizarLocal(pool: any, req: IncomingMessage, localId: string, clave: string) {
   const r = await pool.query(
-    `SELECT id,clave_hash,plan,minimo,abierto,entrega,envio,nombre,dueno_id
+    `SELECT id,clave_hash,plan,minimo,abierto,activo,entrega,envio,nombre,dueno_id
        FROM ${T_LOCALES} WHERE id = $1`,
     [localId]
   );
@@ -1639,6 +1647,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       acciones: [
         'asegurar', 'locales', 'local_ver', 'local_crear', 'local_mio', 'local_actualizar',
         'local_estado', 'local_borrar', 'productos_subir', 'producto_borrar',
+        'conexion_estado', 'conexion_rotar',
         'imagen_ver', 'codigo_buscar', 'productos_buscar',
         'pedido_crear', 'pedido_seguir', 'push_suscribir', 'push_baja',
         'push_local_suscribir', 'push_local_baja',
@@ -1909,6 +1918,93 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         [abierto, Math.floor(Date.now() / 1000), localId]
       );
       return json(res, { ok: true, accion, id: localId, abierto });
+    }
+
+    /* ── conexión de la APK / dispositivos con la tienda ───────────────────
+       La credencial de conexión es la MISMA `clave` de 8 caracteres que ya
+       usa `/api/inventario`: no se crea una segunda llave ni se toca la APK.
+       El dueño, desde su sesión, puede ver el estado y rotar la clave; la
+       clave nueva se muestra UNA vez (en la base sólo queda su hash). */
+    if (accion === 'conexion_estado') {
+      const localId = idLocal(cuerpo.local_id);
+      const { local, motivo } = await autorizarLocal(pool, req, localId, texto(cuerpo.clave, 60));
+      if (!local) return json(res, { ok: false, error: 'no autorizado', codigo: motivo }, 401);
+
+      const tieneClave = String(local.clave_hash || '') !== '';
+      /* Las tablas del puente las crea `/api/inventario`. Si todavía no
+         existen, se responde vacío en vez de inventar dispositivos. */
+      const existe = async (tabla: string) => {
+        try {
+          const r = await pool.query(`SELECT to_regclass($1) AS t`, ['public.' + tabla]);
+          return Boolean(r.rows[0] && r.rows[0].t);
+        } catch (e) { return false; }
+      };
+      let productos = 0;
+      let ultimaNube: any = null;
+      if (await existe('inv_productos')) {
+        const r = await pool.query(
+          `SELECT COUNT(*)::int AS n, MAX(nube_ts) AS ultima
+             FROM inv_productos WHERE local_id = $1`, [localId]
+        );
+        productos = Number(r.rows[0] && r.rows[0].n) || 0;
+        ultimaNube = (r.rows[0] && r.rows[0].ultima) || null;
+      }
+      let dispositivos: any[] = [];
+      let errores: any[] = [];
+      if (await existe('inv_conexiones')) {
+        const d = await pool.query(
+          `SELECT etiqueta, plataforma, version, productos, conectado,
+                  ultimo_error, error_ts
+             FROM inv_conexiones WHERE local_id = $1
+            ORDER BY conectado DESC LIMIT 20`, [localId]
+        );
+        dispositivos = d.rows;
+        const e = await pool.query(
+          `SELECT etiqueta, ultimo_error, error_ts FROM inv_conexiones
+            WHERE local_id = $1 AND ultimo_error <> ''
+            ORDER BY error_ts DESC NULLS LAST LIMIT 10`, [localId]
+        );
+        errores = e.rows;
+      }
+      return json(res, {
+        ok: true, accion,
+        conexion: {
+          local_id: localId,
+          tienda: local.nombre,
+          activo: local.activo !== false,
+          plan: local.plan || 'gratis',
+          tiene_clave: tieneClave,
+          productos,
+          ultima_nube: ultimaNube,
+        },
+        dispositivos,
+        errores,
+      });
+    }
+
+    if (accion === 'conexion_rotar') {
+      const localId = idLocal(cuerpo.local_id);
+      const { local, motivo } = await autorizarLocal(pool, req, localId, texto(cuerpo.clave, 60));
+      if (!local) return json(res, { ok: false, error: 'no autorizado', codigo: motivo }, 401);
+      if (cuerpo.confirmar !== true) {
+        return json(res, {
+          ok: false, codigo: 'FALTA_CONFIRMAR',
+          error: 'rotar la clave desconecta los dispositivos actuales: confirma la acción',
+        }, 400);
+      }
+      const clave = nuevaClave();
+      await pool.query(
+        `UPDATE ${T_LOCALES} SET clave_hash = $2, actualizado = $3 WHERE id = $1`,
+        [localId, hashClave(clave), Date.now()]
+      );
+      /* Los dispositivos viejos quedan fuera: la clave anterior deja de
+         abrir la tienda. Se borra su registro para que la lista no mienta. */
+      try { await pool.query(`DELETE FROM inv_conexiones WHERE local_id = $1`, [localId]); }
+      catch (e) { /* la tabla del puente aún no existe */ }
+      return json(res, {
+        ok: true, accion, local_id: localId, clave,
+        nota: 'Guárdala ahora: no se puede volver a mostrar. Los dispositivos anteriores deben reconectarse.',
+      });
     }
 
     if (accion === 'local_borrar') {

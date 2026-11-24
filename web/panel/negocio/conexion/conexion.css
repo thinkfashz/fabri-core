@@ -1,0 +1,161 @@
+/* N18 · Conexión APK / dispositivos
+   Verifica la clave de la tienda, muestra el estado real del puente
+   (/api/inventario), los dispositivos que sincronizaron y los fallos.
+   El canvas dibuja el enlace tienda ↔ dispositivos; si no hay WebGL, el
+   detalle textual sigue completo. */
+
+.cn-main { display: grid; gap: 18px; }
+
+/* ── cabecera ───────────────────────────────────────────────────────────── */
+.cn-cab { display: grid; gap: 6px; }
+.cn-cab__titulo { margin: 0; font-size: clamp(24px, 5vw, 32px); letter-spacing: -0.02em; }
+.cn-cab__sub { margin: 0; color: var(--ds-text-secondary); font-size: 14px; line-height: 1.55; }
+
+/* ── tarjetas ───────────────────────────────────────────────────────────── */
+.cn-grid { display: grid; gap: 14px; }
+.cn-card {
+  background: var(--ds-bg-card);
+  border: 1px solid var(--ds-border);
+  border-radius: 18px;
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+}
+.cn-card__cabeza {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; flex-wrap: wrap;
+}
+.cn-card__titulo { margin: 0; font-size: 15px; letter-spacing: 0.01em; }
+.cn-nota { margin: 0; font-size: 12.5px; line-height: 1.55; color: var(--ds-text-tertiary); }
+
+/* ── verificador ────────────────────────────────────────────────────────── */
+.cn-form { display: grid; gap: 10px; }
+.cn-campo { display: grid; gap: 6px; }
+.cn-label {
+  font-size: 11.5px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--ds-text-tertiary);
+}
+.cn-input {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 20px; font-weight: 800; letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.cn-fila { display: flex; gap: 10px; flex-wrap: wrap; }
+.cn-fila > .ds-btn { flex: 1 1 160px; }
+
+/* Resultado del verificador */
+.cn-verif {
+  display: grid; gap: 8px;
+  border-radius: 14px; padding: 12px 14px;
+  border: 1px solid var(--ds-border-strong);
+  background: var(--ds-bg-sunken);
+  font-size: 13.5px; line-height: 1.5;
+}
+.cn-verif--ok { border-color: #3E5A2A; background: #121A0C; }
+.cn-verif--mal { border-color: #6B2A2A; background: #1E1010; color: #F5B3B3; }
+.cn-verif--aviso { border-color: #5A481F; background: #241C0C; color: #F2D48B; }
+.cn-verif__fila { display: flex; justify-content: space-between; gap: 12px; }
+.cn-verif__fila b { font-variant-numeric: tabular-nums; }
+.cn-verif__estado { display: flex; align-items: center; gap: 8px; font-weight: 800; }
+
+/* ── escena ─────────────────────────────────────────────────────────────── */
+.cn-escena {
+  position: relative;
+  border: 1px solid var(--ds-border);
+  border-radius: 18px;
+  overflow: hidden;
+  background: radial-gradient(120% 90% at 50% 0%, #16211A 0%, #0B0F0C 60%, #08090A 100%);
+}
+#cnCanvas { display: block; width: 100%; height: 240px; }
+.cn-hud {
+  position: absolute; inset: 10px 10px auto 10px;
+  display: flex; justify-content: space-between; gap: 8px;
+  pointer-events: none; flex-wrap: wrap;
+}
+.cn-hud__chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 10.5px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 5px 9px; border-radius: 999px;
+  background: rgba(8, 9, 10, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--ds-text-tertiary);
+  backdrop-filter: blur(6px);
+}
+.cn-hud__chip[data-estado="ok"] { color: #B8E86A; border-color: #3E5A2A; }
+.cn-hud__chip[data-estado="aviso"] { color: #F5C542; border-color: #5A481F; }
+.cn-hud__chip[data-estado="mal"] { color: #F58C8C; border-color: #6B2A2A; }
+.cn-escena__pie {
+  margin: 0; padding: 9px 12px;
+  border-top: 1px solid var(--ds-border);
+  font-size: 11.5px; line-height: 1.5; color: var(--ds-text-tertiary);
+}
+.cn-fallback {
+  padding: 28px 20px; text-align: center;
+  color: var(--ds-text-secondary); font-size: 13px; line-height: 1.6;
+}
+
+/* ── datos y lista ──────────────────────────────────────────────────────── */
+.cn-datos { display: grid; gap: 2px; }
+.cn-dato {
+  display: flex; justify-content: space-between; gap: 14px;
+  padding: 9px 0; border-bottom: 1px solid var(--ds-border);
+  font-size: 14px;
+}
+.cn-dato:last-child { border-bottom: 0; }
+.cn-dato__rot { color: var(--ds-text-tertiary); font-size: 12px; letter-spacing: 0.05em; text-transform: uppercase; }
+.cn-dato__val { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.cn-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.cn-disp {
+  display: grid; grid-template-columns: 34px 1fr auto; gap: 10px; align-items: center;
+  padding: 10px; border-radius: 12px;
+  background: var(--ds-bg-sunken); border: 1px solid var(--ds-border);
+}
+.cn-disp__ico {
+  width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center;
+  background: #141C0E; border: 1px solid #2F3A31; color: var(--ds-accent);
+  font-size: 15px; font-weight: 800;
+}
+.cn-disp__cuerpo { display: grid; gap: 2px; min-width: 0; }
+.cn-disp__nombre { font-size: 13.5px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cn-disp__meta { font-size: 11.5px; color: var(--ds-text-tertiary); }
+.cn-disp__estado { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; }
+.cn-disp__estado[data-estado="ok"] { color: #B8E86A; }
+.cn-disp__estado[data-estado="aviso"] { color: #F5C542; }
+.cn-disp__estado[data-estado="mal"] { color: #F58C8C; }
+
+.cn-vacio {
+  display: grid; gap: 6px; padding: 18px; text-align: center;
+  border: 1px dashed var(--ds-border-strong); border-radius: 14px;
+  color: var(--ds-text-tertiary); font-size: 13px;
+}
+
+.cn-error {
+  border-radius: 12px; padding: 10px 12px;
+  background: #241010; border: 1px solid #5A2424; color: #F5B3B3;
+  font-size: 12.5px; line-height: 1.5;
+}
+.cn-error b { color: #FFD3D3; }
+
+.cn-clave {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 26px; font-weight: 800; letter-spacing: 0.2em;
+  color: var(--ds-accent); word-break: break-all;
+  background: #131A0C; border: 1px dashed #3E5A2A; border-radius: 12px;
+  padding: 10px 14px; text-align: center;
+}
+
+.cn-pasos { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: 13px; line-height: 1.5; color: var(--ds-text-secondary); }
+.cn-pasos code {
+  font-size: 12px; background: var(--ds-bg-sunken); padding: 1px 5px;
+  border-radius: 5px; border: 1px solid var(--ds-border);
+}
+
+@media (min-width: 860px) {
+  .cn-grid--dos { grid-template-columns: 1.1fr 0.9fr; align-items: start; }
+  #cnCanvas { height: 300px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #cnCanvas { height: 220px; }
+}

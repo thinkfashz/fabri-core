@@ -8,6 +8,74 @@
 
 Última actualización: 2026-11-24
 
+## Sesión 2026-11-24 · Conexión APK/tienda con clave única (N18)
+
+Pedido: que cada tienda tenga un código/API única para conectar la APK y los
+dispositivos, sincronizar los productos, con respaldo local, estado y fallos,
+en una página de conexión que verifique la clave, con animación en canvas
+adaptada a todas las pantallas.
+
+**Lo que ya existía (y no se duplicó)**
+
+- `local_crear` genera una `clave` de 8 caracteres por tienda y guarda sólo su
+  hash en `mercado_locales.clave_hash`; se devuelve una sola vez.
+- `/api/inventario` ya era el puente APK↔nube con `local_id` + `clave`:
+  `subir`, `bajar`, `buscar`, `borrar`, `subir_boletas`, `resumen`.
+- Por eso **no se creó una segunda llave ni una función serverless nueva**: la
+  credencial de conexión es esa misma clave.
+
+**Backend**
+
+- `/api/inventario` (mismo archivo): tabla `inv_conexiones` (local_id, huella
+  hasheada, etiqueta, plataforma, versión, productos, conectado, último error,
+  error_ts). Acciones nuevas:
+  - `verificar` → ¿la clave abre esta tienda? (no registra dispositivo)
+  - `estado` → igual + registra el dispositivo y devuelve dispositivos y fallos
+  - `error` → registra un fallo del dispositivo
+  - `desconectar` → da de baja este dispositivo
+  - `respaldo` → catálogo completo de la nube en JSON
+  - `subir` ahora anota el dispositivo (es una sincronización real).
+- `mercado.ts`: `conexion_estado` (dueño/clave/admin) y `conexion_rotar`
+  (exige `confirmar: true`, genera clave nueva, guarda hash y borra los
+  dispositivos anteriores). `autorizarLocal` ahora también lee `activo`.
+- Nada de datos sensibles en las respuestas: ni hash, ni correo, ni la clave.
+
+**Página `/panel/negocio/conexion/` (N18)**
+
+- Escena en **canvas 2D** (no WebGL, funciona sin GPU): tienda y dispositivos,
+  pulsos según el estado real, vertical en pantallas angostas, DPR tope 2,
+  `prefers-reduced-motion` y pausa con la pestaña oculta.
+- Verificador de la clave contra la API, con latencia y distinción de clave
+  mala, sin red y 503. La clave no se guarda en ningún lado.
+- Estado real: clave configurada, productos en la nube, última sincronización y
+  dispositivos conectados; lista de dispositivos con hora y estado; fallos
+  reportados por el dispositivo.
+- Rotar/generar clave con confirmación, clave visible una sola vez con copiar y
+  aviso de que los equipos anteriores deben reconectarse.
+- Pasos de conexión y enlace al respaldo real (exportación de Ajustes).
+- En el menú del negocio como «Conexión»; `noindex` incluido.
+
+**Puente en el cliente común**: `inventarioPost()` en `panel/comun/api.js`, para
+no usar `fetch` suelto (los tests lo exigen).
+
+**Verificación real (tienda y cuenta temporales, borradas al terminar)**
+
+- API: estado inicial con clave y 0 dispositivos; verificar OK (897 ms);
+  clave mala 401; `subir` 2 productos y dispositivo registrado; `estado` con
+  «APK del local»; `error` visible en el panel del dueño; `bajar` 2 productos;
+  rotar sin confirmar 400; rotar devuelve clave nueva con formato válido; clave
+  vieja 401 y nueva 200; 0 dispositivos tras rotar; `respaldo` con 2 productos.
+- UI (CDP): página con estado real, verificador OK (2 productos, 897 ms) y
+  clave mala con su mensaje; canvas 2D pintando (5.113 px); sin scroll
+  horizontal en 320, 390 y 1024 px; 2 columnas en escritorio; rotar mostró
+  `VGW6-S8CD` y el aviso; con un dispositivo real apareció «APK del local ·
+  android · 2.0.1 · 1 producto · ahora · conectado». Consola limpia.
+- Tests: `tests/web/conexion-negocio.js` (42 comprobaciones) y 25/25 suites.
+- Desplegado: API `fabri-api` y web `forge-core-stock`.
+
+**Pendiente**: que la APK envíe `huella` estable y muestre esta misma pantalla
+como «Stock → Conexión»; el contrato HTTP ya está listo y probado.
+
 ## Sesión 2026-11-24 · Separación estricta Cliente ↔ Negocio
 
 Pedido: dejar separada la vista del cliente de la del negocio, que se comuniquen
