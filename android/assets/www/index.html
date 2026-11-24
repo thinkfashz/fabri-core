@@ -15,6 +15,7 @@
   <link rel="stylesheet" href="dte.css" />
   <link rel="stylesheet" href="tienda.css" />
   <link rel="stylesheet" href="legal.css" />
+  <link rel="stylesheet" href="integracion.css" />
 </head>
 <body>
   <!-- ===================== ACCESO · HUELLA + PIN ===================== -->
@@ -1537,93 +1538,131 @@ npx -y omniroute@latest
 
     <!-- ---------- INTEGRACIÓN / CONECTORES ---------- -->
     <section class="vista" id="v-integracion">
-      <div class="cab-vista">
-        <h2>Integración / Conectores</h2>
-        <p>Cada conexión por separado: estado, credenciales, prueba y último resultado. Las claves se guardan en
-          este equipo y nunca se muestran completas.</p>
+      <div class="int-hero">
+        <h2>Integración</h2>
+        <p>Conecta tu cuenta, tu tienda y tus proveedores. Cada enlace con su estado,
+          su prueba y su último resultado: nada se muestra conectado si no respondió.</p>
       </div>
 
-      <!-- 1 · Nube del negocio -->
-      <div class="bloque" id="intNube">
-        <h3>1 · Nube de tu tienda</h3>
-        <p class="nota">Es la base donde viven tu catálogo, pedidos y clientes. Se conecta con el ID de la tienda y
-          su clave de 8 caracteres; el token global es sólo para administración.</p>
-        <label for="intUrl">URL de la API</label>
-        <input id="intUrl" class="input" value="https://fabri-api.vercel.app" placeholder="https://fabri-api.vercel.app" />
-        <label for="intLocal">ID de la tienda (dueño)</label>
-        <input id="intLocal" class="input" placeholder="ej: mi-tienda" autocomplete="off" spellcheck="false" />
-        <label for="intClave">Clave de la tienda (8 caracteres)</label>
-        <input id="intClave" class="input" type="password" placeholder="8 caracteres" autocomplete="off" />
-        <label for="intToken">Token global (admin, opcional)</label>
-        <input id="intToken" class="input" type="password" placeholder="sólo si eres administrador de la plataforma" />
-        <div class="fila-botones">
-          <button class="btn btn-primario" onclick="integracionGuardar()">Guardar y probar</button>
-          <button class="btn" onclick="integracionProbar()">Probar</button>
-          <button class="btn" onclick="integracionEstadoBase()">Estado de la base</button>
-          <button class="btn" onclick="integracionAuth()">Conectar con mi cuenta</button>
+      <div class="int-card int-flujo">
+        <div class="int-flujo__hud">
+          <span class="int-estado" id="intFlujoEstado" data-ok="no">sin conexión</span>
+          <span class="int-estado" id="intFlujoDisp">0 dispositivos</span>
         </div>
-        <p class="nota" id="intNotaEstado">—</p>
-        <p class="nota" id="intNubeStats">Sin datos todavía.</p>
+        <canvas id="intCanvas" role="img" aria-label="Miniatura animada del envío de datos entre la APK y la nube"></canvas>
+        <p class="int-flujo__pie">Envío y regreso en vivo. La velocidad sigue la latencia medida; si la nube
+          no responde, los paquetes se detienen.</p>
       </div>
 
-      <!-- 2 · Estado de la base: celular y nube -->
-      <div class="bloque" id="intBase">
-        <h3>2 · Estado de la base: este equipo y la nube</h3>
-        <p class="nota">El teléfono guarda la base local y los modelos; la nube guarda los datos del negocio. Son
-          dos espacios distintos y aquí se ven por separado.</p>
-        <div class="fila-botones">
-          <button class="btn" onclick="integracionEstadoBase()">Actualizar estado</button>
+      <div class="int-card">
+        <div class="int-card__cab"><h3><span class="int-num">1</span>Tu cuenta y la APK</h3>
+          <span class="int-estado" id="intVinculoEstado" data-ok="no">sin vincular</span></div>
+        <p class="int-nota">Genera el código en la nube (panel → Conexión → Vincular la APK) y pégalo aquí.
+          Al canjearlo, esta app recibe la tienda y su clave: la unión queda guardada en el equipo.</p>
+        <label class="int-campo"><span>Código de vinculación</span>
+          <input id="intVinculo" type="text" inputmode="text" autocomplete="off" spellcheck="false"
+                 maxlength="12" placeholder="K-XXXX-XXXX"></label>
+        <div class="int-fila">
+          <button class="int-btn int-btn--pri int-btn--ancho" id="intCanjear" type="button">Canjear y conectar</button>
+          <button class="int-btn int-btn--ancho" id="intAbrirNube" type="button">Abrir mi cuenta en la nube</button>
         </div>
-        <p class="nota" id="intBaseLocal">Local: —</p>
-        <p class="nota" id="intBaseNube">Nube: —</p>
-        <div id="intBaseTablas"></div>
+        <p class="int-msg" id="intVinculoMsg" hidden></p>
       </div>
 
-      <!-- 3 · Respaldo externo -->
-      <div class="bloque" id="intRespaldo">
-        <h3>3 · Base de respaldo externa</h3>
-        <p class="nota">Un endpoint HTTPS propio que reciba JSON (por ejemplo, tu servidor o un webhook de
-          almacenamiento). No es una conexión SQL directa: la app envía un sobre firmado con tu tienda y la fecha.
-          El respaldo completo del catálogo está en Datos → Exportar.</p>
-        <label for="intResUrl">URL del respaldo (https)</label>
-        <input id="intResUrl" class="input" placeholder="https://mi-servidor/respaldo" />
-        <label for="intResToken">Token del respaldo (opcional)</label>
-        <input id="intResToken" class="input" type="password" placeholder="Bearer si tu endpoint lo pide" />
-        <div class="fila-botones">
-          <button class="btn" onclick="integracionRespaldoGuardar()">Guardar</button>
-          <button class="btn" onclick="integracionRespaldoProbar()">Probar endpoint</button>
-          <button class="btn btn-primario" onclick="integracionRespaldoEnviar()">Enviar sobre de prueba</button>
+      <div class="int-card">
+        <div class="int-card__cab"><h3><span class="int-num">2</span>Nube de tu tienda</h3>
+          <span class="int-estado" id="intNubeEstado" data-ok="no">sin probar</span></div>
+        <label class="int-campo"><span>URL de la API</span>
+          <input id="intUrl" type="text" value="https://fabri-api.vercel.app" placeholder="https://fabri-api.vercel.app"></label>
+        <label class="int-campo"><span>ID de la tienda</span>
+          <input id="intLocal" type="text" placeholder="mi-tienda" autocomplete="off" spellcheck="false"></label>
+        <label class="int-campo"><span>Clave de la tienda (8 caracteres)</span>
+          <input id="intClave" type="password" placeholder="ABCD1234" autocomplete="off" maxlength="8"></label>
+        <label class="int-campo"><span>Token global (admin, opcional)</span>
+          <input id="intToken" type="password" placeholder="sólo administración de la plataforma"></label>
+        <div class="int-fila">
+          <button class="int-btn int-btn--pri" onclick="integracionGuardar()">Guardar y probar</button>
+          <button class="int-btn" onclick="integracionProbar()">Probar</button>
+          <button class="int-btn" onclick="integracionEstadoBase()">Estado de la base</button>
         </div>
-        <p class="nota" id="intResEstado">Sin probar.</p>
-        <p class="nota" id="intResStats">—</p>
+        <p class="int-msg" id="intNotaEstado" hidden></p>
       </div>
 
-      <!-- 4 · IA remota -->
-      <div class="bloque" id="intIA">
-        <h3>4 · IA remota</h3>
-        <p class="nota">Proveedor OpenAI-compatible. La clave se guarda en la bóveda del teléfono; aquí sólo se
-          configura el destino y el modelo por defecto.</p>
-        <label for="intProveedor">Proveedor</label>
-        <select class="input" id="intProveedor">
-          <option value="vercel">Vercel (https://fabri-api.vercel.app)</option>
-          <option value="ollama">Ollama (LAN o local)</option>
-          <option value="gemini">Gemini API (Google)</option>
-        </select>
-        <label for="intModelo">Modelo por defecto</label>
-        <input id="intModelo" class="input" value="qwen-0.5b-nube" placeholder="qwen-0.5b-nube" />
-        <div class="fila-botones">
-          <button class="btn" onclick="integracionIAGuardar()">Guardar</button>
-          <button class="btn" onclick="integracionIAProbar()">Probar</button>
+      <div class="int-card">
+        <div class="int-card__cab"><h3><span class="int-num">3</span>Base de datos</h3>
+          <span class="int-estado" id="intBaseEstado" data-ok="no">sin medir</span></div>
+        <p class="int-nota">El teléfono guarda la base local y los modelos; la nube guarda el negocio.
+          Son dos espacios distintos y se ven por separado.</p>
+        <div class="int-fila"><button class="int-btn int-btn--ancho" onclick="integracionEstadoBase()">Medir ahora</button></div>
+        <div class="int-datos" style="margin-top:8px">
+          <div class="int-dato"><span>Local (app)</span><b id="intBaseLocal">—</b></div>
+          <div class="int-dato"><span>Nube</span><b id="intBaseNube">—</b></div>
         </div>
-        <p class="nota" id="intIAEstado">Sin probar.</p>
-        <p class="nota" id="intIAStats">—</p>
+        <div id="intBaseTablas" style="margin-top:8px"></div>
+        <p class="int-msg" id="intNubeStats" hidden></p>
       </div>
 
-      <div class="bloque">
-        <h3>Datos y transparencia</h3>
-        <p class="nota">La app guarda datos del vendedor y del cliente en el teléfono y, si conectas la tienda, en
-          la nube. No usa cookies publicitarias. Puedes revisar y aceptar el aviso completo desde
-          <button class="legal-enlace" type="button" onclick="integracionVerLegal()">Aviso de datos y responsabilidad</button>.</p>
+      <div class="int-card">
+        <div class="int-card__cab"><h3><span class="int-num">4</span>Proveedores y conectores</h3>
+          <button class="int-btn" id="intAgregar" type="button">+ Añadir</button></div>
+        <p class="int-nota">Guarda las claves de tus distribuidores de tecnología (InsForge, Neon, Supabase,
+          Cloudflare, OpenAI…). Cada conector se prueba por separado.</p>
+        <div id="intConectoresLista"></div>
+        <div id="intConectorForm" hidden>
+          <div class="int-sep"></div>
+          <label class="int-campo"><span>Nombre</span>
+            <input id="intConNombre" type="text" placeholder="InsForge producción"></label>
+          <label class="int-campo"><span>URL base (https)</span>
+            <input id="intConUrl" type="text" placeholder="https://mi-servidor" autocomplete="off"></label>
+          <label class="int-campo"><span>Clave o token</span>
+            <input id="intConToken" type="password" placeholder="se guarda en este equipo"></label>
+          <div class="int-fila">
+            <button class="int-btn int-btn--pri" id="intConGuardar" type="button">Guardar conector</button>
+            <button class="int-btn" id="intConCancelar" type="button">Cancelar</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="int-card">
+        <div class="int-card__cab"><h3><span class="int-num">5</span>Respaldo externo</h3>
+          <span class="int-estado" id="intResEstado" data-ok="no">sin probar</span></div>
+        <p class="int-nota">Endpoint HTTPS que reciba JSON. No es conexión SQL directa: se envía un sobre con
+          tu tienda y la fecha. El respaldo completo se exporta desde Datos.</p>
+        <label class="int-campo"><span>URL del respaldo</span>
+          <input id="intResUrl" type="text" placeholder="https://mi-servidor/respaldo"></label>
+        <label class="int-campo"><span>Token del respaldo (opcional)</span>
+          <input id="intResToken" type="password" placeholder="Bearer si lo pide"></label>
+        <div class="int-fila">
+          <button class="int-btn" onclick="integracionRespaldoGuardar()">Guardar</button>
+          <button class="int-btn" onclick="integracionRespaldoProbar()">Probar</button>
+          <button class="int-btn int-btn--pri" onclick="integracionRespaldoEnviar()">Enviar sobre</button>
+        </div>
+        <p class="int-msg" id="intResStats" hidden></p>
+      </div>
+
+      <div class="int-card">
+        <div class="int-card__cab"><h3><span class="int-num">6</span>IA remota</h3>
+          <span class="int-estado" id="intIAEstado" data-ok="no">sin probar</span></div>
+        <label class="int-campo"><span>Proveedor</span>
+          <select id="intProveedor">
+            <option value="vercel">Vercel (fabri-api)</option>
+            <option value="ollama">Ollama (LAN o local)</option>
+            <option value="gemini">Gemini API</option>
+          </select></label>
+        <label class="int-campo"><span>Modelo por defecto</span>
+          <input id="intModelo" type="text" value="qwen-0.5b-nube"></label>
+        <div class="int-fila">
+          <button class="int-btn" onclick="integracionIAGuardar()">Guardar</button>
+          <button class="int-btn" onclick="integracionIAProbar()">Probar</button>
+        </div>
+        <p class="int-msg" id="intIAStats" hidden></p>
+      </div>
+
+      <div class="int-card">
+        <div class="int-card__cab"><h3>Datos y transparencia</h3></div>
+        <p class="int-nota">La app guarda datos del vendedor y del cliente en el teléfono y, al conectar la
+          tienda, en la nube. No usa cookies publicitarias.</p>
+        <button class="int-btn int-btn--ancho" type="button" onclick="integracionVerLegal()">Ver aviso de datos y responsabilidad</button>
       </div>
     </section>
 
@@ -3274,6 +3313,7 @@ CREATE INDEX IF NOT EXISTS idx_inv_productos_actualizado
   <script src="marcas.js"></script>
   <script src="diagnostico.js"></script>
   <script src="marcas-ia.js"></script>
+  <script src="matrix.js"></script>
   <script src="legal.js"></script>
   <script src="tienda.js"></script>
   <script src="app.js"></script>

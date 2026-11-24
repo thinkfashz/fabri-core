@@ -514,12 +514,13 @@
 .sql-canvas-caja {
   position: relative;
   width: 100%;
-  height: 84px;
+  height: 128px;
   background: #050505;
   border: 1px solid #1E1E1E;
   border-radius: 12px;
   overflow: hidden;
 }
+.sql-canvas-caja { border-radius: 14px; overflow: hidden; }
 .sql-canvas-caja canvas {
   width: 100%;
   height: 100%;

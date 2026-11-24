@@ -7072,8 +7072,60 @@ function intHace(ts) {
   return "hace " + Math.round(min / 60) + " h";
 }
 
+/* ── Integración: cuenta, nube, base, conectores, respaldo e IA ─────────── */
+
+function intLeer() {
+  try { return JSON.parse(localStorage.getItem("fcore.int") || "{}") || {}; } catch (e) { return {}; }
+}
+function intGuardarEstado(seccion, datos) {
+  try {
+    const todo = intLeer();
+    todo[seccion] = Object.assign({ ts: Date.now() }, datos || {});
+    localStorage.setItem("fcore.int", JSON.stringify(todo));
+  } catch (e) { /* modo privado */ }
+}
+function intBytes(n) {
+  const v = Number(n) || 0;
+  if (v <= 0) return "—";
+  const u = ["B", "KB", "MB", "GB", "TB"];
+  let i = 0, x = v;
+  while (x >= 1024 && i < u.length - 1) { x /= 1024; i++; }
+  return (i === 0 ? x : x.toFixed(x < 10 ? 1 : 0)) + " " + u[i];
+}
+function intHace(ts) {
+  if (!ts) return "—";
+  const min = Math.max(0, Math.round((Date.now() - ts) / 60000));
+  if (min < 1) return "ahora";
+  if (min < 60) return "hace " + min + " min";
+  return "hace " + Math.round(min / 60) + " h";
+}
+function intLeerTexto(k, d) { try { return localStorage.getItem(k) || d; } catch (e) { return d; } }
+function intMsg(id, texto, tipo) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = texto || "";
+  el.hidden = !texto;
+  if (tipo) el.setAttribute("data-tipo", tipo); else el.removeAttribute("data-tipo");
+}
+function intEstado(id, ok, texto) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = texto;
+  el.setAttribute("data-ok", ok ? "si" : "no");
+}
+
+let INT_FLUJO = null;
+let INT_ULTIMO = { ok: false, ms: 0, productos: 0, dispositivos: 0, sincronizando: false };
+
+function intPintarFlujo() {
+  if (!INT_FLUJO) return;
+  INT_FLUJO.actualizar(INT_ULTIMO);
+  intEstado("intFlujoEstado", INT_ULTIMO.ok, INT_ULTIMO.ok ? (INT_ULTIMO.sincronizando ? "sincronizando" : "en línea") : "sin conexión");
+  const d = document.getElementById("intFlujoDisp");
+  if (d) d.textContent = INT_ULTIMO.dispositivos + (INT_ULTIMO.dispositivos === 1 ? " dispositivo" : " dispositivos");
+}
+
 function integracionIniciar() {
-  const leer = (k, d) => { try { return localStorage.getItem(k) || d; } catch (e) { return d; } };
   const url = document.getElementById("intUrl");
   const local = document.getElementById("intLocal");
   const clave = document.getElementById("intClave");
@@ -7083,59 +7135,66 @@ function integracionIniciar() {
   const resUrl = document.getElementById("intResUrl");
   const resTok = document.getElementById("intResToken");
 
-  if (url && !url.value.trim()) url.value = leer("fabrick.nube.url", "https://fabri-api.vercel.app");
-  if (local) local.value = leer("fabrick.nube.local", "");
-  if (clave) clave.value = leer("fabrick.nube.clave", "");
-  if (token) token.value = leer("fabrick.nube.token", "");
-  if (modelo) modelo.value = leer("fabrick.nube.modelo", "qwen-0.5b-nube");
-  if (prov) prov.value = leer("fabrick.nube.proveedor", "vercel");
-  if (resUrl) resUrl.value = leer("fcore.int.respaldo.url", "");
-  if (resTok) resTok.value = leer("fcore.int.respaldo.token", "");
+  if (url && !url.value.trim()) url.value = intLeerTexto("fabrick.nube.url", "https://fabri-api.vercel.app");
+  if (local) local.value = intLeerTexto("fabrick.nube.local", "");
+  if (clave) clave.value = intLeerTexto("fabrick.nube.clave", "");
+  if (token) token.value = intLeerTexto("fabrick.nube.token", "");
+  if (modelo) modelo.value = intLeerTexto("fabrick.nube.modelo", "qwen-0.5b-nube");
+  if (prov) prov.value = intLeerTexto("fabrick.nube.proveedor", "vercel");
+  if (resUrl) resUrl.value = intLeerTexto("fcore.int.respaldo.url", "");
+  if (resTok) resTok.value = intLeerTexto("fcore.int.respaldo.token", "");
 
   const est = intLeer();
   const n = est.nube, r = est.respaldo, ia = est.ia;
-  const nota = document.getElementById("intNotaEstado");
-  if (nota) {
-    nota.textContent = n
-      ? (n.ok ? "Última prueba OK" : "Último error: " + (n.error || "sin detalle")) + " · " + intHace(n.ts)
-      : "Sin probar todavía.";
+  intEstado("intNubeEstado", Boolean(n && n.ok), n ? (n.ok ? "en línea" : "con error") : "sin probar");
+  intMsg("intNotaEstado", n ? (n.ok ? "Conexión OK · " + (n.ms || 0) + " ms · " + intHace(n.ts) : "Error: " + (n.error || "sin detalle")) : "", n && n.ok ? "ok" : (n ? "mal" : ""));
+  intEstado("intResEstado", Boolean(r && r.ok), r ? (r.ok ? "accesible" : "con error") : "sin probar");
+  intMsg("intResStats", r ? (r.ok ? "Endpoint OK · " + (r.ms || 0) + " ms · " + intHace(r.ts) : "Falló: " + (r.error || "sin detalle")) : "", r && r.ok ? "ok" : (r ? "mal" : ""));
+  intEstado("intIAEstado", Boolean(ia && ia.ok), ia ? (ia.ok ? "responde" : "con error") : "sin probar");
+  intMsg("intIAStats", ia ? (ia.ok ? "Proveedor alcanzable · " + (ia.ms || 0) + " ms" : "Falló: " + (ia.error || "sin detalle")) : "", ia && ia.ok ? "ok" : (ia ? "mal" : ""));
+
+  /* Canvas del flujo */
+  const lienzo = document.getElementById("intCanvas");
+  if (lienzo && typeof window.MatrizFlujo === "function") {
+    if (INT_FLUJO) { try { INT_FLUJO.destruir(); } catch (e) { /* ya */ } }
+    INT_FLUJO = window.MatrizFlujo(lienzo);
   }
-  const res = document.getElementById("intResEstado");
-  if (res) {
-    res.textContent = r
-      ? (r.ok ? "Endpoint respondió " + (r.ms || 0) + " ms" : "Falló: " + (r.error || "sin detalle")) + " · " + intHace(r.ts)
-      : "Sin probar.";
-  }
-  const iaEl = document.getElementById("intIAEstado");
-  if (iaEl) {
-    iaEl.textContent = ia
-      ? (ia.ok ? "Proveedor responde (" + (ia.ms || 0) + " ms)" : "Falló: " + (ia.error || "sin detalle")) + " · " + intHace(ia.ts)
-      : "Sin probar.";
-  }
+  INT_ULTIMO.ok = Boolean(local && local.value && clave && clave.value && n && n.ok);
+  INT_ULTIMO.ms = (n && n.ms) || 0;
+  INT_ULTIMO.sincronizando = false;
+  intPintarFlujo();
+
+  intPintarConectores();
   integracionEstadoLocal();
+  if (local && local.value && clave && clave.value) integracionEstadoBase();
+  const v = document.getElementById("intVinculoEstado");
+  if (v) {
+    const vinculado = Boolean(local && local.value && clave && clave.value);
+    v.textContent = vinculado ? "vinculada" : "sin vincular";
+    v.setAttribute("data-ok", vinculado ? "si" : "no");
+  }
 }
 
 async function integracionGuardar() {
-  const url = (document.getElementById("intUrl").value || "").trim();
+  const url = (document.getElementById("intUrl").value || "").trim().replace(/\/+$/, "");
   const token = (document.getElementById("intToken").value || "").trim();
   const local = (document.getElementById("intLocal").value || "").trim().toLowerCase();
-  const clave = (document.getElementById("intClave").value || "").trim();
+  const clave = (document.getElementById("intClave").value || "").trim().toUpperCase();
   const modelo = (document.getElementById("intModelo").value || "").trim();
   const proveedor = (document.getElementById("intProveedor").value || "vercel").trim();
-  const nota = document.getElementById("intNotaEstado");
 
   if (!url || !/^https:\/\//.test(url)) {
-    if (nota) nota.textContent = "Falta una URL válida (https://…).";
+    intMsg("intNotaEstado", "Falta una URL válida (https://…).", "mal");
     toast("Integración: URL inválida", "error");
     return;
   }
   if (!token && !(local && clave.length === 8)) {
-    if (nota) nota.textContent = "Falta credencial: la clave de la tienda (8 caracteres) o el token de administración.";
+    intMsg("intNotaEstado", "Falta la clave de la tienda (8 caracteres) o el token de administración.", "mal");
     toast("Integración: falta la credencial", "error");
     return;
   }
   try {
-    localStorage.setItem("fabrick.nube.url", url.replace(/\/+$/, ""));
+    localStorage.setItem("fabrick.nube.url", url);
     localStorage.setItem("fabrick.nube.token", token);
     localStorage.setItem("fabrick.nube.local", local);
     localStorage.setItem("fabrick.nube.clave", clave);
@@ -7143,7 +7202,7 @@ async function integracionGuardar() {
     localStorage.setItem("fabrick.nube.proveedor", proveedor);
   } catch (e) { /* modo privado */ }
   if (window.INV && window.INV.nube) {
-    window.INV.nube.url = url.replace(/\/+$/, "");
+    window.INV.nube.url = url;
     window.INV.nube.token = token;
     window.INV.nube.local = local;
     window.INV.nube.clave = clave;
@@ -7154,8 +7213,9 @@ async function integracionGuardar() {
 
 async function integracionProbar() {
   const url = ((document.getElementById("intUrl") || {}).value || "https://fabri-api.vercel.app").trim().replace(/\/+$/, "");
-  const nota = document.getElementById("intNotaEstado");
-  if (nota) nota.textContent = "Probando " + url + "…";
+  intMsg("intNotaEstado", "Probando " + url + "…", "");
+  INT_ULTIMO.sincronizando = true;
+  intPintarFlujo();
   const t0 = Date.now();
   try {
     const r = await fetch(url + "/api/health", { cache: "no-store" });
@@ -7163,51 +7223,52 @@ async function integracionProbar() {
     const d = await r.json().catch(() => ({}));
     const ok = r.ok;
     intGuardarEstado("nube", { ok, ms, error: ok ? "" : (d.error || ("HTTP " + r.status)), url });
-    if (nota) nota.textContent = ok
-      ? "Conexión OK · " + ms + " ms · " + intHace(Date.now())
-      : "La API respondió " + r.status + ": " + (d.error || "sin detalle");
+    intEstado("intNubeEstado", ok, ok ? "en línea" : "con error");
+    intMsg("intNotaEstado", ok ? "Conexión OK · " + ms + " ms · " + intHace(Date.now())
+      : "La API respondió " + r.status + ": " + (d.error || "sin detalle"), ok ? "ok" : "mal");
+    INT_ULTIMO.ok = ok;
+    INT_ULTIMO.ms = ms;
+    INT_ULTIMO.sincronizando = false;
+    intPintarFlujo();
     toast(ok ? "Nube: conexión OK" : "Nube: error de conexión", ok ? "" : "error");
   } catch (e) {
     intGuardarEstado("nube", { ok: false, ms: Date.now() - t0, error: e.message, url });
-    if (nota) nota.textContent = "Sin conexión con " + url + ": " + e.message;
+    intEstado("intNubeEstado", false, "sin conexión");
+    intMsg("intNotaEstado", "Sin conexión con " + url + ": " + e.message, "mal");
+    INT_ULTIMO.ok = false;
+    INT_ULTIMO.sincronizando = false;
+    intPintarFlujo();
     toast("Nube: sin conexión", "error");
   }
-  const n = intLeer().nube;
-  const stats = document.getElementById("intNubeStats");
-  if (stats) stats.textContent = n ? (n.ok ? "Saludable" : "Con error") + " · " + (n.ms || 0) + " ms · " + intHace(n.ts) : "—";
 }
 
-/** Tamaño del almacenamiento de la app en el teléfono (lo que la WebView puede medir). */
 async function integracionEstadoLocal() {
   const el = document.getElementById("intBaseLocal");
   if (!el) return;
   try {
     if (navigator.storage && navigator.storage.estimate) {
       const e = await navigator.storage.estimate();
-      el.textContent = "Local (almacenamiento de la app): " + intBytes(e.usage) +
-        " usados de " + intBytes(e.quota) + ". La base SQLite y los modelos viven en el espacio interno de la app.";
+      el.textContent = intBytes(e.usage) + " de " + intBytes(e.quota);
     } else {
-      el.textContent = "Local: este WebView no expone el tamaño. Revisa Ajustes → Apps → FORGE CORE STOCK → Almacenamiento.";
+      el.textContent = "no medible aquí";
     }
-  } catch (e) {
-    el.textContent = "Local: no se pudo medir (" + e.message + ").";
-  }
+  } catch (e) { el.textContent = "no medible"; }
 }
 
-/** Estado real de la base en la nube: tamaño, filas y tablas. */
 async function integracionEstadoBase() {
   const url = ((document.getElementById("intUrl") || {}).value || "").trim().replace(/\/+$/, "");
   const local = ((document.getElementById("intLocal") || {}).value || "").trim().toLowerCase();
-  const clave = ((document.getElementById("intClave") || {}).value || "").trim();
+  const clave = ((document.getElementById("intClave") || {}).value || "").trim().toUpperCase();
   const nubeEl = document.getElementById("intBaseNube");
   const tablasEl = document.getElementById("intBaseTablas");
   if (!nubeEl) return;
   if (!url || !local || clave.length !== 8) {
-    nubeEl.textContent = "Nube: escribe el ID de la tienda y su clave para medirla.";
+    nubeEl.textContent = "faltan ID y clave";
+    intEstado("intBaseEstado", false, "sin medir");
     if (tablasEl) tablasEl.innerHTML = "";
     return;
   }
-  nubeEl.textContent = "Nube: consultando…";
+  nubeEl.textContent = "consultando…";
   const t0 = Date.now();
   try {
     const r = await fetch(url + "/api/mercado", {
@@ -7218,43 +7279,151 @@ async function integracionEstadoBase() {
     const d = await r.json().catch(() => ({}));
     const ms = Date.now() - t0;
     if (!r.ok || !d.ok) {
-      nubeEl.textContent = "Nube: " + (d.error || ("HTTP " + r.status));
+      nubeEl.textContent = d.error || ("HTTP " + r.status);
+      intEstado("intBaseEstado", false, "con error");
       if (tablasEl) tablasEl.innerHTML = "";
       return;
     }
     const b = d.base || {};
-    nubeEl.textContent = "Nube: " + intBytes(b.bytes) + " · " + (b.filas || 0) + " filas · " +
-      (b.tablas || 0) + " tablas · medido en " + ms + " ms" + (d.aviso ? " · " + d.aviso : "");
+    nubeEl.textContent = intBytes(b.bytes) + " · " + (b.filas || 0) + " filas";
+    intEstado("intBaseEstado", true, "medida");
     if (tablasEl) {
-      const filas = (d.tablas || []).slice(0, 8).map((t) =>
-        `<p class="nota">· ${t.tabla}: ${t.filas} filas · ${intBytes(t.bytes)}</p>`).join("");
-      tablasEl.innerHTML = filas || "";
+      tablasEl.innerHTML = (d.tablas || []).slice(0, 8).map((t) =>
+        '<div class="int-dato"><span>' + String(t.tabla).toUpperCase() + "</span><b>" +
+        t.filas + " filas · " + intBytes(t.bytes) + "</b></div>").join("");
     }
     intGuardarEstado("base", { ok: true, ms, bytes: b.bytes, filas: b.filas });
+    INT_ULTIMO.dispositivos = (d.tablas || []).length ? INT_ULTIMO.dispositivos : INT_ULTIMO.dispositivos;
+    intPintarFlujo();
   } catch (e) {
-    nubeEl.textContent = "Nube: sin conexión (" + e.message + ").";
+    nubeEl.textContent = "sin conexión";
+    intEstado("intBaseEstado", false, "sin conexión");
     if (tablasEl) tablasEl.innerHTML = "";
     intGuardarEstado("base", { ok: false, ms: Date.now() - t0, error: e.message });
   }
 }
 
+/* ── vínculo real con la cuenta ────────────────────────────────────────── */
+
+async function integracionCanjear() {
+  const entrada = document.getElementById("intVinculo");
+  let codigo = String((entrada && entrada.value) || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if (codigo.length < 8) {
+    intMsg("intVinculoMsg", "El código tiene 8 caracteres (K y 8 más).", "mal");
+    return;
+  }
+  const url = ((document.getElementById("intUrl") || {}).value || "https://fabri-api.vercel.app").trim().replace(/\/+$/, "");
+  intMsg("intVinculoMsg", "Canjeando el código…", "");
+  try {
+    const r = await fetch(url + "/api/mercado", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ accion: "vinculo_canjear", codigo }),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok || !d.ok) {
+      intMsg("intVinculoMsg", d.error || ("No se pudo canjear (HTTP " + r.status + ")."), "mal");
+      return;
+    }
+    try {
+      localStorage.setItem("fabrick.nube.url", url);
+      localStorage.setItem("fabrick.nube.local", String(d.local_id || ""));
+      localStorage.setItem("fabrick.nube.clave", String(d.clave || ""));
+    } catch (e) { /* modo privado */ }
+    const local = document.getElementById("intLocal");
+    const clave = document.getElementById("intClave");
+    if (local) local.value = d.local_id || "";
+    if (clave) clave.value = d.clave || "";
+    intEstado("intVinculoEstado", true, "vinculada");
+    intMsg("intVinculoMsg", "Vinculada con " + (d.tienda || d.local_id) + ". La clave quedó guardada en este equipo.", "ok");
+    await integracionProbar();
+    integracionEstadoBase();
+  } catch (e) {
+    intMsg("intVinculoMsg", "Sin conexión para canjear: " + e.message, "mal");
+  }
+}
+
 function integracionAuth() {
-  /* Abre la nube en el navegador del teléfono (MainActivity permite el dominio
-     propio). Allí el dueño ve la clave y puede copiarla a esta pantalla. */
   try {
     window.location.href = "https://forge-core-stock.vercel.app/panel/negocio/conexion/?desde=apk";
-  } catch (e) {
-    toast("No se pudo abrir la nube", "error");
-  }
+  } catch (e) { toast("No se pudo abrir la nube", "error"); }
 }
 
 function integracionVerLegal() {
   try {
     localStorage.removeItem("fcore.legal.version");
     location.reload();
-  } catch (e) {
-    toast("Abre el aviso legal al reiniciar", "error");
+  } catch (e) { toast("Abre el aviso al reiniciar", "error"); }
+}
+
+/* ── conectores / distribuidores de tecnología ─────────────────────────── */
+
+function intConectores() {
+  try {
+    const d = JSON.parse(localStorage.getItem("fcore.conectores") || "[]");
+    return Array.isArray(d) ? d : [];
+  } catch (e) { return []; }
+}
+function intGuardarConectores(lista) {
+  try { localStorage.setItem("fcore.conectores", JSON.stringify(lista)); } catch (e) { /* privado */ }
+}
+function intPintarConectores() {
+  const caja = document.getElementById("intConectoresLista");
+  if (!caja) return;
+  const lista = intConectores();
+  if (!lista.length) {
+    caja.innerHTML = '<div class="int-vacio"><b>Sin conectores</b><br>Añade el primero con «+ Añadir».</div>';
+    return;
   }
+  caja.innerHTML = '<div class="int-lista">' + lista.map((c) => {
+    const est = c.ok === true ? "si" : (c.ok === false ? "no" : "");
+    return '<div class="int-conector">' +
+      '<div class="int-conector__cab"><span class="int-conector__nombre">' + esc(c.nombre || "Conector") + "</span>" +
+        '<span class="int-estado" data-ok="' + est + '">' +
+          (c.ok === true ? "ok" : (c.ok === false ? "error" : "sin probar")) + "</span></div>" +
+      '<span class="int-conector__url">' + esc(c.url || "") + "</span>" +
+      '<div class="int-conector__acciones">' +
+        '<button class="int-btn" data-con-probar="' + esc(c.id) + '">Probar</button>' +
+        '<button class="int-btn int-btn--peligro" data-con-quitar="' + esc(c.id) + '">Quitar</button>' +
+      "</div>" +
+    "</div>";
+  }).join("") + "</div>";
+  caja.querySelectorAll("[data-con-probar]").forEach((b) => {
+    b.onclick = () => intProbarConector(b.dataset.conProbar);
+  });
+  caja.querySelectorAll("[data-con-quitar]").forEach((b) => {
+    b.onclick = () => {
+      intGuardarConectores(intConectores().filter((x) => x.id !== b.dataset.conQuitar));
+      intPintarConectores();
+    };
+  });
+}
+async function intProbarConector(id) {
+  const lista = intConectores();
+  const c = lista.find((x) => x.id === id);
+  if (!c) return;
+  const t0 = Date.now();
+  try {
+    const r = await fetch(c.url, {
+      method: "GET",
+      headers: c.token ? { Authorization: "Bearer " + c.token } : {},
+      cache: "no-store",
+    });
+    c.ok = r.ok || r.status === 405;
+    c.ms = Date.now() - t0;
+    c.error = c.ok ? "" : ("HTTP " + r.status);
+  } catch (e) {
+    c.ok = false;
+    c.ms = Date.now() - t0;
+    c.error = e.message;
+  }
+  intGuardarConectores(lista);
+  intPintarConectores();
+  toast(c.ok ? "Conector: responde" : "Conector: error", c.ok ? "" : "error");
+}
+function intAgregarConector() {
+  const form = document.getElementById("intConectorForm");
+  if (form) form.hidden = !form.hidden;
 }
 
 /* ── respaldo externo ─────────────────────────────────────────────────── */
@@ -7262,49 +7431,34 @@ function integracionVerLegal() {
 function integracionRespaldoGuardar() {
   const url = ((document.getElementById("intResUrl") || {}).value || "").trim();
   const token = ((document.getElementById("intResToken") || {}).value || "").trim();
-  const nota = document.getElementById("intResEstado");
   if (!url || !/^https:\/\//.test(url)) {
-    if (nota) nota.textContent = "El respaldo necesita una URL https válida.";
-    toast("Respaldo: URL inválida", "error");
+    intMsg("intResStats", "El respaldo necesita una URL https válida.", "mal");
     return;
   }
   try {
     localStorage.setItem("fcore.int.respaldo.url", url);
     localStorage.setItem("fcore.int.respaldo.token", token);
-  } catch (e) { /* modo privado */ }
-  if (nota) nota.textContent = "Guardado. Pulsa «Probar endpoint».";
-  toast("Respaldo guardado", "");
+  } catch (e) { /* privado */ }
+  intEstado("intResEstado", false, "guardado");
+  intMsg("intResStats", "Guardado. Pulsa «Probar».", "");
 }
 
 async function integracionRespaldoProbar() {
   const url = ((document.getElementById("intResUrl") || {}).value || "").trim();
   const token = ((document.getElementById("intResToken") || {}).value || "").trim();
-  const nota = document.getElementById("intResEstado");
-  const stats = document.getElementById("intResStats");
-  if (!url || !/^https:\/\//.test(url)) {
-    if (nota) nota.textContent = "Falta la URL https del respaldo.";
-    return;
-  }
-  if (nota) nota.textContent = "Probando " + url + "…";
+  if (!url || !/^https:\/\//.test(url)) { intMsg("intResStats", "Falta la URL https.", "mal"); return; }
   const t0 = Date.now();
   try {
-    const r = await fetch(url, {
-      method: "GET",
-      headers: token ? { Authorization: "Bearer " + token } : {},
-      cache: "no-store",
-    });
+    const r = await fetch(url, { method: "GET", headers: token ? { Authorization: "Bearer " + token } : {}, cache: "no-store" });
     const ms = Date.now() - t0;
-    // Un endpoint de respaldo puede no aceptar GET: 405 también prueba que existe.
     const ok = r.ok || r.status === 405;
     intGuardarEstado("respaldo", { ok, ms, status: r.status, url, error: ok ? "" : ("HTTP " + r.status) });
-    if (nota) nota.textContent = ok
-      ? "Endpoint accesible (HTTP " + r.status + ") · " + ms + " ms"
-      : "El endpoint respondió " + r.status + ". Revisa la URL o el token.";
-    if (stats) stats.textContent = "Prueba: " + (ok ? "OK" : "error") + " · " + ms + " ms · " + intHace(Date.now());
+    intEstado("intResEstado", ok, ok ? "accesible" : "con error");
+    intMsg("intResStats", ok ? "Endpoint accesible (HTTP " + r.status + ") · " + ms + " ms" : "Respondió " + r.status + ". Revisa URL o token.", ok ? "ok" : "mal");
   } catch (e) {
     intGuardarEstado("respaldo", { ok: false, ms: Date.now() - t0, error: e.message, url });
-    if (nota) nota.textContent = "No se pudo alcanzar el endpoint: " + e.message;
-    if (stats) stats.textContent = "Prueba: error de red · " + intHace(Date.now());
+    intEstado("intResEstado", false, "sin conexión");
+    intMsg("intResStats", "No se pudo alcanzar: " + e.message, "mal");
   }
 }
 
@@ -7312,17 +7466,12 @@ async function integracionRespaldoEnviar() {
   const url = ((document.getElementById("intResUrl") || {}).value || "").trim();
   const token = ((document.getElementById("intResToken") || {}).value || "").trim();
   const local = ((document.getElementById("intLocal") || {}).value || "").trim();
-  const nota = document.getElementById("intResEstado");
-  if (!url) { if (nota) nota.textContent = "Falta la URL del respaldo."; return; }
+  if (!url) { intMsg("intResStats", "Falta la URL del respaldo.", "mal"); return; }
   const sobre = {
-    origen: "forge-core-stock",
-    tipo: "prueba_respaldo",
-    tienda: local,
-    generado: new Date().toISOString(),
-    version: "0.9.65",
-    mensaje: "Sobre de prueba. El respaldo completo del catálogo se exporta desde Datos.",
+    origen: "forge-core-stock", tipo: "prueba_respaldo", tienda: local,
+    generado: new Date().toISOString(), version: "0.9.66",
+    mensaje: "Sobre de prueba. El respaldo completo se exporta desde Datos.",
   };
-  if (nota) nota.textContent = "Enviando sobre de prueba…";
   const t0 = Date.now();
   try {
     const r = await fetch(url, {
@@ -7332,12 +7481,12 @@ async function integracionRespaldoEnviar() {
     });
     const ms = Date.now() - t0;
     intGuardarEstado("respaldo", { ok: r.ok, ms, status: r.status, url, error: r.ok ? "" : ("HTTP " + r.status) });
-    if (nota) nota.textContent = r.ok
-      ? "Sobre entregado (HTTP " + r.status + ") · " + ms + " ms"
-      : "El endpoint rechazó el sobre: HTTP " + r.status;
+    intEstado("intResEstado", r.ok, r.ok ? "recibido" : "rechazado");
+    intMsg("intResStats", r.ok ? "Sobre entregado (HTTP " + r.status + ") · " + ms + " ms" : "El endpoint rechazó el sobre: HTTP " + r.status, r.ok ? "ok" : "mal");
   } catch (e) {
     intGuardarEstado("respaldo", { ok: false, ms: Date.now() - t0, error: e.message, url });
-    if (nota) nota.textContent = "Error al enviar: " + e.message;
+    intEstado("intResEstado", false, "sin conexión");
+    intMsg("intResStats", "Error al enviar: " + e.message, "mal");
   }
 }
 
@@ -7349,32 +7498,57 @@ function integracionIAGuardar() {
   try {
     localStorage.setItem("fabrick.nube.modelo", modelo);
     localStorage.setItem("fabrick.nube.proveedor", proveedor);
-  } catch (e) { /* modo privado */ }
-  const el = document.getElementById("intIAEstado");
-  if (el) el.textContent = "Guardado: " + proveedor + " · " + modelo;
-  toast("IA: configuración guardada", "");
+  } catch (e) { /* privado */ }
+  intMsg("intIAStats", "Guardado: " + proveedor + " · " + modelo, "ok");
 }
 
 async function integracionIAProbar() {
   const url = ((document.getElementById("intUrl") || {}).value || "").trim().replace(/\/+$/, "");
-  const el = document.getElementById("intIAEstado");
-  const stats = document.getElementById("intIAStats");
-  if (el) el.textContent = "Probando el proveedor…";
   const t0 = Date.now();
   try {
     const r = await fetch(url + "/api/health", { cache: "no-store" });
     const ms = Date.now() - t0;
     intGuardarEstado("ia", { ok: r.ok, ms, error: r.ok ? "" : ("HTTP " + r.status) });
-    if (el) el.textContent = r.ok
-      ? "Proveedor alcanzable · " + ms + " ms. La clave del modelo se guarda en Conexiones."
-      : "El proveedor respondió " + r.status + ".";
-    if (stats) stats.textContent = "Prueba: " + (r.ok ? "OK" : "error") + " · " + ms + " ms · " + intHace(Date.now());
+    intEstado("intIAEstado", r.ok, r.ok ? "responde" : "con error");
+    intMsg("intIAStats", r.ok ? "Proveedor alcanzable · " + ms + " ms. La clave del modelo va en Conexiones." : "El proveedor respondió " + r.status + ".", r.ok ? "ok" : "mal");
   } catch (e) {
     intGuardarEstado("ia", { ok: false, ms: Date.now() - t0, error: e.message });
-    if (el) el.textContent = "Sin conexión con el proveedor: " + e.message;
-    if (stats) stats.textContent = "Prueba: error de red · " + intHace(Date.now());
+    intEstado("intIAEstado", false, "sin conexión");
+    intMsg("intIAStats", "Sin conexión con el proveedor: " + e.message, "mal");
   }
 }
+
+/* Enganches del DOM (una vez) */
+(function engancharIntegracion() {
+  const listo = () => {
+    const c = document.getElementById("intCanjear");
+    if (c) c.onclick = integracionCanjear;
+    const a = document.getElementById("intAbrirNube");
+    if (a) a.onclick = integracionAuth;
+    const ag = document.getElementById("intAgregar");
+    if (ag) ag.onclick = intAgregarConector;
+    const g = document.getElementById("intConGuardar");
+    if (g) g.onclick = () => {
+      const nombre = (document.getElementById("intConNombre").value || "").trim();
+      const url = (document.getElementById("intConUrl").value || "").trim();
+      const token = (document.getElementById("intConToken").value || "").trim();
+      if (!nombre || !/^https:\/\//.test(url)) { toast("Conector: nombre y URL https", "error"); return; }
+      const lista = intConectores();
+      lista.push({ id: "c" + Date.now().toString(36), nombre, url, token, ok: null });
+      intGuardarConectores(lista);
+      document.getElementById("intConNombre").value = "";
+      document.getElementById("intConUrl").value = "";
+      document.getElementById("intConToken").value = "";
+      document.getElementById("intConectorForm").hidden = true;
+      intPintarConectores();
+      toast("Conector guardado", "");
+    };
+    const x = document.getElementById("intConCancelar");
+    if (x) x.onclick = () => { document.getElementById("intConectorForm").hidden = true; };
+  };
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", listo);
+  else listo();
+})();
 
 /** Pinta el bloque «Rendimiento del núcleo» en Diagnóstico. */
 function pintarRendimiento(rend) {

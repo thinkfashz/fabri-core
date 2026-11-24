@@ -28,26 +28,27 @@ La aceptación se guarda con versión (`2026-11-24`) y fecha. Se puede releer de
 Integración → «Aviso de datos y responsabilidad». La versión web está en
 `/privacidad.html` y `/terminos.html`.
 
-## 3 · Vista «Integración / Conectores» (mejorada)
+## 3 · Integración rediseñada (0.9.66)
 
-Cuatro tarjetas separadas, cada una con su estado, su última prueba y latencia:
+Interfaz nueva, móvil primero, con cards y una miniatura animada del flujo:
 
-1. **Nube de tu tienda:** URL, ID y clave, token admin opcional. Guardar, probar,
-   **estado de la base** y **Conectar con mi cuenta** (abre la nube en el
-   navegador del teléfono para generar o copiar la clave).
-2. **Estado de la base:** local (almacenamiento de la app y aviso de que SQLite y
-   modelos viven en el espacio interno) y nube (`estado_base`: tamaño, filas y
-   tablas reales).
-3. **Base de respaldo externa:** endpoint HTTPS + token, probar y enviar un sobre
-   JSON. No es conexión SQL directa; el respaldo completo se exporta desde Datos.
-4. **IA remota:** proveedor, modelo por defecto, guardar y probar.
+1. **Flujo (canvas Matrix):** APK ↔ nube, paquetes de ida y vuelta, latencia y
+   estado. Se detiene si la nube no responde.
+2. **Tu cuenta y la APK — vínculo real:** el panel genera un código de 8
+   caracteres de un solo uso (`vinculo_crear`); la APK lo canjea
+   (`vinculo_canjear`) y recibe tienda + clave, que quedan guardadas. El código
+   caduca en 10 minutos y rota la clave. Botón «Abrir mi cuenta en la nube».
+3. **Nube de tu tienda:** URL, ID, clave, token admin; guardar, probar y estado.
+4. **Base de datos:** local y nube con tamaño, filas y tablas reales.
+5. **Proveedores y conectores:** tarjetas para guardar claves de InsForge, Neon,
+   Supabase, Cloudflare, OpenAI… con probar y quitar; botón «+ Añadir».
+6. **Respaldo externo** e **IA remota**, cada una con su estado y latencia.
 
-Los estados se guardan en `fcore.int` (última prueba, latencia, error) y no se
-muestra «conectado» si la prueba no respondió.
+Los estados se guardan en `fcore.int`; no se muestra «conectado» sin prueba.
 
 ## 4 · Vista «Tienda y CRM» en el menú lateral
 
-La 0.9.65 no cambia las pantallas existentes: añade **una vista** al menú
+La 0.9.66 no cambia las pantallas existentes: añade **una vista** al menú
 lateral (`data-vista="tienda"`), con tres pestañas internas.
 
 - **Conexión:** identificador + clave, probar, estado de la nube (publicada,
@@ -63,6 +64,12 @@ reutilizaron las 7 bibliotecas nativas de la 0.9.63.
 
 Archivos: `android/assets/www/tienda.js`, `tienda.css` y tres líneas de
 integración en `index.html` (menú, sección, script) y `app.js` (router).
+
+## 4-bis · Base de datos en la app
+
+La vista «Base de datos» mantiene su consola y su tabla, pero el banner de flujo
+usa el mismo motor Matrix (`matrix.js`): SQLite local ⇄ nube, con paquetes y
+estado real. Altura mayor y borde redondeado para que se vea en el teléfono.
 
 ## 5 · Qué hace la vista «Tienda»
 
@@ -100,7 +107,7 @@ El build lite no levanta daemon ni resuelve dependencias. En este equipo tarda
 
 ```sh
 FORGE_SALTAR_RUST=1 bash scripts/compilar.sh
-# APK: dist/FORGE-CORE-STOCK-0.9.65.apk  (~1m 47s, firmada)
+# APK: dist/FORGE-CORE-STOCK-0.9.66.apk  (~1m 47s, firmada)
 ```
 
 `FORGE_SALTAR_RUST=1` reutiliza las bibliotecas nativas del APK 0.9.63 (mismas,
@@ -129,7 +136,7 @@ $ANDROID_SDK_ROOT/build-tools/34.0.0/apksigner verify --print-certs out/forge-co
 ## 6 · Entrega e instalación encima de la 0.9.63
 
 - `/storage/emulated/0/Download/FORGE-CORE-STOCK.apk` (nombre estable)
-- `/storage/emulated/0/Download/FORGE-CORE-STOCK-0.9.65.apk`
+- `/storage/emulated/0/Download/FORGE-CORE-STOCK-0.9.66.apk`
 - `https://forge-core-stock.vercel.app/descargas/FORGE-CORE-STOCK.apk`
 
 Misma firma de depuración (`SHA-256 959b85cc…`) y mismo package

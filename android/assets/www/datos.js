@@ -940,104 +940,22 @@ document.addEventListener("DOMContentLoaded", () => {
 
 /* ── Flujo en vivo Canvas: SQLite Local ⇄ Nube Vercel ── */
 let streamAnimId = null;
+/* El flujo SQLite ⇄ nube usa el mismo motor Matrix de Integración: retícula,
+   paquetes de ida y vuelta y estado real. Antes era una animación propia muy
+   tenue; ahora comparte el lenguaje visual y se detiene si no hay conexión. */
 function hojaIniciarCanvasStream() {
   const canvas = document.getElementById("sqlCanvasStream");
-  if (!canvas) return;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return;
-
-  const ancho = canvas.parentElement ? (canvas.parentElement.clientWidth || 560) : 560;
-  canvas.width = ancho;
-  canvas.height = 84;
-  const w = canvas.width;
-  const h = canvas.height;
-
-  const particulas = [];
-  for (let i = 0; i < 28; i++) {
-    particulas.push({
-      x: 140 + Math.random() * (w - 280),
-      y: h / 2 + (Math.random() - 0.5) * 16,
-      v: 1.4 + Math.random() * 2.4,
-      tam: 2 + Math.random() * 3,
-      alfa: 0.35 + Math.random() * 0.65
-    });
+  if (!canvas || typeof window.MatrizFlujo !== "function") return;
+  if (window.__sqlFlujo) {
+    try { window.__sqlFlujo.destruir(); } catch (e) { /* ya */ }
+    window.__sqlFlujo = null;
   }
-
-  function frame() {
-    ctx.fillStyle = "#050505";
-    ctx.fillRect(0, 0, w, h);
-
-    // Nodo Izquierdo: SQLite Local
-    ctx.fillStyle = "#121212";
-    ctx.strokeStyle = "#2A2A2A";
-    ctx.lineWidth = 1.2;
-    ctx.beginPath();
-    ctx.roundRect(10, 14, 130, 56, 10);
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.fillStyle = "#C8FF00";
-    ctx.beginPath();
-    ctx.arc(26, 42, 5, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = "#FFFFFF";
-    ctx.font = "bold 11px system-ui, sans-serif";
-    ctx.fillText("SQLite Local", 38, 36);
-    ctx.fillStyle = "#8A8A8A";
-    ctx.font = "9.5px monospace";
-    ctx.fillText("Base en teléfono", 38, 51);
-
-    // Nodo Derecho: Nube Postgres
-    ctx.fillStyle = "#121212";
-    ctx.strokeStyle = "#2A2A2A";
-    ctx.beginPath();
-    ctx.roundRect(w - 140, 14, 130, 56, 10);
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.fillStyle = "#3DDC84";
-    ctx.beginPath();
-    ctx.arc(w - 124, 42, 5, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = "#FFFFFF";
-    ctx.font = "bold 11px system-ui, sans-serif";
-    ctx.fillText("Nube Fabrick", w - 112, 36);
-    ctx.fillStyle = "#8A8A8A";
-    ctx.font = "9.5px monospace";
-    ctx.fillText("fabri-api Vercel", w - 112, 51);
-
-    // Bus de datos punteado
-    ctx.strokeStyle = "rgba(200, 255, 0, 0.22)";
-    ctx.lineWidth = 2;
-    ctx.setLineDash([4, 4]);
-    ctx.beginPath();
-    ctx.moveTo(140, 42);
-    ctx.lineTo(w - 140, 42);
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    // Partículas de datos fluyendo
-    ctx.fillStyle = "#C8FF00";
-    particulas.forEach((p) => {
-      p.x += p.v;
-      if (p.x > w - 140) p.x = 140;
-      ctx.globalAlpha = p.alfa;
-      ctx.beginPath();
-      ctx.arc(p.x, 42 + Math.sin(p.x * 0.08) * 3, p.tam, 0, Math.PI * 2);
-      ctx.fill();
-    });
-    ctx.globalAlpha = 1.0;
-
-    const vista = document.getElementById("v-sql");
-    if (vista && vista.classList.contains("activa")) {
-      streamAnimId = requestAnimationFrame(frame);
-    }
+  window.__sqlFlujo = window.MatrizFlujo(canvas);
+  if (window.__sqlFlujo) {
+    window.__sqlFlujo.actualizar({ ok: true, ms: 0, productos: 0, dispositivos: 0, sincronizando: false });
   }
-  if (streamAnimId) cancelAnimationFrame(streamAnimId);
-  frame();
 }
+
 
 async function hojaProbarConexion() {
   const lbl = document.getElementById("sqlNubeEstadoTexto");

@@ -12,6 +12,7 @@
 
 import { arrancar, llamar } from '../../comun/negocio.js';
 import { esc } from '../../comun/formato.js';
+import { crearFlujo } from './matrix.js';
 import { alCambiar } from '../../comun/sesion.js';
 import { inventarioPost } from '../../comun/api.js';
 
@@ -28,6 +29,9 @@ const estado = {
   verif: null,        // { clase, texto, tienda, productos, ms, codigo }
   probando: false,
   base: null,         // estado de la base en la nube (estado_base)
+  flujo: null,        // canvas del envío de datos
+  vinculo: null,      // código temporal para enlazar la APK
+  vinculando: false,
   baseError: '',
   clave: '',          // valor nuevo, sólo en memoria
   rotando: false,
@@ -151,6 +155,26 @@ async function verificarClave(ev) {
 }
 
 /* ── rotar / generar clave ──────────────────────────────────────────────── */
+
+async function generarVinculo() {
+  const ctx = estado.ctx;
+  if (!ctx || !ctx.tienda || estado.vinculando) return;
+  if (!window.confirm('Se generará una clave nueva para la tienda y un código de un solo uso. ' +
+      'Los dispositivos conectados deberán reconectarse. ¿Continuar?')) return;
+  estado.vinculando = true;
+  estado.fallo = '';
+  pintar();
+  try {
+    const d = await llamar('vinculo_crear', { local_id: ctx.tienda.id });
+    estado.vinculo = { codigo: d.codigo, local_id: d.local_id, expira: Date.now() + 600000 };
+    await cargarEstado();
+  } catch (e) {
+    estado.fallo = (e && e.message) || 'No pudimos generar el código.';
+  } finally {
+    estado.vinculando = false;
+    pintar();
+  }
+}
 
 async function rotarClave() {
   const ctx = estado.ctx;
@@ -402,6 +426,49 @@ function crearEscena(canvas) {
 
 /* ── pintado ────────────────────────────────────────────────────────────── */
 
+function bloqueFlujo() {
+  const c = estado.conexion || {};
+  const ok = Boolean(estado.conexion && c.tiene_clave);
+  const disp = estado.dispositivos.length;
+  const ms = (estado.verif && estado.verif.ms) || 0;
+  const texto = !ok ? 'sin conexión' : (estado.probando ? 'sincronizando' : 'en línea');
+  return '<div class="cn-flujo" aria-label="Flujo de datos entre la app y la nube">' +
+    '<div class="cn-flujo__hud">' +
+      '<span class="cn-hud__chip" data-estado="' + (ok ? (estado.probando ? 'aviso' : 'ok') : 'mal') + '">' +
+        esc(texto) + '</span>' +
+      '<span class="cn-hud__chip">' + disp + (disp === 1 ? ' dispositivo' : ' dispositivos') + '</span>' +
+      '<span class="cn-hud__chip">' + (ms ? ms + ' ms' : '—') + '</span>' +
+    '</div>' +
+    '<canvas id="cnFlujo" role="img" aria-label="Miniatura animada del envío de datos entre la APK y la nube"></canvas>' +
+    '<p class="cn-escena__pie">Envío y regreso en tiempo real. La velocidad sigue la latencia medida; ' +
+      'si la nube no responde, los paquetes se detienen y el marco pasa a rojo.</p>' +
+  '</div>';
+}
+
+function bloqueVinculo() {
+  if (!estado.conexion) return '';
+  return '<section class="cn-card" aria-labelledby="cnVinculoTitulo">' +
+    '<div class="cn-card__cabeza"><h2 class="cn-card__titulo" id="cnVinculoTitulo">Vincular la APK</h2>' +
+      '<span class="pill">un solo uso</span></div>' +
+    '<p class="cn-nota">Genera un código de 8 caracteres y escríbelo en la APK (Integración → Vincular). ' +
+      'Caduca en 10 minutos y, al usarse, la app recibe la tienda y su clave. Al generarlo se rota la clave: ' +
+      'los dispositivos anteriores deberán reconectarse.</p>' +
+    (estado.vinculo
+      ? '<div class="cn-vinculo">' +
+          '<span class="cn-vinculo__rot">Código para la APK</span>' +
+          '<b class="cn-codigo">' + esc(estado.vinculo.codigo) + '</b>' +
+          '<button class="ds-btn ds-btn--secondary ds-btn--sm" type="button" data-copiar-vinculo>Copiar código</button>' +
+          '<p class="cn-nota">Caduca ' + esc(fechaHora(estado.vinculo.expira || Date.now() + 600000)) + '. Úsalo una vez.</p>' +
+        '</div>'
+      : '') +
+    '<div class="cn-fila">' +
+      '<button class="ds-btn" type="button" data-vincular' + (estado.vinculando ? ' disabled' : '') + '>' +
+        (estado.vinculando ? 'Generando…' : (estado.vinculo ? 'Generar otro código' : 'Generar código para la APK')) +
+      '</button>' +
+    '</div>' +
+  '</section>';
+}
+
 function bloqueVerificador() {
   const v = estado.verif;
   let resultado = '';
@@ -597,8 +664,10 @@ function contenido() {
       '<p class="cn-cab__sub">Una clave por tienda para que la app y la APK sincronicen el catálogo, ' +
         'con respaldo local en el dispositivo. Aquí ves el estado real y los fallos.</p>' +
     '</header>' +
+    bloqueFlujo() +
     bloqueEscena() +
     bloqueVerificador() +
+    bloqueVinculo() +
     bloqueClave() +
     '<div class="cn-grid cn-grid--dos">' +
       bloqueEstado() +
@@ -612,7 +681,21 @@ function contenido() {
 function pintar() {
   const caja = $('[data-negocio]');
   if (!caja || !estado.ctx) return;
+  if (estado.flujo) { estado.flujo.destruir(); estado.flujo = null; }
   caja.innerHTML = contenido();
+  const lienzo = $('#cnFlujo');
+  if (lienzo) {
+    estado.flujo = crearFlujo(lienzo);
+    if (estado.flujo) {
+      estado.flujo.actualizar({
+        ok: Boolean(estado.conexion && estado.conexion.tiene_clave),
+        ms: (estado.verif && estado.verif.ms) || 0,
+        productos: (estado.conexion && estado.conexion.productos) || 0,
+        dispositivos: estado.dispositivos.length,
+        sincronizando: Boolean(estado.probando || estado.rotando),
+      });
+    }
+  }
   pintarHud();
   const canvas = $('#cnCanvas');
   if (canvas) {
@@ -637,6 +720,17 @@ function pintar() {
   if (rotar) rotar.addEventListener('click', rotarClave);
   const copiar = $('[data-copiar]');
   if (copiar) copiar.addEventListener('click', copiarClave);
+  const vincular = $('[data-vincular]');
+  if (vincular) vincular.addEventListener('click', generarVinculo);
+  const copiarV = $('[data-copiar-vinculo]');
+  if (copiarV) copiarV.addEventListener('click', async () => {
+    if (!estado.vinculo) return;
+    try {
+      await navigator.clipboard.writeText(estado.vinculo.codigo);
+      estado.vinculo.copiado = true;
+      pintar();
+    } catch (_) { /* sin portapapeles */ }
+  });
   const act = $('[data-actualizar]');
   if (act) act.addEventListener('click', async () => {
     act.disabled = true;

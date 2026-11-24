@@ -8,6 +8,53 @@
 
 Última actualización: 2026-11-24
 
+## Sesión 2026-11-24 · APK 0.9.66: vínculo real y flujo Matrix
+
+Pedido: ver el flujo de trabajo en la app y en la nube, mejorar por completo la
+pantalla de Integración y la de Base de datos, y que «Conectar con mi cuenta»
+cree una unión real entre la cuenta y la APK guardando la clave.
+
+**Vínculo cuenta ↔ APK (real)**
+
+- `mercado.ts`: tabla `mercado_vinculos` y acciones
+  `vinculo_crear` (dueño, sesión) y `vinculo_canjear` (público, un solo uso).
+  Crear genera clave nueva y un código `KXXXXXXXX` de 10 minutos; canjear
+  entrega `local_id` + `clave` una vez y borra la fila.
+- Web: tarjeta «Vincular la APK» en `/panel/negocio/conexion/`, con código
+  grande, copiar y aviso de rotación.
+- APK: campo «Código de vinculación» + «Canjear y conectar»; guarda la tienda y
+  la clave en el equipo y prueba el enlace.
+- Verificado: crear `KGSHCMA7Y`; canje OK; segundo canje 404; clave vieja 401;
+  clave nueva 200; `estado_base` 200.
+
+**Flujo Matrix (canvas)**
+
+- `matrix.js` en la web y en la APK: retícula, lluvia tenue, nodos APK/NUBE y
+  paquetes de ida y vuelta. La velocidad sigue la latencia; sin conexión se
+  detiene y pasa a rojo. Respeta `prefers-reduced-motion` y pausa oculta.
+- Web: mini-card arriba de la página de conexión (356×132, 46.992 px pintados).
+- APK: Integración rediseñada con la mini-card y la vista Base de datos con el
+  mismo motor (antes usaba una animación propia muy tenue).
+
+**Integración APK 0.9.66 (interfaz nueva)**
+
+- Cards numeradas: flujo, cuenta/vínculo, nube, base de datos, conectores,
+  respaldo externo e IA. Estados, latencia y último resultado por tarjeta.
+- «Proveedores y conectores»: guarda nombre, URL y token de InsForge, Neon,
+  Supabase, Cloudflare, OpenAI… con probar y quitar; botón «+ Añadir».
+- CSS propio `integracion.css` para no depender de `app.css`.
+
+**Compilación y entrega**
+
+- `versionCode` 81 · `versionName` 0.9.66 · package y firma intactos.
+- `FORGE_SALTAR_RUST=1 bash scripts/compilar.sh` → 2m 29s.
+- `/storage/emulated/0/Download/FORGE-CORE-STOCK.apk` y `…-0.9.66.apk`, y
+  publicado en `web/descargas/FORGE-CORE-STOCK.apk`.
+- Datos de prueba borrados; 26/26 suites en verde.
+
+**Pendiente**: abrir la app en el teléfono, aceptar el aviso, canjear un código
+desde el panel y comprobar el flujo y el estado de la base.
+
 ## Sesión 2026-11-24 · APK 0.9.65: estado de base, Integración y aviso legal
 
 Pedido: mostrar el estado de la base en el celular y en la nube al sincronizar,

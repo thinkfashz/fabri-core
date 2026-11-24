@@ -35,6 +35,10 @@
 //                                              → edita (DUEÑO por cuenta/clave · ADMIN)
 //   POST { accion: "local_estado", local_id, clave?, abierto }
 //                                              → ABIERTO/CERRADO (DUEÑO · ADMIN)
+//   POST { accion: "vinculo_crear", local_id }       → código de un solo uso
+//                                              para enlazar la APK (DUEÑO), rota
+//                                              la clave y caduca en 10 minutos
+//   POST { accion: "vinculo_canjear", codigo }      → local_id + clave, una vez
 //   POST { accion: "estado_base", local_id }         → tamaño y filas de la base
 //                                              (DUEÑO · ADMIN), sin datos
 //   POST { accion: "clientes_listar", local_id, q?, segmento? }
@@ -462,6 +466,21 @@ async function asegurar(pool: any) {
   await pool.query(`ALTER TABLE ${T_LOCALES} ADD COLUMN IF NOT EXISTS descripcion TEXT NOT NULL DEFAULT ''`);
   await pool.query(`ALTER TABLE ${T_LOCALES} ADD COLUMN IF NOT EXISTS dueno_id TEXT NOT NULL DEFAULT ''`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_mercado_locales_dueno ON ${T_LOCALES} (dueno_id)`);
+  /* Vínculo temporal cuenta ↔ dispositivo. El dueño autenticado genera un
+     código de 8 caracteres; la APK lo canjea una vez y recibe la tienda y su
+     clave. La fila se borra al canjear y caduca a los 10 minutos. Es un
+     secreto de un solo uso, como un código de recuperación. */
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS mercado_vinculos (
+      codigo    TEXT PRIMARY KEY,
+      local_id  TEXT NOT NULL,
+      dueno_id  TEXT NOT NULL DEFAULT '',
+      clave     TEXT NOT NULL,
+      creado    TIMESTAMPTZ NOT NULL DEFAULT now(),
+      expira    TIMESTAMPTZ NOT NULL,
+      usado     BOOLEAN NOT NULL DEFAULT false
+    )`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_mercado_vinculos_expira ON mercado_vinculos (expira)`);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS ${T_PRODUCTOS} (
       local_id    TEXT NOT NULL,
@@ -1653,6 +1672,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         'asegurar', 'locales', 'local_ver', 'local_crear', 'local_mio', 'local_actualizar',
         'local_estado', 'local_borrar', 'productos_subir', 'producto_borrar',
         'conexion_estado', 'conexion_rotar', 'clientes_listar', 'estado_base',
+        'vinculo_crear', 'vinculo_canjear',
         'imagen_ver', 'codigo_buscar', 'productos_buscar',
         'pedido_crear', 'pedido_seguir', 'push_suscribir', 'push_baja',
         'push_local_suscribir', 'push_local_baja',
@@ -2042,6 +2062,65 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
        usa `/api/inventario`: no se crea una segunda llave ni se toca la APK.
        El dueño, desde su sesión, puede ver el estado y rotar la clave; la
        clave nueva se muestra UNA vez (en la base sólo queda su hash). */
+    /* ── vínculo cuenta ↔ APK ──────────────────────────────────────────────
+       `vinculo_crear` lo llama el dueño desde el panel con su sesión. Genera
+       una clave NUEVA para la tienda (invalida los dispositivos anteriores) y
+       deja un código de 8 caracteres que caduca en 10 minutos. `vinculo_canjear`
+       lo llama la APK con ese código y recibe `local_id` + `clave` una sola vez. */
+    if (accion === 'vinculo_crear') {
+      const localId = idLocal(cuerpo.local_id);
+      const { local, motivo } = await autorizarLocal(pool, req, localId, texto(cuerpo.clave, 60));
+      if (!local) return json(res, { ok: false, error: 'no autorizado', codigo: motivo }, 401);
+
+      /* Barrido de vencidos: no se acumulan códigos muertos. */
+      try { await pool.query(`DELETE FROM mercado_vinculos WHERE expira < now() OR usado`); }
+      catch (e) { /* tabla recién creada */ }
+
+      const clave = nuevaClave();
+      await pool.query(
+        `UPDATE ${T_LOCALES} SET clave_hash = $2, actualizado = $3 WHERE id = $1`,
+        [localId, hashClave(clave), Date.now()]
+      );
+      const codigo = codigoVerificacion().replace(/^V/, 'K');
+      await pool.query(
+        `INSERT INTO mercado_vinculos (codigo, local_id, dueno_id, clave, expira)
+         VALUES ($1,$2,$3,$4, now() + interval '10 minutes')`,
+        [codigo, localId, String(local.dueno_id || ''), clave]
+      );
+      return json(res, {
+        ok: true, accion, codigo, local_id: localId, tienda: local.nombre,
+        expira_min: 10,
+        nota: 'Escribe este código en la APK (Integración → Vincular). Caduca en 10 minutos y se usa una sola vez.',
+      });
+    }
+
+    if (accion === 'vinculo_canjear') {
+      const codigo = String(cuerpo.codigo || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 9);
+      if (!codigo) return json(res, { ok: false, error: 'falta el código', codigo: 'SIN_CODIGO' }, 400);
+      const r = await pool.query(
+        `SELECT codigo, local_id, clave FROM mercado_vinculos
+          WHERE codigo = $1 AND usado = false AND expira > now() LIMIT 1`, [codigo]
+      );
+      const v = r.rows[0];
+      if (!v) {
+        return json(res, {
+          ok: false, codigo: 'VINCULO_INVALIDO',
+          error: 'El código no existe, ya se usó o caducó. Genera uno nuevo en la nube.',
+        }, 404);
+      }
+      await pool.query(`DELETE FROM mercado_vinculos WHERE codigo = $1`, [codigo]);
+      const t = await pool.query(
+        `SELECT id, nombre FROM ${T_LOCALES} WHERE id = $1 LIMIT 1`, [v.local_id]
+      );
+      return json(res, {
+        ok: true, accion,
+        local_id: v.local_id,
+        clave: v.clave,
+        tienda: t.rows[0] ? t.rows[0].nombre : v.local_id,
+        nota: 'Guarda esta clave en la app: el código ya no sirve.',
+      });
+    }
+
     /* ── estado de la base, para el panel y la APK ─────────────────────────
        Devuelve el tamaño real de la base y de cada tabla del negocio. No
        expone filas ni datos: sólo nombres, conteos y bytes. Si el rol de la

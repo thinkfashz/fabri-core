@@ -159,3 +159,47 @@
 @media (prefers-reduced-motion: reduce) {
   #cnCanvas { height: 220px; }
 }
+
+/* ── mini-card del flujo de datos (matrix) ──────────────────────────────── */
+.cn-flujo {
+  position: relative;
+  border: 1px solid var(--ds-border);
+  border-radius: 18px;
+  overflow: hidden;
+  background: #070A08;
+}
+#cnFlujo { display: block; width: 100%; height: 132px; }
+.cn-flujo__hud {
+  position: absolute;
+  inset: 8px 8px auto 8px;
+  display: flex;
+  gap: 6px;
+  justify-content: space-between;
+  pointer-events: none;
+  flex-wrap: wrap;
+}
+
+/* ── vínculo APK ────────────────────────────────────────────────────────── */
+.cn-vinculo {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  padding: 12px;
+  border: 1px dashed #3E5A2A;
+  background: #10160B;
+  border-radius: 14px;
+  margin-top: 4px;
+}
+.cn-vinculo__rot {
+  font-size: 10.5px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ds-text-tertiary);
+}
+.cn-codigo {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 28px;
+  letter-spacing: .22em;
+  color: var(--ds-accent);
+  user-select: all;
+}
