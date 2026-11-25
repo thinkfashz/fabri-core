@@ -228,7 +228,7 @@
     html += "<button id=\"mfa-cambiar\" class=\"mfa-cambiar\" type=\"button\">" + (esReg ? "¿Ya tienes cuenta? Entrar" : "¿No tienes cuenta? Crear cuenta") + "</button>";
     html += "<div id=\"mf-error\" role=\"alert\" aria-live=\"polite\"></div>";
     html += "<div id=\"mf-estado\" aria-live=\"polite\"></div>";
-    html += "<p class=\"mfa-version\">MercaFabrick v" + (window.MF_VERSION || "1.1.1") + "</p>";
+    html += "<p class=\"mfa-version\">MercaFabrick v" + (window.MF_VERSION || "1.1.2") + "</p>";
 
     panel.innerHTML = html;
     contenedor.appendChild(panel);

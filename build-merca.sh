@@ -122,8 +122,11 @@ step "2/5 kotlin (compilador embebido, sin daemon)"
 step "3/5 dex (d8)"
 find "$OUT/classes" -name "*.class" > "$OUT/classlist.txt"
 export PATH="$(dirname "$JAVA"):$PATH"
-"$BT/d8" --lib "$ANDROID_JAR" --min-api 26 --output "$OUT/dex" @"$OUT/classlist.txt" 2>/dev/null \
-  || die "d8 falló"
+# El stdlib de Kotlin va DENTRO del APK: sin él, la app muere al arrancar con
+# "Failed resolution of: Lkotlin/jvm/internal/Intrinsics". Se compila con
+# -no-stdlib (más rápido y sin duplicados), así que hay que dexarlo aparte.
+"$BT/d8" --lib "$ANDROID_JAR" --min-api 26 --output "$OUT/dex" \
+  @"$OUT/classlist.txt" "$KSTD" 2>/dev/null || die "d8 falló"
 
 # ── 4/5 empaquetado y alineado ───────────────────────────────────────────────
 step "4/5 empaquetado y alineado"
