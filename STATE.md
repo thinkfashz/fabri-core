@@ -44,6 +44,13 @@ App **aparte** (`cl.fabrick.merca`), con el mismo pipeline de build que FORGE
   K4821, vuelto y botones). CORS de `/api/mercado` responde `*`.
 - **APK 1.1.0** en Descargas (`MercaFabrick-1.1.0.apk`). Pendiente de prueba
   física: boleta PDF y permiso de ubicación solo se validan en el teléfono.
+- **1.1.1** (`versionCode` 3, commit `c301f3c`): el WebView podía quedar negro
+  sin mensaje (típico 404 del origen propio, que `onReceivedError` no reporta).
+  Ahora hay panel nativo de arranque con la versión, aviso `MercaPuente.listo`
+  al pintar, segundo intento desde `file:///android_asset`, y diagnóstico nativo
+  (versión de app/WebView, Android/SDK, consola) si en 12 s no avisó. La
+  versión se ve en el login. APK en Descargas, md5
+  `a2af7b8e5f96565b45be20efd3371be4`, misma firma que 1.0.0.
 
 ## Sesión 2026-11-25 · Inventario 3D, buscador, lector y offline (0.9.73)
 
