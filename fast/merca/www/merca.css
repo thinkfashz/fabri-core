@@ -199,25 +199,31 @@ a:hover { text-decoration: underline; }
   display: flex;
   background: var(--mf-superficie);
   border-bottom: var(--mf-borde-ancho) solid var(--mf-borde);
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
+  overflow: hidden;
   position: sticky;
   top: 56px;   /* bajo la topbar */
   z-index: 40;
   padding-top: max(0, env(safe-area-inset-top) - 56px);
 }
 
+/* Las 5 pestañas se reparten el ancho: a 360 px entran todas sin scroll
+   horizontal (antes "Carrito" quedaba cortada). */
 .mf-tab {
-  flex: 0 0 auto;
-  padding: var(--mf-m) var(--mf-xl);
-  font-size: 13px;
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 10px 2px;
+  font-size: 11.5px;
+  letter-spacing: -0.01em;
   font-weight: 600;
+  text-align: center;
   color: var(--mf-texto-suave);
   background: transparent;
   border: none;
   border-bottom: 2px solid transparent;
   cursor: pointer;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   -webkit-tap-highlight-color: transparent;
   transition: color var(--mf-dur) var(--mf-ease),
               border-color var(--mf-dur) var(--mf-ease);
@@ -336,9 +342,55 @@ a:hover { text-decoration: underline; }
   flex-wrap: wrap;
 }
 
+.mf-card__ico {
+  display: inline-flex;
+  align-items: center;
+  color: var(--mf-cian);
+}
+.mf-card__ico svg { display: block; }
+
 .mf-card__accion {
   margin-top: auto;
 }
+
+/* Tienda: logo, rubro y pie de la tarjeta */
+.mf-gap { gap: var(--mf-s); }
+
+.mf-card__logo {
+  width: 38px; height: 38px;
+  border-radius: 10px;
+  object-fit: cover;
+  background: var(--mf-fondo);
+  border: var(--mf-borde-ancho) solid var(--mf-borde);
+  flex: 0 0 auto;
+}
+
+.mf-card__logo--vacia {
+  display: grid;
+  place-items: center;
+  color: var(--mf-acento);
+}
+
+.mf-card__rubro {
+  display: block;
+  font-size: 11px;
+  color: var(--mf-texto-suave);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-top: 2px;
+}
+
+.mf-card__pie {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mf-s);
+  margin-top: auto;
+  padding-top: var(--mf-s);
+  border-top: 1px solid var(--mf-borde);
+}
+.mf-card__pie small { color: var(--mf-texto-suave); font-size: var(--mf-tam-peq); }
+.mf-card__pie .mf-btn { width: auto; padding: 8px 12px; }
 
 /* ── 9. Tarjeta de producto ────────────────────────────────────────────── */
 /* Generada por MercaUI.tarjetaProducto(p) */
@@ -379,6 +431,160 @@ a:hover { text-decoration: underline; }
   display: flex;
   gap: var(--mf-s);
   margin-top: auto;
+}
+
+/* Producto con foto, oferta y stock */
+.mf-prod__fila {
+  display: flex;
+  gap: var(--mf-m);
+  align-items: flex-start;
+}
+
+.mf-prod__img {
+  width: 56px; height: 56px;
+  border-radius: 10px;
+  object-fit: cover;
+  background: var(--mf-fondo);
+  border: var(--mf-borde-ancho) solid var(--mf-borde);
+  flex: 0 0 auto;
+}
+
+.mf-prod__img--vacia {
+  display: grid;
+  place-items: center;
+  color: var(--mf-texto-suave);
+}
+
+.mf-prod__info { flex: 1 1 auto; min-width: 0; }
+
+.mf-prod__precios {
+  display: flex;
+  align-items: baseline;
+  gap: var(--mf-s);
+  margin-top: 2px;
+  flex-wrap: wrap;
+}
+
+.mf-prod__antes {
+  font-size: var(--mf-tam-peq);
+  color: var(--mf-texto-suave);
+  text-decoration: line-through;
+}
+
+.mf-prod__dest { color: var(--mf-acento); display: inline-flex; }
+.mf-prod__dest svg { width: 14px; height: 14px; }
+
+.mf-prod__stock {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--mf-texto-suave);
+}
+
+.mf-prod--agotado { opacity: 0.62; }
+.mf-prod--agotado .mf-prod__precio { color: var(--mf-texto-suave); }
+
+/* Buscador y filtros del catálogo */
+.mf-buscador { display: flex; flex-direction: column; gap: var(--mf-s); }
+
+.mf-buscador input {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 14px;
+  background: var(--mf-superficie);
+  border: var(--mf-borde-ancho) solid var(--mf-borde);
+  border-radius: var(--mf-radio-pill);
+  color: var(--mf-texto);
+  font-family: var(--mf-fuente);
+  font-size: 15px;
+  box-sizing: border-box;
+}
+.mf-buscador input:focus-visible {
+  outline: none;
+  border-color: var(--mf-acento);
+}
+
+.mf-chips {
+  display: flex;
+  gap: var(--mf-s);
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+}
+.mf-chips::-webkit-scrollbar { display: none; }
+
+.mf-chip-f {
+  flex: 0 0 auto;
+  padding: 7px 12px;
+  border-radius: var(--mf-radio-pill);
+  border: var(--mf-borde-ancho) solid var(--mf-borde);
+  background: transparent;
+  color: var(--mf-texto-suave);
+  font-family: var(--mf-fuente);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.mf-chip-f[aria-pressed="true"] {
+  background: var(--mf-acento);
+  border-color: var(--mf-acento);
+  color: var(--mf-texto-sobre-acento);
+}
+
+/* Cantidad en el carrito */
+.mf-paso {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mf-m);
+  flex: 0 0 auto;
+}
+
+.mf-paso__btn {
+  width: 34px; height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: var(--mf-borde-ancho) solid var(--mf-borde);
+  background: var(--mf-fondo);
+  color: var(--mf-texto);
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+}
+.mf-paso__btn:active { border-color: var(--mf-acento); }
+
+/* Resumen del pedido */
+.mf-resumen {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: var(--mf-m) 0;
+  border-top: var(--mf-borde-ancho) solid var(--mf-borde);
+  border-bottom: var(--mf-borde-ancho) solid var(--mf-borde);
+}
+.mf-resumen > div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--mf-m);
+  font-size: var(--mf-tam-peq);
+  color: var(--mf-texto-suave);
+}
+.mf-resumen > div b { color: var(--mf-texto); }
+.mf-resumen__total { padding-top: 6px; border-top: 1px dashed var(--mf-borde); }
+.mf-resumen__total span { color: var(--mf-texto); font-weight: 700; }
+.mf-resumen__total b { color: var(--mf-acento) !important; font-size: 17px; }
+
+/* Cabecera del catálogo y del pedido confirmado */
+.mf-hero--tienda { position: relative; padding-right: 56px; }
+.mf-hero--exito h1 { color: var(--mf-acento); letter-spacing: 0.04em; }
+
+.mf-hero__logo {
+  width: 56px; height: 56px;
+  border-radius: 12px;
+  object-fit: cover;
+  border: var(--mf-borde-ancho) solid var(--mf-borde);
+  margin-bottom: var(--mf-s);
+  display: block;
 }
 
 /* ── 10. Lista de items (mapa / carrito) ───────────────────────────────── */
@@ -623,20 +829,47 @@ a:hover { text-decoration: underline; }
 }
 
 /* ── 18. Auth (login / registro) ───────────────────────────────────────── */
-/* #mfAuth se llena vía JS; aquí solo lo contenedor */
+/* El login es una capa a pantalla completa POR ENCIMA de la app. MercaAuth
+   pone/quita .mf-auth--visible; sin esa clase no existe para el usuario.
+   Antes el canvas quedaba fijo y tapaba la app entera (pantalla negra). */
 #mfAuth {
-  display: none;   /* se muestra/oculta desde MercaAuth, no acá */
-  padding: var(--mf-l);
+  display: none;
+  position: relative;
+  z-index: 901;
+  max-width: 420px;
+  margin: 0 auto;
+  padding: max(var(--mf-xl), env(safe-area-inset-top)) var(--mf-l)
+           max(var(--mf-xl), env(safe-area-inset-bottom));
+  box-sizing: border-box;
+}
+#mfAuth.mf-auth--visible {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 100vh;
 }
 
 /* ── 19. Canvas de auth (decorativo, aria-hidden) ──────────────────────── */
 #mfAuthCanvas {
   display: none;
-  width: 100%;
-  height: 120px;
-  background: var(--mf-superficie);
-  border: var(--mf-borde-ancho) solid var(--mf-borde);
-  border-radius: var(--mf-radio);
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 900;
+  background: var(--mf-fondo);
+  pointer-events: none;
+}
+#mfAuthCanvas.mf-auth--visible { display: block; }
+
+/* Mientras el login está abierto, la app no se ve ni recibe toques.
+   Se restaura al entrar: es lo que evita el "entra pero queda negro". */
+body.mf-auth-bloqueado { overflow: hidden; }
+body.mf-auth-bloqueado .mf-top,
+body.mf-auth-bloqueado .mf-tabs,
+body.mf-auth-bloqueado .mf-main {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 /* ==========================================================================

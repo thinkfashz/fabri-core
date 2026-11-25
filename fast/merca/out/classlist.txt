@@ -1,4 +1,0 @@
-/data/data/com.termux/files/home/repos/fabri-core/fast/merca/out/classes/cl/fabrick/merca/ActivosMerca.class
-/data/data/com.termux/files/home/repos/fabri-core/fast/merca/out/classes/cl/fabrick/merca/MercaActivity.class
-/data/data/com.termux/files/home/repos/fabri-core/fast/merca/out/classes/cl/fabrick/merca/MercaActivity$arrancar$2.class
-/data/data/com.termux/files/home/repos/fabri-core/fast/merca/out/classes/cl/fabrick/merca/MercaActivity$arrancar$3.class

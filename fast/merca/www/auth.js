@@ -123,8 +123,9 @@
     var s = document.createElement("style");
     s.id = STYLE_ID;
     s.textContent = [
-      "#" + CANVAS_ID + "{position:fixed;inset:0;width:100vw;height:100vh;display:block;z-index:0;pointer-events:none;background:" + C.fondo + ";}",
-      "#" + CONTENEDOR_ID + "{position:relative;z-index:10;max-width:420px;margin:24px auto;padding:0 16px;box-sizing:border-box;}",
+      /* La posición de #mfAuth y #mfAuthCanvas la define merca.css; aquí sólo
+         el formulario. Antes este bloque ponía el canvas fijo encima de la
+         app y la dejaba en negro al entrar. */
       ".mfa-panel{background:" + C.superficie + ";border:1px solid " + C.borde + ";border-radius:12px;padding:24px 20px;box-shadow:" + C.sombra + ";}",
       ".mfa-titulo{margin:0 0 8px;font-size:24px;line-height:1.2;color:" + C.texto + ";font-weight:600;letter-spacing:-0.02em;}",
       ".mfa-sub{margin:0 0 20px;font-size:14px;line-height:1.5;color:" + C.textoSec + ";}",
@@ -172,6 +173,32 @@
     }
     if (estado) estado.textContent = activa ? "Conectando con la nube…" : "";
     if (activa) ocultarError();
+  };
+
+  /* ── Capa de login: se muestra y se retira ─────────────────────────────
+     Es la pieza que faltaba: al entrar con éxito hay que quitar el canvas y
+     el formulario, o quedan tapando la app (pantalla negra). */
+  var mostrarPantalla = function () {
+    var cont = document.getElementById(CONTENEDOR_ID);
+    var lienzo = document.getElementById(CANVAS_ID);
+    if (cont) cont.classList.add("mf-auth--visible");
+    if (lienzo) lienzo.classList.add("mf-auth--visible");
+    document.body.classList.add("mf-auth-bloqueado");
+  };
+
+  var cerrarPantalla = function () {
+    var cont = document.getElementById(CONTENEDOR_ID);
+    var lienzo = document.getElementById(CANVAS_ID);
+    if (cont) {
+      cont.classList.remove("mf-auth--visible");
+      cont.innerHTML = "";
+    }
+    if (lienzo) {
+      lienzo.classList.remove("mf-auth--visible");
+      var c2 = lienzo.getContext("2d");
+      if (c2) c2.clearRect(0, 0, lienzo.width, lienzo.height);
+    }
+    document.body.classList.remove("mf-auth-bloqueado");
   };
 
   /* ── Render del formulario ── */
@@ -249,6 +276,10 @@
         var exp = d.expira ? Number(d.expira) : Date.now() + 30 * 24 * 60 * 60 * 1000;
         guardarSesion(d.token, exp, d.usuario || {});
         mostrarEstado("Sesión iniciada.");
+        /* Primero se retira la capa de login y recién después se pinta la
+           app: si se pinta antes, el canvas tapa todo y parece que no cargó. */
+        detenerCanvas();
+        cerrarPantalla();
         if (optsActual && optsActual.alEntrar) optsActual.alEntrar(d.usuario || {});
       }).catch(function () {
         iniciarCarga(false);
@@ -370,14 +401,17 @@
     if (!contenedor) return;
     optsActual = opciones || {};
 
-    // Si ya hay sesión válida, se la pasamos al callback y no pintamos el formulario.
+    // Si ya hay sesión válida, la app se pinta directo y el login no aparece.
     var s = sesion();
     if (s && optsActual.alEntrar) {
+      detenerCanvas();
+      cerrarPantalla();
       optsActual.alEntrar(s.usuario || {});
       return;
     }
 
     inyectarEstilos();
+    mostrarPantalla();
     render(contenedor);
     canvas();
   };
@@ -385,11 +419,14 @@
   var salir = function () {
     borrarSesion();
     detenerCanvas();
-    var cont = document.getElementById(CONTENEDOR_ID);
-    if (cont) cont.innerHTML = "";
     modo = "entrar";
     cargando = false;
-    optsActual = {};
+    // Al cerrar sesión se vuelve al login, no a una app sin cuenta.
+    var cont = document.getElementById(CONTENEDOR_ID);
+    inyectarEstilos();
+    mostrarPantalla();
+    if (cont) render(cont);
+    canvas();
   };
 
   window.MercaAuth = {

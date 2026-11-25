@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">MercaFabrick</string>
+    <string name="app_desc">Compra en los locales de tu barrio: catálogo al día, carrito, pedido por WhatsApp y boleta PDF.</string>
 </resources>

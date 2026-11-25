@@ -12,6 +12,7 @@ import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.ConsoleMessage
+import android.webkit.GeolocationPermissions
 import android.webkit.PermissionRequest
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
@@ -39,6 +40,8 @@ class MercaActivity : Activity() {
 
     private var web: WebView? = null
     private var pendingCamera: PermissionRequest? = null
+    private var pendingGeo: GeolocationPermissions.Callback? = null
+    private var pendingGeoOrigen: String? = null
     private var arranco = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -74,6 +77,7 @@ class MercaActivity : Activity() {
                 useWideViewPort = true
                 loadWithOverviewMode = true
                 cacheMode = WebSettings.LOAD_DEFAULT
+                saveFormData = false
             }
             layoutParams = FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -121,6 +125,28 @@ class MercaActivity : Activity() {
                 return true
             }
 
+            /* La WebView no pide ubicación sola: hay que autorizarla acá o el
+               botón de "mi ubicación" falla en silencio. */
+            override fun onGeolocationPermissionsShowPrompt(origin: String, callback: GeolocationPermissions.Callback) {
+                if (Build.VERSION.SDK_INT >= 23 &&
+                    checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION) !=
+                    android.content.pm.PackageManager.PERMISSION_GRANTED
+                ) {
+                    pendingGeo = callback
+                    pendingGeoOrigen = origin
+                    try {
+                        requestPermissions(
+                            arrayOf(
+                                android.Manifest.permission.ACCESS_FINE_LOCATION,
+                                android.Manifest.permission.ACCESS_COARSE_LOCATION
+                            ), 8
+                        )
+                    } catch (_: Throwable) { callback.invoke(origin, false, false) }
+                    return
+                }
+                callback.invoke(origin, true, false)
+            }
+
             override fun onPermissionRequest(req: PermissionRequest) {
                 if (Build.VERSION.SDK_INT >= 23 &&
                     checkSelfPermission(android.Manifest.permission.CAMERA) !=
@@ -133,6 +159,10 @@ class MercaActivity : Activity() {
                 try { req.grant(req.resources) } catch (_: Throwable) {}
             }
         }
+
+        /* Puente para guardar la boleta PDF y compartirla. La web lo usa sólo
+           para eso; si no existe (navegador), descarga el archivo. */
+        try { vista.addJavascriptInterface(Puente(this), "MercaPuente") } catch (_: Throwable) {}
 
         raiz.addView(vista)
         setContentView(raiz)
@@ -177,6 +207,17 @@ class MercaActivity : Activity() {
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, results: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, results)
+
+        if (requestCode == 8) {
+            val cb = pendingGeo
+            val origen = pendingGeoOrigen ?: "https://merca.local/"
+            pendingGeo = null
+            pendingGeoOrigen = null
+            val ok = results.isNotEmpty() && results[0] == android.content.pm.PackageManager.PERMISSION_GRANTED
+            try { cb?.invoke(origen, ok, false) } catch (_: Throwable) {}
+            return
+        }
+
         val req = pendingCamera ?: return
         pendingCamera = null
         try {

@@ -47,3 +47,4 @@ Thumbs.db
 # Artefactos del build rápido (se regeneran con build-fast.sh)
 fast/out/
 fast/lib/
+fast/merca/out/

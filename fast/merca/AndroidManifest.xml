@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="cl.fabrick.merca"
-    android:versionCode="1"
-    android:versionName="1.0.0">
+    android:versionCode="2"
+    android:versionName="1.1.0">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -14,6 +14,7 @@
 
     <application
         android:label="@string/app_name"
+        android:description="@string/app_desc"
         android:icon="@mipmap/ic_launcher"
         android:theme="@style/Theme.FabriCore"
         android:allowBackup="true"
@@ -30,5 +31,11 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Metadatos de la app: los lee el panel y cualquier auditoría. -->
+        <meta-data android:name="cl.fabrick.merca.canal" android:value="directo" />
+        <meta-data android:name="cl.fabrick.merca.api" android:value="https://fabri-api.vercel.app/api" />
+        <meta-data android:name="cl.fabrick.merca.panel" android:value="https://forge-core-stock.vercel.app" />
+        <meta-data android:name="cl.fabrick.merca.esquema" android:value="https://merca.local" />
     </application>
 </manifest>

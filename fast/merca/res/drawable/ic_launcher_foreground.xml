@@ -1,8 +1,10 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp" android:height="108dp"
     android:viewportWidth="108" android:viewportHeight="108">
+    <!-- M de mercado: trazo grueso, legible a 48 dp y en el cajón de apps. -->
     <path android:fillColor="#C8FF00"
-        android:pathData="M34,38 L58,30 L68,38 L68,44 L76,48 L76,54 L68,54 L68,74 L58,70 L34,80 Z" />
-    <path android:fillColor="#050505"
-        android:pathData="M40,46 L58,41 L58,67 L40,73 Z" />
+        android:pathData="M32,78 L32,32 L45,32 L54,50 L63,32 L76,32 L76,78 L64,78 L64,54 L54,72 L44,54 L44,78 Z" />
+    <!-- Punto de "local abierto" en la esquina: distingue la marca de FORGE. -->
+    <path android:fillColor="#5AD9E8"
+        android:pathData="M68,78 m-7,0 a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0" />
 </vector>

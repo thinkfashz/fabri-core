@@ -8,6 +8,43 @@
 
 Última actualización: 2026-11-25
 
+## Sesión 2026-11-25 · MercaFabrick 1.1.0: app de compra del barrio
+
+App **aparte** (`cl.fabrick.merca`), con el mismo pipeline de build que FORGE
+(`build-merca.sh`). Detalle en `docs/MERCAFABRICK.md`.
+
+- **Pantalla negra resuelta**: `auth.js` inyectaba un canvas `position:fixed`
+  negro con `z-index:0` encima de la app y nunca lo retiraba; además
+  `merca.css` ocultaba `#mfAuth` con `display:none`. Ahora el login es una capa
+  propia (canvas 900, panel 901) con `.mf-auth--visible`;
+  `cerrarPantalla()` la retira y recién ahí se pinta la app. `salir()` vuelve
+  al login.
+- **Carrito por tienda** (`{local_id, items}`): si se agrega producto de otro
+  local se pide confirmación para vaciarlo (la nube crea un pedido por local).
+- **Compra real**: checkout con prefill (sesión + `mf.cliente` + comuna del
+  local), delivery/retiro según `tienda.entrega`, efectivo con vuelto, nota y
+  validaciones. Llama `pedido_crear` (con `idempotencia`) **antes** de avisar.
+- **Éxito**: código, clave de entrega, botón «Enviar por WhatsApp» y «Boleta
+  PDF». Ya no se abre WhatsApp solo (evita cierres raros y deja ver la boleta).
+- **Boleta PDF**: generador PDF 1.4 propio (Helvetica, multipágina, sin
+  librerías). Verificado: `%PDF`, `xref` con offsets correctos, `trailer` y
+  `%%EOF`. En Android se guarda en Descargas y se abre el menú de compartir
+  (`MercaPuente.compartirPdf`).
+- **Android**: `Puente.kt` (MediaStore/Descargas + `ACTION_SEND`),
+  geolocalización en la WebView (`onGeolocationPermissionsShowPrompt`, request
+  8), `saveFormData = false`. Icono nuevo: M lima con punto cian.
+- **UI**: tarjetas de tienda (logo, rubro, dirección/distancia, horario,
+  entrega/mínimo, «N productos») y de producto (foto, oferta tachada, estrella,
+  stock, botón deshabilitado si agotado). 5 pestañas de ancho igual a 360 px.
+- **Versión 1.1.0** (`versionCode` 2) en `fast/merca/AndroidManifest.xml`, más
+  meta-data (`canal`, `api`, `panel`, `esquema`).
+- **Verificado** con headless shell (360×780) sobre `https://merca.local`
+  simulado: login, inicio con tiendas, catálogo con ofertas y stock, carrito
+  con ±, checkout con prefill y pantalla «PEDIDO REGISTRADO MP-77421» (clave
+  K4821, vuelto y botones). CORS de `/api/mercado` responde `*`.
+- **APK 1.1.0** en Descargas (`MercaFabrick-1.1.0.apk`). Pendiente de prueba
+  física: boleta PDF y permiso de ubicación solo se validan en el teléfono.
+
 ## Sesión 2026-11-25 · Inventario 3D, buscador, lector y offline (0.9.73)
 
 **Inventario (3 frentes en paralelo + 1 propio)**
