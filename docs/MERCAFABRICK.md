@@ -5,7 +5,7 @@
 > en efectivo o por transferencia y avisa el pedido al local por WhatsApp con
 > una boleta PDF. No reemplaza ni toca `cl.fabrick.core`.
 
-Estado: **1.1.1** (`versionCode` 3). Fuente en `fast/merca/`.
+Estado: **1.1.2** (`versionCode` 4). Fuente en `fast/merca/`.
 
 ## 1. Qué hace (y qué no)
 
@@ -84,13 +84,20 @@ líneas por página), sin librerías. Estructura válida verificada: cabecera
 - **Navegador**: descarga con `Blob`.
 - El documento dice «Documento de pedido. No es boleta ni factura fiscal».
 
-## 6. Pantalla negra: qué pasaba
+## 6. Pantalla negra: qué pasaba (y la causa real)
 
-`auth.js` inyectaba `#mfAuthCanvas { position:fixed; inset:0; background:#050505; z-index:0 }`
-y `merca.css` traía `#mfAuth { display:none }`. Al entrar, el canvas quedaba
-**encima** de la app y la dejaba en negro; el login nunca se retiraba.
+Hubo dos cosas, y la segunda tapaba a la primera:
 
-Arreglo:
+1. `auth.js` inyectaba `#mfAuthCanvas { position:fixed; inset:0; background:#050505; z-index:0 }`
+   y `merca.css` traía `#mfAuth { display:none }`. Al entrar, el canvas quedaba
+   **encima** de la app y la dejaba en negro; el login nunca se retiraba.
+2. **La app no arrancaba**: el build compilaba Kotlin con `-no-stdlib` y no
+   dexaba `kotlin-stdlib`, así que el `classes.dex` referenciaba
+   `kotlin/jvm/internal/Intrinsics` sin tenerlo. La Activity moría al cargar con
+   `Failed resolution of: Lkotlin/jvm/internal/Intrinsics;` (pasaba desde la
+   1.0.0). El panel de arranque de 1.1.1 fue lo que dejó ver el mensaje.
+
+Arreglo de (1):
 
 - El login es una **capa propia**: `#mfAuth` (panel, `z-index: 901`) y
   `#mfAuthCanvas` (fondo, `z-index: 900`), ambos `display:none` hasta que
@@ -100,6 +107,9 @@ Arreglo:
 - Al autenticar: `detenerCanvas()` → `cerrarPantalla()` (quita clases, limpia
   el canvas y vacía el formulario) → recién entonces `alEntrar()` pinta la app.
 - `MercaAuth.salir()` vuelve al login, no a una app sin cuenta.
+
+Arreglo de (2): `build-merca.sh` pasa `$KSTD` (kotlin-stdlib) a `d8`, así que
+el stdlib queda **dentro** del APK. El archivo pasó de 60 KB a 732 KB.
 
 ## 7. Arranque a prueba de pantalla negra
 

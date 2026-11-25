@@ -51,6 +51,13 @@ App **aparte** (`cl.fabrick.merca`), con el mismo pipeline de build que FORGE
   (versión de app/WebView, Android/SDK, consola) si en 12 s no avisó. La
   versión se ve en el login. APK en Descargas, md5
   `a2af7b8e5f96565b45be20efd3371be4`, misma firma que 1.0.0.
+- **1.1.2** (`versionCode` 4, commit `82aa5f1`): **causa real del negro**. El
+  build compilaba con `-no-stdlib` y no dexaba `kotlin-stdlib`, así que el APK
+  referenciaba `kotlin/jvm/internal/Intrinsics` sin incluirlo y la Activity
+  moría al cargar (desde la 1.0.0). `build-merca.sh` ahora pasa `$KSTD` a d8;
+  el APK pasó de 60 KB a 732 KB. Verificado: `classes.dex` de 2,3 MB con
+  `Intrinsics`, `Unit`, `DefaultConstructorMarker` y `CollectionsKt`. APK en
+  Descargas, md5 `57197f114ee1f691edcde82320a74219`, misma firma.
 
 ## Sesión 2026-11-25 · Inventario 3D, buscador, lector y offline (0.9.73)
 
