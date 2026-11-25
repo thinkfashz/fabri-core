@@ -52,6 +52,12 @@ class MercaActivity : Activity() {
     }
 
     private fun arrancar() {
+        /* Si la interfaz se cae, que se vea el motivo en pantalla: sin esto el
+           proceso muere y el usuario sólo ve un parpadeo negro. */
+        Thread.setDefaultUncaughtExceptionHandler { _, t ->
+            Log.e("merca", "crash", t)
+            pintarError("La app se detuvo:\n" + (t.message ?: t.javaClass.simpleName))
+        }
         window.statusBarColor = Color.parseColor("#070A08")
         window.navigationBarColor = Color.parseColor("#070A08")
 
@@ -110,9 +116,8 @@ class MercaActivity : Activity() {
 
         vista.webChromeClient = object : WebChromeClient() {
             override fun onConsoleMessage(m: ConsoleMessage): Boolean {
-                if (m.messageLevel() == ConsoleMessage.MessageLevel.ERROR) {
-                    Log.e("merca", m.message() + " @ " + m.sourceId() + ":" + m.lineNumber())
-                }
+                Log.i("merca", "console " + m.messageLevel() + ": " + m.message() +
+                    " @ " + m.sourceId() + ":" + m.lineNumber())
                 return true
             }
 

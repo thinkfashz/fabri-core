@@ -118,7 +118,8 @@
 
   /* ── datos ──────────────────────────────────────────────────────────── */
   function cargarLocales() {
-    S.cargando = true; S.error = ""; pintar();
+    S.cargando = true; S.error = "";
+    try { pintar(); } catch (e) { if (window.mfMostrarError) window.mfMostrarError("cargarLocales: " + (e && e.stack || e)); return; }
     return api({ accion: "locales", con_catalogo: true }).then(function (r) {
       S.cargando = false;
       if (!r.ok) { S.error = motivo(r); pintar(); return; }
@@ -395,9 +396,23 @@
   }
 
   function iniciar() {
+    try {
+      arrancarInterfaz();
+    } catch (e) {
+      if (window.mfMostrarError) window.mfMostrarError("iniciar: " + (e && e.stack || e));
+    }
+  }
+
+  function arrancarInterfaz() {
     if (window.MercaAuth && MercaAuth.montar) {
       MercaAuth.montar(document.getElementById("mfAuth"), {
-        alEntrar: function () { pintar(); },
+        alEntrar: function () {
+          /* Si el pintado falla, se muestra el error en pantalla en vez de
+             dejar la WebView en negro. */
+          try { pintar(); } catch (e) {
+            if (window.mfMostrarError) window.mfMostrarError("alEntrar: " + (e && e.stack || e));
+          }
+        },
       });
     }
     document.querySelectorAll(".mf-tab").forEach(function (b) {
