@@ -7,6 +7,8 @@ import android.graphics.Color
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.Gravity
 import android.view.View
@@ -15,6 +17,7 @@ import android.webkit.ConsoleMessage
 import android.webkit.GeolocationPermissions
 import android.webkit.PermissionRequest
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
@@ -32,9 +35,11 @@ import android.widget.Toast
  * `assets/merca/www/index.html` y se sirve desde `https://merca.local` con
  * `ActivosMerca` (sin levantar puertos).
  *
- * Toda la creación va dentro de un try/catch: si algo falla, se muestra el
- * motivo en pantalla en vez de cerrarse. Es la diferencia entre un crash
- * silencioso y un diagnóstico que se puede leer.
+ * Regla de oro del arranque: **nunca dejar la pantalla en negro**. Mientras la
+ * interfaz no diga «estoy lista» se muestra un panel nativo con la versión; si
+ * tarda más de 12 s, se cambia ese panel por un diagnóstico con el motivo
+ * (error de carga, consola de la WebView, versión del motor). Así un fallo se
+ * lee en el teléfono en vez de parecer que la app no abre.
  */
 class MercaActivity : Activity() {
 
@@ -43,6 +48,16 @@ class MercaActivity : Activity() {
     private var pendingGeo: GeolocationPermissions.Callback? = null
     private var pendingGeoOrigen: String? = null
     private var arranco = false
+
+    /** La interfaz ya pintó y avisó por el puente. */
+    @Volatile private var listo = false
+    /** Consola de la WebView, para el diagnóstico (lo último, recortado). */
+    private val consola = StringBuilder()
+    private val handler = Handler(Looper.getMainLooper())
+    private var temporizador: Runnable? = null
+    private var panelArranque: TextView? = null
+    /** Ya se probó cargar desde los assets (segundo intento). */
+    @Volatile private var intentoDesdeAssets = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -90,6 +105,8 @@ class MercaActivity : Activity() {
             override fun shouldOverrideUrlLoading(v: WebView, req: WebResourceRequest): Boolean {
                 val url = req.url.toString()
                 if (ActivosMerca.esPropio(url)) return false
+                /* Segundo intento de arranque: la interfaz desde los assets. */
+                if (url.startsWith("file:///android_asset/merca/")) return false
                 if (url.startsWith("https://forge-core-stock.vercel.app") ||
                     url.startsWith("https://fabri-api.vercel.app") ||
                     url.startsWith("https://wa.me/") || url.startsWith("https://api.whatsapp.com/")
@@ -110,18 +127,47 @@ class MercaActivity : Activity() {
                 }
             }
 
-            override fun onReceivedError(v: WebView, req: WebResourceRequest, err: android.webkit.WebResourceError) {
+            override fun onReceivedError(v: WebView, req: WebResourceRequest, err: WebResourceError) {
                 if (req.isForMainFrame) {
                     Log.e("merca", "error de carga: " + err.description)
                     pintarError("No se pudo cargar la interfaz.\n" + (err.description ?: ""))
                 }
             }
+
+            /* Un 404 del origen propio no dispara onReceivedError: hay que
+               mirarlo aparte o la pantalla queda en blanco sin explicación. */
+            override fun onReceivedHttpError(
+                v: WebView, req: WebResourceRequest, resp: WebResourceResponse
+            ) {
+                if (!req.isForMainFrame) return
+                val codigo = resp.statusCode
+                Log.e("merca", "HTTP $codigo en ${req.url}")
+                pintarError("La interfaz respondió HTTP $codigo.\n${req.url}")
+            }
+
+            override fun onPageFinished(v: WebView, url: String?) {
+                super.onPageFinished(v, url)
+                /* La página avisa por el puente; esto es la red de seguridad:
+                   si el JS no corrió, igual salimos del panel de arranque y
+                   mostramos el diagnóstico. */
+                handler.postDelayed({
+                    if (!listo && panelArranque != null) pintarDiagnostico()
+                }, 1500)
+            }
         }
 
         vista.webChromeClient = object : WebChromeClient() {
             override fun onConsoleMessage(m: ConsoleMessage): Boolean {
-                Log.i("merca", "console " + m.messageLevel() + ": " + m.message() +
-                    " @ " + m.sourceId() + ":" + m.lineNumber())
+                val linea = "" + m.messageLevel() + ": " + m.message() +
+                    " @ " + m.sourceId() + ":" + m.lineNumber()
+                Log.i("merca", "console $linea")
+                synchronized(consola) {
+                    if (consola.isNotEmpty()) consola.append('\n')
+                    consola.append(linea)
+                    if (consola.length > 4000) {
+                        consola.delete(0, consola.length - 4000)
+                    }
+                }
                 return true
             }
 
@@ -160,17 +206,113 @@ class MercaActivity : Activity() {
             }
         }
 
-        /* Puente para guardar la boleta PDF y compartirla. La web lo usa sólo
-           para eso; si no existe (navegador), descarga el archivo. */
-        try { vista.addJavascriptInterface(Puente(this), "MercaPuente") } catch (_: Throwable) {}
+        /* Puente para guardar la boleta PDF, avisar que la interfaz ya pintó y
+           pedir el diagnóstico. Si no existe (navegador), la web no lo usa. */
+        try {
+            vista.addJavascriptInterface(
+                Puente(this) { estado ->
+                    listo = estado == "ok"
+                    handler.removeCallbacks(temporizador ?: return@Puente)
+                    panelArranque?.visibility = View.GONE
+                    if (!listo) pintarDiagnostico()
+                },
+                "MercaPuente"
+            )
+        } catch (_: Throwable) {}
 
+        /* Panel de arranque: se ve de inmediato, antes que la WebView. */
+        val arranque = TextView(this).apply {
+            text = "MercaFabrick\nv${versionDeLaApp()} · iniciando interfaz…"
+            setTextColor(Color.parseColor("#C8FF00"))
+            textSize = 16f
+            gravity = Gravity.CENTER
+            setBackgroundColor(Color.parseColor("#070A08"))
+            setPadding(40, 40, 40, 40)
+        }
+        panelArranque = arranque
         raiz.addView(vista)
+        raiz.addView(
+            arranque,
+            FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        )
         setContentView(raiz)
+
+        /* Si en 12 s la interfaz no dijo «lista», se muestra el diagnóstico. */
+        temporizador = Runnable {
+            if (listo) return@Runnable
+            if (!intentoDesdeAssets) {
+                /* Segundo intento: la misma interfaz, pero desde los assets del
+                   APK. Si el origen propio falló en el WebView, esto la levanta
+                   igual y el diagnóstico queda para el próximo arranque. */
+                intentoDesdeAssets = true
+                try {
+                    vista.settings.allowFileAccess = true
+                    vista.loadUrl("file:///android_asset/merca/www/index.html")
+                    handler.postDelayed({ if (!listo) pintarDiagnostico() }, 6000)
+                } catch (t: Throwable) {
+                    pintarDiagnostico()
+                }
+            } else {
+                pintarDiagnostico()
+            }
+        }
+        handler.postDelayed(temporizador!!, 12000)
 
         if (!arranco) {
             arranco = true
             vista.loadUrl(ActivosMerca.BASE + "index.html")
         }
+    }
+
+    private fun versionDeLaApp(): String = try {
+        packageManager.getPackageInfo(packageName, 0).versionName ?: "?"
+    } catch (_: Throwable) { "?" }
+
+    private fun versionWebView(): String = try {
+        val p = WebView.getCurrentWebViewPackage() ?: return "desconocida"
+        p.versionName ?: "desconocida"
+    } catch (_: Throwable) { "desconocida" }
+
+    /** Panel nativo de diagnóstico: dice por qué la interfaz no arrancó. */
+    private fun pintarDiagnostico() {
+        try {
+            val caja = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(28, 32, 28, 32)
+                setBackgroundColor(Color.parseColor("#070A08"))
+            }
+            val titulo = TextView(this).apply {
+                text = "MercaFabrick · diagnóstico"
+                setTextColor(Color.parseColor("#C8FF00"))
+                textSize = 20f
+                setTypeface(typeface, android.graphics.Typeface.BOLD)
+            }
+            val datos = TextView(this).apply {
+                text = "App: v${versionDeLaApp()}\n" +
+                    "WebView: ${versionWebView()}\n" +
+                    "Android: ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})\n" +
+                    "Interfaz: ${if (listo) "lista" else "no avisó en 12 s"}\n\n" +
+                    "Consola:\n" + (if (consola.isEmpty()) "(sin mensajes)" else consola.toString())
+                setTextColor(Color.parseColor("#F2F5F0"))
+                textSize = 12f
+                setPadding(0, 18, 0, 24)
+            }
+            val reintentar = TextView(this).apply {
+                text = "Reintentar"
+                setTextColor(Color.parseColor("#070A08"))
+                setBackgroundColor(Color.parseColor("#C8FF00"))
+                setPadding(28, 18, 28, 18)
+                gravity = Gravity.CENTER
+                setOnClickListener { recreate() }
+            }
+            caja.addView(titulo)
+            caja.addView(datos)
+            caja.addView(reintentar)
+            setContentView(caja)
+        } catch (_: Throwable) { /* si ni esto se puede, que se cierre */ }
     }
 
     /** Pantalla de error nativa: no depende de la WebView. */
@@ -233,6 +375,7 @@ class MercaActivity : Activity() {
     }
 
     override fun onDestroy() {
+        handler.removeCallbacksAndMessages(null)
         try { web?.destroy() } catch (_: Throwable) {}
         web = null
         super.onDestroy()

@@ -13,14 +13,25 @@ import java.io.File
 /**
  * Puente mínimo entre la WebView y Android.
  *
- * Solo existe para lo que el navegador no puede hacer solo: guardar la
- * boleta PDF como archivo real en Descargas y abrir el menú de compartir
- * (WhatsApp, correo, etc.). Todo lo demás vive en JavaScript.
+ * Existe para lo que el navegador no puede hacer solo: guardar la boleta PDF
+ * como archivo real en Descargas, abrir el menú de compartir y avisar que la
+ * interfaz ya pintó (con eso el panel de arranque se retira).
  *
- * La web lo llama como `window.MercaPuente.compartirPdf(nombre, base64)` y
- * recibe un texto: "ok:<archivo>" o "error:<motivo>".
+ * La web lo llama como:
+ *   window.MercaPuente.compartirPdf(nombre, base64) -> "ok:<archivo>" | "error:<motivo>"
+ *   window.MercaPuente.listo("ok" | "error:<motivo>")
  */
-class Puente(private val act: Activity) {
+class Puente(
+    private val act: Activity,
+    private val alListo: (String) -> Unit = {}
+) {
+
+    /** La interfaz terminó de pintar. "ok" retira el panel de arranque. */
+    @JavascriptInterface
+    fun listo(estado: String) {
+        val limpio = if (estado == "ok") "ok" else estado.take(200)
+        act.runOnUiThread { alListo(limpio) }
+    }
 
     @JavascriptInterface
     fun compartirPdf(nombre: String, base64: String): String {

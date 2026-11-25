@@ -5,7 +5,7 @@
 > en efectivo o por transferencia y avisa el pedido al local por WhatsApp con
 > una boleta PDF. No reemplaza ni toca `cl.fabrick.core`.
 
-Estado: **1.1.0** (`versionCode` 2). Fuente en `fast/merca/`.
+Estado: **1.1.1** (`versionCode` 3). Fuente en `fast/merca/`.
 
 ## 1. Qué hace (y qué no)
 
@@ -101,7 +101,28 @@ Arreglo:
   el canvas y vacía el formulario) → recién entonces `alEntrar()` pinta la app.
 - `MercaAuth.salir()` vuelve al login, no a una app sin cuenta.
 
-## 7. Compilar y entregar
+## 7. Arranque a prueba de pantalla negra
+
+El WebView puede quedar en negro sin dar un solo mensaje (por ejemplo, si la
+página principal responde 404, `onReceivedError` no se dispara). Para que eso
+no vuelva a pasar:
+
+1. **Panel nativo de arranque**: se pinta antes que la WebView con la versión
+   (`v1.1.1 · iniciando interfaz…`). Nunca se ve negro.
+2. **La página avisa**: al terminar de pintar, `index.html` llama
+   `MercaPuente.listo("ok")` y el panel se retira.
+3. **Segundo intento**: si en 12 s no avisó, se recarga la misma interfaz desde
+   `file:///android_asset/merca/www/index.html`.
+4. **Diagnóstico nativo**: si tampoco así, se muestra un panel con la versión de
+   la app, la versión de la WebView, Android/SDK, si la interfaz avisó y los
+   últimos mensajes de consola. Botón «Reintentar».
+5. **HTTP**: `onReceivedHttpError` captura el 404 del origen propio (antes
+   quedaba en blanco).
+
+La versión también se ve en el login (`MercaFabrick v1.1.1`), para confirmar
+que la APK instalada es la nueva.
+
+## 8. Compilar y entregar
 
 ```sh
 bash build-merca.sh            # ~2-4 min (d8 es lo más lento)
@@ -113,7 +134,7 @@ bash build-merca.sh            # ~2-4 min (d8 es lo más lento)
 - Entrega fuera de Termux: copiar a `/storage/emulated/0/Download/`.
 - Prueba final en el teléfono del usuario: aquí no hay Android para ejecutar.
 
-## 8. Pendiente / límites
+## 9. Pendiente / límites
 
 - La boleta PDF y el permiso de ubicación solo se validan en dispositivo.
 - El pago es efectivo o transferencia; no hay pasarela.

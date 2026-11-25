@@ -143,6 +143,7 @@
       "button.mfa-cambiar:hover{color:" + C.lima + ";}",
       "#mf-error{margin:12px 0 0;padding:10px 14px;background:rgba(255,59,48,0.1);border:1px solid " + C.alerta + ";border-radius:8px;color:" + C.alerta + ";font-size:14px;line-height:1.4;display:none;}",
       "#mf-estado{margin:8px 0 0;font-size:14px;color:" + C.textoSec + ";min-height:20px;}",
+      ".mfa-version{margin:18px 0 0;font-size:11px;letter-spacing:0.06em;color:" + C.borde + ";text-align:center;}",
       ".mfa-oculto{display:none !important;}",
       "@media (max-width:360px){.mfa-panel{padding:18px 14px;} .mfa-titulo{font-size:22px;}}"
     ].join("\n");
@@ -227,6 +228,7 @@
     html += "<button id=\"mfa-cambiar\" class=\"mfa-cambiar\" type=\"button\">" + (esReg ? "¿Ya tienes cuenta? Entrar" : "¿No tienes cuenta? Crear cuenta") + "</button>";
     html += "<div id=\"mf-error\" role=\"alert\" aria-live=\"polite\"></div>";
     html += "<div id=\"mf-estado\" aria-live=\"polite\"></div>";
+    html += "<p class=\"mfa-version\">MercaFabrick v" + (window.MF_VERSION || "1.1.1") + "</p>";
 
     panel.innerHTML = html;
     contenedor.appendChild(panel);

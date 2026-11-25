@@ -6,6 +6,7 @@
 <meta name="theme-color" content="#070A08">
 <title>MercaFabrick · tu barrio, en stock</title>
 <link rel="stylesheet" href="./merca.css">
+<script>window.MF_VERSION = "1.1.1";</script>
 <script>
 /* Captura cualquier fallo de la interfaz y lo pinta en pantalla. Sin esto, un
    error de JavaScript deja la WebView en negro y parece que la app se cerró. */
@@ -66,5 +67,18 @@ window.addEventListener("unhandledrejection", function (e) {
 <script src="./merca.js"></script>
 <script src="./auth.js"></script>
 <script src="./merca-app.js"></script>
+<script>
+/* Aviso al APK de que la interfaz ya pintó. Con esto el panel nativo de
+   arranque se retira; si no se llama, a los 12 s se muestra el diagnóstico. */
+(function () {
+  function avisar() {
+    try {
+      if (window.MercaPuente && window.MercaPuente.listo) window.MercaPuente.listo("ok");
+    } catch (e) {}
+  }
+  if (document.readyState === "complete") setTimeout(avisar, 0);
+  else window.addEventListener("load", function () { setTimeout(avisar, 0); });
+})();
+</script>
 </body>
 </html>
