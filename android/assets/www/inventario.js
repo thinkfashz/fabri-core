@@ -1041,12 +1041,14 @@ function invBucleEscaneo() {
           INV.ultimoCodigo = valor;
           INV.ultimoEscaneo = ahora;
           INV.mallaFlash = Date.now();
+          invEscenaFlash(valor);      // destella la caja del producto escaneado
           invApiladorAgregar(valor);
           if (INV.camara) invBucleEscaneo();
           return;
         }
         // Modo individual: confirma, cierra la cámara y muestra la ficha.
         INV.mallaFlash = Date.now();
+        invEscenaFlash(valor);        // destella la caja del producto escaneado
         const caja = document.getElementById("invCamaraCaja");
         if (caja) caja.classList.remove("mira");
         if (caja) caja.classList.add("leyo");
@@ -1299,6 +1301,7 @@ function invNotaLector(paso) {
 }
 
 function invLectorLeido(codigo, paso) {
+  invEscenaFlash(codigo);             // destella la caja del producto leído
   const resultado = document.getElementById("invLecResultado" + paso);
   const p = invPorCodigo(codigo);
   // Paso 5: la lectura va directo a la boleta (escanear y cobrar).
@@ -4868,3 +4871,410 @@ window.FabriEan = {
     return runs;
   }
 };
+
+/* ==========================================================================
+   Cabecera y pie por paso: cada paso se siente como una página propia
+   ========================================================================== */
+
+/** Inserta (una sola vez por panel) la cabecera y el pie de "página" del paso n.
+   La cabecera lleva título y una línea de para qué sirve el paso; el pie,
+   botones Anterior/Siguiente y el progreso "Paso n de 5". */
+function invPaginaMontar(n) {
+  const panel = document.getElementById("invPaso" + n);
+  if (!panel) return;
+  const m = INV_PASOS_META[n] || { tit: "Paso " + n, sub: "" };
+  if (!panel.querySelector(".inv-pagina-cab")) {
+    const cab = document.createElement("header");
+    cab.className = "inv-pagina-cab";
+    cab.innerHTML = '<h2 class="inv-pagina-tit">' + esc(m.tit) + '</h2><p class="inv-pagina-sub">' + esc(m.sub) + "</p>";
+    panel.insertBefore(cab, panel.firstChild);
+  }
+  if (!panel.querySelector(".inv-pagina-pie")) {
+    const pie = document.createElement("footer");
+    pie.className = "inv-pagina-pie";
+    pie.innerHTML =
+      '<button class="inv-pagina-btn inv-pagina-btn--ant" type="button" data-inv-pie="ant" aria-label="Paso anterior">Anterior</button>' +
+      '<span class="inv-pagina-progreso">Paso ' + n + " de 5</span>" +
+      '<button class="inv-pagina-btn inv-pagina-btn--sig" type="button" data-inv-pie="sig" aria-label="Paso siguiente">Siguiente</button>';
+    panel.appendChild(pie);
+    pie.addEventListener("click", function (ev) {
+      const b = ev.target.closest("button");
+      if (!b) return;
+      if (b.dataset.invPie === "ant" && n > 1) invPaso(n - 1);
+      else if (b.dataset.invPie === "sig" && n < 5) invPaso(n + 1);
+    });
+  }
+  const prog = panel.querySelector(".inv-pagina-progreso");
+  if (prog) prog.textContent = "Paso " + n + " de 5";
+  const ant = panel.querySelector(".inv-pagina-btn--ant");
+  const sig = panel.querySelector(".inv-pagina-btn--sig");
+  if (ant) ant.disabled = n <= 1;
+  if (sig) sig.disabled = n >= 5;
+}
+
+/** HTML del paginador 20 en 20: primero / anterior, conteo "1-20 de 8.861", siguiente / último. */
+function invPaginacion(pagina, paginas, desde, hasta, total) {
+  const paginasReales = Math.max(1, paginas);
+  const actual = Math.max(0, Math.min(pagina, paginasReales - 1));
+  return (
+    '<div class="inv-paginacion">' +
+    '<button class="inv-pag-btn" data-inv-pag="primero" type="button" ' + (actual === 0 ? "disabled" : "") + ' aria-label="Primera página">« Primero</button>' +
+    '<button class="inv-pag-btn" data-inv-pag="ant" type="button" ' + (actual === 0 ? "disabled" : "") + ' aria-label="Página anterior">Anterior</button>' +
+    '<span class="inv-pag-conteo">' + (desde + 1) + "–" + hasta + " de <b>" + total.toLocaleString("es-CL") + "</b></span>" +
+    '<button class="inv-pag-btn" data-inv-pag="sig" type="button" ' + (actual >= paginasReales - 1 ? "disabled" : "") + ' aria-label="Página siguiente">Siguiente</button>' +
+    '<button class="inv-pag-btn" data-inv-pag="ultimo" type="button" ' + (actual >= paginasReales - 1 ? "disabled" : "") + ' aria-label="Última página">Último »</button>' +
+    "</div>"
+  );
+}
+
+/* ==========================================================================
+   Escena 3D del inventario · canvas 2D isométrica, sin WebGL
+   --------------------------------------------------------------------------
+   Representa el inventario como estanterías con cajas apiladas. El número
+   de cajas y su color salen de datos reales (INV.productos, stock,
+   INV.panel): nunca se inventan cantidades. Cuando se escanea un código,
+   su caja destella.
+
+   Reglas de render:
+   - requestAnimationFrame, devicePixelRatio tope 2.
+   - Pausa cuando la pestaña está oculta (document.hidden).
+   - Respeta prefers-reduced-motion: dibujo estático, sin destellos animados.
+   - Se libera por completo con invEscenaDestruir() (llamada desde invSalir
+     y al salir del paso 1).
+   ========================================================================== */
+
+const INV_ESCENA = {
+  wrap: null,
+  canvas: null,
+  flujoCanvas: null,
+  ctx: null,
+  flujo: null,        // instancia de window.MatrizFlujo si existe
+  raf: 0,
+  t: 0,               // marca de tiempo del último frame
+  tiempo: 0,          // segundos acumulados (para pulsos)
+  dpr: 1,
+  w: 0,
+  h: 0,
+  activa: false,
+  reducir: false,
+  tokens: null,       // colores del tema actual, leídos de CSS
+  flashCodigo: "",    // código cuya caja destella
+  flashT0: 0
+};
+
+function invEscenaCrear() {
+  const paso1 = document.getElementById("invPaso1");
+  if (!paso1 || paso1.querySelector(".inv-escena-wrap")) return;
+  const wrap = document.createElement("div");
+  wrap.className = "inv-escena-wrap";
+  wrap.innerHTML =
+    '<h3 class="inv-escena-tit">Inventario en 3D · estado real de tu base</h3>' +
+    '<div class="inv-escena-contenido">' +
+    '<canvas id="invEscena3D" class="inv-escena-lona" role="img" aria-label="Vista isométrica del inventario con el stock real de cada producto"></canvas>' +
+    '<canvas id="invEscenaFlujo" class="inv-escena-flujo" role="img" aria-label="Flujo de datos entre la APK y la nube"></canvas>' +
+    "</div>";
+  paso1.appendChild(wrap);
+  INV_ESCENA.wrap = wrap;
+  INV_ESCENA.canvas = document.getElementById("invEscena3D");
+  INV_ESCENA.flujoCanvas = document.getElementById("invEscenaFlujo");
+  INV_ESCENA.ctx = INV_ESCENA.canvas.getContext("2d");
+  if (!INV_ESCENA.ctx) {
+    INV_ESCENA.canvas = null;
+    return;
+  }
+  INV_ESCENA.reducir = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  // Flujo de datos con el motor Matrix si existe: dibuja él mismo en su lienzo.
+  if (typeof window.MatrizFlujo === "function") {
+    INV_ESCENA.flujo = window.MatrizFlujo(INV_ESCENA.flujoCanvas);
+  }
+  invEscenaAjustar();
+  window.addEventListener("resize", invEscenaAjustar);
+  document.addEventListener("visibilitychange", invEscenaVisibilidad);
+}
+
+function invEscenaVisibilidad() {
+  if (!INV_ESCENA.activa) return;
+  if (document.hidden) { invEscenaParar(); return; }
+  invEscenaIniciar();
+}
+
+function invEscenaAjustar() {
+  const c = INV_ESCENA.canvas;
+  if (!c) return;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const r = c.getBoundingClientRect();
+  const w = Math.max(1, Math.round(r.width));
+  const h = Math.max(1, Math.round(r.height));
+  INV_ESCENA.dpr = dpr;
+  INV_ESCENA.w = w;
+  INV_ESCENA.h = h;
+  c.width = Math.round(w * dpr);
+  c.height = Math.round(h * dpr);
+  INV_ESCENA.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  if (INV_ESCENA.flujoCanvas) {
+    INV_ESCENA.flujoCanvas.width = w;
+    INV_ESCENA.flujoCanvas.height = 56;
+  }
+  invEscenaLeerTokens();
+}
+
+function invEscenaLeerTokens() {
+  // Lee los tokens del tema en uso para no inventar colores: lima, texto,
+  // bordes y estados (sano / justo / bajo) vienen de la hoja de estilos.
+  try {
+    const s = getComputedStyle(document.documentElement);
+    const g = function (nombre, fallback) {
+      const v = s.getPropertyValue(nombre).trim();
+      return v || fallback;
+    };
+    INV_ESCENA.tokens = {
+      lima: g("--cat-lima", "#C8FF00"),
+      texto: g("--cat-texto", "#FFFFFF"),
+      texto2: g("--cat-texto-2", "#A7ABA2"),
+      texto3: g("--cat-texto-3", "#6E736A"),
+      borde: g("--cat-borde", "#2A2A2A"),
+      ok: g("--ok", "#4ade80"),
+      alerta: g("--alerta", "#fbbf24"),
+      error: g("--error", "#f87171"),
+      fuente: g("--fuente", "system-ui, sans-serif"),
+      mono: g("--mono", "monospace")
+    };
+  } catch (e) {
+    INV_ESCENA.tokens = {
+      lima: "#C8FF00", texto: "#FFFFFF", texto2: "#A7ABA2", texto3: "#6E736A",
+      borde: "#2A2A2A", ok: "#4ade80", alerta: "#fbbf24", error: "#f87171",
+      fuente: "system-ui, sans-serif", mono: "monospace"
+    };
+  }
+}
+
+function invEscenaIniciar() {
+  if (!INV_ESCENA.canvas) invEscenaCrear();
+  if (!INV_ESCENA.ctx) return;
+  INV_ESCENA.activa = true;
+  invEscenaAjustar();
+  if (!INV_ESCENA.raf) {
+    INV_ESCENA.t = 0;
+    INV_ESCENA.tiempo = 0;
+    INV_ESCENA.raf = requestAnimationFrame(invEscenaPaso);
+  }
+}
+
+function invEscenaParar() {
+  INV_ESCENA.activa = false;
+  if (INV_ESCENA.raf) { cancelAnimationFrame(INV_ESCENA.raf); INV_ESCENA.raf = 0; }
+}
+
+function invEscenaDestruir() {
+  invEscenaParar();
+  window.removeEventListener("resize", invEscenaAjustar);
+  document.removeEventListener("visibilitychange", invEscenaVisibilidad);
+  if (INV_ESCENA.flujo && typeof INV_ESCENA.flujo.destruir === "function") {
+    INV_ESCENA.flujo.destruir();
+    INV_ESCENA.flujo = null;
+  }
+  const ctx = INV_ESCENA.ctx;
+  const c = INV_ESCENA.canvas;
+  if (ctx && c) ctx.clearRect(0, 0, c.width, c.height);
+  INV_ESCENA.canvas = null;
+  INV_ESCENA.ctx = null;
+  INV_ESCENA.w = 0;
+  INV_ESCENA.h = 0;
+  INV_ESCENA.tokens = null;
+}
+
+/** Marca para destello la caja del código que acaba de escanearse. */
+function invEscenaFlash(codigo) {
+  INV_ESCENA.flashCodigo = String(codigo || "");
+  INV_ESCENA.flashT0 = Date.now();
+}
+
+function invEscenaSombra(hex, opacidad) {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return "rgba(" + r + "," + g + "," + b + "," + opacidad + ")";
+}
+
+function invEscenaDibujar() {
+  const ctx = INV_ESCENA.ctx;
+  if (!ctx || !INV_ESCENA.tokens) return;
+  const w = INV_ESCENA.w;
+  const h = INV_ESCENA.h;
+  const reducir = INV_ESCENA.reducir;
+  const ahora = Date.now();
+  const flashVivo = INV_ESCENA.flashCodigo && ahora - INV_ESCENA.flashT0 < 700;
+  const pulso = reducir ? 1 : (Math.sin(INV_ESCENA.tiempo * 6) + 1) / 2;
+  const t = INV_ESCENA.tokens;
+
+  ctx.clearRect(0, 0, w, h);
+
+  // Suelo con rejilla tenue.
+  ctx.fillStyle = "#070a08";
+  ctx.fillRect(0, 0, w, h);
+  ctx.strokeStyle = invEscenaSombra(t.lima, 0.06);
+  ctx.lineWidth = 1;
+  const pasoSuelo = 40;
+  for (let x = 0; x < w; x += pasoSuelo) { ctx.beginPath(); ctx.moveTo(x, h * 0.6); ctx.lineTo(x, h); ctx.stroke(); }
+  for (let y = h * 0.6; y < h; y += pasoSuelo) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+
+  // Datos reales: productos ordenados por stock descendente.
+  const productos = (INV.productos || []).slice().sort(function (a, b) {
+    return Number(b.stock || 0) - Number(a.stock || 0);
+  });
+  const total = INV.panel && INV.panel.resumen ? Number(INV.panel.resumen.total || 0) : productos.length;
+
+  if (!productos.length) {
+    ctx.fillStyle = t.texto3;
+    ctx.font = "700 11px " + t.fuente;
+    ctx.textAlign = "center";
+    ctx.fillText("Inventario vacío — escanea un código para empezar", w / 2, h / 2);
+    ctx.fillStyle = t.texto2;
+    ctx.font = "600 9px " + t.mono;
+    ctx.fillText("Total productos: " + total.toLocaleString("es-CL"), w / 2, h / 2 + 16);
+    invEscenaDibujarFlujo(total);
+    return;
+  }
+
+  const rx = 22;
+  const ry = 11;
+  const depth = 14;
+  const stackStep = ry + 6;
+  const cols = Math.min(6, Math.max(2, Math.floor(w / 66)));
+  const pitch = Math.min(78, Math.floor((w - 40) / cols));
+  const cx0 = 40 + pitch / 2;
+  const cyBase = h * 0.62;
+
+  const mostrar = productos.slice(0, cols); // solo lo que cabe en pantalla: nada de fuera
+
+  mostrar.forEach(function (p, i) {
+    const m = invMargenDe(p);
+    const stock = Math.max(0, Math.round(Number(p.stock || 0)));
+    const cajas = Math.min(9, stock); // altura real del stock, tope visual 9 cajas
+    const colorNivel = m.precio <= 0 ? t.texto3 : (m.nivel === "bueno" ? t.ok : (m.nivel === "justo" ? t.alerta : t.error));
+    const esDestello = flashVivo && INV_ESCENA.flashCodigo === p.codigo;
+
+    const cx = cx0 + i * pitch;
+    const cy0 = cyBase;
+
+    // Estantería (marco vacío si el producto no tiene stock).
+    ctx.strokeStyle = t.borde;
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(cx - rx, cy0); ctx.lineTo(cx, cy0 + ry); ctx.lineTo(cx - rx, cy0 + ry * 2); ctx.lineTo(cx - rx, cy0); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(cx + rx, cy0); ctx.lineTo(cx, cy0 + ry); ctx.lineTo(cx + rx, cy0 + ry * 2); ctx.lineTo(cx + rx, cy0); ctx.stroke();
+
+    // Cajas apiladas: una caja por unidad de stock real (máx. 9 visibles).
+    for (let c = 0; c < cajas; c++) {
+      const cy = cy0 + stackStep * c;
+      const brillo = esDestello && c === cajas - 1 ? (0.5 + 0.5 * pulso) : 1;
+      // cara superior
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - ry);
+      ctx.lineTo(cx + rx, cy);
+      ctx.lineTo(cx, cy + ry);
+      ctx.lineTo(cx - rx, cy);
+      ctx.closePath();
+      ctx.fillStyle = invEscenaSombra(colorNivel, 0.85 * brillo);
+      ctx.fill();
+      ctx.strokeStyle = invEscenaSombra(colorNivel, 0.4);
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      // cara izquierda
+      ctx.beginPath();
+      ctx.moveTo(cx - rx, cy);
+      ctx.lineTo(cx - rx, cy + depth);
+      ctx.lineTo(cx, cy + ry + depth);
+      ctx.lineTo(cx, cy + ry);
+      ctx.closePath();
+      ctx.fillStyle = invEscenaSombra(colorNivel, 0.5 * brillo);
+      ctx.fill();
+      // cara derecha
+      ctx.beginPath();
+      ctx.moveTo(cx + rx, cy);
+      ctx.lineTo(cx + rx, cy + depth);
+      ctx.lineTo(cx, cy + ry + depth);
+      ctx.lineTo(cx, cy + ry);
+      ctx.closePath();
+      ctx.fillStyle = invEscenaSombra(colorNivel, 0.25 * brillo);
+      ctx.fill();
+    }
+    // Destello sobre la caja del producto que acaba de escanearse.
+    if (esDestello && cajas > 0) {
+      const cy = cy0 + stackStep * (cajas - 1);
+      const rayo = 26 + 6 * pulso;
+      ctx.strokeStyle = invEscenaSombra(t.lima, 0.35 + 0.25 * pulso);
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(cx, cy - ry - 2, rayo, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = invEscenaSombra(t.lima, 0.15);
+      ctx.beginPath();
+      ctx.arc(cx, cy - ry - 2, rayo * 0.6, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Etiqueta real: nombre y stock del producto.
+    const nombre = (p.nombre || "Producto " + (p.codigo || ""));
+    ctx.fillStyle = t.texto;
+    ctx.font = "700 10px " + t.fuente;
+    ctx.textAlign = "center";
+    const nombreCorte = nombre.length > 14 ? nombre.slice(0, 13) + "…" : nombre;
+    ctx.fillText(nombreCorte, cx, cy0 + ry * 2 + 14);
+    ctx.fillStyle = t.texto2;
+    ctx.font = "600 9px " + t.mono;
+    ctx.fillText("stock " + stock.toLocaleString("es-CL"), cx, cy0 + ry * 2 + 26);
+  });
+
+  // Leyenda con los totales reales del negocio.
+  ctx.fillStyle = t.texto3;
+  ctx.font = "600 9px " + t.mono;
+  ctx.textAlign = "left";
+  ctx.fillText("Cajas = stock real por producto · color = margen del producto", 12, h - 24);
+  ctx.fillText("Total productos: " + total.toLocaleString("es-CL"), 12, h - 10);
+
+  // Flujo de datos: Matrix si existe, indicador propio si no.
+  if (INV_ESCENA.flujo) {
+    INV_ESCENA.flujo.actualizar({
+      ok: navigator.onLine && !!INV.panel,
+      ms: 0,
+      productos: total,
+      sincronizando: !!INV.sync.enCurso,
+      dispositivos: 1
+    });
+  } else {
+    invEscenaDibujarFlujo(total);
+  }
+}
+
+function invEscenaDibujarFlujo(total) {
+  const c = INV_ESCENA.flujoCanvas;
+  const ctx = c && c.getContext("2d");
+  if (!ctx) return;
+  const w = c.width;
+  const h = c.height;
+  const t = INV_ESCENA.tokens;
+  const pulso = INV_ESCENA.reducir ? 1 : (Math.sin(INV_ESCENA.tiempo * 5) + 1) / 2;
+  ctx.clearRect(0, 0, w, h);
+  const ok = navigator.onLine && !!INV.panel;
+  const color = ok ? t.ok : t.error;
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.arc(14, h / 2, 4 + 2 * pulso, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = t.texto2;
+  ctx.font = "700 9px " + t.mono;
+  ctx.textAlign = "left";
+  ctx.fillText(ok ? "En línea · " + total.toLocaleString("es-CL") + " productos" : "Sin conexión", 26, h / 2 + 3);
+}
+
+function invEscenaPaso(ms) {
+  INV_ESCENA.raf = 0;
+  if (document.hidden) return;
+  const dt = INV_ESCENA.t ? Math.min(0.05, (ms - INV_ESCENA.t) / 1000) : 0.016;
+  INV_ESCENA.t = ms;
+  if (!INV_ESCENA.reducir) INV_ESCENA.tiempo += dt;
+  invEscenaDibujar();
+  INV_ESCENA.raf = requestAnimationFrame(invEscenaPaso);
+}

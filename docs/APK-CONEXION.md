@@ -65,7 +65,31 @@ reutilizaron las 7 bibliotecas nativas de la 0.9.63.
 Archivos: `android/assets/www/tienda.js`, `tienda.css` y tres líneas de
 integración en `index.html` (menú, sección, script) y `app.js` (router).
 
-## 4-quater · Cloudinary con API key y firma en la nube (0.9.69)
+## 4-quinquies · Inventario, mapa y visor sin conexión (0.9.73)
+
+**Inventario**
+- Buscador avanzado (`inv-buscar.js`): chips (todos, stock bajo, sin stock,
+  margen bajo, oferta), orden, paginación de 20 en 20 y estado vacío explicativo.
+- Lector único (`inv-lector.js`): un solo `getUserMedia` y un solo rAF,
+  idempotente; reutiliza el EAN del repo y `BarcodeDetector` si existe.
+- Motor de márgenes (`invMargenDe`): margen sobre venta y markup sobre costo,
+  IVA, utilidad por stock, semáforo y explicación. Sin costo el markup es —.
+- Escena 3D isométrica en canvas 2D (paso 1) con cajas según stock real y
+  color según margen; destello al escanear.
+- Cada paso tiene cabecera, propósito y pie «Anterior / Siguiente · Paso n de 5»;
+  Productos, Precios y Márgenes van de 20 en 20.
+
+**Mapa y visor offline**
+- `offline-mapa.js` (`OfflineMapa`): cachea teselas de un rectángulo
+  (Santiago centro, zooms 14–16) en Cache Storage, con tope de 400 teselas y
+  40 MB, concurrencia 4. `cubierto()`, `estado()`, `limpiar()`.
+- `offline-visor.js` (`OfflineVisor`): guarda las 4 texturas HD del visor y
+  recursos por producto; `estado()`, `cubierto()`, `limpiar()`.
+- `offline-panel.js`: tarjeta «Mapa y visor sin conexión» en Integración, con
+  botones Guardar mapa / Guardar visor / Borrar caché, progreso y estado.
+- Nada se descarga al abrir la app: sólo al pulsar.
+
+ con API key y firma en la nube (0.9.69)
 
 - La tarjeta de Cloudinary pide **cloud name, API key, API secret** y preset
   unsigned opcional. El secret **no se guarda en el teléfono**: se manda una

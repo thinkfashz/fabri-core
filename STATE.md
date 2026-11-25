@@ -8,6 +8,33 @@
 
 Última actualización: 2026-11-25
 
+## Sesión 2026-11-25 · Inventario 3D, buscador, lector y offline (0.9.73)
+
+**Inventario (3 frentes en paralelo + 1 propio)**
+- `inv-buscar.js/.css`: buscador con chips (todos, stock bajo, sin stock, margen
+  bajo, oferta), orden, paginación 20/20, resaltado y vacío explicativo.
+- `inv-lector.js`: un solo `getUserMedia` y un solo rAF, idempotente; reutiliza
+  el EAN del repo (`invEscanearCuadro`) y `BarcodeDetector` si existe.
+- Motor de márgenes único (`invMargenDe`): margen sobre venta y markup sobre
+  costo, IVA, utilidad por stock, semáforo y explicación. Sin costo el markup
+  es -1 (no calculable), no un 0 % falso. Tabla ordenada por urgencia.
+- Escena 3D isométrica en canvas 2D (paso 1) con cajas según stock real y color
+  según margen; destello al escanear. Cada paso con cabecera, propósito y pie
+  «Anterior / Siguiente · Paso n de 5»; Productos, Precios y Márgenes de 20 en 20.
+
+**Mapa y visor offline**
+- `offline-mapa.js` (`OfflineMapa`): cachea teselas de un rectángulo en Cache
+  Storage, tope 400 teselas / 40 MB, concurrencia 4; `cubierto`, `estado`,
+  `limpiar`.
+- `offline-visor.js` (`OfflineVisor`): guarda las 4 texturas HD y recursos por
+  producto; `estado`, `cubierto`, `limpiar`.
+- `offline-panel.js` + `offline.css`: tarjeta «Mapa y visor sin conexión» en
+  Integración con Guardar mapa / Guardar visor / Borrar caché, progreso y estado.
+- Nada se descarga al abrir: sólo al pulsar.
+
+**APK 0.9.73** (versionCode 88) en Descargas y `web/descargas`,
+md5 `99b71ffa6868fc040365a4be7bb2c3d0`. Datos temporales no creados.
+
 ## Sesión 2026-11-25 · Catálogo vitrina, destacar y diagnóstico de sync (0.9.71)
 
 Pedido: el CRM no conectaba con la nube; el catálogo debía ser una vitrina

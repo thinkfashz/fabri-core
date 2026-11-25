@@ -3470,3 +3470,42 @@ img.inv-mini { object-fit: cover; }
 /* Contenedor del buscador avanzado (inv-buscar.js inyecta .invb-*). */
 .inv-buscador { margin-top: 10px; }
 .inv-buscador:empty { display: none; }
+
+/* ==========================================================================
+   Cabecera y pie por paso: cada paso es una página propia
+   ========================================================================== */
+.inv-pagina-cab { margin: 0 0 10px; padding: 0 var(--esp, 16px); }
+.inv-pagina-tit { margin: 0 0 4px; font-size: 20px; line-height: 1.2; letter-spacing: -0.02em; color: var(--cat-texto, var(--texto)); }
+.inv-pagina-sub { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--cat-texto-2, var(--texto-2)); max-width: 60ch; }
+.inv-pagina-pie { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px var(--esp, 16px); margin-top: 14px; border-top: 1px solid var(--cat-borde, var(--borde)); flex-wrap: wrap; }
+.inv-pagina-btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border: 1px solid var(--cat-borde, var(--borde)); border-radius: var(--fb-radio-boton, 12px); background: var(--cat-elevada, var(--elevado)); color: var(--cat-texto, var(--texto)); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; min-width: 88px; text-align: center; }
+.inv-pagina-btn:hover { border-color: var(--cat-lima, var(--acento)); }
+.inv-pagina-btn:active { transform: scale(0.96); }
+.inv-pagina-btn:disabled { opacity: 0.5; pointer-events: none; cursor: default; }
+.inv-pagina-btn.inv-pagina-btn--sig { background: var(--cat-lima, var(--acento)); color: #050505; border-color: var(--cat-lima, var(--acento)); }
+.inv-pagina-btn--ant { color: var(--cat-texto-2, var(--texto-2)); }
+.inv-pagina-progreso { font-size: 12.5px; font-variant-numeric: tabular-nums; color: var(--cat-lima, var(--acento)); font-weight: 700; white-space: nowrap; }
+
+/* ==========================================================================
+   Paginación 20 en 20 (listas de los pasos 2, 3 y 4)
+   ========================================================================== */
+.inv-paginacion { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 10px var(--esp, 16px) 0; padding-bottom: 10px; flex-wrap: wrap; border-top: 1px solid var(--cat-borde, var(--borde)); }
+.inv-pag-btn { padding: 7px 12px; border: 1px solid var(--cat-borde, var(--borde)); border-radius: var(--fb-radio-boton, 12px); background: var(--cat-elevada, var(--elevado)); color: var(--cat-texto, var(--texto)); font: inherit; font-size: 12.5px; cursor: pointer; min-width: 72px; text-align: center; }
+.inv-pag-btn:hover { border-color: var(--cat-lima, var(--acento)); }
+.inv-pag-btn:active { transform: scale(0.96); }
+.inv-pag-btn:disabled { opacity: 0.5; pointer-events: none; cursor: default; }
+.inv-pag-conteo { font-size: 12.5px; color: var(--cat-texto-2, var(--texto-2)); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* ==========================================================================
+   Escena 3D del inventario (canvas 2D isométrica, sin WebGL)
+   ========================================================================== */
+.inv-escena-wrap { margin: 12px var(--esp, 16px) 0; border: 1px solid var(--cat-borde, var(--borde)); border-radius: var(--fb-radio-tarjeta, 12px); background: var(--cat-superficie, var(--card)); overflow: hidden; }
+.inv-escena-tit { margin: 0; padding: 10px 12px 0; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--cat-texto-3, var(--texto-3)); }
+.inv-escena-contenido { display: grid; gap: 0; }
+.inv-escena-lona { width: 100%; height: 150px; display: block; background: #070a08; }
+@media (min-width: 480px) { .inv-escena-lona { height: 180px; } }
+.inv-escena-flujo { width: 100%; height: 56px; display: block; }
+@media (prefers-reduced-motion: reduce) {
+  .inv-pagina-btn { transition: none; }
+  .inv-pag-btn { transition: none; }
+}

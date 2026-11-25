@@ -1,0 +1,76 @@
+/* Aviso de "sin conexión" y precacheo del mapa y el visor (APK).
+   Todo es manual: nada se descarga al abrir la app. */
+
+.ofl-barra {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 9px 11px;
+  margin-bottom: 10px;
+  border-radius: 12px;
+  border: 1px solid var(--cat-borde, #222);
+  background: #0d0f0c;
+  font-size: 11.5px;
+  color: var(--cat-texto-2, #A7ABA2);
+}
+.ofl-barra b { color: var(--cat-texto, #F5F6F2); }
+.ofl-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  border: 1px solid #2a2a2a;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--cat-texto-3, #6E736A);
+}
+.ofl-pill::before {
+  content: "";
+  width: 6px; height: 6px; border-radius: 50%;
+  background: currentColor;
+}
+.ofl-pill[data-ok="si"] { color: #b7ff32; border-color: #3a4d22; }
+.ofl-pill[data-ok="no"] { color: #f58c8c; border-color: #4a2424; }
+.ofl-pill[data-ok="aviso"] { color: #f5c542; border-color: #5a481f; }
+
+.ofl-fila { display: flex; gap: 7px; flex-wrap: wrap; }
+.ofl-btn {
+  border: 1px solid #2a2a2a;
+  background: #141414;
+  color: #eee;
+  border-radius: 10px;
+  padding: 8px 11px;
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.ofl-btn--pri { background: #c8ff00; border-color: #c8ff00; color: #050505; }
+.ofl-btn:disabled { opacity: 0.45; cursor: default; }
+
+.ofl-progreso {
+  height: 6px;
+  border-radius: 999px;
+  background: #1a1a1a;
+  overflow: hidden;
+  margin-top: 6px;
+}
+.ofl-progreso i {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: #c8ff00;
+  transition: width 0.2s ease;
+}
+.ofl-msg {
+  margin: 7px 0 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--cat-texto-3, #6E736A);
+}
+.ofl-msg[data-tipo="mal"] { color: #f58c8c; }
+.ofl-msg[data-tipo="ok"] { color: #b7ff32; }

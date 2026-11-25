@@ -18,6 +18,7 @@
   <link rel="stylesheet" href="integracion.css" />
   <link rel="stylesheet" href="matrix.css" />
   <link rel="stylesheet" href="inv-buscar.css" />
+  <link rel="stylesheet" href="offline.css" />
 </head>
 <body>
   <!-- ===================== ACCESO · HUELLA + PIN ===================== -->
@@ -1705,6 +1706,14 @@ npx -y omniroute@latest
         </div>
 
         <div class="mx-card">
+          <div class="mx-card__cab"><div class="mx-card__tit">Mapa y visor sin conexión</div>
+            <span class="mx-pill" data-ok="no">offline</span></div>
+          <p class="mx-note">Guarda en este teléfono las teselas del mapa y las texturas del visor 3D para
+            usarlos sin internet. Empieza con «Guardar mapa» y «Guardar visor».</p>
+          <div id="oflPanel"></div>
+        </div>
+
+        <div class="mx-card">
           <div class="mx-card__cab"><div class="mx-card__tit">Datos y transparencia</div></div>
           <p class="mx-note">La app guarda datos del vendedor y del cliente en el teléfono y, al conectar la
             tienda, en la nube. No usa cookies publicitarias.</p>
@@ -3373,6 +3382,9 @@ CREATE INDEX IF NOT EXISTS idx_inv_productos_actualizado
   <script src="inventario.js"></script>
   <script src="inv-buscar.js"></script>
   <script src="inv-lector.js"></script>
+  <script src="offline-mapa.js"></script>
+  <script src="offline-visor.js"></script>
+  <script src="offline-panel.js"></script>
   <script src="catalogo.js"></script>
   <script src="impuestos.js"></script>
   <script src="contabilidad.js"></script>
