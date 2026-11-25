@@ -2,11 +2,13 @@
 <html lang="es-CL">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#070A08">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>MercaFabrick · tu barrio, en stock</title>
 <link rel="stylesheet" href="./merca.css">
-<script>window.MF_VERSION = "1.1.2";</script>
+<script>window.MF_VERSION = "1.2.0";</script>
 <script>
 /* Captura cualquier fallo de la interfaz y lo pinta en pantalla. Sin esto, un
    error de JavaScript deja la WebView en negro y parece que la app se cerró. */
@@ -43,28 +45,50 @@ window.addEventListener("unhandledrejection", function (e) {
 <header class="mf-top">
   <div class="mf-marca">
     <span class="mf-marca__ico" aria-hidden="true">M</span>
-    <span class="mf-marca__txt"><b>MercaFabrick</b><small>tu barrio, en stock</small></span>
+    <span class="mf-marca__txt"><b>MercaFabrick</b><small id="mfSub">tu barrio, en stock</small></span>
   </div>
-  <button class="mf-top__btn" id="mfUbi" type="button" aria-label="Centrar en mi ubicación">◎</button>
+  <button class="mf-chip--ubi" id="mfUbi" type="button" aria-label="Centrar en mi ubicación">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+    <span>Mi ubicación</span>
+  </button>
 </header>
 
 <div id="mfAuth"></div>
-
-<nav class="mf-tabs" id="mfTabs" role="tablist" aria-label="Secciones">
-  <button class="mf-tab activo" data-tab="inicio" role="tab" aria-selected="true">Inicio</button>
-  <button class="mf-tab" data-tab="mapa" role="tab" aria-selected="false">Mapa</button>
-  <button class="mf-tab" data-tab="catalogo" role="tab" aria-selected="false">Catálogo</button>
-  <button class="mf-tab" data-tab="carrito" role="tab" aria-selected="false">Carrito <span id="mfBadge" hidden>0</span></button>
-  <button class="mf-tab" data-tab="cuenta" role="tab" aria-selected="false">Cuenta</button>
-</nav>
 
 <main id="mfMain" class="mf-main">
   <div class="mf-cargando" id="mfCargando">Cargando tu barrio…</div>
 </main>
 
+<nav class="mf-tabbar" id="mfTabs" role="tablist" aria-label="Secciones">
+  <button class="mf-tab activo" data-tab="inicio" role="tab" aria-selected="true">
+    <span class="mf-tab__ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M9.5 21v-6h5v6"/></svg></span>
+    <span>Inicio</span>
+  </button>
+  <button class="mf-tab" data-tab="mapa" role="tab" aria-selected="false">
+    <span class="mf-tab__ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4 3 6.5v14L9 18l6 2.5 6-2.5v-14L15 6.5 9 4z"/><path d="M9 4v14M15 6.5v14"/></svg></span>
+    <span>Mapa</span>
+  </button>
+  <button class="mf-tab" data-tab="catalogo" role="tab" aria-selected="false">
+    <span class="mf-tab__ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h16l-1-5H5L4 9z"/><path d="M4 9v11h16V9"/><path d="M9 20v-6h6v6"/></svg></span>
+    <span>Catálogo</span>
+  </button>
+  <button class="mf-tab" data-tab="carrito" role="tab" aria-selected="false">
+    <span class="mf-tab__ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2.5 3.5h2.2l2.4 11.2a2 2 0 0 0 2 1.6h8.9a2 2 0 0 0 2-1.6L21.5 7H6"/></svg></span>
+    <span>Carrito</span>
+    <span id="mfBadge" hidden>0</span>
+  </button>
+  <button class="mf-tab" data-tab="cuenta" role="tab" aria-selected="false">
+    <span class="mf-tab__ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/></svg></span>
+    <span>Cuenta</span>
+  </button>
+</nav>
+
 <canvas id="mfAuthCanvas" aria-hidden="true"></canvas>
 
+<script src="./vendor/three.min.js"></script>
 <script src="./merca.js"></script>
+<script src="./mapa.js"></script>
+<script src="./mercado3d.js"></script>
 <script src="./auth.js"></script>
 <script src="./merca-app.js"></script>
 <script>

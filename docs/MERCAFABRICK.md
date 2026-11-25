@@ -5,7 +5,7 @@
 > en efectivo o por transferencia y avisa el pedido al local por WhatsApp con
 > una boleta PDF. No reemplaza ni toca `cl.fabrick.core`.
 
-Estado: **1.1.2** (`versionCode` 4). Fuente en `fast/merca/`.
+Estado: **1.2.0** (`versionCode` 5). Fuente en `fast/merca/`.
 
 ## 1. Qué hace (y qué no)
 
@@ -25,6 +25,9 @@ Estado: **1.1.2** (`versionCode` 4). Fuente en `fast/merca/`.
 | `fast/merca/www/index.html` | Cascarón: topbar, pestañas, `#mfMain`, `#mfAuth`, `#mfAuthCanvas` y captura global de errores JS |
 | `fast/merca/www/merca.css` | Sistema visual (tokens `--mf-*`), capas de login y app |
 | `fast/merca/www/merca.js` | `window.MercaUI`: `esc`, `clp`, iconos SVG, tarjetas de tienda y producto, estados, toast |
+| `fast/merca/www/mapa.js` | `window.MercaMapa`: mapa interactivo en canvas (teselas OSM, pines, arrastre, pinch) |
+| `fast/merca/www/mercado3d.js` | `window.Merca3D`: supermercado en 3D con Three.js (góndolas, productos, caja) |
+| `fast/merca/www/vendor/three.min.js` | Three.js r149 (608 KB) servido desde el APK |
 | `fast/merca/www/merca-app.js` | Estado, API, carrito por tienda, catálogo, checkout, éxito, WhatsApp y generador PDF |
 | `fast/merca/www/auth.js` | Login/registro real, sesión `fcore.nube`, canvas de fondo, `mostrarPantalla`/`cerrarPantalla` |
 | `fast/merca/java/cl/fabrick/merca/MercaActivity.kt` | WebView a pantalla completa, manejador de crash, geolocalización, puente |
@@ -73,7 +76,33 @@ Inicio / Mapa ──► Catálogo (tienda) ──► Carrito ──► Compra
   código y clave) y el usuario toca «Enviar por WhatsApp». Evita cierres raros
   y deja ver la boleta antes de salir de la app.
 
-## 5. Boleta PDF
+## 5. Mapa interactivo
+
+`mapa.js` dibuja un mapa "slippy" en canvas, sin Leaflet ni claves de API:
+
+- Teselas de `tile.openstreetmap.org` (atribución visible), con caché en memoria.
+- Pines de los locales con `lat/lon`: lima si está abierto, rojo si está cerrado.
+- Punto azul de la ubicación del usuario (botón «Mi ubicación» de la topbar).
+- Arrastre para desplazar, rueda/pinza para acercar, botones + / − / centrar.
+- Toca un pin → ficha con nombre, rubro, dirección y botón «Ver productos».
+- Debajo del mapa, la lista completa de locales.
+
+## 6. Visor 3D del mercado
+
+`mercado3d.js` arma un supermercado con Three.js (r149, incluido en el APK):
+
+- Piso con cuadrícula, pared de fondo y letrero con el nombre del local.
+- Cuatro góndolas con tres repisas; los productos son cajas con el color de su
+  categoría (máximo 84 cajas, se reciclan si el catálogo es más grande).
+- Caja de pago con lector luminoso.
+- Giro con el dedo, pinch para acercar, y **toca un producto para agregarlo al
+  carrito** (con aviso).
+- Si el equipo no tiene WebGL o pierde el contexto, se explica y se ofrece
+  volver a la vista Lista (nunca queda un rectángulo negro).
+
+Se entra desde el catálogo, con el selector **Lista / 3D**.
+
+## 7. Boleta PDF
 
 Generador propio de **PDF 1.4** en JavaScript (Helvetica, multipágina, 46
 líneas por página), sin librerías. Estructura válida verificada: cabecera
@@ -84,7 +113,7 @@ líneas por página), sin librerías. Estructura válida verificada: cabecera
 - **Navegador**: descarga con `Blob`.
 - El documento dice «Documento de pedido. No es boleta ni factura fiscal».
 
-## 6. Pantalla negra: qué pasaba (y la causa real)
+## 8. Pantalla negra: qué pasaba (y la causa real)
 
 Hubo dos cosas, y la segunda tapaba a la primera:
 
@@ -111,7 +140,7 @@ Arreglo de (1):
 Arreglo de (2): `build-merca.sh` pasa `$KSTD` (kotlin-stdlib) a `d8`, así que
 el stdlib queda **dentro** del APK. El archivo pasó de 60 KB a 732 KB.
 
-## 7. Arranque a prueba de pantalla negra
+## 9. Arranque a prueba de pantalla negra
 
 El WebView puede quedar en negro sin dar un solo mensaje (por ejemplo, si la
 página principal responde 404, `onReceivedError` no se dispara). Para que eso
@@ -132,7 +161,7 @@ no vuelva a pasar:
 La versión también se ve en el login (`MercaFabrick v1.1.1`), para confirmar
 que la APK instalada es la nueva.
 
-## 8. Compilar y entregar
+## 10. Compilar y entregar
 
 ```sh
 bash build-merca.sh            # ~2-4 min (d8 es lo más lento)
@@ -144,7 +173,7 @@ bash build-merca.sh            # ~2-4 min (d8 es lo más lento)
 - Entrega fuera de Termux: copiar a `/storage/emulated/0/Download/`.
 - Prueba final en el teléfono del usuario: aquí no hay Android para ejecutar.
 
-## 9. Pendiente / límites
+## 11. Pendiente / límites
 
 - La boleta PDF y el permiso de ubicación solo se validan en dispositivo.
 - El pago es efectivo o transferencia; no hay pasarela.

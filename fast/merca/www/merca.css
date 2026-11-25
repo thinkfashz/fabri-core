@@ -1,845 +1,719 @@
 /* ==========================================================================
-   MercaFabrick — sistema visual (marketplace de barrio)
-   WebView a pantalla completa · Android · sin frameworks · CSS puro
+   MercaFabrick · sistema visual iOS-moderno
    --------------------------------------------------------------------------
-   Tokens primero, componentes después. Ninguna clase aquí que no genere
-   el HTML o el JS (merca.js / merca-app.js).
+   Tokens primero, componentes después. Una sola fuente de verdad.
+   Estética: fondo negro, superficies translúcidas, tarjetas redondeadas,
+   tipografía de sistema (SF en iPhone), acento lima de marca.
    ========================================================================== */
 
-/* ── 1. Tokens de diseño (único lugar de verdad) ───────────────────────── */
+/* ── 1. Tokens ─────────────────────────────────────────────────────────── */
 :root {
-  /* Colores */
-  --mf-fondo: #070A08;
-  --mf-superficie: #0F120E;
-  --mf-borde: #22271F;
-  --mf-texto: #F2F5F0;
-  --mf-texto-suave: #B9C6B8;
-  --mf-acento: #C8FF00;   /* lima */
+  /* Superficies */
+  --mf-bg: #000000;
+  --mf-bg-2: #07070A;
+  --mf-card: #0D0D12;
+  --mf-card-2: #14141B;
+  --mf-glass: rgba(20, 20, 26, 0.72);
+  --mf-glass-2: rgba(255, 255, 255, 0.07);
+  --mf-line: rgba(255, 255, 255, 0.09);
+  --mf-line-2: rgba(255, 255, 255, 0.16);
+
+  /* Texto */
+  --mf-txt: #FFFFFF;
+  --mf-txt-2: rgba(235, 235, 245, 0.62);
+  --mf-txt-3: rgba(235, 235, 245, 0.38);
+
+  /* Marca */
+  --mf-lima: #C8FF00;
+  --mf-lima-2: #A8E000;
+  --mf-lima-ink: #0A1000;
   --mf-cian: #5AD9E8;
-  --mf-rojo: #FF6B6B;
+  --mf-rojo: #FF453A;
+  --mf-verde: #30D158;
+  --mf-azul: #0A84FF;
 
-  /* Colores derivados (contraste AA sobre fondo oscuro) */
-  --mf-texto-sobre-acento: #0B1000;   /* negro casi puro sobre lima */
-  --mf-texto-sobre-cian: #03252D;
-  --mf-texto-sobre-rojo: #3A1111;
-
-  /* Espaciado (escala 4px base, móvil primero) */
-  --mf-xs: 4px;
-  --mf-s: 8px;
-  --mf-m: 12px;
-  --mf-l: 16px;
-  --mf-xl: 24px;
-  --mf-xxl: 32px;
+  /* Radios */
+  --mf-r-xl: 26px;
+  --mf-r: 20px;
+  --mf-r-sm: 14px;
+  --mf-r-xs: 10px;
+  --mf-r-pill: 999px;
 
   /* Tipografía */
-  --mf-fuente: system-ui, -apple-system, BlinkMacSystemFont,
-    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --mf-tam-body: 14px;
-  --mf-tam-peq: 12px;
-  --mf-tam-titulo: 20px;
-  --mf-tam-hero: 24px;
-  --mf-linea: 1.5;
+  --mf-fuente: -apple-system, "SF Pro Display", "SF Pro Text", "Helvetica Neue",
+    system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 
-  /* Bordes y esquinas */
-  --mf-radio: 12px;
-  --mf-radio-pill: 999px;
-  --mf-borde-ancho: 1px;
+  /* Medidas */
+  --mf-tab-h: 64px;
+  --mf-top-h: 52px;
+  --mf-pad: 16px;
 
-  /* Elevación suave (sin sombras duras) */
-  --mf-sombra: 0 1px 3px rgba(0, 0, 0, 0.45),
-               0 0 1px rgba(0, 0, 0, 0.3);
+  /* Movimiento */
+  --mf-ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --mf-dur: 0.32s;
 
-  /* Transiciones (solo transform/opacity por rendimiento) */
-  --mf-dur: 180ms;
-  --mf-ease: cubic-bezier(0.2, 0, 0, 1);
+  /* Sombras */
+  --mf-sombra: 0 12px 40px rgba(0, 0, 0, 0.45);
+  --mf-sombra-sm: 0 4px 18px rgba(0, 0, 0, 0.35);
 }
 
-/* Preferencia de usuario: menos movimiento */
-@media (prefers-reduced-motion: reduce) {
-  :root {
-    --mf-dur: 0ms;
-  }
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0ms !important;
-    animation-delay: 0ms !important;
-    transition-duration: 0ms !important;
-    transition-delay: 0ms !important;
-  }
-}
+/* ── 2. Base ───────────────────────────────────────────────────────────── */
+* { box-sizing: border-box; }
 
-/* ── 2. Reset y base ───────────────────────────────────────────────────── */
-* {
-  box-sizing: border-box;
+html, body {
   margin: 0;
   padding: 0;
-}
-
-html {
-  /* Evita scroll horizontal en WebView Android */
-  overflow-x: hidden;
-  text-size-adjust: 100%;
+  background: var(--mf-bg);
+  color: var(--mf-txt);
+  font-family: var(--mf-fuente);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overscroll-behavior-y: none;
 }
 
 body {
-  background: var(--mf-fondo);
-  color: var(--mf-texto);
-  font-family: var(--mf-fuente);
-  font-size: var(--mf-tam-body);
-  line-height: var(--mf-linea);
-  -webkit-font-smoothing: antialiased;
   min-height: 100vh;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: calc(var(--mf-tab-h) + env(safe-area-inset-bottom));
+  background:
+    radial-gradient(120% 60% at 50% -10%, rgba(200, 255, 0, 0.10), transparent 60%),
+    var(--mf-bg);
 }
 
-/* Enlaces y texto seleccionado (partes del navegador que aún pertenecen al diseño) */
-a { color: var(--mf-cian); text-decoration: none; }
-a:hover { text-decoration: underline; }
-::selection { background: var(--mf-acento); color: var(--mf-texto-sobre-acento); }
+button, input, select, textarea { font-family: inherit; }
+button { -webkit-tap-highlight-color: transparent; }
+a { color: var(--mf-lima); }
 
-/* ── 3. Utilidades .mf-* ───────────────────────────────────────────────── */
-.mf-block { display: block; }
-.mf-flex { display: flex; }
-.mf-flex-col { display: flex; flex-direction: column; }
-.mf-items-center { align-items: center; }
-.mf-justify-between { justify-content: space-between; }
-.mf-gap-s { gap: var(--mf-s); }
-.mf-gap-m { gap: var(--mf-m); }
-.mf-w-full { width: 100%; }
+.mf-oculto { display: none !important; }
 
-.mf-text-center { text-align: center; }
-.mf-text-left { text-align: left; }
-.mf-font-peso { font-weight: 700; }
-.mf-font-suave { color: var(--mf-texto-suave); font-weight: 400; }
-.mf-uppercase { text-transform: uppercase; letter-spacing: 0.08em; font-size: var(--mf-tam-peq); }
-
-.mf-mt-s { margin-top: var(--mf-s); }
-.mf-mt-m { margin-top: var(--mf-m); }
-.mf-mt-l { margin-top: var(--mf-xl); }
-.mf-mb-m { margin-bottom: var(--mf-m); }
-.mf-mb-l { margin-bottom: var(--mf-xl); }
-.mf-p-m { padding: var(--mf-m); }
-.mf-p-l { padding: var(--mf-xl); }
-.mf-px-l { padding-left: var(--mf-xl); padding-right: var(--mf-xl); }
-
-.mf-borde { border: var(--mf-borde-ancho) solid var(--mf-borde); }
-.mf-radio { border-radius: var(--mf-radio); }
-
-.mf-overflow-auto { overflow: auto; }
-.mf-no-scroll-x { overflow-x: hidden; max-width: 100%; }
-
-/* ── 4. Topbar ─────────────────────────────────────────────────────────── */
+/* ── 3. Barra superior (vidrio) ────────────────────────────────────────── */
 .mf-top {
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  height: calc(var(--mf-top-h) + env(safe-area-inset-top));
+  padding: env(safe-area-inset-top) var(--mf-pad) 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 56px;               /* target táctil ≥ 44px */
-  padding: 0 var(--mf-l);
-  background: var(--mf-superficie);
-  border-bottom: var(--mf-borde-ancho) solid var(--mf-borde);
-  position: sticky;
-  top: 0;
-  z-index: 50;
-  /* Safe area: notch / status bar en Android */
-  padding-top: max(var(--mf-l), env(safe-area-inset-top));
+  gap: 10px;
+  background: var(--mf-glass);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 1px solid var(--mf-line);
 }
 
-.mf-marca {
-  display: flex;
-  align-items: center;
-  gap: var(--mf-s);
-  flex-shrink: 0;
-}
+.mf-marca { display: flex; align-items: center; gap: 10px; min-width: 0; }
 
 .mf-marca__ico {
-  width: 28px; height: 28px;
-  background: var(--mf-acento);
-  color: var(--mf-texto-sobre-acento);
-  border-radius: 6px;
-  display: grid;
-  place-items: center;
+  width: 30px; height: 30px;
+  display: grid; place-items: center;
+  border-radius: 9px;
+  background: var(--mf-lima);
+  color: var(--mf-lima-ink);
+  font-size: 17px;
   font-weight: 800;
-  font-size: 16px;
-  line-height: 1;
-}
-
-.mf-marca__txt { display: flex; flex-direction: column; line-height: 1.15; }
-.mf-marca__txt b {
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--mf-texto);
-}
-.mf-marca__txt small {
-  font-size: 11px;
-  color: var(--mf-texto-suave);
-  font-weight: 400;
-}
-
-.mf-top__btn {
-  width: 44px; height: 44px;   /* target táctil */
-  border: none;
-  background: var(--mf-borde);
-  color: var(--mf-texto);
-  border-radius: 10px;
-  font-size: 18px;
-  line-height: 1;
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-.mf-top__btn:focus-visible {
-  outline: 2px solid var(--mf-cian);
-  outline-offset: 2px;
-}
-.mf-top__btn:active { background: #343A2F; }
-
-/* ── 5. Pestañas (nav inferior-style, arriba del main) ─────────────────── */
-.mf-tabs {
-  display: flex;
-  background: var(--mf-superficie);
-  border-bottom: var(--mf-borde-ancho) solid var(--mf-borde);
-  overflow: hidden;
-  position: sticky;
-  top: 56px;   /* bajo la topbar */
-  z-index: 40;
-  padding-top: max(0, env(safe-area-inset-top) - 56px);
-}
-
-/* Las 5 pestañas se reparten el ancho: a 360 px entran todas sin scroll
-   horizontal (antes "Carrito" quedaba cortada). */
-.mf-tab {
-  flex: 1 1 0;
-  min-width: 0;
-  padding: 10px 2px;
-  font-size: 11.5px;
-  letter-spacing: -0.01em;
-  font-weight: 600;
-  text-align: center;
-  color: var(--mf-texto-suave);
-  background: transparent;
-  border: none;
-  border-bottom: 2px solid transparent;
-  cursor: pointer;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  -webkit-tap-highlight-color: transparent;
-  transition: color var(--mf-dur) var(--mf-ease),
-              border-color var(--mf-dur) var(--mf-ease);
-}
-.mf-tab:focus-visible {
-  outline: 2px solid var(--mf-cian);
-  outline-offset: 2px;
-}
-.mf-tab.activo {
-  color: var(--mf-texto);
-  border-bottom-color: var(--mf-acento);
-}
-
-/* Badge del carrito dentro de la pestaña */
-.mf-tab [hidden] { display: none !important; }
-.mf-tab #mfBadge {
-  display: inline-block;
-  min-width: 18px; height: 18px;
-  background: var(--mf-acento);
-  color: var(--mf-texto-sobre-acento);
-  font-size: 10px;
-  font-weight: 800;
-  border-radius: var(--mf-radio-pill);
-  text-align: center;
-  line-height: 18px;
-  padding: 0 4px;
-  margin-left: 6px;
-  vertical-align: middle;
-}
-
-/* ── 6. Main / hero ────────────────────────────────────────────────────── */
-.mf-main {
-  min-height: calc(100vh - 56px - 56px);
-  padding: var(--mf-l);
-  padding-bottom: max(var(--mf-xl), env(safe-area-inset-bottom));
-  display: flex;
-  flex-direction: column;
-  gap: var(--mf-xl);
-  /* sin scroll horizontal */
-  overflow-x: hidden;
-}
-
-.mf-hero {
-  display: flex;
-  flex-direction: column;
-  gap: var(--mf-s);
-}
-
-.mf-kicker {
-  font-size: var(--mf-tam-peq);
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  color: var(--mf-cian);
-  text-transform: uppercase;
-}
-
-.mf-hero h1 {
-  font-size: var(--mf-tam-hero);
-  font-weight: 700;
-  color: var(--mf-texto);
-  line-height: 1.25;
-  letter-spacing: -0.02em;
-}
-
-.mf-hero p {
-  color: var(--mf-texto-suave);
-  font-size: var(--mf-tam-peq);
-  max-width: 65ch;   /* medida de lectura cómoda */
-}
-
-/* ── 7. Grilla de tarjetas (una columna en móvil) ──────────────────────── */
-.mf-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: var(--mf-m);
-}
-
-/* En 720px+ (tablet / landscape ancho) dos columnas */
-@media (min-width: 720px) {
-  .mf-grid { grid-template-columns: repeat(2, 1fr); }
-  .mf-hero h1 { font-size: 28px; }
-}
-
-/* ── 8. Tarjeta de tienda ──────────────────────────────────────────────── */
-/* Generada por MercaUI.tarjetaTienda(t) */
-.mf-card {
-  background: var(--mf-superficie);
-  border: var(--mf-borde-ancho) solid var(--mf-borde);
-  border-radius: var(--mf-radio);
-  padding: var(--mf-m);
-  display: flex;
-  flex-direction: column;
-  gap: var(--mf-s);
-  transition: border-color var(--mf-dur) var(--mf-ease),
-              transform var(--mf-dur) var(--mf-ease);
-}
-.mf-card:focus-within {
-  outline: 2px solid var(--mf-cian);
-  outline-offset: 2px;
-}
-.mf-card:hover { border-color: var(--mf-cian); }
-
-.mf-card__nombre {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--mf-texto);
-  line-height: 1.3;
-}
-
-.mf-card__meta {
-  font-size: var(--mf-tam-peq);
-  color: var(--mf-texto-suave);
-  display: flex;
-  align-items: center;
-  gap: var(--mf-s);
-  flex-wrap: wrap;
-}
-
-.mf-card__ico {
-  display: inline-flex;
-  align-items: center;
-  color: var(--mf-cian);
-}
-.mf-card__ico svg { display: block; }
-
-.mf-card__accion {
-  margin-top: auto;
-}
-
-/* Tienda: logo, rubro y pie de la tarjeta */
-.mf-gap { gap: var(--mf-s); }
-
-.mf-card__logo {
-  width: 38px; height: 38px;
-  border-radius: 10px;
-  object-fit: cover;
-  background: var(--mf-fondo);
-  border: var(--mf-borde-ancho) solid var(--mf-borde);
+  letter-spacing: -0.04em;
+  box-shadow: 0 4px 14px rgba(200, 255, 0, 0.28);
   flex: 0 0 auto;
 }
 
-.mf-card__logo--vacia {
-  display: grid;
-  place-items: center;
-  color: var(--mf-acento);
+.mf-marca__txt { display: flex; flex-direction: column; min-width: 0; line-height: 1.15; }
+.mf-marca__txt b { font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
+.mf-marca__txt small {
+  font-size: 11px;
+  color: var(--mf-txt-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
+.mf-chip--ubi {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: var(--mf-r-pill);
+  border: 1px solid var(--mf-line-2);
+  background: var(--mf-glass-2);
+  color: var(--mf-txt);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.mf-chip--ubi:active { background: rgba(255, 255, 255, 0.14); }
+.mf-chip--ubi svg { width: 15px; height: 15px; color: var(--mf-lima); }
+
+/* ── 4. Contenido ──────────────────────────────────────────────────────── */
+.mf-main {
+  padding: 14px var(--mf-pad) 28px;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.mf-hero { padding: 8px 2px 18px; }
+.mf-hero .mf-kicker {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--mf-lima);
+}
+.mf-hero h1 {
+  margin: 0 0 8px;
+  font-size: 34px;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  font-weight: 800;
+}
+.mf-hero p { margin: 0; color: var(--mf-txt-2); font-size: 14.5px; line-height: 1.45; }
+.mf-hero--tienda { padding-right: 0; }
+.mf-hero--exito h1 { color: var(--mf-lima); letter-spacing: 0.02em; font-variant-numeric: tabular-nums; }
+
+.mf-hero__logo {
+  width: 54px; height: 54px;
+  border-radius: 16px;
+  object-fit: cover;
+  border: 1px solid var(--mf-line);
+  margin-bottom: 12px;
+  display: block;
+  background: var(--mf-card);
+}
+
+.mf-seccion {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 22px 2px 10px;
+}
+.mf-seccion h2 {
+  margin: 0;
+  font-size: 20px;
+  letter-spacing: -0.02em;
+  font-weight: 800;
+}
+.mf-seccion span { font-size: 12.5px; color: var(--mf-txt-2); }
+
+/* ── 5. Rejillas y tarjetas ────────────────────────────────────────────── */
+.mf-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+@media (min-width: 560px) { .mf-grid { grid-template-columns: 1fr 1fr; } }
+
+.mf-card {
+  background: var(--mf-card);
+  border: 1px solid var(--mf-line);
+  border-radius: var(--mf-r);
+  padding: 16px;
+  box-shadow: var(--mf-sombra-sm);
+}
+
+/* Tienda */
+.mf-card--tienda {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  cursor: pointer;
+  transition: transform var(--mf-dur) var(--mf-ease), border-color var(--mf-dur) var(--mf-ease);
+}
+.mf-card--tienda:active { transform: scale(0.985); border-color: var(--mf-line-2); }
+
+.mf-card__top { display: flex; align-items: center; gap: 12px; }
+.mf-card__logo {
+  width: 46px; height: 46px;
+  border-radius: 14px;
+  object-fit: cover;
+  background: var(--mf-bg-2);
+  border: 1px solid var(--mf-line);
+  flex: 0 0 auto;
+}
+.mf-card__logo--vacia { display: grid; place-items: center; color: var(--mf-lima); }
+.mf-card__logo--vacia svg { width: 22px; height: 22px; }
+
+.mf-card__id { flex: 1 1 auto; min-width: 0; }
+.mf-card__nombre {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .mf-card__rubro {
   display: block;
-  font-size: 11px;
-  color: var(--mf-texto-suave);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
   margin-top: 2px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--mf-txt-3);
 }
+
+.mf-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 9px;
+  border-radius: var(--mf-r-pill);
+  font-size: 11px;
+  font-weight: 700;
+  flex: 0 0 auto;
+}
+.mf-chip--abierto { background: rgba(48, 209, 88, 0.16); color: var(--mf-verde); }
+.mf-chip--cerrado { background: rgba(255, 69, 58, 0.14); color: var(--mf-rojo); }
+
+.mf-card__meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--mf-txt-2);
+  min-width: 0;
+}
+.mf-card__meta span:last-child {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mf-card__ico { display: inline-flex; color: var(--mf-txt-3); flex: 0 0 auto; }
+.mf-card__ico svg { width: 15px; height: 15px; display: block; }
 
 .mf-card__pie {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--mf-s);
-  margin-top: auto;
-  padding-top: var(--mf-s);
-  border-top: 1px solid var(--mf-borde);
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--mf-line);
 }
-.mf-card__pie small { color: var(--mf-texto-suave); font-size: var(--mf-tam-peq); }
-.mf-card__pie .mf-btn { width: auto; padding: 8px 12px; }
+.mf-card__pie small { color: var(--mf-txt-2); font-size: 12.5px; }
+.mf-card__pie .mf-btn { width: auto; min-height: 34px; padding: 0 14px; font-size: 13px; }
 
-/* ── 9. Tarjeta de producto ────────────────────────────────────────────── */
-/* Generada por MercaUI.tarjetaProducto(p) */
+/* Producto */
 .mf-prod {
-  background: var(--mf-superficie);
-  border: var(--mf-borde-ancho) solid var(--mf-borde);
-  border-radius: var(--mf-radio);
-  padding: var(--mf-m);
+  background: var(--mf-card);
+  border: 1px solid var(--mf-line);
+  border-radius: var(--mf-r);
+  padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: var(--mf-s);
-  position: relative;
+  gap: 10px;
+  transition: border-color var(--mf-dur) var(--mf-ease);
 }
-.mf-prod:focus-within {
-  outline: 2px solid var(--mf-cian);
-  outline-offset: 2px;
-}
-
-.mf-prod__nombre {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--mf-texto);
-  line-height: 1.35;
-}
-
-.mf-prod__precio {
-  font-size: 16px;
-  font-weight: 800;
-  color: var(--mf-acento);
-}
-
-.mf-prod__tienda {
-  font-size: var(--mf-tam-peq);
-  color: var(--mf-texto-suave);
-}
-
-.mf-prod__acciones {
-  display: flex;
-  gap: var(--mf-s);
-  margin-top: auto;
-}
-
-/* Producto con foto, oferta y stock */
-.mf-prod__fila {
-  display: flex;
-  gap: var(--mf-m);
-  align-items: flex-start;
-}
-
+.mf-prod:active { border-color: var(--mf-line-2); }
+.mf-prod__fila { display: flex; gap: 12px; align-items: flex-start; }
 .mf-prod__img {
-  width: 56px; height: 56px;
-  border-radius: 10px;
+  width: 58px; height: 58px;
+  border-radius: 14px;
   object-fit: cover;
-  background: var(--mf-fondo);
-  border: var(--mf-borde-ancho) solid var(--mf-borde);
+  background: var(--mf-bg-2);
+  border: 1px solid var(--mf-line);
   flex: 0 0 auto;
 }
+.mf-prod__img--vacia { display: grid; place-items: center; color: var(--mf-txt-3); }
+.mf-prod__img--vacia svg { width: 22px; height: 22px; }
+.mf-prod__info { flex: 1 1 auto; min-width: 0; }
+.mf-prod__nombre {
+  font-size: 14.5px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.mf-prod__precios { display: flex; align-items: baseline; gap: 7px; margin-top: 3px; flex-wrap: wrap; }
+.mf-prod__precio { font-size: 17px; font-weight: 800; color: var(--mf-txt); letter-spacing: -0.02em; }
+.mf-prod__antes { font-size: 12px; color: var(--mf-txt-3); text-decoration: line-through; }
+.mf-prod__dest { color: var(--mf-lima); display: inline-flex; }
+.mf-prod__dest svg { width: 13px; height: 13px; }
+.mf-prod__stock { display: block; margin-top: 2px; font-size: 11.5px; color: var(--mf-txt-2); }
+.mf-prod--agotado { opacity: 0.55; }
+.mf-prod--agotado .mf-prod__precio { color: var(--mf-txt-2); }
 
-.mf-prod__img--vacia {
+/* Botón circular de agregar */
+.mf-add {
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  border: 0;
+  background: var(--mf-lima);
+  color: var(--mf-lima-ink);
   display: grid;
   place-items: center;
-  color: var(--mf-texto-suave);
+  cursor: pointer;
+  flex: 0 0 auto;
+  box-shadow: 0 6px 18px rgba(200, 255, 0, 0.22);
+  transition: transform 0.18s var(--mf-ease), opacity 0.18s;
 }
+.mf-add:active { transform: scale(0.9); }
+.mf-add:disabled { background: var(--mf-card-2); color: var(--mf-txt-3); box-shadow: none; }
+.mf-add svg { width: 19px; height: 19px; }
 
-.mf-prod__info { flex: 1 1 auto; min-width: 0; }
-
-.mf-prod__precios {
-  display: flex;
-  align-items: baseline;
-  gap: var(--mf-s);
-  margin-top: 2px;
-  flex-wrap: wrap;
+/* ── 6. Botones ────────────────────────────────────────────────────────── */
+.mf-btn {
+  width: 100%;
+  min-height: 50px;
+  padding: 0 18px;
+  border-radius: var(--mf-r-sm);
+  border: 1px solid var(--mf-line-2);
+  background: var(--mf-glass-2);
+  color: var(--mf-txt);
+  font-size: 15.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: transform 0.16s var(--mf-ease), background var(--mf-dur) var(--mf-ease), opacity 0.2s;
 }
-
-.mf-prod__antes {
-  font-size: var(--mf-tam-peq);
-  color: var(--mf-texto-suave);
-  text-decoration: line-through;
+.mf-btn:active { transform: scale(0.98); }
+.mf-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.mf-btn--pri {
+  background: var(--mf-lima);
+  border-color: var(--mf-lima);
+  color: var(--mf-lima-ink);
+  font-weight: 700;
+  box-shadow: 0 10px 30px rgba(200, 255, 0, 0.18);
 }
+.mf-btn--pri:active { background: var(--mf-lima-2); }
+.mf-btn--texto {
+  background: transparent;
+  border-color: transparent;
+  color: var(--mf-txt-2);
+  min-height: 40px;
+  font-weight: 600;
+}
+.mf-btn--sm { min-height: 38px; font-size: 13.5px; padding: 0 14px; width: auto; }
 
-.mf-prod__dest { color: var(--mf-acento); display: inline-flex; }
-.mf-prod__dest svg { width: 14px; height: 14px; }
+.mf-acciones { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
 
-.mf-prod__stock {
+/* ── 7. Formularios ────────────────────────────────────────────────────── */
+.mf-campo { display: block; margin-bottom: 14px; }
+.mf-campo > span {
   display: block;
-  margin-top: 2px;
-  font-size: 11px;
-  color: var(--mf-texto-suave);
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--mf-txt-2);
+}
+.mf-campo input,
+.mf-campo select {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 14px;
+  border-radius: var(--mf-r-sm);
+  border: 1px solid var(--mf-line);
+  background: var(--mf-card);
+  color: var(--mf-txt);
+  font-size: 16px;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.mf-campo input::placeholder { color: var(--mf-txt-3); }
+.mf-campo input:focus,
+.mf-campo select:focus {
+  outline: none;
+  border-color: rgba(200, 255, 0, 0.55);
+  box-shadow: 0 0 0 4px rgba(200, 255, 0, 0.10);
 }
 
-.mf-prod--agotado { opacity: 0.62; }
-.mf-prod--agotado .mf-prod__precio { color: var(--mf-texto-suave); }
+/* Grupo de campos estilo lista iOS */
+.mf-grupo {
+  background: var(--mf-card);
+  border: 1px solid var(--mf-line);
+  border-radius: var(--mf-r);
+  padding: 6px 14px;
+  margin-bottom: 16px;
+}
+.mf-grupo .mf-campo { margin-bottom: 0; padding: 10px 0; border-bottom: 1px solid var(--mf-line); }
+.mf-grupo .mf-campo:last-child { border-bottom: 0; }
+.mf-grupo .mf-campo > span { margin-bottom: 4px; }
+.mf-grupo .mf-campo input,
+.mf-grupo .mf-campo select {
+  min-height: 34px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  border-radius: 0;
+  font-size: 16px;
+}
+.mf-grupo .mf-campo input:focus,
+.mf-grupo .mf-campo select:focus { box-shadow: none; }
 
-/* Buscador y filtros del catálogo */
-.mf-buscador { display: flex; flex-direction: column; gap: var(--mf-s); }
+/* Segmentado iOS */
+.mf-seg {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  margin-bottom: 16px;
+}
+.mf-seg button {
+  flex: 1 1 0;
+  min-height: 38px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--mf-txt-2);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+.mf-seg button[aria-pressed="true"] {
+  background: var(--mf-card-2);
+  color: var(--mf-txt);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
 
+/* Buscador */
+.mf-buscador { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
 .mf-buscador input {
   width: 100%;
-  min-height: 44px;
-  padding: 10px 14px;
-  background: var(--mf-superficie);
-  border: var(--mf-borde-ancho) solid var(--mf-borde);
-  border-radius: var(--mf-radio-pill);
-  color: var(--mf-texto);
-  font-family: var(--mf-fuente);
-  font-size: 15px;
-  box-sizing: border-box;
+  min-height: 46px;
+  padding: 0 16px;
+  border-radius: var(--mf-r-pill);
+  border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--mf-txt);
+  font-size: 16px;
 }
-.mf-buscador input:focus-visible {
-  outline: none;
-  border-color: var(--mf-acento);
-}
+.mf-buscador input::placeholder { color: var(--mf-txt-3); }
+.mf-buscador input:focus { outline: none; background: rgba(255, 255, 255, 0.12); border-color: rgba(200, 255, 0, 0.4); }
 
 .mf-chips {
   display: flex;
-  gap: var(--mf-s);
+  gap: 8px;
   overflow-x: auto;
   padding-bottom: 2px;
   scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
 }
 .mf-chips::-webkit-scrollbar { display: none; }
-
 .mf-chip-f {
   flex: 0 0 auto;
-  padding: 7px 12px;
-  border-radius: var(--mf-radio-pill);
-  border: var(--mf-borde-ancho) solid var(--mf-borde);
+  height: 32px;
+  padding: 0 14px;
+  border-radius: var(--mf-r-pill);
+  border: 1px solid var(--mf-line);
   background: transparent;
-  color: var(--mf-texto-suave);
-  font-family: var(--mf-fuente);
-  font-size: 12px;
+  color: var(--mf-txt-2);
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
 }
 .mf-chip-f[aria-pressed="true"] {
-  background: var(--mf-acento);
-  border-color: var(--mf-acento);
-  color: var(--mf-texto-sobre-acento);
+  background: var(--mf-lima);
+  border-color: var(--mf-lima);
+  color: var(--mf-lima-ink);
 }
 
-/* Cantidad en el carrito */
-.mf-paso {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--mf-m);
-  flex: 0 0 auto;
-}
+.mf-nota { margin: 8px 2px 0; font-size: 12.5px; color: var(--mf-txt-2); line-height: 1.45; }
 
-.mf-paso__btn {
-  width: 34px; height: 34px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  border: var(--mf-borde-ancho) solid var(--mf-borde);
-  background: var(--mf-fondo);
-  color: var(--mf-texto);
-  font-size: 17px;
-  line-height: 1;
-  cursor: pointer;
-}
-.mf-paso__btn:active { border-color: var(--mf-acento); }
-
-/* Resumen del pedido */
-.mf-resumen {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: var(--mf-m) 0;
-  border-top: var(--mf-borde-ancho) solid var(--mf-borde);
-  border-bottom: var(--mf-borde-ancho) solid var(--mf-borde);
-}
-.mf-resumen > div {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--mf-m);
-  font-size: var(--mf-tam-peq);
-  color: var(--mf-texto-suave);
-}
-.mf-resumen > div b { color: var(--mf-texto); }
-.mf-resumen__total { padding-top: 6px; border-top: 1px dashed var(--mf-borde); }
-.mf-resumen__total span { color: var(--mf-texto); font-weight: 700; }
-.mf-resumen__total b { color: var(--mf-acento) !important; font-size: 17px; }
-
-/* Cabecera del catálogo y del pedido confirmado */
-.mf-hero--tienda { position: relative; padding-right: 56px; }
-.mf-hero--exito h1 { color: var(--mf-acento); letter-spacing: 0.04em; }
-
-.mf-hero__logo {
-  width: 56px; height: 56px;
-  border-radius: 12px;
-  object-fit: cover;
-  border: var(--mf-borde-ancho) solid var(--mf-borde);
-  margin-bottom: var(--mf-s);
-  display: block;
-}
-
-/* ── 10. Lista de items (mapa / carrito) ───────────────────────────────── */
-.mf-lista {
-  display: flex;
-  flex-direction: column;
-  gap: var(--mf-s);
-}
+/* ── 8. Lista / carrito ────────────────────────────────────────────────── */
+.mf-lista { display: flex; flex-direction: column; gap: 10px; }
 
 .mf-item {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  background: var(--mf-superficie);
-  border: var(--mf-borde-ancho) solid var(--mf-borde);
-  border-radius: var(--mf-radio);
-  padding: var(--mf-m);
-  font-size: 14px;
-  color: var(--mf-texto);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: border-color var(--mf-dur) var(--mf-ease);
+  gap: 12px;
+  width: 100%;
+  padding: 14px;
+  border-radius: var(--mf-r-sm);
+  border: 1px solid var(--mf-line);
+  background: var(--mf-card);
+  color: var(--mf-txt);
+  text-align: left;
 }
-.mf-item:focus-visible {
-  outline: 2px solid var(--mf-cian);
-  outline-offset: 2px;
-}
-.mf-item:hover { border-color: var(--mf-cian); }
-
-.mf-item > span { flex: 1; min-width: 0; }
-.mf-item b { color: var(--mf-texto); display: block; }
-.mf-item small { color: var(--mf-texto-suave); font-size: var(--mf-tam-peq); }
+button.mf-item { cursor: pointer; }
+.mf-item > span:first-child { flex: 1 1 auto; min-width: 0; }
+.mf-item b { display: block; font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+.mf-item small { display: block; margin-top: 2px; color: var(--mf-txt-2); font-size: 12.5px; }
 .mf-item em {
   font-style: normal;
-  color: var(--mf-cian);
-  font-weight: 600;
-  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--mf-txt-2);
+  background: var(--mf-glass-2);
+  padding: 5px 10px;
+  border-radius: var(--mf-r-pill);
+  flex: 0 0 auto;
 }
 
-/* ── 11. Chips ─────────────────────────────────────────────────────────── */
-.mf-chip {
-  display: inline-flex;
-  align-items: center;
-  font-size: 11px;
-  font-weight: 700;
-  padding: 2px 8px;
-  border-radius: var(--mf-radio-pill);
-  border: var(--mf-borde-ancho) solid var(--mf-borde);
-  color: var(--mf-texto-suave);
-  background: transparent;
-  white-space: nowrap;
-}
-.mf-chip--abierto {
-  border-color: var(--mf-acento);
-  color: var(--mf-acento);
-  background: rgba(200, 255, 0, 0.10);
-}
-.mf-chip--cerrado {
-  border-color: var(--mf-borde);
-  color: var(--mf-texto-suave);
-}
-
-/* ── 12. Botones ───────────────────────────────────────────────────────── */
-.mf-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 46px;           /* target táctil ≥ 44px */
-  padding: 0 var(--mf-xl);
-  font-size: 14px;
-  font-weight: 700;
-  border: var(--mf-borde-ancho) solid transparent;
-  border-radius: var(--mf-radio);
+.mf-paso { display: inline-flex; align-items: center; gap: 10px; flex: 0 0 auto; }
+.mf-paso__btn {
+  width: 32px; height: 32px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--mf-line-2);
+  background: var(--mf-glass-2);
+  color: var(--mf-txt);
+  font-size: 17px;
+  line-height: 1;
   cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: background var(--mf-dur) var(--mf-ease),
-              transform var(--mf-dur) var(--mf-ease);
-  text-decoration: none;
 }
-.mf-btn:focus-visible {
-  outline: 2px solid var(--mf-cian);
-  outline-offset: 2px;
-}
-.mf-btn:active { transform: scale(0.98); }
-.mf-btn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
+.mf-paso__btn:active { background: rgba(255, 255, 255, 0.18); }
+.mf-paso b { font-variant-numeric: tabular-nums; min-width: 12px; text-align: center; }
 
-.mf-btn--pri {
-  background: var(--mf-acento);
-  color: var(--mf-texto-sobre-acento);
-  border-color: var(--mf-acento);
-}
-.mf-btn--pri:hover { filter: brightness(0.95); }
-
-.mf-btn--sec {
-  background: var(--mf-borde);
-  color: var(--mf-texto);
-  border-color: var(--mf-borde);
-}
-.mf-btn--sec:hover { background: #343A2F; }
-
-.mf-btn--texto {
-  background: transparent;
-  color: var(--mf-cian);
-  border-color: transparent;
-  padding: 0 var(--mf-m);
-}
-.mf-btn--texto:hover { text-decoration: underline; }
-
-/* Grupo de acciones (carrito / compra) */
-.mf-acciones {
+/* Resumen */
+.mf-resumen {
   display: flex;
   flex-direction: column;
-  gap: var(--mf-s);
-  margin-top: var(--mf-m);
+  gap: 8px;
+  padding: 14px 0;
+  border-top: 1px solid var(--mf-line);
+  border-bottom: 1px solid var(--mf-line);
 }
-@media (min-width: 480px) {
-  .mf-acciones { flex-direction: row; }
-  .mf-acciones .mf-btn { flex: 1; }
-}
+.mf-resumen > div { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; color: var(--mf-txt-2); }
+.mf-resumen > div b { color: var(--mf-txt); font-weight: 600; font-variant-numeric: tabular-nums; }
+.mf-resumen__total { padding-top: 8px; border-top: 1px dashed var(--mf-line); }
+.mf-resumen__total span { color: var(--mf-txt); font-weight: 700; font-size: 15px; }
+.mf-resumen__total b { color: var(--mf-lima) !important; font-size: 19px; font-weight: 800; }
 
-/* ── 13. Campos de formulario ──────────────────────────────────────────── */
-.mf-campo {
-  display: flex;
-  flex-direction: column;
-  gap: var(--mf-xs);
-  margin-bottom: var(--mf-m);
-}
-.mf-campo:last-child { margin-bottom: 0; }
-
-.mf-campo label {
-  font-size: var(--mf-tam-peq);
-  font-weight: 700;
-  color: var(--mf-texto);
-}
-
-.mf-campo input,
-.mf-campo select {
-  width: 100%;
-  height: 44px;           /* target táctil */
-  padding: 0 var(--mf-m);
-  font-family: var(--mf-fuente);
-  font-size: 15px;
-  color: var(--mf-texto);
-  background: var(--mf-superficie);
-  border: var(--mf-borde-ancho) solid var(--mf-borde);
-  border-radius: var(--mf-radio);
-  -webkit-tap-highlight-color: transparent;
-}
-.mf-campo input::placeholder { color: var(--mf-texto-suave); }
-.mf-campo input:focus-visible,
-.mf-campo select:focus-visible {
-  outline: 2px solid var(--mf-cian);
-  outline-offset: 2px;
-  border-color: var(--mf-cian);
-}
-
-/* ── 14. Total de compra ───────────────────────────────────────────────── */
-.mf-total {
-  font-size: 16px;
-  font-weight: 800;
-  color: var(--mf-texto);
-  padding: var(--mf-m) 0;
-  border-top: var(--mf-borde-ancho) solid var(--mf-borde);
-  border-bottom: var(--mf-borde-ancho) solid var(--mf-borde);
-  margin: var(--mf-m) 0;
-}
-.mf-total b { color: var(--mf-acento); }
-
-/* ── 15. Nota al pie ───────────────────────────────────────────────────── */
-.mf-nota {
-  font-size: var(--mf-tam-peq);
-  color: var(--mf-texto-suave);
-  margin-top: var(--mf-m);
-  line-height: 1.5;
-}
-
-/* ── 16. Estados: carga / error / vacío ────────────────────────────────── */
-/* Generados por MercaUI.cargando() / error() / vacio() */
-.mf-cargando,
-.mf-error,
+/* ── 9. Estados ────────────────────────────────────────────────────────── */
 .mf-vacio {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  gap: 8px;
+  padding: 40px 20px;
   text-align: center;
-  padding: var(--mf-xxl) var(--mf-l);
-  gap: var(--mf-m);
-  min-height: 300px;
-  color: var(--mf-texto-suave);
 }
+.mf-vacio h2 { margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -0.02em; }
+.mf-vacio p { margin: 0; max-width: 34ch; color: var(--mf-txt-2); font-size: 14px; line-height: 1.5; }
 
 .mf-cargando {
-  color: var(--mf-cian);
-  animation: mf-pulso 2s ease-in-out infinite;
+  padding: 28px 16px;
+  text-align: center;
+  color: var(--mf-txt-2);
+  font-size: 14px;
 }
-@keyframes mf-pulso {
-  0%, 100% { opacity: 0.6; }
-  50% { opacity: 1; }
-}
-
-.mf-error { color: var(--mf-rojo); }
-.mf-error [role="alert"] {
-  /* aria-live: se anuncia al cambiar */
+.mf-cargando::before {
+  content: "";
   display: block;
-  margin-bottom: var(--mf-m);
+  width: 26px; height: 26px;
+  margin: 0 auto 12px;
+  border-radius: 50%;
+  border: 2.5px solid rgba(255, 255, 255, 0.14);
+  border-top-color: var(--mf-lima);
+  animation: mf-girar 0.8s linear infinite;
 }
+@keyframes mf-girar { to { transform: rotate(360deg); } }
 
-.mf-vacio p { color: var(--mf-texto-suave); font-size: var(--mf-tam-peq); }
+.mf-error {
+  margin: 0 0 14px;
+  padding: 14px 16px;
+  border-radius: var(--mf-r-sm);
+  background: rgba(255, 69, 58, 0.12);
+  border: 1px solid rgba(255, 69, 58, 0.35);
+  color: #FFD9D6;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.mf-error .mf-btn { margin-top: 10px; }
 
-/* ── 17. Toast ─────────────────────────────────────────────────────────── */
+/* ── 10. Toast ─────────────────────────────────────────────────────────── */
 .mf-toast {
   position: fixed;
   left: 50%;
-  bottom: max(var(--mf-xl), env(safe-area-inset-bottom) + var(--mf-l));
-  transform: translateX(-50%) translateY(120%);
-  background: var(--mf-superficie);
-  border: var(--mf-borde-ancho) solid var(--mf-borde);
-  color: var(--mf-texto);
-  padding: var(--mf-m) var(--mf-xl);
-  border-radius: var(--mf-radio-pill);
+  bottom: calc(var(--mf-tab-h) + env(safe-area-inset-bottom) + 18px);
+  transform: translate(-50%, 20px);
+  z-index: 1200;
+  padding: 12px 18px;
+  border-radius: var(--mf-r-pill);
+  background: rgba(28, 28, 34, 0.92);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--mf-line-2);
+  color: var(--mf-txt);
   font-size: 14px;
   font-weight: 600;
   box-shadow: var(--mf-sombra);
-  z-index: 1000;
   opacity: 0;
   pointer-events: none;
-  transition: transform var(--mf-dur) var(--mf-ease),
-              opacity var(--mf-dur) var(--mf-ease);
-  max-width: 88vw;
+  transition: opacity 0.25s, transform 0.35s var(--mf-ease);
+  max-width: 86vw;
   text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
-.mf-toast--visible {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0);
+.mf-toast--visible { opacity: 1; transform: translate(-50%, 0); }
+
+/* ── 11. Barra de pestañas (abajo, vidrio) ─────────────────────────────── */
+.mf-tabbar {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  z-index: 70;
+  height: calc(var(--mf-tab-h) + env(safe-area-inset-bottom));
+  padding: 6px 6px env(safe-area-inset-bottom);
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  background: var(--mf-glass);
+  -webkit-backdrop-filter: saturate(180%) blur(24px);
+  backdrop-filter: saturate(180%) blur(24px);
+  border-top: 1px solid var(--mf-line);
 }
 
-/* ── 18. Auth (login / registro) ───────────────────────────────────────── */
-/* El login es una capa a pantalla completa POR ENCIMA de la app. MercaAuth
-   pone/quita .mf-auth--visible; sin esa clase no existe para el usuario.
-   Antes el canvas quedaba fijo y tapaba la app entera (pantalla negra). */
+.mf-tab {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--mf-txt-3);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  position: relative;
+  transition: color 0.2s;
+}
+.mf-tab__ico { display: inline-flex; width: 24px; height: 24px; }
+.mf-tab__ico svg { width: 24px; height: 24px; display: block; }
+.mf-tab.activo { color: var(--mf-lima); }
+.mf-tab:active { opacity: 0.7; }
+
+.mf-tab #mfBadge {
+  position: absolute;
+  top: 2px;
+  left: 50%;
+  transform: translateX(6px);
+  min-width: 17px; height: 17px;
+  padding: 0 5px;
+  border-radius: var(--mf-r-pill);
+  background: var(--mf-rojo);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--mf-bg);
+}
+.mf-tab [hidden] { display: none !important; }
+
+/* ── 12. Login (capa completa) ─────────────────────────────────────────── */
 #mfAuth {
   display: none;
   position: relative;
   z-index: 901;
-  max-width: 420px;
+  max-width: 460px;
   margin: 0 auto;
-  padding: max(var(--mf-xl), env(safe-area-inset-top)) var(--mf-l)
-           max(var(--mf-xl), env(safe-area-inset-bottom));
+  padding: calc(env(safe-area-inset-top) + 28px) 20px calc(env(safe-area-inset-bottom) + 28px);
   box-sizing: border-box;
 }
 #mfAuth.mf-auth--visible {
@@ -849,7 +723,6 @@ a:hover { text-decoration: underline; }
   min-height: 100vh;
 }
 
-/* ── 19. Canvas de auth (decorativo, aria-hidden) ──────────────────────── */
 #mfAuthCanvas {
   display: none;
   position: fixed;
@@ -857,21 +730,133 @@ a:hover { text-decoration: underline; }
   width: 100vw;
   height: 100vh;
   z-index: 900;
-  background: var(--mf-fondo);
+  background:
+    radial-gradient(90% 50% at 50% 0%, rgba(200, 255, 0, 0.16), transparent 60%),
+    radial-gradient(70% 40% at 80% 100%, rgba(90, 217, 232, 0.10), transparent 60%),
+    #000;
   pointer-events: none;
 }
 #mfAuthCanvas.mf-auth--visible { display: block; }
 
-/* Mientras el login está abierto, la app no se ve ni recibe toques.
-   Se restaura al entrar: es lo que evita el "entra pero queda negro". */
 body.mf-auth-bloqueado { overflow: hidden; }
 body.mf-auth-bloqueado .mf-top,
-body.mf-auth-bloqueado .mf-tabs,
+body.mf-auth-bloqueado .mf-tabbar,
 body.mf-auth-bloqueado .mf-main {
   visibility: hidden;
   pointer-events: none;
 }
 
-/* ==========================================================================
-   Fin de merca.css
-   ========================================================================== */
+/* ── 13. Mapa ──────────────────────────────────────────────────────────── */
+.mf-mapa {
+  position: relative;
+  width: 100%;
+  height: 58vh;
+  min-height: 340px;
+  border-radius: var(--mf-r);
+  overflow: hidden;
+  border: 1px solid var(--mf-line);
+  background: var(--mf-card);
+  touch-action: none;
+}
+.mf-mapa canvas { display: block; width: 100%; height: 100%; }
+.mf-mapa__credito {
+  position: absolute;
+  right: 6px; bottom: 4px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.55);
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 9.5px;
+  pointer-events: none;
+}
+.mf-mapa__controles {
+  position: absolute;
+  right: 10px; top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mf-mapa__btn {
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  border: 1px solid var(--mf-line-2);
+  background: rgba(20, 20, 26, 0.85);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  color: var(--mf-txt);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+.mf-mapa__btn svg { width: 18px; height: 18px; }
+.mf-mapa__ficha {
+  position: absolute;
+  left: 10px; right: 10px; bottom: 10px;
+  padding: 12px 14px;
+  border-radius: var(--mf-r-sm);
+  background: rgba(20, 20, 26, 0.92);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--mf-line-2);
+  box-shadow: var(--mf-sombra);
+}
+.mf-mapa__ficha b { display: block; font-size: 15px; }
+.mf-mapa__ficha small { color: var(--mf-txt-2); font-size: 12.5px; }
+.mf-mapa__ficha .mf-btn { margin-top: 10px; }
+
+/* ── 14. Visor 3D ──────────────────────────────────────────────────────── */
+.mf-visor3d {
+  position: relative;
+  width: 100%;
+  height: 62vh;
+  min-height: 360px;
+  border-radius: var(--mf-r);
+  overflow: hidden;
+  border: 1px solid var(--mf-line);
+  background: #050507;
+  touch-action: none;
+}
+.mf-visor3d canvas { display: block; width: 100%; height: 100%; }
+.mf-visor3d__ayuda {
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  padding: 7px 14px;
+  border-radius: var(--mf-r-pill);
+  background: rgba(0, 0, 0, 0.6);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 11.5px;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.mf-visor3d__producto {
+  position: absolute;
+  left: 10px; right: 10px; bottom: 10px;
+  padding: 12px 14px;
+  border-radius: var(--mf-r-sm);
+  background: rgba(20, 20, 26, 0.94);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--mf-line-2);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.mf-visor3d__producto div { flex: 1 1 auto; min-width: 0; }
+.mf-visor3d__producto b { display: block; font-size: 14.5px; }
+.mf-visor3d__producto small { color: var(--mf-txt-2); font-size: 12.5px; }
+
+/* ── 15. Responsive / pantallas chicas ─────────────────────────────────── */
+@media (max-width: 360px) {
+  .mf-hero h1 { font-size: 30px; }
+  .mf-marca__txt small { display: none; }
+  .mf-chip--ubi span { display: none; }
+  .mf-chip--ubi { padding: 0 10px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

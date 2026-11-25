@@ -8,7 +8,34 @@
 
 Última actualización: 2026-11-25
 
-## Sesión 2026-11-25 · MercaFabrick 1.1.0: app de compra del barrio
+## Sesión 2026-11-25 · MercaFabrick 1.2.0: rediseño iOS, mapa y 3D
+
+- **Rediseño completo** (`merca.css`): estética iOS moderna — fondo negro,
+  superficies translúcidas, barra superior y **tab bar inferior** con vidrio
+  (`backdrop-filter`), tarjetas de 20 px, tipografía de sistema, acento lima.
+  Títulos grandes (34 px), grupos de campos estilo lista, selector segmentado.
+- **Mapa interactivo** (`mapa.js`): canvas slippy con teselas OSM, pines por
+  local (lima/rojo), punto de ubicación, arrastre, pinch y botones +/−/centrar;
+  ficha del local y lista completa debajo. Sin Leaflet ni claves.
+- **Visor 3D del mercado** (`mercado3d.js` + `vendor/three.min.js` r149):
+  góndolas con repisas, productos como cajas por color de categoría, letrero
+  con el nombre del local y caja de pago. Giro con el dedo, pinch y **tocar un
+  producto lo agrega al carrito**. Si no hay WebGL o se pierde el contexto,
+  se explica y se vuelve a Lista.
+- **Login iOS** (`auth.js`): marca, título grande, selector Entrar/Crear cuenta,
+  campos agrupados, CTA lima y versión visible.
+- **Catálogo**: selector Lista / 3D; se conservan buscador, chips, ofertas y
+  stock. Carrito, compra, WhatsApp y boleta PDF intactos.
+- **Build**: `three.min.js` (608 KB) va en `assets/merca/www/vendor/`; la APK
+  pasa de 732 KB a ~1,3 MB.
+- **Verificado** con headless shell (360×780): login, inicio, mapa (canvas +
+  controles + crédito), catálogo lista y 3D (canvas `three.js r149`), carrito y
+  compra. Sin errores de consola (el 3D pierde el contexto en software, que es
+  lo esperado sin GPU).
+- **Pendiente**: probar en el teléfono el 3D real (GPU), el mapa con teselas y
+  el PDF.
+
+## Sesión 2026-11-25 · MercaFabrick 1.1.0 → 1.1.2: app de compra del barrio
 
 App **aparte** (`cl.fabrick.merca`), con el mismo pipeline de build que FORGE
 (`build-merca.sh`). Detalle en `docs/MERCAFABRICK.md`.
