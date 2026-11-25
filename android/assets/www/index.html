@@ -16,6 +16,7 @@
   <link rel="stylesheet" href="tienda.css" />
   <link rel="stylesheet" href="legal.css" />
   <link rel="stylesheet" href="integracion.css" />
+  <link rel="stylesheet" href="matrix.css" />
 </head>
 <body>
   <!-- ===================== ACCESO · HUELLA + PIN ===================== -->
@@ -902,32 +903,27 @@
     </section>
 
     <!-- ---------- BASE DE DATOS ---------- -->
-    <section class="vista" id="v-sql">
-      <div class="cab-vista">
-        <p class="etiqueta">TUS DATOS · SQLITE LOCAL</p>
+    <section class="vista mx-view" id="v-sql">
+      <header class="mx-hero">
+        <span class="mx-kicker">Tus datos · SQLite local</span>
         <h2>Base de datos</h2>
         <p>Abre una tabla como una hoja de cálculo: corrige celdas, agrega filas, borra las que sobran y sube o baja datos en CSV. Cada cambio queda anotado en la auditoría.</p>
-      </div>
+      </header>
 
       <div class="sql-resumen" id="sqlResumen">
         <div class="sql-dato"><span class="sql-dato-etq">Estado</span><strong>Cargando…</strong></div>
       </div>
 
-      <!-- Banner de flujo animado Canvas/SVG: SQLite Local ⇄ Nube Vercel -->
-      <div class="sql-flujo-banner" id="sqlFlujoBanner">
-        <div class="sql-flujo-cab">
-          <div class="sql-flujo-estado">
-            <span class="punto-vivo"></span>
-            <span id="sqlNubeEstadoTexto">Nube: Verificando conexión…</span>
-          </div>
-          <div class="sql-flujo-acciones">
-            <button class="btn btn-mini btn-primario" id="btnSqlSyncNube" type="button">⚡ Sincronizar Nube</button>
-            <button class="btn btn-mini" id="btnSqlRespaldoCompleto" type="button">💾 Respaldo Local</button>
-            <button class="btn btn-mini" id="btnSqlProbarConexion" type="button">📡 Probar Ping</button>
-          </div>
+      <!-- Flujo animado: SQLite local ⇄ nube. Mismo motor Matrix que Integración. -->
+      <div class="mx-flow" id="sqlFlujoBanner">
+        <div class="mx-flow__hud">
+          <span class="mx-pill" id="sqlNubeEstadoTexto" data-ok="no">Nube: verificando…</span>
         </div>
-        <div class="sql-canvas-caja">
-          <canvas id="sqlCanvasStream" width="600" height="84"></canvas>
+        <canvas id="sqlCanvasStream" width="600" height="142" role="img" aria-label="Flujo de datos entre SQLite y la nube"></canvas>
+        <div class="mx-fila" style="padding:10px 12px 12px">
+          <button class="mx-btn mx-btn--pri" id="btnSqlSyncNube" type="button">Sincronizar nube</button>
+          <button class="mx-btn" id="btnSqlRespaldoCompleto" type="button">Respaldo local</button>
+          <button class="mx-btn mx-btn--ghost" id="btnSqlProbarConexion" type="button">Probar ping</button>
         </div>
       </div>
 
@@ -1538,148 +1534,171 @@ npx -y omniroute@latest
 
     <!-- ---------- INTEGRACIÓN / CONECTORES ---------- -->
     <section class="vista" id="v-integracion">
-      <div class="int-hero">
-        <h2>Integración</h2>
-        <p>Conecta tu cuenta, tu tienda y tus proveedores. Cada enlace con su estado,
-          su prueba y su último resultado: nada se muestra conectado si no respondió.</p>
-      </div>
+      <div class="mx-view">
+        <header class="mx-hero">
+          <span class="mx-kicker">Sistema</span>
+          <h2>Integración</h2>
+          <p>Conecta tu cuenta, tu tienda y tus proveedores. Cada enlace muestra su estado real:
+            si no respondió, no se pinta como conectado.</p>
+        </header>
 
-      <div class="int-card int-flujo">
-        <div class="int-flujo__hud">
-          <span class="int-estado" id="intFlujoEstado" data-ok="no">sin conexión</span>
-          <span class="int-estado" id="intFlujoDisp">0 dispositivos</span>
+        <div class="mx-flow">
+          <div class="mx-flow__hud">
+            <span class="mx-pill" id="intFlujoEstado" data-ok="no">sin conexión</span>
+            <span class="mx-pill" id="intFlujoDisp">0 dispositivos</span>
+          </div>
+          <canvas id="intCanvas" role="img" aria-label="Flujo de datos entre la APK y la nube"></canvas>
+          <p class="mx-flow__pie">Envío y regreso en vivo. La velocidad sigue la latencia medida; si la nube no responde, los paquetes se detienen.</p>
         </div>
-        <canvas id="intCanvas" role="img" aria-label="Miniatura animada del envío de datos entre la APK y la nube"></canvas>
-        <p class="int-flujo__pie">Envío y regreso en vivo. La velocidad sigue la latencia medida; si la nube
-          no responde, los paquetes se detienen.</p>
-      </div>
 
-      <div class="int-card">
-        <div class="int-card__cab"><h3><span class="int-num">1</span>Tu cuenta y la APK</h3>
-          <span class="int-estado" id="intVinculoEstado" data-ok="no">sin vincular</span></div>
-        <p class="int-nota">Genera el código en la nube (panel → Conexión → Vincular la APK) y pégalo aquí.
-          Al canjearlo, esta app recibe la tienda y su clave: la unión queda guardada en el equipo.</p>
-        <label class="int-campo"><span>Código de vinculación</span>
-          <input id="intVinculo" type="text" inputmode="text" autocomplete="off" spellcheck="false"
-                 maxlength="12" placeholder="K-XXXX-XXXX"></label>
-        <div class="int-fila">
-          <button class="int-btn int-btn--pri int-btn--ancho" id="intCanjear" type="button">Canjear y conectar</button>
-          <button class="int-btn int-btn--ancho" id="intAbrirNube" type="button">Abrir mi cuenta en la nube</button>
+        <div class="mx-card">
+          <div class="mx-card__cab">
+            <div class="mx-card__tit"><span class="mx-num">1</span>Tu cuenta y la APK</div>
+            <span class="mx-pill" id="intVinculoEstado" data-ok="no">sin vincular</span>
+          </div>
+          <p class="mx-note">Genera el código en la nube (panel → Conexión → Vincular la APK) y pégalo aquí.
+            Al canjearlo, esta app recibe la tienda y su clave: la unión queda guardada en el equipo.</p>
+          <label class="mx-field"><span>Código de vinculación</span>
+            <input id="intVinculo" type="text" inputmode="text" autocomplete="off" spellcheck="false"
+                   maxlength="12" placeholder="K-XXXX-XXXX"></label>
+          <div class="mx-fila">
+            <button class="mx-btn mx-btn--pri" id="intCanjear" type="button">Canjear y conectar</button>
+            <button class="mx-btn mx-btn--ghost" id="intAbrirNube" type="button">Abrir mi cuenta</button>
+          </div>
+          <p class="mx-msg" id="intVinculoMsg" hidden></p>
         </div>
-        <p class="int-msg" id="intVinculoMsg" hidden></p>
-      </div>
 
-      <div class="int-card">
-        <div class="int-card__cab"><h3><span class="int-num">2</span>Nube de tu tienda</h3>
-          <span class="int-estado" id="intNubeEstado" data-ok="no">sin probar</span></div>
-        <label class="int-campo"><span>URL de la API</span>
-          <input id="intUrl" type="text" value="https://fabri-api.vercel.app" placeholder="https://fabri-api.vercel.app"></label>
-        <label class="int-campo"><span>ID de la tienda</span>
-          <input id="intLocal" type="text" placeholder="mi-tienda" autocomplete="off" spellcheck="false"></label>
-        <label class="int-campo"><span>Clave de la tienda (8 caracteres)</span>
-          <input id="intClave" type="password" placeholder="ABCD1234" autocomplete="off" maxlength="8"></label>
-        <label class="int-campo"><span>Token global (admin, opcional)</span>
-          <input id="intToken" type="password" placeholder="sólo administración de la plataforma"></label>
-        <div class="int-fila">
-          <button class="int-btn int-btn--pri" onclick="integracionGuardar()">Guardar y probar</button>
-          <button class="int-btn" onclick="integracionProbar()">Probar</button>
-          <button class="int-btn" onclick="integracionEstadoBase()">Estado de la base</button>
+        <div class="mx-card">
+          <div class="mx-card__cab">
+            <div class="mx-card__tit"><span class="mx-num">2</span>Nube de tu tienda</div>
+            <span class="mx-pill" id="intNubeEstado" data-ok="no">sin probar</span>
+          </div>
+          <label class="mx-field"><span>URL de la API</span>
+            <input id="intUrl" type="text" value="https://fabri-api.vercel.app" placeholder="https://fabri-api.vercel.app"></label>
+          <div class="mx-grid2">
+            <label class="mx-field"><span>ID de la tienda</span>
+              <input id="intLocal" type="text" placeholder="mi-tienda" autocomplete="off" spellcheck="false"></label>
+            <label class="mx-field"><span>Clave (8)</span>
+              <input id="intClave" type="password" placeholder="ABCD1234" autocomplete="off" maxlength="8"></label>
+          </div>
+          <label class="mx-field"><span>Token global (admin, opcional)</span>
+            <input id="intToken" type="password" placeholder="sólo administración"></label>
+          <div class="mx-fila">
+            <button class="mx-btn mx-btn--pri" onclick="integracionGuardar()">Guardar y probar</button>
+            <button class="mx-btn" onclick="integracionProbar()">Probar</button>
+            <button class="mx-btn mx-btn--ghost" onclick="integracionEstadoBase()">Estado de la base</button>
+          </div>
+          <p class="mx-msg" id="intNotaEstado" hidden></p>
         </div>
-        <p class="int-msg" id="intNotaEstado" hidden></p>
-      </div>
 
-      <div class="int-card">
-        <div class="int-card__cab"><h3><span class="int-num">3</span>Base de datos</h3>
-          <span class="int-estado" id="intBaseEstado" data-ok="no">sin medir</span></div>
-        <p class="int-nota">El teléfono guarda la base local y los modelos; la nube guarda el negocio.
-          Son dos espacios distintos y se ven por separado.</p>
-        <div class="int-fila"><button class="int-btn int-btn--ancho" onclick="integracionEstadoBase()">Medir ahora</button></div>
-        <div class="int-datos" style="margin-top:8px">
-          <div class="int-dato"><span>Local (app)</span><b id="intBaseLocal">—</b></div>
-          <div class="int-dato"><span>Nube</span><b id="intBaseNube">—</b></div>
+        <div class="mx-card">
+          <div class="mx-card__cab">
+            <div class="mx-card__tit"><span class="mx-num">3</span>Base de datos</div>
+            <span class="mx-pill" id="intBaseEstado" data-ok="no">sin medir</span>
+          </div>
+          <p class="mx-note">El teléfono guarda la base local y los modelos; la nube guarda el negocio. Son dos espacios distintos.</p>
+          <div class="mx-fila"><button class="mx-btn" onclick="integracionEstadoBase()">Medir ahora</button></div>
+          <div class="mx-data" style="margin-top:8px">
+            <div class="mx-dato"><span>Local (app)</span><b id="intBaseLocal">—</b></div>
+            <div class="mx-dato"><span>Nube</span><b id="intBaseNube">—</b></div>
+          </div>
+          <div id="intBaseTablas" style="margin-top:8px"></div>
         </div>
-        <div id="intBaseTablas" style="margin-top:8px"></div>
-        <p class="int-msg" id="intNubeStats" hidden></p>
-      </div>
 
-      <div class="int-card">
-        <div class="int-card__cab"><h3><span class="int-num">4</span>Proveedores y conectores</h3>
-          <button class="int-btn" id="intAgregar" type="button">+ Añadir</button></div>
-        <p class="int-nota">Guarda las claves de tus distribuidores de tecnología (InsForge, Neon, Supabase,
-          Cloudflare, OpenAI…). Cada conector se prueba por separado.</p>
-        <div id="intConectoresLista"></div>
-        <div id="intConectorForm" hidden>
-          <div class="int-sep"></div>
-          <label class="int-campo"><span>Nombre</span>
-            <input id="intConNombre" type="text" placeholder="InsForge producción"></label>
-          <label class="int-campo"><span>URL base (https)</span>
-            <input id="intConUrl" type="text" placeholder="https://mi-servidor" autocomplete="off"></label>
-          <label class="int-campo"><span>Clave o token</span>
-            <input id="intConToken" type="password" placeholder="se guarda en este equipo"></label>
-          <div class="int-fila">
-            <button class="int-btn int-btn--pri" id="intConGuardar" type="button">Guardar conector</button>
-            <button class="int-btn" id="intConCancelar" type="button">Cancelar</button>
+        <div class="mx-card">
+          <div class="mx-card__cab">
+            <div class="mx-card__tit"><span class="mx-num">4</span>Proveedores y conectores</div>
+            <button class="mx-btn" id="intAgregar" type="button">+ Añadir</button>
+          </div>
+          <p class="mx-note">Guarda las claves de tus distribuidores de tecnología (InsForge, Neon, Supabase,
+            Cloudflare, OpenAI…). Cada conector se prueba por separado.</p>
+          <div id="intConectoresLista"></div>
+          <div id="intConectorForm" hidden>
+            <div class="mx-sep"></div>
+            <label class="mx-field"><span>Nombre</span>
+              <input id="intConNombre" type="text" placeholder="InsForge producción"></label>
+            <label class="mx-field"><span>URL base (https)</span>
+              <input id="intConUrl" type="text" placeholder="https://mi-servidor" autocomplete="off"></label>
+            <label class="mx-field"><span>Clave o token</span>
+              <input id="intConToken" type="password" placeholder="se guarda en este equipo"></label>
+            <div class="mx-fila">
+              <button class="mx-btn mx-btn--pri" id="intConGuardar" type="button">Guardar conector</button>
+              <button class="mx-btn mx-btn--ghost" id="intConCancelar" type="button">Cancelar</button>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div class="int-card">
-        <div class="int-card__cab"><h3><span class="int-num">5</span>Cloudinary · imágenes</h3>
-          <span class="int-estado" id="intCloudEstado" data-ok="no">sin probar</span></div>
-        <p class="int-nota">Guarda el <b>cloud name</b> y un <b>upload preset unsigned</b>. Al editar un producto,
-          sus fotos se suben a Cloudinary y la tienda usa esas URL (hasta 5 por producto).</p>
-        <label class="int-campo"><span>Cloud name</span>
-          <input id="intCloudName" type="text" placeholder="mi-cuenta" autocomplete="off" spellcheck="false"></label>
-        <label class="int-campo"><span>Upload preset (unsigned)</span>
-          <input id="intCloudPreset" type="text" placeholder="forge_productos" autocomplete="off" spellcheck="false"></label>
-        <div class="int-fila">
-          <button class="int-btn int-btn--pri" id="intCloudGuardar" type="button">Guardar</button>
-          <button class="int-btn" id="intCloudProbar" type="button">Probar subida</button>
-          <button class="int-btn int-btn--peligro" id="intCloudQuitar" type="button">Quitar</button>
+        <div class="mx-card">
+          <div class="mx-card__cab">
+            <div class="mx-card__tit"><span class="mx-num">5</span>Cloudinary · imágenes</div>
+            <span class="mx-pill" id="intCloudEstado" data-ok="no">sin probar</span>
+          </div>
+          <p class="mx-note">Las fotos de tus productos se guardan en tu nube de Cloudinary. Con <b>API key + API secret</b>
+            la subida se firma en el servidor; con sólo un <b>upload preset unsigned</b> también funciona.
+            El API secret nunca se guarda en el teléfono.</p>
+          <label class="mx-field"><span>Cloud name</span>
+            <input id="intCloudName" type="text" placeholder="mi-cuenta" autocomplete="off" spellcheck="false"></label>
+          <div class="mx-grid2">
+            <label class="mx-field"><span>API key</span>
+              <input id="intCloudKey" type="text" placeholder="123456789012345" autocomplete="off" spellcheck="false"></label>
+            <label class="mx-field"><span>API secret</span>
+              <input id="intCloudSecret" type="password" placeholder="••••••••••••" autocomplete="new-password"></label>
+          </div>
+          <label class="mx-field"><span>Upload preset unsigned (opcional)</span>
+            <input id="intCloudPreset" type="text" placeholder="forge_productos" autocomplete="off" spellcheck="false"></label>
+          <div class="mx-fila">
+            <button class="mx-btn mx-btn--pri" id="intCloudGuardar" type="button">Guardar</button>
+            <button class="mx-btn" id="intCloudProbar" type="button">Probar subida</button>
+            <button class="mx-btn mx-btn--danger" id="intCloudQuitar" type="button">Quitar</button>
+          </div>
+          <p class="mx-msg" id="intCloudMsg" hidden></p>
         </div>
-        <p class="int-msg" id="intCloudMsg" hidden></p>
-      </div>
 
-      <div class="int-card">
-        <div class="int-card__cab"><h3><span class="int-num">6</span>Respaldo externo</h3>
-          <span class="int-estado" id="intResEstado" data-ok="no">sin probar</span></div>
-        <p class="int-nota">Endpoint HTTPS que reciba JSON. No es conexión SQL directa: se envía un sobre con
-          tu tienda y la fecha. El respaldo completo se exporta desde Datos.</p>
-        <label class="int-campo"><span>URL del respaldo</span>
-          <input id="intResUrl" type="text" placeholder="https://mi-servidor/respaldo"></label>
-        <label class="int-campo"><span>Token del respaldo (opcional)</span>
-          <input id="intResToken" type="password" placeholder="Bearer si lo pide"></label>
-        <div class="int-fila">
-          <button class="int-btn" onclick="integracionRespaldoGuardar()">Guardar</button>
-          <button class="int-btn" onclick="integracionRespaldoProbar()">Probar</button>
-          <button class="int-btn int-btn--pri" onclick="integracionRespaldoEnviar()">Enviar sobre</button>
+        <div class="mx-card">
+          <div class="mx-card__cab">
+            <div class="mx-card__tit"><span class="mx-num">6</span>Respaldo externo</div>
+            <span class="mx-pill" id="intResEstado" data-ok="no">sin probar</span>
+          </div>
+          <p class="mx-note">Endpoint HTTPS que reciba JSON. No es conexión SQL directa: se envía un sobre con
+            tu tienda y la fecha. El respaldo completo se exporta desde Datos.</p>
+          <label class="mx-field"><span>URL del respaldo</span>
+            <input id="intResUrl" type="text" placeholder="https://mi-servidor/respaldo"></label>
+          <label class="mx-field"><span>Token del respaldo (opcional)</span>
+            <input id="intResToken" type="password" placeholder="Bearer si lo pide"></label>
+          <div class="mx-fila">
+            <button class="mx-btn" onclick="integracionRespaldoGuardar()">Guardar</button>
+            <button class="mx-btn" onclick="integracionRespaldoProbar()">Probar</button>
+            <button class="mx-btn mx-btn--pri" onclick="integracionRespaldoEnviar()">Enviar sobre</button>
+          </div>
+          <p class="mx-msg" id="intResStats" hidden></p>
         </div>
-        <p class="int-msg" id="intResStats" hidden></p>
-      </div>
 
-      <div class="int-card">
-        <div class="int-card__cab"><h3><span class="int-num">7</span>IA remota</h3>
-          <span class="int-estado" id="intIAEstado" data-ok="no">sin probar</span></div>
-        <label class="int-campo"><span>Proveedor</span>
-          <select id="intProveedor">
-            <option value="vercel">Vercel (fabri-api)</option>
-            <option value="ollama">Ollama (LAN o local)</option>
-            <option value="gemini">Gemini API</option>
-          </select></label>
-        <label class="int-campo"><span>Modelo por defecto</span>
-          <input id="intModelo" type="text" value="qwen-0.5b-nube"></label>
-        <div class="int-fila">
-          <button class="int-btn" onclick="integracionIAGuardar()">Guardar</button>
-          <button class="int-btn" onclick="integracionIAProbar()">Probar</button>
+        <div class="mx-card">
+          <div class="mx-card__cab">
+            <div class="mx-card__tit"><span class="mx-num">7</span>IA remota</div>
+            <span class="mx-pill" id="intIAEstado" data-ok="no">sin probar</span>
+          </div>
+          <label class="mx-field"><span>Proveedor</span>
+            <select id="intProveedor">
+              <option value="vercel">Vercel (fabri-api)</option>
+              <option value="ollama">Ollama (LAN o local)</option>
+              <option value="gemini">Gemini API</option>
+            </select></label>
+          <label class="mx-field"><span>Modelo por defecto</span>
+            <input id="intModelo" type="text" value="qwen-0.5b-nube"></label>
+          <div class="mx-fila">
+            <button class="mx-btn" onclick="integracionIAGuardar()">Guardar</button>
+            <button class="mx-btn" onclick="integracionIAProbar()">Probar</button>
+          </div>
+          <p class="mx-msg" id="intIAStats" hidden></p>
         </div>
-        <p class="int-msg" id="intIAStats" hidden></p>
-      </div>
 
-      <div class="int-card">
-        <div class="int-card__cab"><h3>Datos y transparencia</h3></div>
-        <p class="int-nota">La app guarda datos del vendedor y del cliente en el teléfono y, al conectar la
-          tienda, en la nube. No usa cookies publicitarias.</p>
-        <button class="int-btn int-btn--ancho" type="button" onclick="integracionVerLegal()">Ver aviso de datos y responsabilidad</button>
+        <div class="mx-card">
+          <div class="mx-card__cab"><div class="mx-card__tit">Datos y transparencia</div></div>
+          <p class="mx-note">La app guarda datos del vendedor y del cliente en el teléfono y, al conectar la
+            tienda, en la nube. No usa cookies publicitarias.</p>
+          <button class="mx-btn mx-btn--ghost" type="button" onclick="integracionVerLegal()">Ver aviso de datos y responsabilidad</button>
+        </div>
       </div>
     </section>
 

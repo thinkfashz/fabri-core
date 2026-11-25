@@ -7134,13 +7134,17 @@ function integracionIniciar() {
   const prov = document.getElementById("intProveedor");
   const resUrl = document.getElementById("intResUrl");
   const resTok = document.getElementById("intResToken");
-  let cloud = null;
-  try { cloud = JSON.parse(localStorage.getItem("fcore.cloudinary") || "null"); } catch (e) { cloud = null; }
+  const cloud = cloudLeerLocal();
   const cn = document.getElementById("intCloudName");
+  const ck = document.getElementById("intCloudKey");
   const cp = document.getElementById("intCloudPreset");
   if (cn && cloud) cn.value = cloud.cloud || "";
+  if (ck && cloud) ck.value = cloud.key || "";
   if (cp && cloud) cp.value = cloud.preset || "";
-  intEstado("intCloudEstado", Boolean(cloud && cloud.cloud && cloud.preset), cloud && cloud.cloud ? "configurado" : "sin probar");
+  const cs = document.getElementById("intCloudSecret");
+  if (cs) cs.value = "";
+  intEstado("intCloudEstado", Boolean(cloud && cloud.cloud), cloud && cloud.cloud ? "configurado" : "sin probar");
+  if (local && local.value && clave && clave.value) cloudVerNube();
 
   if (url && !url.value.trim()) url.value = intLeerTexto("fabrick.nube.url", "https://fabri-api.vercel.app");
   if (local) local.value = intLeerTexto("fabrick.nube.local", "");
@@ -7525,49 +7529,147 @@ async function integracionIAProbar() {
   }
 }
 
-/* ── Cloudinary: guardar y probar ──────────────────────────────────────── */
+/* ── Cloudinary: guardar, verificar y firmar ──────────────────────────────
+   El API secret NUNCA se queda en el equipo: se manda una vez a la nube y
+   allá se guarda para firmar. La APK sólo conserva cloud name + API key. */
 
-function cloudGuardar() {
+function cloudLeerLocal() {
+  try { return JSON.parse(localStorage.getItem("fcore.cloudinary") || "null") || null; } catch (e) { return null; }
+}
+function cloudGuardarLocal(datos) {
+  try {
+    if (datos) localStorage.setItem("fcore.cloudinary", JSON.stringify(datos));
+    else localStorage.removeItem("fcore.cloudinary");
+  } catch (e) { /* modo privado */ }
+}
+function cloudCredenciales() {
+  return {
+    url: ((document.getElementById("intUrl") || {}).value || "https://fabri-api.vercel.app").trim().replace(/\/+$/, ""),
+    local: ((document.getElementById("intLocal") || {}).value || "").trim().toLowerCase(),
+    clave: ((document.getElementById("intClave") || {}).value || "").trim().toUpperCase(),
+  };
+}
+async function cloudPost(cuerpo) {
+  const c = cloudCredenciales();
+  const r = await fetch(c.url + "/api/mercado", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(cuerpo),
+  });
+  const d = await r.json().catch(function () { return {}; });
+  return { ok: r.ok && d.ok !== false, status: r.status, datos: d };
+}
+
+/** Lee la configuración guardada en la nube (sin secret) y rellena la tarjeta. */
+async function cloudVerNube() {
+  const c = cloudCredenciales();
+  if (!c.local || !c.clave) return;
+  try {
+    const r = await cloudPost({ accion: "imagen_config_ver", local_id: c.local, clave: c.clave });
+    if (!r.ok || !r.datos.configurado) return;
+    const d = r.datos;
+    const cn = document.getElementById("intCloudName");
+    const ck = document.getElementById("intCloudKey");
+    const cp = document.getElementById("intCloudPreset");
+    if (cn && !cn.value) cn.value = d.cloud_name || "";
+    if (ck && !ck.value && d.key) ck.placeholder = d.key + " (guardada)";
+    if (cp && !cp.value) cp.value = d.preset || "";
+    const local = cloudLeerLocal() || {};
+    cloudGuardarLocal(Object.assign({}, local, {
+      cloud: d.cloud_name || local.cloud || "",
+      key: local.key || "",
+      preset: d.preset || local.preset || "",
+      nube: true,
+    }));
+    intEstado("intCloudEstado", true, d.firma ? "firmado en la nube" : "preset en la nube");
+    intMsg("intCloudMsg", d.firma
+      ? "Configurado en la nube con API key. El secret no se muestra ni se guarda en el equipo."
+      : "Configurado en la nube con preset unsigned.", "ok");
+  } catch (e) { /* sin red: se queda con lo local */ }
+}
+
+async function cloudGuardar() {
   const cloud = (document.getElementById("intCloudName").value || "").trim();
+  const key = (document.getElementById("intCloudKey").value || "").trim();
+  const secret = (document.getElementById("intCloudSecret").value || "").trim();
   const preset = (document.getElementById("intCloudPreset").value || "").trim();
-  if (!/^[a-z0-9_-]{2,}$/i.test(cloud) || !preset) {
-    intMsg("intCloudMsg", "Cloud name y upload preset son obligatorios.", "mal");
-    return;
+  if (!/^[a-z0-9_-]{2,}$/i.test(cloud)) {
+    intMsg("intCloudMsg", "El cloud name no es válido.", "mal");
+    return false;
   }
-  try { localStorage.setItem("fcore.cloudinary", JSON.stringify({ cloud, preset })); }
-  catch (e) { /* privado */ }
-  intEstado("intCloudEstado", true, "configurado");
-  intMsg("intCloudMsg", "Guardado. Pulsa «Probar subida» para confirmar el preset.", "ok");
+  if (!key && !preset) {
+    intMsg("intCloudMsg", "Pon la API key (con su secret) o un preset unsigned.", "mal");
+    return false;
+  }
+  if (key && !secret) {
+    intMsg("intCloudMsg", "Con API key hace falta el API secret para firmar.", "mal");
+    return false;
+  }
+  const c = cloudCredenciales();
+  if (key && (!c.local || !c.clave)) {
+    intMsg("intCloudMsg", "Conecta primero tu tienda (arriba): el secret se guarda en la nube, no en el equipo.", "mal");
+    return false;
+  }
+  intMsg("intCloudMsg", "Guardando…", "");
+  try {
+    let enNube = false;
+    if (key && c.local && c.clave) {
+      const r = await cloudPost({
+        accion: "imagen_config_guardar",
+        local_id: c.local, clave: c.clave,
+        cloud_name: cloud, api_key: key, api_secret: secret, preset: preset,
+      });
+      if (!r.ok) throw new Error(r.datos.error || ("HTTP " + r.status));
+      enNube = true;
+    }
+    cloudGuardarLocal({ cloud: cloud, key: key, preset: preset, nube: enNube });
+    const s = document.getElementById("intCloudSecret");
+    if (s) s.value = "";
+    intEstado("intCloudEstado", true, enNube ? "firmado en la nube" : "preset local");
+    intMsg("intCloudMsg", enNube
+      ? "Guardado. El API secret quedó en la nube; el teléfono no lo guarda."
+      : "Guardado con preset unsigned. Las subidas no necesitan secret.", "ok");
+    return true;
+  } catch (e) {
+    intEstado("intCloudEstado", false, "error");
+    intMsg("intCloudMsg", "No se pudo guardar: " + (e && e.message ? e.message : "error"), "mal");
+    return false;
+  }
 }
 
 async function cloudProbar() {
-  const cloud = (document.getElementById("intCloudName").value || "").trim();
-  const preset = (document.getElementById("intCloudPreset").value || "").trim();
-  if (!cloud || !preset) { intMsg("intCloudMsg", "Faltan cloud name y preset.", "mal"); return; }
-  try { localStorage.setItem("fcore.cloudinary", JSON.stringify({ cloud, preset })); }
-  catch (e) { /* privado */ }
+  const guardado = await cloudGuardar();
+  if (!guardado) return;
   intMsg("intCloudMsg", "Subiendo una imagen de prueba…", "");
-  const pixel = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
+  const pixel = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
   try {
     if (typeof catCloudSubir !== "function") throw new Error("el módulo de imágenes no está cargado");
     const url = await catCloudSubir(pixel);
     if (!url) throw new Error("Cloudinary no devolvió URL");
     intEstado("intCloudEstado", true, "sube imágenes");
-    intMsg("intCloudMsg", "Subida OK: " + url.slice(0, 60) + "…", "ok");
+    intMsg("intCloudMsg", "Subida OK: " + String(url).slice(0, 64) + "…", "ok");
   } catch (e) {
     intEstado("intCloudEstado", false, "rechazó");
     intMsg("intCloudMsg", "Error: " + (e && e.message ? e.message : "no se pudo subir"), "mal");
   }
 }
 
-function cloudQuitar() {
-  try { localStorage.removeItem("fcore.cloudinary"); } catch (e) { /* privado */ }
+async function cloudQuitar() {
+  const c = cloudCredenciales();
+  cloudGuardarLocal(null);
   const cn = document.getElementById("intCloudName");
+  const ck = document.getElementById("intCloudKey");
+  const cs = document.getElementById("intCloudSecret");
   const cp = document.getElementById("intCloudPreset");
   if (cn) cn.value = "";
+  if (ck) ck.value = "";
+  if (cs) cs.value = "";
   if (cp) cp.value = "";
   intEstado("intCloudEstado", false, "sin probar");
-  intMsg("intCloudMsg", "Cloudinary desactivado: las fotos se guardan en el equipo y en la nube como data URL.", "");
+  if (c.local && c.clave) {
+    try { await cloudPost({ accion: "imagen_config_borrar", local_id: c.local, clave: c.clave }); } catch (e) { /* sin red */ }
+  }
+  intMsg("intCloudMsg", "Cloudinary desactivado: las fotos se guardan en el equipo y se sirven desde la nube.", "");
 }
 
 /* Enganches del DOM (una vez) */

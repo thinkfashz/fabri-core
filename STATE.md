@@ -6,7 +6,43 @@
 > `cl.fabrick.core`, crate `fabrick-core`, dominio `forge-core-stock.vercel.app`,
 > repo `thinkfashz/fabri-core`.
 
-Última actualización: 2026-11-24
+Última actualización: 2026-11-25
+
+## Sesión 2026-11-25 · Cloudinary con API key y secret firmado en la nube
+
+Pedido: que Cloudinary guarde también la API (key + secret), porque con el
+sólo cloud name no conectaba.
+
+**Backend (`mercado.ts`)**
+
+- Tabla `mercado_cloudinary` (local_id, cloud_name, api_key, api_secret,
+  preset). El secret se guarda **sólo en la nube**.
+- `imagen_config_guardar`: valida cloud name y exige API key con secret, o un
+  preset unsigned. Devuelve la key enmascarada.
+- `imagen_config_ver`: cloud name + key enmascarada + si hay firma; **nunca**
+  el secret. Sin dueño responde 401.
+- `imagen_config_borrar`: quita la configuración.
+- `imagen_firmar`: devuelve `timestamp`, `folder` (`forge/<tienda>`), `api_key`,
+  `signature` (SHA-1 de parámetros ordenados + secret) y la URL de subida.
+
+**APK 0.9.69**
+
+- Tarjeta Cloudinary con cloud name, **API key**, **API secret** y preset
+  opcional. El secret se borra del campo tras guardar y no se conserva.
+- `catCloudSubir` pide la firma al servidor y sube a Cloudinary; si no hay
+  firma, usa preset unsigned.
+- Interfaz nueva «Matrix» (`matrix.css`): tarjetas de vidrio, retícula,
+  píldoras de estado y flujo animado en Integración y Base de datos.
+- Base de datos: cabecera y banner del flujo con el mismo motor Matrix.
+
+**Verificación real**
+
+- Sin credenciales → 400 `SIN_CREDENCIAL`; API key sin secret → 400
+  `SIN_SECRETO`; guardar con key+secret → 200 con firma; `ver` no expone el
+  secret; `firmar` devuelve firma SHA-1 de 40 hex que coincide con la
+  calculada aparte; sin sesión → 401.
+- Datos temporales borrados; APK 0.9.69 (versionCode 84) en Descargas y en
+  `web/descargas`, con el mismo md5 (`3fa33414…`).
 
 ## Sesión 2026-11-24 · APK 0.9.68: sync al catálogo, edición con fotos y Cloudinary
 

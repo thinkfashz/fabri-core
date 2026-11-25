@@ -736,22 +736,61 @@ function catCloudCfg() {
   try { return JSON.parse(localStorage.getItem("fcore.cloudinary") || "null"); } catch (e) { return null; }
 }
 
-/** Sube una imagen a Cloudinary (unsigned preset). Devuelve la URL o ''. */
+/**
+ * Sube una imagen a Cloudinary.
+ *   1) Si la tienda está conectada, pide la firma al servidor: el API secret
+ *      vive en la nube y nunca viaja al teléfono.
+ *   2) Si no hay firma, usa el upload preset unsigned (no necesita secret).
+ * Devuelve la URL segura o '' si Cloudinary no está configurado.
+ */
 async function catCloudSubir(dataUrl) {
-  const c = catCloudCfg();
-  if (!c || !c.cloud || !c.preset) return "";
-  const fd = new FormData();
-  fd.append("file", dataUrl);
-  fd.append("upload_preset", c.preset);
-  const r = await fetch("https://api.cloudinary.com/v1_1/" + encodeURIComponent(c.cloud) + "/image/upload", {
-    method: "POST",
-    body: fd,
-  });
-  const d = await r.json().catch(function () { return {}; });
-  if (!r.ok || !d.secure_url) {
+  const cfg = catCloudCfg();
+  if (!cfg || !cfg.cloud) return "";
+  const base = (localStorage.getItem("fabrick.nube.url") || "https://fabri-api.vercel.app").replace(/\/+$/, "");
+  const localId = localStorage.getItem("fabrick.nube.local") || "";
+  const clave = localStorage.getItem("fabrick.nube.clave") || "";
+  const destino = "https://api.cloudinary.com/v1_1/" + encodeURIComponent(cfg.cloud) + "/image/upload";
+
+  /* 1 · Firma en el servidor. */
+  if (localId && clave) {
+    let d = null;
+    try {
+      const r = await fetch(base + "/api/mercado", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accion: "imagen_firmar", local_id: localId, clave: clave }),
+      });
+      d = await r.json().catch(function () { return {}; });
+      if (r.ok && d.ok && d.signature) {
+        const fd = new FormData();
+        fd.append("file", dataUrl);
+        fd.append("api_key", d.api_key);
+        fd.append("timestamp", String(d.timestamp));
+        fd.append("folder", d.folder);
+        fd.append("signature", d.signature);
+        if (d.upload_preset) fd.append("upload_preset", d.upload_preset);
+        const up = await fetch(d.url || destino, { method: "POST", body: fd });
+        const u = await up.json().catch(function () { return {}; });
+        if (up.ok && u.secure_url) return String(u.secure_url);
+        throw new Error((u.error && u.error.message) || "Cloudinary rechazó la imagen");
+      }
+    } catch (e) {
+      /* Sin firma disponible (p. ej. red): se intenta el preset si existe. */
+      if (!cfg.preset) throw e;
+    }
+  }
+
+  /* 2 · Preset unsigned. */
+  if (cfg.preset) {
+    const fd = new FormData();
+    fd.append("file", dataUrl);
+    fd.append("upload_preset", cfg.preset);
+    const r = await fetch(destino, { method: "POST", body: fd });
+    const d = await r.json().catch(function () { return {}; });
+    if (r.ok && d.secure_url) return String(d.secure_url);
     throw new Error((d.error && d.error.message) || "Cloudinary rechazó la imagen");
   }
-  return String(d.secure_url);
+  return "";
 }
 
 /** Achica la foto en el equipo antes de subirla (900 px, JPEG 0.72). */
@@ -833,7 +872,7 @@ async function catGuardarProducto(p, cerrar) {
       const comprimidas = [];
       for (const a of archivos) comprimidas.push(await catComprimir(a));
       const cloud = catCloudCfg();
-      if (cloud && cloud.cloud && cloud.preset) {
+      if (cloud && cloud.cloud) {
         set("Subiendo fotos a Cloudinary…");
         imagenes = [];
         for (const d of comprimidas) imagenes.push(await catCloudSubir(d));

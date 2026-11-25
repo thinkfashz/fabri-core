@@ -54,6 +54,17 @@
 //                                              dispositivos anteriores
 //   POST { accion: "local_borrar", local_id, clave? }
 //                                              → baja (DUEÑO · ADMIN)
+//   POST { accion: "imagen_config_guardar", local_id, clave?, cloud_name, api_key, api_secret, preset? }
+//                                              → guarda Cloudinary de la tienda (DUEÑO · ADMIN)
+//                                              → el secret se queda en la nube
+//   POST { accion: "imagen_config_ver", local_id, clave? }
+//                                              → devuelve cloud name y key enmascarada
+//                                              (DUEÑO · ADMIN); nunca el secret
+//   POST { accion: "imagen_config_borrar", local_id, clave? }
+//                                              → borra la configuración (DUEÑO · ADMIN)
+//   POST { accion: "imagen_firmar", local_id, clave? }
+//                                              → firma para subir a Cloudinary (DUEÑO · ADMIN)
+//                                              → devuelve timestamp, folder y signature
 //   POST { accion: "productos_subir", local_id, clave?, productos:[...] }
 //                                              → upsert de catálogo (DUEÑO · ADMIN)
 //                                              → `descuento` 0–90 % y `oferta_hasta`
@@ -140,6 +151,9 @@ const T_PUSH = 'mercado_push';
 const T_PUSH_LOCAL = 'mercado_push_local';
 const T_CUENTAS = 'core_usuarios';
 const T_SESIONES = 'core_sesiones';
+/** Configuración de Cloudinary por tienda. El API secret vive SOLO acá: nunca
+ *  se devuelve al navegador ni a la APK, sólo se usa para firmar. */
+const T_CLOUDINARY = 'mercado_cloudinary';
 
 const MAX_TEXTO = 500;
 const MAX_LOCALES = 5000;
@@ -535,6 +549,18 @@ async function asegurar(pool: any) {
   /* Galería de hasta cinco fotos por producto. `imagen` sigue siendo la
      principal para no romper la ficha ni el carrito. */
   await pool.query(`ALTER TABLE ${T_PRODUCTOS} ADD COLUMN IF NOT EXISTS imagenes JSONB NOT NULL DEFAULT '[]'::jsonb`);
+  /* Cloudinary por tienda: cloud name, API key y API secret. El secret se
+     guarda sólo acá y se usa para firmar la subida; el navegador nunca lo ve.
+     `preset` es el respaldo unsigned para quien no tenga API key. */
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ${T_CLOUDINARY} (
+      local_id    TEXT PRIMARY KEY,
+      cloud_name  TEXT NOT NULL DEFAULT '',
+      api_key     TEXT NOT NULL DEFAULT '',
+      api_secret  TEXT NOT NULL DEFAULT '',
+      preset      TEXT NOT NULL DEFAULT '',
+      actualizado TIMESTAMPTZ NOT NULL DEFAULT now()
+    )`);
   // Código de barras real (EAN-8/UPC-A/EAN-13/GTIN-14 o Code 128/39). Es el
   // puente entre una marca y otra: el comprador escanea y ve quién lo tiene.
   await pool.query(`ALTER TABLE ${T_PRODUCTOS} ADD COLUMN IF NOT EXISTS codigo TEXT NOT NULL DEFAULT ''`);
@@ -1682,7 +1708,8 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         'local_estado', 'local_borrar', 'productos_subir', 'producto_borrar',
         'conexion_estado', 'conexion_rotar', 'clientes_listar', 'estado_base',
         'vinculo_crear', 'vinculo_canjear',
-        'imagen_ver', 'codigo_buscar', 'productos_buscar',
+        'imagen_ver', 'imagen_firmar', 'imagen_config_guardar', 'imagen_config_ver',
+        'imagen_config_borrar', 'codigo_buscar', 'productos_buscar',
         'pedido_crear', 'pedido_seguir', 'push_suscribir', 'push_baja',
         'push_local_suscribir', 'push_local_baja',
         'pedidos_listar', 'pedido_estado',
@@ -2282,6 +2309,115 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     }
 
     /* ── catálogo (DUEÑO o ADMIN) con tope por plan, en transacción ── */
+    /* ── CLOUDINARY: configuración y firma de subidas ─────────────────────
+       El secreto de Cloudinary NUNCA sale de la nube: se guarda en la tabla y
+       sólo se usa para firmar. La app recibe la firma y sube directo a
+       Cloudinary. Si no hay secreto, se admite un preset unsigned. */
+    if (accion === 'imagen_config_guardar') {
+      const localId = idLocal(cuerpo.local_id);
+      const { local, motivo } = await autorizarLocal(pool, req, localId, texto(cuerpo.clave, 60));
+      if (!local) return json(res, { ok: false, error: 'no autorizado', codigo: motivo }, 401);
+
+      const cloudName = texto(cuerpo.cloud_name, 80).trim();
+      const apiKey = texto(cuerpo.api_key, 80).trim();
+      const apiSecret = texto(cuerpo.api_secret, 120).trim();
+      const preset = texto(cuerpo.preset, 80).trim();
+      if (!/^[a-z0-9_-]{2,80}$/i.test(cloudName)) {
+        return json(res, { ok: false, error: 'cloud name inválido', codigo: 'CLOUD_NAME' }, 400);
+      }
+      if (!apiKey && !preset) {
+        return json(res, {
+          ok: false, error: 'hace falta la API key o un preset unsigned', codigo: 'SIN_CREDENCIAL',
+        }, 400);
+      }
+      if (apiKey && !apiSecret) {
+        return json(res, {
+          ok: false, error: 'la API key necesita su API secret para firmar', codigo: 'SIN_SECRETO',
+        }, 400);
+      }
+      await pool.query(
+        `INSERT INTO ${T_CLOUDINARY} (local_id, cloud_name, api_key, api_secret, preset, actualizado)
+         VALUES ($1,$2,$3,$4,$5,now())
+         ON CONFLICT (local_id) DO UPDATE SET
+           cloud_name = EXCLUDED.cloud_name,
+           api_key = EXCLUDED.api_key,
+           api_secret = EXCLUDED.api_secret,
+           preset = EXCLUDED.preset,
+           actualizado = now()`,
+        [localId, cloudName, apiKey, apiSecret, preset]
+      );
+      return json(res, {
+        ok: true, accion, configurado: true,
+        cloud_name: cloudName,
+        api_key: apiKey ? apiKey.slice(0, 4) + '…' + apiKey.slice(-4) : '',
+        firma: Boolean(apiKey && apiSecret),
+        preset: Boolean(preset),
+      });
+    }
+
+    if (accion === 'imagen_config_ver') {
+      const localId = idLocal(cuerpo.local_id);
+      const { local, motivo } = await autorizarLocal(pool, req, localId, texto(cuerpo.clave, 60));
+      if (!local) return json(res, { ok: false, error: 'no autorizado', codigo: motivo }, 401);
+      const r = await pool.query(
+        `SELECT cloud_name, api_key, preset, (api_secret <> '') AS firma
+           FROM ${T_CLOUDINARY} WHERE local_id = $1`, [localId]
+      );
+      const f = r.rows[0];
+      if (!f) return json(res, { ok: true, accion, configurado: false });
+      return json(res, {
+        ok: true, accion, configurado: true,
+        cloud_name: f.cloud_name,
+        key: f.api_key ? String(f.api_key).slice(0, 4) + '…' : '',
+        preset: f.preset || '',
+        firma: Boolean(f.firma),
+      });
+    }
+
+    if (accion === 'imagen_config_borrar') {
+      const localId = idLocal(cuerpo.local_id);
+      const { local, motivo } = await autorizarLocal(pool, req, localId, texto(cuerpo.clave, 60));
+      if (!local) return json(res, { ok: false, error: 'no autorizado', codigo: motivo }, 401);
+      await pool.query(`DELETE FROM ${T_CLOUDINARY} WHERE local_id = $1`, [localId]);
+      return json(res, { ok: true, accion, borrado: true });
+    }
+
+    if (accion === 'imagen_firmar') {
+      const localId = idLocal(cuerpo.local_id);
+      const { local, motivo } = await autorizarLocal(pool, req, localId, texto(cuerpo.clave, 60));
+      if (!local) return json(res, { ok: false, error: 'no autorizado', codigo: motivo }, 401);
+      const r = await pool.query(
+        `SELECT cloud_name, api_key, api_secret, preset FROM ${T_CLOUDINARY} WHERE local_id = $1`,
+        [localId]
+      );
+      const f = r.rows[0];
+      if (!f) {
+        return json(res, {
+          ok: false, error: 'Cloudinary no está configurado', codigo: 'SIN_CLOUDINARY',
+        }, 404);
+      }
+      if (!f.api_key || !f.api_secret) {
+        return json(res, {
+          ok: false, error: 'falta la API key o el secret para firmar', codigo: 'SIN_SECRETO',
+        }, 400);
+      }
+      const timestamp = Math.floor(Date.now() / 1000);
+      const folder = 'forge/' + localId;
+      const preset = texto(f.preset, 80).trim();
+      const params: Record<string, string> = { folder, timestamp: String(timestamp) };
+      if (preset) params.upload_preset = preset;
+      const aFirmar = Object.keys(params).sort().map((k) => k + '=' + params[k]).join('&');
+      const signature = createHash('sha1').update(aFirmar + f.api_secret).digest('hex');
+      return json(res, {
+        ok: true, accion,
+        cloud_name: f.cloud_name,
+        api_key: f.api_key,
+        timestamp, folder, signature,
+        upload_preset: preset || undefined,
+        url: 'https://api.cloudinary.com/v1_1/' + encodeURIComponent(f.cloud_name) + '/image/upload',
+      });
+    }
+
     if (accion === 'productos_subir') {
       const localId = idLocal(cuerpo.local_id);
       const { local, motivo } = await autorizarLocal(pool, req, localId, texto(cuerpo.clave, 60));

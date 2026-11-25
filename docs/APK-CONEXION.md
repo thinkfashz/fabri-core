@@ -28,7 +28,7 @@ La aceptación se guarda con versión (`2026-11-24`) y fecha. Se puede releer de
 Integración → «Aviso de datos y responsabilidad». La versión web está en
 `/privacidad.html` y `/terminos.html`.
 
-## 3 · Integración rediseñada (0.9.68)
+## 3 · Integración rediseñada (0.9.69)
 
 Interfaz nueva, móvil primero, con cards y una miniatura animada del flujo:
 
@@ -48,7 +48,7 @@ Los estados se guardan en `fcore.int`; no se muestra «conectado» sin prueba.
 
 ## 4 · Vista «Tienda y CRM» en el menú lateral
 
-La 0.9.68 no cambia las pantallas existentes: añade **una vista** al menú
+La 0.9.69 no cambia las pantallas existentes: añade **una vista** al menú
 lateral (`data-vista="tienda"`), con tres pestañas internas.
 
 - **Conexión:** identificador + clave, probar, estado de la nube (publicada,
@@ -65,7 +65,22 @@ reutilizaron las 7 bibliotecas nativas de la 0.9.63.
 Archivos: `android/assets/www/tienda.js`, `tienda.css` y tres líneas de
 integración en `index.html` (menú, sección, script) y `app.js` (router).
 
-## 4-ter · Sincronización del catálogo y fotos (0.9.68)
+## 4-quater · Cloudinary con API key y firma en la nube (0.9.69)
+
+- La tarjeta de Cloudinary pide **cloud name, API key, API secret** y preset
+  unsigned opcional. El secret **no se guarda en el teléfono**: se manda una
+  vez a la nube (`imagen_config_guardar`) y queda en `mercado_cloudinary`.
+- Al editar un producto, la APK pide `imagen_firmar`: el servidor devuelve
+  `timestamp`, `folder`, `api_key` y `signature` (SHA-1 de los parámetros
+  ordenados + el secret). La foto se sube directo a Cloudinary con esa firma.
+- Si no hay API key, se usa el preset unsigned. Si no hay red para pedir firma
+  pero hay preset, también funciona.
+- `imagen_config_ver` devuelve cloud name y API key enmascarada; **nunca** el
+  secret. Sin sesión de dueño responde 401.
+- Interfaz nueva «Matrix» (`matrix.css`) para Integración y Base de datos:
+  tarjetas de vidrio, retícula, píldoras de estado y el flujo animado.
+
+## 4-ter · Sincronización del catálogo y fotos
 
 - **Base de datos → Sincronizar Nube** ahora hace dos cosas: sube al
   inventario (`inv_productos`) y **publica en el catálogo de la tienda**
@@ -80,8 +95,9 @@ integración en `index.html` (menú, sección, script) y `app.js` (router).
   URL y el backend las publica por `imagen_ver`.
 - El catálogo de la nube acepta `imagenes` (hasta 5) y usa la URL directa
   cuando la foto vive en Cloudinary.
-- **Integración → Cloudinary**: cloud name + upload preset unsigned, guardar,
-  probar subida y quitar. La app usa esa configuración al editar productos.
+- **Integración → Cloudinary**: cloud name + API key + API secret (o preset
+  unsigned). Guardar, probar subida y quitar. El secret se guarda en la nube y
+  la app usa la firma al editar productos.
 
 ## 4-bis · Base de datos en la app
 
@@ -125,7 +141,7 @@ El build lite no levanta daemon ni resuelve dependencias. En este equipo tarda
 
 ```sh
 FORGE_SALTAR_RUST=1 bash scripts/compilar.sh
-# APK: dist/FORGE-CORE-STOCK-0.9.68.apk  (~1m 47s, firmada)
+# APK: dist/FORGE-CORE-STOCK-0.9.69.apk  (~1m 47s, firmada)
 ```
 
 `FORGE_SALTAR_RUST=1` reutiliza las bibliotecas nativas del APK 0.9.63 (mismas,
@@ -154,7 +170,7 @@ $ANDROID_SDK_ROOT/build-tools/34.0.0/apksigner verify --print-certs out/forge-co
 ## 6 · Entrega e instalación encima de la 0.9.63
 
 - `/storage/emulated/0/Download/FORGE-CORE-STOCK.apk` (nombre estable)
-- `/storage/emulated/0/Download/FORGE-CORE-STOCK-0.9.68.apk`
+- `/storage/emulated/0/Download/FORGE-CORE-STOCK-0.9.69.apk`
 - `https://forge-core-stock.vercel.app/descargas/FORGE-CORE-STOCK.apk`
 
 Misma firma de depuración (`SHA-256 959b85cc…`) y mismo package

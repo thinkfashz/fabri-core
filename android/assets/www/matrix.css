@@ -1,0 +1,340 @@
+/* ==========================================================================
+   FORGE CORE STOCK · Tema "MATRIX" (APK)
+   Un solo lugar para el lenguaje visual nuevo: fondo profundo, verde lima y
+   cian como acentos, tarjetas de vidrio con borde fino y una retícula tenue.
+   No reemplaza app.css: lo complementa con clases `mx-*` para las pantallas
+   nuevas (Integración y Base de datos), así el resto de la app no se rompe.
+   ========================================================================== */
+
+:root {
+  --mx-bg: #050706;
+  --mx-bg-2: #080b09;
+  --mx-surface: rgba(13, 17, 14, 0.86);
+  --mx-line: #1b241c;
+  --mx-line-2: #2a3a2a;
+  --mx-tx: #eef4ec;
+  --mx-tx-2: #9aa89a;
+  --mx-muted: #6f7d70;
+  --mx-lime: #c8ff00;
+  --mx-lime-soft: #b7ff32;
+  --mx-cyan: #5ad9e8;
+  --mx-warn: #f5c542;
+  --mx-err: #ff7b7b;
+  --mx-ok: #7ef29a;
+  --mx-radius: 16px;
+  --mx-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  --mx-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+/* Fondo de la vista: negro con retícula muy tenue y un halo superior. */
+.mx-view {
+  position: relative;
+  min-height: 100%;
+  background:
+    radial-gradient(120% 70% at 50% 0%, rgba(200, 255, 0, 0.06), transparent 62%),
+    linear-gradient(180deg, var(--mx-bg-2), var(--mx-bg));
+  color: var(--mx-tx);
+  padding: 4px 0 28px;
+}
+.mx-view::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(200, 255, 0, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(200, 255, 0, 0.035) 1px, transparent 1px);
+  background-size: 26px 26px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.9), transparent 70%);
+}
+.mx-view > * { position: relative; }
+
+/* ── cabecera de la pantalla ────────────────────────────────────────────── */
+.mx-hero { padding: 10px 4px 14px; }
+.mx-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--mx-lime);
+}
+.mx-kicker::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--mx-lime);
+  box-shadow: 0 0 10px var(--mx-lime);
+}
+.mx-hero h2 {
+  margin: 8px 0 6px;
+  font-size: 27px;
+  line-height: 1.05;
+  letter-spacing: -0.035em;
+  color: #fff;
+}
+.mx-hero p {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--mx-tx-2);
+  max-width: 46ch;
+}
+
+/* ── tarjeta de vidrio ──────────────────────────────────────────────────── */
+.mx-card {
+  background: var(--mx-surface);
+  border: 1px solid var(--mx-line);
+  border-radius: var(--mx-radius);
+  box-shadow: var(--mx-shadow);
+  backdrop-filter: blur(10px);
+  padding: 14px;
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+.mx-card--flat { box-shadow: none; }
+.mx-card__cab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.mx-card__tit {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 14.5px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: #fff;
+}
+.mx-num {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  background: #131a0e;
+  border: 1px solid #2c3a1e;
+  color: var(--mx-lime);
+  font-family: var(--mx-mono);
+  font-size: 11px;
+  font-weight: 800;
+}
+.mx-note {
+  margin: 0 0 10px;
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--mx-tx-2);
+}
+
+/* ── píldoras de estado ─────────────────────────────────────────────────── */
+.mx-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--mx-line-2);
+  background: #0b100c;
+  color: var(--mx-muted);
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.mx-pill::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.9;
+}
+.mx-pill[data-ok="si"] { color: var(--mx-lime-soft); border-color: #3a4d22; }
+.mx-pill[data-ok="si"]::before { box-shadow: 0 0 9px var(--mx-lime); }
+.mx-pill[data-ok="no"] { color: var(--mx-err); border-color: #4a2424; }
+.mx-pill[data-ok="warn"] { color: var(--mx-warn); border-color: #4a3d1c; }
+.mx-pill.sync-vivo { color: var(--mx-lime); border-color: rgba(184, 232, 106, 0.45); }
+.mx-pill.sync-error { color: var(--mx-err); border-color: rgba(245, 140, 140, 0.45); }
+
+/* ── campos ─────────────────────────────────────────────────────────────── */
+.mx-field { display: grid; gap: 5px; margin-bottom: 9px; }
+.mx-field > span {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--mx-muted);
+}
+.mx-field input,
+.mx-field select,
+.mx-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  background: #0a0f0b;
+  border: 1px solid var(--mx-line-2);
+  border-radius: 11px;
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  padding: 11px 12px;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+.mx-field input:focus,
+.mx-field select:focus,
+.mx-field textarea:focus {
+  outline: none;
+  border-color: var(--mx-lime);
+  box-shadow: 0 0 0 3px rgba(200, 255, 0, 0.12);
+}
+.mx-field input::placeholder { color: #55605a; }
+.mx-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+/* ── botones ────────────────────────────────────────────────────────────── */
+.mx-btn {
+  border: 1px solid var(--mx-line-2);
+  background: #10160f;
+  color: var(--mx-tx);
+  border-radius: 11px;
+  padding: 10px 13px;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.12s ease, border-color 0.18s ease, background 0.18s ease;
+}
+.mx-btn:active { transform: scale(0.98); }
+.mx-btn--pri {
+  background: var(--mx-lime);
+  border-color: var(--mx-lime);
+  color: #060806;
+  box-shadow: 0 6px 20px rgba(200, 255, 0, 0.18);
+}
+.mx-btn--ghost { background: transparent; }
+.mx-btn--danger { color: var(--mx-err); border-color: #402020; }
+.mx-btn:disabled { opacity: 0.45; cursor: default; }
+.mx-fila { display: flex; gap: 8px; flex-wrap: wrap; }
+.mx-fila > .mx-btn { flex: 1 1 130px; }
+
+/* ── flujo (canvas) ─────────────────────────────────────────────────────── */
+.mx-flow {
+  position: relative;
+  padding: 0;
+  border-radius: var(--mx-radius);
+  border: 1px solid var(--mx-line);
+  background: #040605;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+.mx-flow__hud {
+  position: absolute;
+  inset: 9px 9px auto 9px;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  pointer-events: none;
+  z-index: 2;
+}
+.mx-flow canvas { display: block; width: 100%; height: 142px; }
+.mx-flow__pie {
+  margin: 0;
+  padding: 8px 12px;
+  border-top: 1px solid var(--mx-line);
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: var(--mx-muted);
+}
+
+/* ── datos y listas ─────────────────────────────────────────────────────── */
+.mx-data { display: grid; gap: 0; }
+.mx-dato {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid #141a14;
+  font-size: 13px;
+}
+.mx-dato:last-child { border-bottom: 0; }
+.mx-dato span { color: var(--mx-muted); font-size: 11px; letter-spacing: 0.02em; }
+.mx-dato b { font-weight: 650; text-align: right; font-family: var(--mx-mono); font-size: 12.5px; }
+.mx-lista { display: grid; gap: 8px; margin-top: 8px; }
+.mx-item {
+  border: 1px solid #1a211a;
+  background: #0a0f0b;
+  border-radius: 13px;
+  padding: 11px;
+  display: grid;
+  gap: 5px;
+}
+.mx-item__cab { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+.mx-item__nom { font-size: 13.5px; font-weight: 700; color: #fff; }
+.mx-item__meta { font-size: 11px; color: var(--mx-muted); font-family: var(--mx-mono); word-break: break-all; }
+.mx-vacio {
+  border: 1px dashed #253026;
+  border-radius: 13px;
+  padding: 18px 14px;
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--mx-muted);
+}
+.mx-msg {
+  margin: 8px 0 0;
+  padding: 9px 11px;
+  border-radius: 11px;
+  border: 1px solid var(--mx-line-2);
+  background: #0b100c;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--mx-tx-2);
+}
+.mx-msg[data-tipo="ok"] { border-color: #3a4d22; color: var(--mx-lime-soft); background: #0d130a; }
+.mx-msg[data-tipo="mal"] { border-color: #4a2424; color: var(--mx-err); background: #140b0b; }
+
+/* ── código de vínculo ──────────────────────────────────────────────────── */
+.mx-codigo {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 8px 0;
+  padding: 12px;
+  border-radius: 13px;
+  border: 1px dashed #3e5a2a;
+  background: #0f1508;
+  color: var(--mx-lime);
+  font-family: var(--mx-mono);
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-align: center;
+  user-select: all;
+}
+
+/* ── sección plegable ───────────────────────────────────────────────────── */
+.mx-sep { height: 1px; background: #161d16; margin: 12px 0; }
+.mx-hint {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 9px 11px;
+  border-radius: 11px;
+  background: #0b100c;
+  border: 1px solid var(--mx-line);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--mx-muted);
+}
+.mx-hint b { color: var(--mx-tx-2); }
+
+@media (min-width: 720px) {
+  #v-integracion, #v-sql { max-width: 780px; margin: 0 auto; }
+  .mx-flow canvas { height: 176px; }
+}
