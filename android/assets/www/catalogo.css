@@ -1514,3 +1514,35 @@
   cursor: pointer;
 }
 .cat-galeria__foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* ── Vitrina: tarjeta sin botón de agregar ──────────────────────────────── */
+.cat-card-ver {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--cat-texto-3);
+}
+.cat-card-destacado {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: rgba(200, 255, 0, 0.92);
+  color: #101204;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.cat-card.destacado {
+  border-color: rgba(200, 255, 0, 0.55);
+  background: linear-gradient(180deg, #171c12, #0f120c);
+}
+/* La vitrina no agrega al carrito desde la tarjeta: se abre la ficha. */
+.cat-card .cat-card-agregar { display: none; }

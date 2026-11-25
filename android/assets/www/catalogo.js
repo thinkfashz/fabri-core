@@ -366,9 +366,11 @@ function catCardHtml(p) {
     ? '<img src="' + esc(f.imagen) + '" alt="" loading="lazy" ' +
       'onerror="this.remove()" />'
     : catMotivo(p.categoria, 40);
-  return '<article class="cat-card" data-codigo="' + esc(p.codigo || "") + '" ' +
+  const destacado = !!(p && p.destacado);
+  return '<article class="cat-card' + (destacado ? ' destacado' : '') + '" data-codigo="' + esc(p.codigo || "") + '" ' +
       'style="--cat-tinte:' + t.fondo + ';--cat-tinte-txt:' + t.texto + '">' +
     '<div class="cat-card-thumb">' + img +
+      (destacado ? '<span class="cat-card-destacado">★ Destacado</span>' : "") +
       (promo ? '<span class="cat-card-promo ' + promo.clase + '">' + promo.texto + '</span>' : "") +
       '<span class="cat-card-stock' + claseStock + '">' + stock + ' und</span>' +
     '</div>' +
@@ -377,8 +379,7 @@ function catCardHtml(p) {
       (p.unidad ? " · " + esc(p.unidad) : "") + '</span>' +
     '<span class="cat-card-precio"><b>' + invClp(p.precio || 0) + '</b></span>' +
     '<span class="cat-card-codigo">' + esc(p.codigo || "") + '</span>' +
-    '<button class="cat-card-agregar" data-agregar="' + esc(p.codigo || "") + '" type="button">' +
-      catIco("carro", 14) + ' Agregar</button>' +
+    '<span class="cat-card-ver">Ver ficha</span>' +
     '</article>';
 }
 
@@ -406,13 +407,7 @@ function catRender() {
       catAbrirProducto(c.dataset.codigo);
     });
   });
-  caja.querySelectorAll("[data-agregar]").forEach(function (b2) {
-    b2.addEventListener("click", function (ev) {
-      ev.stopPropagation();
-      const p = CAT.productos.find(function (x) { return x.codigo === b2.dataset.agregar; });
-      if (p) catCarroAgregar(p, 1);
-    });
-  });
+
 }
 
 /** «Ver más»: primero muestra lo ya descargado; sólo pide otra página cuando
@@ -837,6 +832,8 @@ function catEditarProducto(p) {
       '<p class="nota" id="ceFotosNota">' + (fotos.length ? fotos.length + " foto(s) guardadas." : "Sin fotos todavía.") + '</p>' +
       '<div class="cat-editor__fila">' +
         '<button class="btn btn-primario" type="button" id="ceGuardar">Guardar y sincronizar</button>' +
+        '<button class="btn" type="button" id="ceDestacar">' +
+          (p.destacado ? 'Quitar destacado' : 'Destacar en mi tienda') + '</button>' +
         '<button class="btn" type="button" id="ceCancelar">Cancelar</button>' +
       '</div>' +
       '<p class="nota" id="ceEstado"></p>' +
@@ -844,6 +841,55 @@ function catEditarProducto(p) {
   const cerrar = function () { caja.innerHTML = ""; };
   document.getElementById("ceCancelar").onclick = cerrar;
   document.getElementById("ceGuardar").onclick = function () { catGuardarProducto(p, cerrar); };
+  const dest = document.getElementById("ceDestacar");
+  if (dest) dest.onclick = function () { catDestacar(p, dest); };
+}
+
+/** Destacar (o quitar) un producto en el catálogo de la tienda. */
+async function catDestacar(p, boton) {
+  const estado = document.getElementById("ceEstado");
+  const set = function (t, malo) {
+    if (!estado) return;
+    estado.textContent = t;
+    estado.style.color = malo ? "#FF6B6B" : "#C8FF00";
+  };
+  const base = (localStorage.getItem("fabrick.nube.url") || "https://fabri-api.vercel.app").replace(/\/+$/, "");
+  const localId = localStorage.getItem("fabrick.nube.local") || "";
+  const clave = localStorage.getItem("fabrick.nube.clave") || "";
+  if (!localId || !clave) { set("Conecta la tienda en Integración para destacar.", true); return; }
+  const nuevo = !p.destacado;
+  if (boton) { boton.disabled = true; boton.textContent = nuevo ? "Destacando…" : "Quitando…"; }
+  try {
+    const r = await fetch(base + "/api/mercado", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        accion: "productos_subir",
+        local_id: localId,
+        clave: clave,
+        productos: [{
+          sku: p.codigo || p.sku || "",
+          nombre: p.nombre || "",
+          precio: Number(p.precio) || 0,
+          stock: p.stock == null ? null : Number(p.stock),
+          categoria: p.categoria || "",
+          unidad: p.unidad || "unidad",
+          imagen: (p.ficha && (p.ficha.imagen || (p.ficha.imagenes || [])[0])) || "",
+          imagenes: (p.ficha && Array.isArray(p.ficha.imagenes)) ? p.ficha.imagenes : [],
+          destacado: nuevo,
+        }],
+      }),
+    });
+    const d = await r.json().catch(function () { return {}; });
+    if (!r.ok || d.ok === false) throw new Error(d.error || ("la nube respondió " + r.status));
+    p.destacado = nuevo;
+    if (boton) { boton.disabled = false; boton.textContent = nuevo ? "Quitar destacado" : "Destacar en mi tienda"; }
+    set(nuevo ? "Destacado en tu tienda." : "Ya no está destacado.", false);
+    if (typeof toast === "function") toast(nuevo ? "Producto destacado" : "Destacado quitado", "");
+  } catch (e) {
+    if (boton) { boton.disabled = false; boton.textContent = p.destacado ? "Quitar destacado" : "Destacar en mi tienda"; }
+    set("No se pudo: " + (e && e.message ? e.message : "error"), true);
+  }
 }
 
 async function catGuardarProducto(p, cerrar) {

@@ -549,6 +549,11 @@ async function asegurar(pool: any) {
   /* Galería de hasta cinco fotos por producto. `imagen` sigue siendo la
      principal para no romper la ficha ni el carrito. */
   await pool.query(`ALTER TABLE ${T_PRODUCTOS} ADD COLUMN IF NOT EXISTS imagenes JSONB NOT NULL DEFAULT '[]'::jsonb`);
+  /* Producto destacado: el dueño lo marca y sale primero en el catálogo de la
+     tienda, con una etiqueta «Destacado». No cambia el precio ni el stock. */
+  await pool.query(`ALTER TABLE ${T_PRODUCTOS} ADD COLUMN IF NOT EXISTS destacado BOOLEAN NOT NULL DEFAULT false`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_mercado_productos_destacado
+                      ON ${T_PRODUCTOS} (local_id, destacado) WHERE destacado`);
   /* Cloudinary por tienda: cloud name, API key y API secret. El secret se
      guarda sólo acá y se usa para firmar la subida; el navegador nunca lo ve.
      `preset` es el respaldo unsigned para quien no tenga API key. */
@@ -750,7 +755,7 @@ async function asegurar(pool: any) {
 const camposProducto = (k = '') => `${k}local_id,${k}sku,${k}nombre,${k}precio::float8 AS precio,${k}stock,${k}categoria,${k}unidad,
   ${k}descuento::int AS descuento, ${dctoVigente(k)}::int AS descuento_vigente,
   ${precioEfectivo(k)}::float8 AS precio_efectivo, ${k}oferta_hasta::float8 AS oferta_hasta,
-  ${k}codigo,${k}imagen_hash,${k}imagen,${k}imagenes`;
+  ${k}codigo,${k}imagen_hash,${k}imagen,${k}imagenes,${k}destacado`;
 
 const CAMPOS_PRODUCTO = camposProducto();
 
@@ -783,6 +788,7 @@ function productoDeFila(f: any) {
     /* Hasta cinco fotos: la principal sigue en `imagen` (compatibilidad) y la
        galería completa viaja acá. Son URLs o data URLs ya achicadas. */
     imagenes: Array.isArray(f.imagenes) ? f.imagenes : [],
+    destacado: Boolean(f.destacado),
   };
 }
 
@@ -919,7 +925,7 @@ async function traerLocales(pool: any, conCatalogo: boolean) {
   }
   const p = await pool.query(
     `SELECT ${CAMPOS_PRODUCTO}
-       FROM ${T_PRODUCTOS} ORDER BY local_id, nombre COLLATE "C"`
+       FROM ${T_PRODUCTOS} ORDER BY local_id, destacado DESC, nombre COLLATE "C"`
   );
   const porLocal: Record<string, any[]> = {};
   for (const fila of p.rows) {
@@ -2482,32 +2488,58 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
             .filter((x) => x.length <= 400000)
             .slice(0, 5);
         }
-        await cliente.query(
-          `INSERT INTO ${T_PRODUCTOS}
-             (local_id,sku,nombre,precio,stock,categoria,unidad,actualizado,descuento,oferta_hasta,imagen,imagen_hash,codigo,imagenes)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$17::jsonb)
-           ON CONFLICT (local_id,sku) DO UPDATE SET
-             nombre = EXCLUDED.nombre, precio = EXCLUDED.precio, stock = EXCLUDED.stock,
-             categoria = EXCLUDED.categoria, unidad = EXCLUDED.unidad,
-             descuento = CASE WHEN $14::boolean THEN EXCLUDED.descuento
-                              ELSE ${T_PRODUCTOS}.descuento END,
-             oferta_hasta = CASE WHEN $14::boolean THEN EXCLUDED.oferta_hasta
-                                 ELSE ${T_PRODUCTOS}.oferta_hasta END,
-             imagen = CASE WHEN $15::boolean THEN EXCLUDED.imagen
-                           ELSE ${T_PRODUCTOS}.imagen END,
-             imagen_hash = CASE WHEN $15::boolean THEN EXCLUDED.imagen_hash
-                                ELSE ${T_PRODUCTOS}.imagen_hash END,
-             codigo = CASE WHEN $16::boolean THEN EXCLUDED.codigo
-                           ELSE ${T_PRODUCTOS}.codigo END,
-             imagenes = CASE WHEN $18::boolean THEN EXCLUDED.imagenes
-                             ELSE ${T_PRODUCTOS}.imagenes END,
-             actualizado = EXCLUDED.actualizado, nube_ts = now()`,
-          [localId, sku, nombre, precio,
-            p.stock === null || p.stock === undefined || p.stock === '' ? null : entero(p.stock),
-            texto(p.categoria, 40).trim(), texto(p.unidad, 30).trim(), ahora, dcto, hasta,
-            imagen, imagenHash, codigo, tocaOferta, foto.ok, cod.ok,
-            JSON.stringify(galeria), tocaImagenes]
-        );
+        /* Destacado: sólo se toca si el lote lo trae, para que editar el stock
+           no quite el destacado de nadie. */
+        const tocaDestacado = 'destacado' in p;
+        const destacado = tocaDestacado ? booleano(p.destacado, false) : false;
+        /* Un solo parámetro JSON para toda la fila: evita deslizar los
+           posicionales y que Postgres no deduzca el tipo de un parámetro que
+           sólo aparece dentro de un CASE. */
+        const valores: unknown[] = [localId, sku, JSON.stringify({
+          nombre, precio,
+          stock: p.stock === null || p.stock === undefined || p.stock === '' ? null : entero(p.stock),
+          categoria: texto(p.categoria, 40).trim(),
+          unidad: texto(p.unidad, 30).trim(),
+          descuento: dcto,
+          oferta_hasta: hasta,
+          imagen, imagen_hash: imagenHash, codigo,
+          imagenes: galeria,
+          destacado,
+          toca_oferta: tocaOferta,
+          toca_imagen: foto.ok,
+          toca_codigo: cod.ok,
+          toca_imagenes: tocaImagenes,
+          toca_destacado: tocaDestacado,
+          actualizado: ahora,
+        })];
+        const sql = `INSERT INTO ${T_PRODUCTOS}
+           (local_id,sku,nombre,precio,stock,categoria,unidad,actualizado,descuento,oferta_hasta,imagen,imagen_hash,codigo,imagenes,destacado)
+         VALUES ($1,$2,
+                 $3::jsonb->>'nombre', ($3::jsonb->>'precio')::numeric, ($3::jsonb->>'stock')::int,
+                 $3::jsonb->>'categoria', $3::jsonb->>'unidad', ($3::jsonb->>'actualizado')::bigint,
+                 ($3::jsonb->>'descuento')::int, ($3::jsonb->>'oferta_hasta')::bigint,
+                 $3::jsonb->>'imagen', $3::jsonb->>'imagen_hash', $3::jsonb->>'codigo',
+                 COALESCE($3::jsonb->'imagenes', '[]'::jsonb),
+                 COALESCE(($3::jsonb->>'destacado')::boolean, false))
+         ON CONFLICT (local_id,sku) DO UPDATE SET
+           nombre = EXCLUDED.nombre, precio = EXCLUDED.precio, stock = EXCLUDED.stock,
+           categoria = EXCLUDED.categoria, unidad = EXCLUDED.unidad,
+           descuento = CASE WHEN ($3::jsonb->>'toca_oferta')::boolean THEN EXCLUDED.descuento
+                            ELSE ${T_PRODUCTOS}.descuento END,
+           oferta_hasta = CASE WHEN ($3::jsonb->>'toca_oferta')::boolean THEN EXCLUDED.oferta_hasta
+                               ELSE ${T_PRODUCTOS}.oferta_hasta END,
+           imagen = CASE WHEN ($3::jsonb->>'toca_imagen')::boolean THEN EXCLUDED.imagen
+                         ELSE ${T_PRODUCTOS}.imagen END,
+           imagen_hash = CASE WHEN ($3::jsonb->>'toca_imagen')::boolean THEN EXCLUDED.imagen_hash
+                              ELSE ${T_PRODUCTOS}.imagen_hash END,
+           codigo = CASE WHEN ($3::jsonb->>'toca_codigo')::boolean THEN EXCLUDED.codigo
+                         ELSE ${T_PRODUCTOS}.codigo END,
+           imagenes = CASE WHEN ($3::jsonb->>'toca_imagenes')::boolean THEN EXCLUDED.imagenes
+                           ELSE ${T_PRODUCTOS}.imagenes END,
+           destacado = CASE WHEN ($3::jsonb->>'toca_destacado')::boolean THEN EXCLUDED.destacado
+                            ELSE ${T_PRODUCTOS}.destacado END,
+           actualizado = EXCLUDED.actualizado, nube_ts = now()`;
+        await cliente.query(sql, valores);        await cliente.query(sql, valores);
         subidos++;
       }
 

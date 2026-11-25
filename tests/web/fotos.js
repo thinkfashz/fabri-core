@@ -93,13 +93,14 @@ ok('el catálogo no manda el data URL', !/imagen: f\.imagen\b/.test(API));
 
 console.log('\nAPI · alta que conserva la foto');
 ok('detecta si el lote trae imagen', /'imagen' in p/.test(API));
-ok('guarda imagen, hash y galería en el INSERT',
-  /\(local_id,sku,nombre,precio,stock,categoria,unidad,actualizado,descuento,oferta_hasta,imagen,imagen_hash,codigo,imagenes\)/.test(API) &&
-  /imagenes = CASE WHEN \$18::boolean THEN EXCLUDED\.imagenes/.test(API));
+ok('guarda imagen, hash, galería y destacado en el INSERT',
+  /\(local_id,sku,nombre,precio,stock,categoria,unidad,actualizado,descuento,oferta_hasta,imagen,imagen_hash,codigo,imagenes,destacado\)/.test(API) &&
+  /imagenes = CASE WHEN \(\$3::jsonb->>'toca_imagenes'\)::boolean THEN EXCLUDED\.imagenes/.test(API) &&
+  /destacado = CASE WHEN \(\$3::jsonb->>'toca_destacado'\)::boolean THEN EXCLUDED\.destacado/.test(API));
 ok('conserva la foto cuando no se toca',
-  /imagen = CASE WHEN \$15::boolean THEN EXCLUDED\.imagen[\s\S]{0,80}ELSE \$\{T_PRODUCTOS\}\.imagen END/.test(API));
+  /imagen = CASE WHEN \(\$3::jsonb->>'toca_imagen'\)::boolean THEN EXCLUDED\.imagen[\s\S]{0,80}ELSE \$\{T_PRODUCTOS\}\.imagen END/.test(API));
 ok('conserva el hash cuando no se toca',
-  /imagen_hash = CASE WHEN \$15::boolean THEN EXCLUDED\.imagen_hash[\s\S]{0,100}ELSE \$\{T_PRODUCTOS\}\.imagen_hash END/.test(API));
+  /imagen_hash = CASE WHEN \(\$3::jsonb->>'toca_imagen'\)::boolean THEN EXCLUDED\.imagen_hash[\s\S]{0,100}ELSE \$\{T_PRODUCTOS\}\.imagen_hash END/.test(API));
 
 console.log('\nAPI · imagen_ver');
 ok('acción pública en GET', /searchParams\.get\('accion'\) === 'imagen_ver'/.test(API));

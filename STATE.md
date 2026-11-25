@@ -8,6 +8,45 @@
 
 Última actualización: 2026-11-25
 
+## Sesión 2026-11-25 · Catálogo vitrina, destacar y diagnóstico de sync (0.9.71)
+
+Pedido: el CRM no conectaba con la nube; el catálogo debía ser una vitrina
+moderna con edición y un botón para destacar en la tienda.
+
+**Causa del CRM (diagnóstico en el log)**
+
+- `el token de la nube fue rechazado` → la sesión del panel no es la credencial
+  del puente: el puente usa `local_id` + `clave` de 8 caracteres.
+- `el plan gratis permite 300 productos y este lote llega a 500` → `sync_pendientes`
+    devuelve hasta 500 filas y el plan gratis topa en 300.
+- Nueva tarjeta en Base de datos: **«¿Por qué no sincroniza?»** (`btnSqlDiagPuente`),
+    que muestra API, tienda, clave, sesión, respuesta, productos en la nube,
+    productos del equipo y cuántos quedan sin subir.
+
+**Catálogo vitrina**
+
+- La tarjeta ya no tiene botón «Agregar»: es una vitrina; se abre la ficha.
+- Etiqueta **★ Destacado** y borde lima en los productos destacados.
+- En la ficha, botón **«Destacar en mi tienda» / «Quitar destacado»** que guarda
+  en la nube con `productos_subir`.
+- Backend: columna `mercado_productos.destacado` + índice, y el catálogo se
+  ordena con los destacados primero (`ORDER BY local_id, destacado DESC, nombre`).
+
+**Fallo encontrado y corregido en el camino**
+
+- Al añadir `destacado` el `INSERT` quedó con 20 parámetros y 19 posicionales:
+   500 en cada subida. Se reescribió con **un solo parámetro JSON** (`$3::jsonb`)
+    del que se leen todas las columnas, con casts explícitos. Verificado:
+   subir 3 productos OK, destacado se conserva, y al quitarlo vuelve a false.
+
+**Verificación**
+
+- 26/26 suites web (tests de `codigos`, `descuentos` y `fotos` actualizados al
+  nuevo INSERT), arranque de la APK en verde, TS OK.
+- APK 0.9.71 (versionCode 86) en Descargas y en `web/descargas`, md5
+  `23b72ec558d8da79979c81ea03b3065e`.
+- Datos de prueba borrados.
+
 ## Sesión 2026-11-25 · Cloudinary con API key y secret firmado en la nube
 
 Pedido: que Cloudinary guarde también la API (key + secret), porque con el

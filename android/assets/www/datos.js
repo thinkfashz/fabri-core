@@ -1096,3 +1096,85 @@ async function hojaRespaldoCompleto() {
     toast("Fallo al exportar respaldo: " + e.message, "error");
   }
 }
+
+/* ── Diagnóstico del puente de datos ─────────────────────────────────────
+   Responde la pregunta «¿por qué no sincroniza?»: dice qué hay configurado,
+   si la tienda responde y qué falló la última vez. No inventa: si no hay
+   tienda, lo dice; si el plan no alcanza, lo dice con el número. */
+async function sqlDiagnosticoPuente() {
+  const caja = document.getElementById("sqlDiagPuente");
+  const pintar = (lineas, tipo) => {
+    if (!caja) return;
+    caja.innerHTML = lineas.map(function (l) {
+      return '<div class="mx-dato"><span>' + l[0] + "</span><b>" + l[1] + "</b></div>";
+    }).join("");
+    caja.setAttribute("data-tipo", tipo || "");
+  };
+  const url = (localStorage.getItem("fabrick.nube.url") || "https://fabri-api.vercel.app").replace(/\/+$/, "");
+  const local = localStorage.getItem("fabrick.nube.local") || "";
+  const clave = localStorage.getItem("fabrick.nube.clave") || "";
+  const token = localStorage.getItem("fabrick.nube.token") || "";
+  const lineas = [];
+  lineas.push(["API", url]);
+  lineas.push(["Tienda", local || "sin configurar"]);
+  lineas.push(["Clave", clave ? clave.length + " caracteres" : "sin configurar"]);
+  lineas.push(["Sesión", token ? "sí" : "no (sólo clave)"]);
+  pintar(lineas, "");
+  if (!local || !clave) {
+    pintar(lineas.concat([["Estado", "conecta la tienda en Integración"]]), "mal");
+    return;
+  }
+  try {
+    const t0 = Date.now();
+    const r = await fetch(url + "/api/mercado", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ accion: "estado_base", local_id: local, clave: clave }),
+    });
+    const d = await r.json().catch(function () { return {}; });
+    const ms = Date.now() - t0;
+    if (!r.ok || !d.ok) {
+      pintar(lineas.concat([
+        ["Respuesta", d.error || ("HTTP " + r.status)],
+        ["Diagnóstico", d.codigo === "clave_mala" ? "la clave no coincide" : "revisa la tienda"],
+      ]), "mal");
+      return;
+    }
+    const b = d.base || {};
+    /* Cuántos productos hay de verdad en la nube (catálogo público). */
+    const prod = await fetch(url + "/api/mercado", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ accion: "local_ver", local_id: local }),
+    }).then(function (x) { return x.json(); }).catch(function () { return {}; });
+    const nube = (prod && prod.tienda && Array.isArray(prod.tienda.catalogo)) ? prod.tienda.catalogo.length : 0;
+    /* Lo que de verdad se enviaría: `sync_pendientes` marca `sync_ts = 0`. */
+    let equipo = "—";
+    let pendientes = "—";
+    try {
+      const rq = await apiTarde("inventario", { accion: "listar", limite: 500 }, { maxMs: 15000 });
+      const lista = (rq.ok && rq.data && Array.isArray(rq.data.productos)) ? rq.data.productos : [];
+      equipo = String(lista.length);
+      const rp = await apiTarde("inventario", { accion: "sync_pendientes" }, { maxMs: 15000 });
+      const porSubir = (rp.ok && rp.data && Array.isArray(rp.data.productos)) ? rp.data.productos.length : 0;
+      pendientes = String(porSubir);
+    } catch (e) { equipo = "no medible"; }
+    pintar(lineas.concat([
+      ["Nube", ms + " ms · " + intBytes(b.bytes)],
+      ["Productos en la nube", String(nube)],
+      ["Productos del equipo", equipo],
+      ["Sin subir", pendientes],
+    ]), "ok");
+  } catch (e) {
+    pintar(lineas.concat([["Estado", "sin conexión: " + e.message]]), "mal");
+  }
+}
+
+/** Une el botón si existe (la tarjeta se crea en el HTML). */
+document.addEventListener("DOMContentLoaded", function () {
+  var b = document.getElementById("btnSqlDiagPuente");
+  if (b && !b.dataset.listo) {
+    b.dataset.listo = "1";
+    b.onclick = sqlDiagnosticoPuente;
+  }
+});

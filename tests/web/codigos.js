@@ -93,12 +93,13 @@ ok('CAMPOS_PRODUCTO trae el código',
   /\$\{k\}codigo,\$\{k\}imagen_hash/.test(API) &&
   /const CAMPOS_PRODUCTO = camposProducto\(\)/.test(API));
 ok('productoDeFila expone el código', /codigo: f\.codigo \|\| ''/.test(API));
-ok('el INSERT guarda el código y la galería',
-  /\(local_id,sku,nombre,precio,stock,categoria,unidad,actualizado,descuento,oferta_hasta,imagen,imagen_hash,codigo,imagenes\)/.test(API));
+ok('el INSERT guarda el código, la galería y el destacado',
+  /\(local_id,sku,nombre,precio,stock,categoria,unidad,actualizado,descuento,oferta_hasta,imagen,imagen_hash,codigo,imagenes,destacado\)/.test(API));
 ok('conserva el código cuando el lote no lo trae',
-  /codigo = CASE WHEN \$16::boolean THEN EXCLUDED\.codigo[\s\S]{0,90}ELSE \$\{T_PRODUCTOS\}\.codigo END/.test(API));
+  /codigo = CASE WHEN \(\$3::jsonb->>'toca_codigo'\)::boolean THEN EXCLUDED\.codigo[\s\S]{0,90}ELSE \$\{T_PRODUCTOS\}\.codigo END/.test(API));
 ok('un código inválido no borra el anterior',
-  /imagen, imagenHash, codigo, tocaOferta, foto\.ok, cod\.ok,/.test(API));
+  /imagen, imagen_hash: imagenHash, codigo,/.test(API) &&
+  /toca_codigo: cod\.ok/.test(API));
 ok('informa códigos inválidos',
   /codigos_invalidos: codigosInvalidos\.length/.test(API) &&
   /detalle_codigos_invalidos/.test(API));
@@ -112,7 +113,8 @@ ok('cruza todos los locales', /async function buscarPorCodigo/.test(API) &&
 ok('sólo locales activos', /WHERE id = ANY\(\$1::text\[\]\) AND activo = true/.test(API));
 ok('ordena por precio efectivo', /ORDER BY \$\{precioEfectivo\(\)\} ASC/.test(API));
 ok('tope de 50 resultados', /LIMIT 50/.test(API));
-ok('acción listada en el diagnóstico', /'imagen_ver', 'codigo_buscar'/.test(API));
+ok('acción listada en el diagnóstico',
+  /'imagen_ver', 'imagen_firmar', 'imagen_config_guardar', 'imagen_config_ver',\s*'imagen_config_borrar', 'codigo_buscar'/.test(API));
 ok('el pedido guarda el código del producto', /codigo: enCat\.codigo \|\| ''/.test(API));
 ok('el snapshot JSONB del pedido guarda el código',
   /sku: x\.sku, codigo: x\.codigo \|\| ''/.test(API));

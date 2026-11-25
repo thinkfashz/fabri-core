@@ -132,7 +132,7 @@ ok('catálogo, tienda y pedido usan las mismas columnas',
 console.log('\nServidor · oferta del vendedor');
 ok('un lote sin columna conserva la oferta',
   /const tocaOferta = 'descuento' in p \|\| 'oferta_hasta' in p/.test(api) &&
-  /CASE WHEN \$14::boolean THEN EXCLUDED\.descuento/.test(api));
+  /CASE WHEN \(\$3::jsonb->>'toca_oferta'\)::boolean THEN EXCLUDED\.descuento/.test(api));
 ok('el descuento se acota al tope', /entero\(p\.descuento, DCTO_MAX\)/.test(api));
 ok('una fecha suelta vale hasta fin de día en Chile', /T23:59:59-04:00/.test(api));
 ok('la subida devuelve cuántos quedaron en oferta', /total, ofertas, tope/.test(api));
