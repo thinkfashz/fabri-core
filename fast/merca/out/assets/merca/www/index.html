@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#070A08">
+<title>MercaFabrick · tu barrio, en stock</title>
+<link rel="stylesheet" href="./merca.css">
+</head>
+<body>
+
+<header class="mf-top">
+  <div class="mf-marca">
+    <span class="mf-marca__ico" aria-hidden="true">M</span>
+    <span class="mf-marca__txt"><b>MercaFabrick</b><small>tu barrio, en stock</small></span>
+  </div>
+  <button class="mf-top__btn" id="mfUbi" type="button" aria-label="Centrar en mi ubicación">◎</button>
+</header>
+
+<div id="mfAuth"></div>
+
+<nav class="mf-tabs" id="mfTabs" role="tablist" aria-label="Secciones">
+  <button class="mf-tab activo" data-tab="inicio" role="tab" aria-selected="true">Inicio</button>
+  <button class="mf-tab" data-tab="mapa" role="tab" aria-selected="false">Mapa</button>
+  <button class="mf-tab" data-tab="catalogo" role="tab" aria-selected="false">Catálogo</button>
+  <button class="mf-tab" data-tab="carrito" role="tab" aria-selected="false">Carrito <span id="mfBadge" hidden>0</span></button>
+  <button class="mf-tab" data-tab="cuenta" role="tab" aria-selected="false">Cuenta</button>
+</nav>
+
+<main id="mfMain" class="mf-main">
+  <div class="mf-cargando" id="mfCargando">Cargando tu barrio…</div>
+</main>
+
+<canvas id="mfAuthCanvas" aria-hidden="true"></canvas>
+
+<script src="./merca.js"></script>
+<script src="./auth.js"></script>
+<script src="./merca-app.js"></script>
+</body>
+</html>
