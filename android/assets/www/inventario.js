@@ -123,6 +123,19 @@ const INV_CATEGORIAS = {
   otros: "Otros"
 };
 
+/* Lote de los listados paginados (pasos 2, 3 y 4): 20 de 20, nunca todo de golpe. */
+const INV_PAG_LOTE = 20;
+
+/* Título y explicación de cada paso: así cada uno se siente como una página propia. */
+const INV_PASOS_META = [
+  null,
+  { tit: "Escanear", sub: "Captura códigos de barras con la cámara o escríbelos a mano. Se busca en tu base local, en tu nube y en las bases libres." },
+  { tit: "Productos", sub: "Da de alta, edita y ajusta el stock de tus productos. Listado de 20 en 20." },
+  { tit: "Precios", sub: "Compara precios por proveedor del producto elegido y elige el mejor." },
+  { tit: "Márgenes", sub: "Calcula margen sobre venta, markup sobre costo y el precio sugerido para ganar más." },
+  { tit: "Boleta", sub: "Agrega productos al carrito, calcula el IVA y emite la boleta." }
+];
+
 /* ── iconos ───────────────────────────────────────────────────────────────
    Iconos dibujados aquí mismo (24×24, trazo), no emoji ni fuentes externas.
    Se pintan con el color del texto (`currentColor`) para que sigan al botón y
@@ -452,6 +465,7 @@ function invSalir() {
   invCamaraParar();
   invEdLector(false);
   invEditorCerrar();
+  invEscenaDestruir();   // libera la escena 3D y su bucle de animación
 }
 
 function invConectarEventos() {
@@ -471,6 +485,9 @@ function invConectarEventos() {
   if ($("btnInvApiladorLimpiar")) $("btnInvApiladorLimpiar").addEventListener("click", invApiladorLimpiar);
   if ($("btnInvScanBar")) $("btnInvScanBar").addEventListener("click", invScanBarEscanear);
   if ($("btnInvScanBarBuscar")) $("btnInvScanBarBuscar").addEventListener("click", invScanBarBuscar);
+  /* Buscador avanzado (inv-buscar.js): chips, orden y paginación. Se monta
+     sobre el contenedor que exista; si no, no pasa nada. */
+  invBuscadorMontar();
   if ($("invScanBarCodigo")) $("invScanBarCodigo").addEventListener("keydown", function (ev) {
     if (ev.key === "Enter") { ev.preventDefault(); invScanBarBuscar(); }
   });
@@ -675,6 +692,10 @@ function invPaso(n) {
     // página en horizontal y descuadraba toda la vista en el teléfono.
     barra.scrollLeft = Math.max(0, act.offsetLeft - (barra.clientWidth - act.offsetWidth) / 2);
   }
+  // Escena 3D solo vive en el paso 1: se arranca al entrar y se para al salir.
+  if (n === 1) { invEscenaCrear(); invEscenaIniciar(); } else { invEscenaParar(); }
+  // Cada paso es una página: cabecera con su propósito y pie con avance.
+  invPaginaMontar(n);
   window.scrollTo({ top: 0, behavior: "instant" });
 }
 
@@ -1553,12 +1574,57 @@ function invApiladorLimpiar() {
 
 /* ── carrito de escaneo: foco, stepper, edición y ficha de precios ───────── */
 
+/**
+ * Motor de márgenes: una sola fuente de verdad para toda la app.
+ *
+ * Hay dos formas de medir y la gente las confunde:
+ *   · margen sobre venta = (precio - costo) / precio   ← el que se cobra
+ *   · markup sobre costo = (precio - costo) / costo    ← el que se multiplica
+ * Se devuelven las dos, más el iva y el precio sugerido para un objetivo,
+ * para que la ficha, la tabla y el chat digan lo mismo.
+ */
 function invMargenDe(p) {
-  const costo = Number(p.costo || 0);
-  const precio = Number(p.precio || 0);
+  const costo = Math.max(0, Number(p && p.costo) || 0);
+  const precio = Math.max(0, Number(p && p.precio) || 0);
+  const iva = Math.max(0, Math.min(100, Number(p && p.iva != null ? p.iva : 19) || 0));
   const ganancia = precio - costo;
-  const margen = costo > 0 ? Math.round((ganancia / costo) * 100) : (precio > 0 ? 100 : 0);
-  return { costo: costo, precio: precio, ganancia: ganancia, margen: margen };
+  const margen = precio > 0 ? Math.round((ganancia / precio) * 1000) / 10 : 0;
+  /* Sin costo conocido el markup no es 0: es «no calculable». Se marca -1 y la
+     interfaz lo explica, en vez de mostrar un 0 % que parece un dato. */
+  const markup = costo > 0 ? Math.round((ganancia / costo) * 1000) / 10 : -1;
+  const precioConIva = Math.round(precio * (1 + iva / 100));
+  const utilidad = Math.round(ganancia * (Number(p && p.stock) || 0));
+  const valorCosto = Math.round(costo * (Number(p && p.stock) || 0));
+  const valorVenta = Math.round(precio * (Number(p && p.stock) || 0));
+  /* Semáforo del margen: rojo por debajo de 15 %, ámbar hasta 30 %, verde
+     desde ahí. Es el mismo criterio que usa la tabla. */
+  const nivel = precio <= 0 || margen < 15 ? 'malo' : (margen < 30 ? 'justo' : 'bueno');
+  return {
+    costo: costo, precio: precio, iva: iva,
+    ganancia: Math.round(ganancia), margen: margen, markup: markup,
+    precio_con_iva: precioConIva, utilidad: utilidad,
+    valor_costo: valorCosto, valor_venta: valorVenta,
+    nivel: nivel,
+    stock: Number(p && p.stock) || 0,
+  };
+}
+
+/** Precio sugerido para alcanzar un margen objetivo sobre venta. */
+function invPrecioObjetivo(costo, objetivo, iva) {
+  const c = Math.max(0, Number(costo) || 0);
+  const o = Math.max(0, Math.min(95, Number(objetivo) || 0));
+  if (c <= 0) return 0;
+  if (o >= 95) return 0;
+  return Math.round(c / (1 - o / 100));
+}
+
+/** Explicación en una línea, para que el número no venga solo. */
+function invExplicaMargen(m) {
+  if (m.precio <= 0) return 'Sin precio de venta: no hay margen que calcular.';
+  if (m.margen < 0) return 'Vendes por debajo del costo: pierdes ' + invClp(Math.abs(m.ganancia)) + ' por unidad.';
+  if (m.margen < 15) return 'Margen bajo (' + m.margen + '%): revisa el costo o el precio.';
+  if (m.margen < 30) return 'Margen justo (' + m.margen + '%): cubres gastos, con poco colchón.';
+  return 'Margen sano (' + m.margen + '%): ganas ' + invClp(m.ganancia) + ' por unidad.';
 }
 
 /** Ficha compacta del producto: proveedor, compra, venta, margen y ganancia. */
@@ -1569,6 +1635,7 @@ function invScanInfoHtml(p) {
   const m = invMargenDe(p);
   const proveedor = p.proveedor || "Sin proveedor";
   const titulo = p.nombre || ("Producto " + (p.codigo || ""));
+  const prox = m.margen < 30 ? invPrecioObjetivo(m.costo, 30, m.iva) : 0;
   return `<div class="inv-scan-info-cab">
       ${invMiniaturaHtml(p, 42)}
       <div class="inv-scan-info-titulo">
@@ -1580,9 +1647,13 @@ function invScanInfoHtml(p) {
       <div class="inv-scan-info-celda"><span>Proveedor</span><b>${esc(proveedor)}</b></div>
       <div class="inv-scan-info-celda"><span>Precio compra</span><b>${invClp(m.costo)}</b></div>
       <div class="inv-scan-info-celda"><span>Precio venta</span><b class="venta">${invClp(m.precio)}</b></div>
-      <div class="inv-scan-info-celda"><span>Margen</span><b>${m.margen}%</b></div>
+      <div class="inv-scan-info-celda"><span>Margen s/ venta</span><b>${m.margen}%</b></div>
+      <div class="inv-scan-info-celda"><span>Markup s/ costo</span><b>${m.markup < 0 ? '—' : m.markup + '%'}</b></div>
       <div class="inv-scan-info-celda ganancia"><span>Ganancia</span><b>${invClp(m.ganancia)}</b></div>
+      ${m.precio > 0 ? `<div class="inv-scan-info-celda"><span>Con IVA ${m.iva}%</span><b>${invClp(m.precio_con_iva)}</b></div>` : ""}
+      ${prox ? `<div class="inv-scan-info-celda mejor"><span>Para 30 %</span><b>${invClp(prox)}</b></div>` : ""}
     </div>
+    <p class="inv-scan-info-explica" data-nivel="${m.nivel}">${esc(invExplicaMargen(m))}</p>
     <div class="inv-scan-info-acciones">
       <button class="btn btn-primario" data-inv-info-editar="${esc(p.codigo || "")}">${ico("editar", 14)} Editar producto</button>
     </div>`;
@@ -1641,6 +1712,19 @@ function invScanBarEscanear() {
 }
 
 /** Busca un código escrito en la barra y pinta su ficha inferior. */
+/** Monta el buscador avanzado si el HTML trae su contenedor. */
+function invBuscadorMontar() {
+  const cont = document.getElementById("invBuscador");
+  if (!cont || typeof window.InvBuscar !== "function" || INV.buscador) return;
+  try {
+    INV.buscador = window.InvBuscar.montar(cont, {
+      alSeleccionar: function (p) { if (p && p.codigo) invSeleccionarProducto(p.codigo); },
+    });
+  } catch (e) {
+    revision("inventario", "error", "no se pudo montar el buscador", String(e));
+  }
+}
+
 async function invScanBarBuscar() {
   const campo = document.getElementById("invScanBarCodigo");
   const codigo = (campo ? campo.value : "").trim();
@@ -2920,6 +3004,7 @@ function invPintarProductos() {
   });
 
   INV._catLista = lista;
+  INV._catPagina = 0;          // nuevo filtro: empieza en la primera página
   INV._catMostrar = INV_CAT_LOTE;
   invPintarCatalogo();
 }
@@ -2983,25 +3068,20 @@ function invPintarCatalogo() {
       : "Todavía no hay productos. Escanea un código, impórtalos o crea uno con «Nuevo producto»."}</div>`;
     return;
   }
-  // Paginación en dock flotante (‹ 2/4 ›) en vez de un botón largo.
-  const lote = INV_CAT_LOTE;
+  // Paginación real de 20 en 20: nunca se pinta la lista entera de golpe.
+  const lote = INV_PAG_LOTE;
   const total = lista.length;
   const paginas = Math.max(1, Math.ceil(total / lote));
   let pag = Number(INV._catPagina || 0);
   if (pag > paginas - 1) pag = paginas - 1;
   if (pag < 0) pag = 0;
+  INV._catPagina = pag;
   const desde = pag * lote;
   const hasta = Math.min(total, desde + lote);
   INV._catMostrar = hasta;
   caja.innerHTML = `<div class="inv-catalogo">` +
     lista.slice(desde, hasta).map(invCardHtml).join("") + `</div>` +
-    (paginas > 1
-      ? `<div class="inv-pager">
-           <button class="inv-pager-btn" data-inv-pag="-1" type="button" ${pag === 0 ? "disabled" : ""} aria-label="Anterior">‹</button>
-           <span class="inv-pager-info"><b>${pag + 1}</b> / ${paginas} · ${total} prod.</span>
-           <button class="inv-pager-btn" data-inv-pag="1" type="button" ${pag >= paginas - 1 ? "disabled" : ""} aria-label="Siguiente">›</button>
-         </div>`
-      : "");
+    (total > lote ? invPaginacion(pag, paginas, desde, hasta, total) : "");
 
   // Miniaturas: se dibujan en el siguiente cuadro para no bloquear el toque.
   requestAnimationFrame(function () {
@@ -3012,7 +3092,13 @@ function invPintarCatalogo() {
 
   caja.querySelectorAll("[data-inv-pag]").forEach(function (b) {
     b.addEventListener("click", function () {
-      INV._catPagina = Math.max(0, Number(INV._catPagina || 0) + Number(b.dataset.invPag));
+      const dir = b.dataset.invPag;
+      let pag = Number(INV._catPagina || 0);
+      if (dir === "primero") pag = 0;
+      else if (dir === "ultimo") pag = paginas - 1;
+      else if (dir === "ant") pag = Math.max(0, pag - 1);
+      else if (dir === "sig") pag = Math.min(paginas - 1, pag + 1);
+      INV._catPagina = pag;
       invPintarCatalogo();
       const lista2 = document.getElementById("invLista");
       if (lista2) lista2.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -3628,6 +3714,7 @@ function invPintarPrecios() {
   if (!caja) return;
   const codigo = INV.sel || (document.getElementById("invPrecioProducto") || {}).value || "";
   if (!codigo) { caja.innerHTML = `<div class="inv-vacio">Elige un producto.</div>`; return; }
+  INV._preciosPagina = 0;      // nuevos datos: arranca en la primera página
   caja.innerHTML = `<div class="inv-vacio">Leyendo precios…</div>`;
   invApiTarde("precios", { codigo: codigo }).then(function (r) {
     if (!r.ok) {
@@ -3705,7 +3792,14 @@ function invPintarPreciosCon(codigo, d) {
   if (!caja) return;
   const p = invPorCodigo(codigo);
   const lista = d.precios || [];
-  const filas = lista.length ? lista.map(function (x) {
+  const lote = INV_PAG_LOTE;
+  const paginasPrecios = Math.max(1, Math.ceil(lista.length / lote));
+  let pagPrecios = Number(INV._preciosPagina || 0);
+  if (pagPrecios > paginasPrecios - 1) pagPrecios = 0;
+  INV._preciosPagina = pagPrecios;
+  const desdePrecios = pagPrecios * lote;
+  const hastaPrecios = Math.min(lista.length, desdePrecios + lote);
+  const filas = lista.length ? lista.slice(desdePrecios, hastaPrecios).map(function (x) {
     const mejor = d.mejor > 0 && x.precio === d.mejor;
     return `<tr class="${mejor ? "mejor" : ""}">
       <td>${esc(x.proveedor || "sin nombre")}</td>
@@ -3729,7 +3823,20 @@ function invPintarPreciosCon(codigo, d) {
         <thead><tr><th>Proveedor</th><th class="num">Precio</th><th class="num">Diferencia</th><th>Nota</th></tr></thead>
         <tbody>${filas}</tbody>
       </table>
-    </div>`;
+    </div>` +
+    (lista.length > lote ? invPaginacion(pagPrecios, paginasPrecios, desdePrecios, hastaPrecios, lista.length) : "");
+  caja.querySelectorAll("[data-inv-pag]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      const dir = b.dataset.invPag;
+      let pag = Number(INV._preciosPagina || 0);
+      if (dir === "primero") pag = 0;
+      else if (dir === "ultimo") pag = paginasPrecios - 1;
+      else if (dir === "ant") pag = Math.max(0, pag - 1);
+      else if (dir === "sig") pag = Math.min(paginasPrecios - 1, pag + 1);
+      INV._preciosPagina = pag;
+      invPintarPreciosCon(codigo, d);
+    });
+  });
 }
 
 function invPrecioAgregar() {
@@ -3844,29 +3951,67 @@ function invPintarMargenes() {
     caja.innerHTML = `<div class="inv-vacio">Sin productos para calcular.</div>`;
     return;
   }
-  const filas = INV.productos.map(function (p) {
-    const alerta = p.precio <= 0 || p.margen < 15;
-    return `<tr class="${alerta ? "mejor" : ""}">
+  /* Primero lo que necesita atención (margen bajo o sin precio), después el
+     resto por margen descendente: así el dueño ve lo urgente sin buscar. */
+  const calculados = INV.productos.map(function (p) {
+    return { p: p, m: invMargenDe(p) };
+  }).sort(function (a, b) {
+    const pa = a.m.nivel === 'bueno' ? 1 : 0;
+    const pb = b.m.nivel === 'bueno' ? 1 : 0;
+    if (pa !== pb) return pa - pb;
+    return b.m.margen - a.m.margen;
+  });
+  const lote = INV_PAG_LOTE;
+  const paginasMargen = Math.max(1, Math.ceil(calculados.length / lote));
+  let pagMargen = Number(INV._margenesPagina || 0);
+  if (pagMargen > paginasMargen - 1) pagMargen = 0;
+  INV._margenesPagina = pagMargen;
+  const desdeMargen = pagMargen * lote;
+  const hastaMargen = Math.min(calculados.length, desdeMargen + lote);
+  const filas = calculados.slice(desdeMargen, hastaMargen).map(function (x) {
+    const p = x.p, m = x.m;
+    return `<tr class="${m.nivel === 'bueno' ? '' : 'mejor'}" data-nivel="${m.nivel}">
       <td>${esc(p.nombre)}</td>
-      <td class="num">${invClp(p.costo)}</td>
-      <td class="num">${invClp(p.precio)}</td>
-      <td class="num">${p.margen}%</td>
-      <td class="num">${p.stock}</td>
-      <td class="num">${invClp(p.costo * p.stock)}</td>
-      <td class="num">${invClp(p.precio * p.stock)}</td>
+      <td class="num">${invClp(m.costo)}</td>
+      <td class="num">${invClp(m.precio)}</td>
+      <td class="num">${m.margen}%</td>
+      <td class="num">${m.markup < 0 ? '—' : m.markup + '%'}</td>
+      <td class="num">${m.stock}</td>
+      <td class="num">${invClp(m.valor_costo)}</td>
+      <td class="num">${invClp(m.valor_venta)}</td>
     </tr>`;
   }).join("");
-  caja.innerHTML = `
+  const bajos = calculados.filter(function (x) { return x.m.nivel !== 'bueno'; }).length;
+  const resumen = '<p class="inv-margen-resumen">' +
+    (bajos
+      ? '<b>' + bajos + '</b> producto' + (bajos === 1 ? '' : 's') + ' con margen bajo o sin precio. ' +
+        'El margen se mide sobre la venta; el markup, sobre el costo.'
+      : 'Todos los productos tienen margen sano. El margen se mide sobre la venta; el markup, sobre el costo.') +
+    '</p>';
+  caja.innerHTML = resumen + `
     <div class="inv-tabla-scroll">
       <table class="inv-tabla">
         <thead><tr>
           <th>Producto</th><th class="num">Costo</th><th class="num">Precio</th>
-          <th class="num">Margen</th><th class="num">Stock</th>
+          <th class="num">Margen</th><th class="num">Markup</th><th class="num">Stock</th>
           <th class="num">Valor costo</th><th class="num">Valor venta</th>
         </tr></thead>
         <tbody>${filas}</tbody>
       </table>
-    </div>`;
+    </div>` +
+    (calculados.length > lote ? invPaginacion(pagMargen, paginasMargen, desdeMargen, hastaMargen, calculados.length) : "");
+  caja.querySelectorAll("[data-inv-pag]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      const dir = b.dataset.invPag;
+      let pag = Number(INV._margenesPagina || 0);
+      if (dir === "primero") pag = 0;
+      else if (dir === "ultimo") pag = paginasMargen - 1;
+      else if (dir === "ant") pag = Math.max(0, pag - 1);
+      else if (dir === "sig") pag = Math.min(paginasMargen - 1, pag + 1);
+      INV._margenesPagina = pag;
+      invPintarMargenes();
+    });
+  });
 }
 
 function invExportar() {

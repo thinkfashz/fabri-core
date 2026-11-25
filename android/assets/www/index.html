@@ -17,6 +17,7 @@
   <link rel="stylesheet" href="legal.css" />
   <link rel="stylesheet" href="integracion.css" />
   <link rel="stylesheet" href="matrix.css" />
+  <link rel="stylesheet" href="inv-buscar.css" />
 </head>
 <body>
   <!-- ===================== ACCESO · HUELLA + PIN ===================== -->
@@ -2455,6 +2456,9 @@ npx -y omniroute@latest
           <button class="btn" id="btnInvScanBarBuscar" type="button" aria-label="Buscar"><span data-ico="buscar"></span></button>
         </div>
 
+        <!-- Buscador avanzado: chips, orden y paginación (inv-buscar.js) -->
+        <div id="invBuscador" class="inv-buscador"></div>
+
         <!-- ── Lector de código fijo (paso 2) ── -->
         <div class="inv-lector-fijo" id="invLecCaja2">
           <div class="inv-lector-cab">
@@ -3367,6 +3371,8 @@ CREATE INDEX IF NOT EXISTS idx_inv_productos_actualizado
   <script src="datos.js"></script>
   <script src="conexiones.js"></script>
   <script src="inventario.js"></script>
+  <script src="inv-buscar.js"></script>
+  <script src="inv-lector.js"></script>
   <script src="catalogo.js"></script>
   <script src="impuestos.js"></script>
   <script src="contabilidad.js"></script>
