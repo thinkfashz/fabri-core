@@ -33,12 +33,12 @@
     ultimo: null,
     enviando: false,
     vistaCatalogo: "lista",
+    vista3d: false,
     ubicacion: null,
   };
 
   var UI = window.MercaUI || {};
   var mapaActivo = null;
-  var visorActivo = null;
 
   function esc(t) { return UI.esc ? UI.esc(String(t == null ? "" : t)) : String(t == null ? "" : t); }
   function clp(n) { return UI.clp ? UI.clp(n) : "$" + Number(n || 0); }
@@ -414,8 +414,6 @@
   function destruirVisores() {
     if (mapaActivo && mapaActivo.destruir) { try { mapaActivo.destruir(); } catch (e) {} }
     mapaActivo = null;
-    if (visorActivo && visorActivo.destruir) { try { visorActivo.destruir(); } catch (e) {} }
-    visorActivo = null;
   }
 
   var TITULOS = {
@@ -457,7 +455,6 @@
     main.innerHTML = html || UI.vacio("Sin datos", "Todavía no hay nada que mostrar.");
     enganchar();
     montarMapa();
-    montarVisor();
   }
 
   /* ── vistas ───────────────────────────────────────────────────────── */
@@ -529,15 +526,9 @@
     }
 
     html += '<div class="mf-seg" id="mfVista" role="tablist" aria-label="Vista del catálogo">' +
-      '<button type="button" data-vista="lista" aria-pressed="' + (S.vistaCatalogo === "lista") + '">Lista</button>' +
-      '<button type="button" data-vista="3d" aria-pressed="' + (S.vistaCatalogo === "3d") + '">3D</button>' +
+      '<button type="button" data-vista="lista" aria-pressed="true">Lista</button>' +
+      '<button type="button" data-vista="3d">3D</button>' +
       "</div>";
-
-    if (S.vistaCatalogo === "3d") {
-      html += '<div class="mf-visor3d" id="mfVisor3d"></div>';
-      html += '<p class="mf-nota">Gira con el dedo, pellizca para acercar y toca un producto para agregarlo.</p>';
-      return html;
-    }
 
     var cats = {};
     S.productos.forEach(function (p) { if (p.categoria) cats[p.categoria] = 1; });
@@ -652,21 +643,29 @@
     });
   }
 
-  function montarVisor() {
-    var cont = document.getElementById("mfVisor3d");
-    if (!cont || !window.Merca3D) return;
-    visorActivo = Merca3D.montar(cont, {
-      tienda: S.tienda,
-      alElegir: function (p) {
-        if (!p) return;
-        carritoAgregar(p, S.tienda);
-        pintarBadge();
-      },
-      alFallback: function () {
-        S.vistaCatalogo = "lista";
-        pintar();
-      },
-    });
+  /* El visor 3D es el de la nube (tienda3d.js): un súper caminable a pantalla
+     completa. Se abre sobre la app y comparte el carrito. */
+  function abrir3D() {
+    if (!window.Tienda3D || !S.tienda) {
+      if (UI.toast) UI.toast("El visor 3D no está disponible");
+      return;
+    }
+    S.vista3d = true;
+    document.body.classList.add("en-tienda");
+    try {
+      Tienda3D.ponerTienda(S.productos, S.tienda, "merca");
+      Tienda3D.abrir();
+    } catch (e) {
+      reportar("abrir3D", e);
+      cerrar3D();
+    }
+  }
+
+  function cerrar3D() {
+    try { if (window.Tienda3D && Tienda3D.cerrar) Tienda3D.cerrar(); } catch (e) {}
+    document.body.classList.remove("en-tienda");
+    S.vista3d = false;
+    pintar();
   }
 
   /* ── compra ───────────────────────────────────────────────────────── */
@@ -998,10 +997,8 @@
 
     document.querySelectorAll("[data-vista]").forEach(function (b) {
       b.onclick = function () {
-        var v = b.dataset.vista;
-        if (v === S.vistaCatalogo) return;
-        S.vistaCatalogo = v;
-        pintar();
+        if (b.dataset.vista === "3d") { abrir3D(); return; }
+        if (S.vistaCatalogo !== "lista") { S.vistaCatalogo = "lista"; pintar(); }
       };
     });
 
@@ -1043,8 +1040,35 @@
     });
   }
 
+  /* ── puente con el visor 3D de la nube ──────────────────────────────
+     tienda3d.js pide estos dos métodos para enganchar su carrito al de la
+     app: agregar desde el visor y el resumen que muestra la barra. */
+  function instalarPuentePlacer() {
+    window.Placer = window.Placer || {};
+    window.Placer.agregarDesdeVisor = function (p, tienda) {
+      carritoAgregar(p, tienda || S.tienda);
+      pintarBadge();
+    };
+    window.Placer.resumenDeLocal = function () {
+      var c = carritoTotal();
+      return { lineas: Object.keys(c.items).length, unidades: c.unidades, total: c.total };
+    };
+  }
+
+  function engancharVisor() {
+    var salir = document.getElementById("t3dSalir");
+    if (salir) salir.onclick = function () { cerrar3D(); };
+    var carrito = document.getElementById("t3dCarrito");
+    if (carrito) carrito.onclick = function () {
+      cerrar3D();
+      setTimeout(function () { ir("carrito"); }, 60);
+    };
+  }
+
   /* ── arranque ─────────────────────────────────────────────────────── */
   function arrancarInterfaz() {
+    instalarPuentePlacer();
+    engancharVisor();
     if (window.MercaAuth && MercaAuth.montar) {
       MercaAuth.montar(document.getElementById("mfAuth"), {
         alEntrar: function () {

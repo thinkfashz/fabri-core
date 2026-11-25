@@ -8,6 +8,28 @@
 
 Última actualización: 2026-11-25
 
+## Sesión 2026-11-25 · MercaFabrick 1.3.0: el visor 3D de la nube, en la APK
+
+- Se copió **tal cual** el visor de la nube: `web/app/tienda3d.js` (244 KB),
+  sus texturas HD (`texturas/`, 2 MB) y sus estilos (`tienda3d.css`, extraídos
+  de `styles.css` 1973-2959 + adaptación).
+- **Súper caminable en primera persona**: piso cerámico blanco, muros claros,
+  seis góndolas con cuatro niveles, letreros, TV de ofertas, congeladores con
+  puerta corrediza y caja. Ya no es la escena oscura con cajas de color.
+- **Carrito compartido**: `tienda3d.js` llama a `window.Placer`; la APK
+  implementa `agregarDesdeVisor` y `resumenDeLocal` sobre su propio carrito.
+  Verificado: agregar desde el visor sube el badge a 1.
+- **Offline**: Three.js y las texturas viven en `assets/merca/www/`; el visor
+  no necesita red para dibujarse.
+- Se entra desde Catálogo con el selector **Lista / 3D**; el botón «Ver pedido»
+  del visor cierra el 3D y abre el carrito de la app.
+- Eliminado el visor propio anterior (`mercado3d.js`), que se veía oscuro.
+- **Verificado** en headless (360×780): `body.en-tienda`, canvas
+  `three.js r149` con tamaño real, sin errores de consola (el contexto se pierde
+  por software, como se espera sin GPU).
+- **APK 1.3.0** (`versionCode` 6) en Descargas. Pendiente: probar el 3D con la
+  GPU del teléfono y el carrito completo.
+
 ## Sesión 2026-11-25 · MercaFabrick 1.2.0: rediseño iOS, mapa y 3D
 
 - **Rediseño completo** (`merca.css`): estética iOS moderna — fondo negro,

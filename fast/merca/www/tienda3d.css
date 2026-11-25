@@ -1,0 +1,1024 @@
+/* ==========================================================================
+   MercaFabrick · visor 3D del mercado (estilos del visor de la nube)
+   Extraído de web/app/styles.css (reglas .t3d) y adaptado a la APK.
+   ========================================================================== */
+:root {
+  --tx:#fff; --tx2:#c9c9c9; --tx3:#8a8a8a; --tx4:#5e5e5e;
+  --accent:#c8ff00; --accent-soft:rgba(200,255,0,.12); --on-accent:#050505;
+  --line:#1e1e1e; --line-2:#2a2a2a;
+  --card:#101215; --elevado:#171a1e;
+  --ease:cubic-bezier(.16,1,.3,1);
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --top-h:0px;
+  --mp-bg:#08090a; --mp-card:#101215; --mp-elev:#171a1e; --mp-sunken:#1d2126;
+  --mp-line:#22262c; --mp-line-2:#313740;
+  --mp-tx:#f2f5f0; --mp-tx2:#a9b2aa; --mp-tx3:#828c84; --mp-tx4:#6b736c;
+  --mp-oro:#e8c87a; --mp-oro-soft:#33290f;
+  --mp-sh-inset:inset 0 1px 0 rgba(255,255,255,.05);
+}
+.t3d {
+  position: relative;
+  height: calc(100dvh - var(--top-h));
+  min-height: 420px;
+  background: #000;
+  overflow: hidden;
+  /* alto real de la barra superior: lo usan el precio bajo la mira, las
+     herramientas, el panel de luces y el minimapa para no pisarse. En
+     móvil la barra baja a dos filas y la variable crece (ver media query). */
+  --t3d-barra: 62px;
+}
+#t3dCanvas { display: block; width: 100%; height: 100%; touch-action: none; }
+
+.t3d-hud {
+  position: absolute; top: 10px;
+  left: calc(10px + env(safe-area-inset-left));
+  right: calc(10px + env(safe-area-inset-right));
+  z-index: 5;
+  display: flex; align-items: center; gap: 8px;
+  pointer-events: none;
+}
+.t3d-btn {
+  pointer-events: auto;
+  width: 42px; height: 42px; border-radius: 14px;
+  display: grid; place-items: center; cursor: pointer;
+  border: 1px solid rgba(255,255,255,.14);
+  background: rgba(10,12,14,.82);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  color: var(--tx); font: inherit; font-size: 17px;
+}
+.t3d-btn svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.t3d-car { position: relative; }
+/* Botón de menú: se marca en lima cuando la hoja está abierta, para que se
+   vea de dónde salió la navegación. */
+.t3d-menu { flex: 0 0 auto; }
+.t3d-menu[aria-expanded="true"] {
+  border-color: rgba(200,255,0,.45); color: var(--accent);
+  background: rgba(200,255,0,.10);
+}
+.t3d-car b {
+  position: absolute; top: -5px; right: -5px; min-width: 18px; height: 18px;
+  display: grid; place-items: center; padding: 0 4px;
+  border-radius: 99px; background: var(--accent); color: var(--on-accent);
+  font-size: 9.5px; font-weight: 800;
+}
+.t3d-car b[hidden] { display: none; }
+.t3d-info {
+  flex: 1; min-width: 0; padding: 7px 11px;
+  border-radius: 12px;
+  background: rgba(10,12,14,.72);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255,255,255,.08);
+  pointer-events: none;
+}
+.t3d-info b { display: block; font-size: 11.5px; letter-spacing: .04em; }
+.t3d-info small { display: block; font-size: 9.5px; color: var(--tx3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.t3d-joystick {
+  position: absolute; left: 14px; bottom: calc(80px + env(safe-area-inset-bottom));
+  width: 124px; height: 124px; border-radius: 50%;
+  border: 1px solid rgba(200,255,0,.25);
+  background: radial-gradient(circle at 50% 50%, rgba(200,255,0,.08), rgba(8,10,12,.6));
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  touch-action: none; z-index: 6;
+}
+.t3d-joystick.activo {
+  border-color: rgba(200,255,0,.65);
+  box-shadow: 0 0 26px rgba(200,255,0,.16);
+}
+.t3d-joystick::before {
+  /* zona de agarre: el dedo que cae cerca igual agarra el stick */
+  content: ""; position: absolute; inset: -24px; border-radius: 50%;
+}
+.t3d-joystick span {
+  position: absolute; left: 50%; top: 50%;
+  width: 52px; height: 52px; border-radius: 50%;
+  transform: translate(-50%,-50%);
+  background: rgba(200,255,0,.85);
+  box-shadow: 0 0 22px rgba(200,255,0,.55);
+  transition: transform .06s linear;
+}
+/* Botón correr: mantén pulsado */
+.t3d-run {
+  position: absolute; right: 16px; bottom: calc(236px + env(safe-area-inset-bottom));
+  z-index: 6; min-width: 76px; padding: 11px 10px; border-radius: 999px;
+  border: 1px solid rgba(200,255,0,.35);
+  background: rgba(10,12,14,.66);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  color: var(--accent); font: inherit; font-size: 10.5px; font-weight: 800;
+  letter-spacing: .08em; text-transform: uppercase; cursor: pointer;
+  touch-action: none; user-select: none; -webkit-user-select: none;
+}
+.t3d-run.on { background: rgba(200,255,0,.92); color: #0A0A0A; border-color: rgba(200,255,0,.9); }
+
+.t3d-cargando {
+  position: absolute; inset: 0; z-index: 8;
+  display: grid; place-items: center;
+  background: #050505;
+  color: var(--tx2); font-size: 12.5px; letter-spacing: .04em;
+}
+.t3d-cargando[hidden] { display: none; }
+
+.t3d-error {
+  max-width: 300px; padding: 22px; text-align: center;
+  border-radius: 18px; border: 1px solid var(--line-2); background: #0b0c0e;
+}
+.t3d-error b { display: block; font-size: 15px; margin-bottom: 6px; }
+.t3d-error p { margin: 0 0 14px; font-size: 12px; line-height: 1.5; color: var(--tx3); }
+.t3d-error button {
+  padding: 10px 16px; border: 0; border-radius: 12px; cursor: pointer;
+  background: var(--accent); color: var(--on-accent);
+  font: inherit; font-size: 12.5px; font-weight: 800;
+}
+
+/* ── dock con pastilla deslizante ───────────────────────────────────────── */
+.nav-in { position: relative; }
+.nav-pill {
+  position: absolute; left: 0; top: 0; z-index: 0;
+  border-radius: 17px;
+  background: linear-gradient(180deg, rgba(200,255,0,.18), rgba(200,255,0,.10));
+  border: 1px solid rgba(200,255,0,.22);
+  box-shadow: 0 8px 20px -12px rgba(200,255,0,.6), inset 0 1px 0 rgba(255,255,255,.08);
+  transition: transform .28s cubic-bezier(.2,0,.2,1), width .28s cubic-bezier(.2,0,.2,1), opacity .2s;
+  pointer-events: none;
+}
+.nav button { position: relative; z-index: 1; background: transparent; }
+.nav button.on { background: transparent; color: var(--accent); }
+@media (max-width: 959px) { .nav button.on { background: transparent; } }
+@media (min-width: 960px) {
+  .nav-pill { border-radius: 10px; }
+  .nav button.on { background: transparent; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Mercado · buscador con escáner, carrito y estantes de verdad
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── buscador ───────────────────────────────────────────────────────────── */
+.buscador-caja {
+  display: flex; align-items: center; gap: 8px;
+  padding: 0 6px 0 12px;
+  border-radius: 14px; border: 1px solid var(--line);
+  background: var(--card);
+  transition: border-color .16s, box-shadow .16s;
+}
+.buscador-caja:focus-within { border-color: rgba(200,255,0,.45); box-shadow: 0 0 0 3px rgba(200,255,0,.1); }
+.buscador-ico svg { width: 16px; height: 16px; fill: none; stroke: var(--tx4); stroke-width: 1.9; stroke-linecap: round; display: block; }
+.buscador-caja .field {
+  flex: 1 1 0; width: 0; min-width: 0;
+  border: 0; background: transparent; padding: 12px 0; min-height: 0;
+  box-shadow: none; outline: none;
+}
+.buscador-x, .buscador-scan {
+  flex: 0 0 auto; display: grid; place-items: center; cursor: pointer;
+  border: 0; background: transparent; color: var(--tx3);
+  width: 32px; height: 32px; border-radius: 9px;
+}
+.buscador-x[hidden] { display: none; }
+.buscador-x:hover, .buscador-scan:hover { background: rgba(255,255,255,.06); color: var(--tx); }
+.buscador-scan { color: var(--accent); }
+.buscador-scan svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+
+/* ── carrito del mercado ────────────────────────────────────────────────── */
+.mc-lista { display: grid; gap: 2px; }
+.mc-linea {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,.05);
+}
+.mc-linea:last-child { border-bottom: 0; }
+.mc-ico {
+  width: 38px; height: 38px; flex: 0 0 auto; border-radius: 11px;
+  display: grid; place-items: center;
+  font-size: 16px; font-weight: 800; color: #0b0d05;
+  background: linear-gradient(160deg, color-mix(in srgb, var(--tinte) 70%, #fff), var(--tinte) 70%);
+  border: 1px solid rgba(255,255,255,.25);
+}
+.mc-txt { flex: 1; min-width: 0; display: grid; gap: 1px; }
+.mc-txt b { font-size: 12.5px; font-weight: 620; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mc-txt small { font-size: 10.5px; color: var(--tx4); }
+.mc-cant { display: flex; align-items: center; gap: 6px; }
+.mc-cant button {
+  width: 28px; height: 28px; border-radius: 9px; cursor: pointer;
+  border: 1px solid var(--line-2); background: var(--elevado); color: var(--tx);
+  font-size: 14px; line-height: 1; display: grid; place-items: center;
+}
+.mc-cant b { min-width: 14px; text-align: center; font-size: 12px; }
+.mc-sub { min-width: 64px; text-align: right; font-size: 12.5px; font-weight: 700; color: #e8c87a; }
+
+/* ── estante: cartel, riel y etiquetas ──────────────────────────────────── */
+.mm-cartel {
+  display: flex; align-items: baseline; gap: 8px;
+  margin: 0 2px 6px; padding: 6px 10px;
+  border-radius: 10px 10px 0 0;
+  background: linear-gradient(180deg, rgba(200,255,0,.14), rgba(200,255,0,.04));
+  border: 1px solid rgba(200,255,0,.18); border-bottom: 0;
+}
+.mm-cartel span {
+  font-family: var(--mono); font-size: 9px; letter-spacing: .14em;
+  text-transform: uppercase; color: rgba(200,255,0,.75);
+}
+.mm-cartel b { font-size: 13px; font-weight: 750; letter-spacing: -.01em; }
+
+.mm-fila { border-bottom-color: #23272c; }
+.mm-fila::after {
+  background: linear-gradient(180deg, #d8c07a, #8a7434 60%, #3a3218);
+  opacity: .85;
+  box-shadow: 0 8px 16px -8px #000;
+}
+.mm-tag {
+  align-self: center;
+  padding: 1px 6px; border-radius: 4px;
+  background: #f4e7b8; color: #201a06;
+  font-size: 9px; font-weight: 800; letter-spacing: -.01em;
+  box-shadow: 0 1px 0 rgba(0,0,0,.25);
+  white-space: nowrap;
+}
+.mm-prod { gap: 2px; }
+.mm-caja-stock { margin-top: -1px; }
+
+/* Aviso de producto agregado en la tienda 3D */
+.t3d-aviso {
+  position: absolute; left: 50%; bottom: calc(200px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  display: grid; gap: 1px; min-width: 190px; max-width: 78%;
+  padding: 10px 14px; border-radius: 14px;
+  border: 1px solid rgba(200,255,0,.35);
+  background: rgba(10,12,10,.94);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 20px 40px -20px rgba(0,0,0,.9);
+  text-align: center; z-index: 7;
+  animation: t3d-pop .22s cubic-bezier(.34,1.56,.64,1) both;
+}
+.t3d-aviso[hidden] { display: none; }
+.t3d-aviso b { font-size: 12.5px; font-weight: 700; color: var(--tx); }
+.t3d-aviso span { font-size: 10.5px; color: var(--accent); }
+@keyframes t3d-pop { from { transform: translate(-50%, 10px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+
+/* ── Ficha de producto (tienda 3D) ───────────────────────────────────────
+   Al tocar un estante o la nevera: portada, categoría, precio, código de
+   barras EAN-13 y el botón que lo manda al carrito. */
+.t3d-ficha {
+  position: absolute; left: 50%; bottom: calc(206px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  display: flex; gap: 12px; width: min(420px, calc(100% - 24px));
+  padding: 12px; border-radius: 18px;
+  border: 1px solid rgba(200,255,0,.32);
+  background: rgba(10,12,10,.96);
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 26px 60px -24px rgba(0,0,0,.95);
+  z-index: 9;
+  animation: t3d-pop .26s cubic-bezier(.34,1.56,.64,1) both;
+}
+.t3d-ficha[hidden] { display: none; }
+.t3d-ficha-x {
+  position: absolute; top: 6px; right: 8px;
+  width: 28px; height: 28px; border: 0; border-radius: 50%;
+  background: rgba(255,255,255,.08); color: var(--tx, #f4f4f0);
+  font-size: 13px; cursor: pointer; z-index: 1;
+}
+.t3d-ficha-img {
+  flex: 0 0 96px; width: 96px; height: 96px; border-radius: 12px; overflow: hidden;
+  background: #17191a; border: 1px solid rgba(255,255,255,.1);
+}
+.t3d-ficha-img canvas { display: block; width: 100%; height: 100%; }
+.t3d-ficha-img img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.t3d-ficha-img img[hidden], .t3d-ficha-img canvas[hidden] { display: none; }
+.t3d-ficha-cuerpo { flex: 1; min-width: 0; display: grid; gap: 4px; align-content: center; }
+.t3d-ficha-cat {
+  justify-self: start; font-size: 9.5px; font-weight: 800; letter-spacing: .12em;
+  text-transform: uppercase; color: #0a0a0a; background: var(--accent, #c8ff00);
+  padding: 2px 7px; border-radius: 999px;
+}
+.t3d-ficha-nom { font-size: 14.5px; line-height: 1.2; color: var(--tx, #f4f4f0); }
+.t3d-ficha-precio { display: flex; align-items: baseline; gap: 8px; }
+.t3d-ficha-precio b { font-size: 19px; font-weight: 800; color: var(--accent, #c8ff00); }
+.t3d-ficha-precio span { font-size: 10.5px; color: rgba(244,244,240,.6); }
+.t3d-ficha-barra {
+  height: 36px; display: flex; align-items: center; gap: 8px;
+  padding: 3px 9px; border-radius: 8px; background: #ffffff;
+}
+.t3d-ficha-barra svg { display: block; height: 26px; width: auto; max-width: 62%; }
+.t3d-ficha-barra .merc-ean-num {
+  font-size: 9.5px; letter-spacing: .14em; color: #0a0a0a; font-weight: 700;
+}
+.t3d-ficha-barra span { font-size: 9.5px; letter-spacing: .16em; color: #0a0a0a; font-weight: 700; }
+.t3d-ficha-barra .t3d-ficha-cod {
+  font-family: var(--mono); font-size: 10px; letter-spacing: .04em;
+  text-align: center; word-break: break-all; padding: 0 6px;
+}
+.t3d-ficha-add {
+  margin-top: 2px; padding: 9px 12px; border: 0; border-radius: 12px;
+  background: var(--accent, #c8ff00); color: #0a0a0a;
+  font-size: 13px; font-weight: 800; cursor: pointer;
+  transition: transform .16s cubic-bezier(.34,1.56,.64,1), filter .16s;
+}
+.t3d-ficha-add:active { transform: scale(.95); filter: brightness(1.1); }
+@media (max-width: 420px) {
+  .t3d-ficha { gap: 10px; padding: 10px; }
+  .t3d-ficha-img { flex-basis: 84px; width: 84px; height: 84px; }
+}
+
+/* ── Precio bajo la mira (tienda 3D) ────────────────────────────────────── */
+.t3d-precio {
+  position: absolute; left: 10px; top: calc(var(--t3d-barra) + 4px); z-index: 6;
+  width: 164px; padding: 9px 11px;
+  display: grid; gap: 2px;
+  border-radius: 14px;
+  border: 1px solid rgba(200,255,0,.22);
+  background: rgba(8, 10, 12, .82);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  box-shadow: 0 16px 36px -18px rgba(0,0,0,.75);
+  pointer-events: none;
+  animation: t3d-precio-in .18s cubic-bezier(.2,0,.2,1) both;
+}
+.t3d-precio[hidden] { display: none; }
+@keyframes t3d-precio-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+
+.t3d-precio-cat {
+  font-family: var(--mono); font-size: 8.5px; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--accent);
+}
+.t3d-precio b {
+  font-size: 12.5px; line-height: 1.25; font-weight: 700; color: #fff;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.t3d-precio-fila { display: flex; align-items: baseline; gap: 7px; margin-top: 2px; }
+.t3d-precio-fila strong { font-size: 19px; font-weight: 800; letter-spacing: -.03em; color: #e8c87a; }
+.t3d-precio-fila small { font-size: 9.5px; color: rgba(255,255,255,.55); }
+.t3d-precio em {
+  font-style: normal; margin-top: 2px;
+  font-size: 9.5px; color: rgba(200,255,0,.85);
+}
+
+/* Mira central */
+.t3d-mira {
+  position: absolute; left: 50%; top: 50%; width: 6px; height: 6px;
+  margin: -3px 0 0 -3px; border-radius: 50%;
+  background: rgba(255,255,255,.65);
+  box-shadow: 0 0 0 2px rgba(0,0,0,.25), 0 0 12px rgba(200,255,0,.6);
+  pointer-events: none; z-index: 5;
+}
+
+/* Segundo stick: cámara, a la derecha */
+.t3d-joy-cam {
+  left: auto; right: 14px;
+  bottom: calc(80px + env(safe-area-inset-bottom));
+  border-color: rgba(255,255,255,.28);
+  background: radial-gradient(circle at 50% 50%, rgba(255,255,255,.10), rgba(8,10,12,.55));
+}
+.t3d-joy-cam span {
+  background: rgba(255,255,255,.85);
+  box-shadow: 0 0 22px rgba(255,255,255,.45);
+}
+
+/* Etiqueta de precio de góndola (2D): más pequeña y legible */
+.mm-tag {
+  padding: 1px 5px;
+  background: #f6f1df;
+  color: #1b1a14;
+  font-size: 8.5px;
+  border-radius: 3px;
+  box-shadow: 0 1px 0 rgba(0,0,0,.35);
+}
+
+/* ── Herramientas de la tienda 3D: luces, cámaras, interactuar y mapa ────
+   Rejilla 2×2: con cuatro botones en columna pisaban el stick izquierdo
+   en pantallas cortas. */
+.t3d-tools {
+  /* Columna única a la derecha, debajo del minimapa: cuatro iconos limpios
+     ocupan menos que la rejilla 2×2 y no tapan la góndola. */
+  position: absolute; left: auto; right: calc(12px + env(safe-area-inset-right));
+  top: calc(var(--t3d-barra) + 136px); z-index: 6;
+  display: grid; grid-template-columns: 44px; gap: 6px;
+}
+.t3d-tool {
+  width: 44px; height: 44px; padding: 0;
+  display: grid; place-items: center; cursor: pointer;
+  border-radius: 14px; border: 1px solid rgba(255,255,255,.14);
+  background: rgba(10,12,14,.66);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  color: var(--tx2); font: inherit;
+}
+.t3d-tool svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; }
+.t3d-tool span { display: none; }
+.t3d-tool[aria-expanded="true"] { color: var(--accent); border-color: rgba(200,255,0,.45); background: rgba(200,255,0,.12); }
+
+.t3d-luces {
+  position: absolute; right: 10px; top: calc(var(--t3d-barra) + 10px); z-index: 8;
+  bottom: calc(196px + env(safe-area-inset-bottom));
+  width: min(272px, calc(100% - 20px)); padding: 13px 14px;
+  display: grid; gap: 10px; align-content: start;
+  overflow-y: auto; overscroll-behavior: contain;
+  border-radius: 18px; border: 1px solid rgba(255,255,255,.14);
+  background: rgba(9,11,13,.94);
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  box-shadow: 0 30px 60px -26px rgba(0,0,0,.95);
+  animation: mp-entra .16s cubic-bezier(.2,0,.2,1) both;
+}
+.t3d-luces[hidden] { display: none; }
+.t3d-presets { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+.t3d-presets button {
+  padding: 7px 4px; border-radius: 9px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--card);
+  color: var(--tx2); font: inherit; font-size: 11px; font-weight: 650;
+}
+.t3d-presets button.on { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.t3d-slider { display: grid; gap: 3px; font-size: 10.5px; color: var(--tx3); }
+.t3d-slider output { float: right; color: var(--tx2); font-family: var(--mono); font-size: 10px; }
+.t3d-slider input { width: 100%; accent-color: var(--accent); }
+.t3d-luz-desc { margin: 0; font-size: 10px; line-height: 1.45; color: var(--tx4); }
+
+/* ── Panel de escena: cabecera, secciones y chips ─────────────────────── */
+.t3d-panel-cab {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+}
+.t3d-panel-cab b {
+  font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--tx3);
+}
+.t3d-panel-cab button {
+  width: 25px; height: 25px; border-radius: 8px; cursor: pointer;
+  border: 1px solid rgba(255,255,255,.14); background: transparent;
+  color: var(--tx3); font: inherit; font-size: 10px; line-height: 1;
+}
+.t3d-panel-cab button:active { color: var(--accent); border-color: rgba(200,255,0,.4); }
+.t3d-secc {
+  display: grid; gap: 7px;
+  padding-top: 9px; border-top: 1px solid rgba(255,255,255,.08);
+}
+.t3d-secc-t {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+  font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--tx4);
+}
+.t3d-secc-t small {
+  color: var(--accent); font-family: var(--mono); font-size: 9.5px;
+  letter-spacing: 0; text-transform: none;
+}
+.t3d-presets-3 { grid-template-columns: repeat(3, 1fr); }
+.t3d-presets-4 { grid-template-columns: repeat(4, 1fr); }
+.t3d-presets button { padding: 6px 3px; font-size: 10.5px; }
+.t3d-mini {
+  padding: 8px; border-radius: 10px; cursor: pointer;
+  border: 1px solid rgba(255,255,255,.14); background: var(--card);
+  color: var(--tx2); font: inherit; font-size: 11px; font-weight: 650;
+}
+.t3d-mini:active { border-color: rgba(200,255,0,.45); color: var(--accent); }
+
+/* Panel de cámaras: etiquetas sobre el canvas */
+.t3d-cams-full { position: absolute; inset: 0; z-index: 9; }
+.t3d-cams-full[hidden] { display: none; }
+.t3d-cams-bar {
+  position: absolute; top: 0; left: 0; right: 0; height: 56px;
+  display: flex; align-items: center; gap: 10px; padding: 0 12px;
+  background: rgba(5,6,7,.92);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid rgba(255,255,255,.08);
+}
+.t3d-cams-bar .t3d-info { background: transparent; border: 0; padding: 0; backdrop-filter: none; }
+.t3d-cams-grid {
+  position: absolute; top: 56px; left: 0; right: 0; bottom: 0;
+  display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 4px;
+}
+.t3d-cams-grid span,
+.t3d-cams-grid button {
+  align-self: start; justify-self: start; margin: 8px;
+  padding: 3px 7px; border-radius: 6px; cursor: pointer;
+  border: 1px solid rgba(200,255,0,.28);
+  background: rgba(0,0,0,.66); color: #c8ff00;
+  font: inherit; font-family: var(--mono); font-size: 9.5px; letter-spacing: .08em;
+}
+.t3d-cams-grid button.on { background: rgba(200,255,0,.9); color: #0a0a0a; border-color: rgba(200,255,0,.9); }
+/* cámara individual: sólo queda el rótulo de la cámara elegida */
+.t3d-cams-grid.solo button:not(.on) { display: none; }
+.t3d-cams-todas {
+  position: absolute; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom));
+  transform: translateX(-50%); z-index: 3; cursor: pointer;
+  padding: 9px 16px; border-radius: 999px;
+  border: 1px solid rgba(200,255,0,.45);
+  background: rgba(8,10,12,.86); color: #c8ff00;
+  font: inherit; font-size: 10.5px; font-weight: 800; letter-spacing: .1em;
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+}
+.t3d-cams-todas[hidden] { display: none; }
+
+/* ── Tirita lateral: oculta los botones ─────────────────────────────────── */
+.t3d-tira {
+  position: absolute; left: 0; top: 42%; z-index: 7;
+  writing-mode: vertical-rl; text-orientation: mixed;
+  padding: 13px 5px; border-radius: 0 12px 12px 0; cursor: pointer;
+  border: 1px solid rgba(255,255,255,.16); border-left: 0;
+  background: rgba(10,12,14,.7);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  color: var(--tx2); font: inherit; font-size: 10px; font-weight: 800;
+  letter-spacing: .12em; text-transform: uppercase;
+}
+.t3d-tira:active { color: var(--accent); }
+
+/* ── Pancita de ayuda ───────────────────────────────────────────────────── */
+.t3d-ayuda {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  bottom: calc(138px + env(safe-area-inset-bottom)); z-index: 7;
+  width: 34px; height: 34px; border-radius: 50%; cursor: pointer;
+  border: 1px solid rgba(255,255,255,.22);
+  background: rgba(10,12,14,.55);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  color: rgba(255,255,255,.85); font: inherit; font-size: 15px; font-weight: 800;
+  animation: t3d-ayuda-pulso 2.6s ease-in-out infinite;
+}
+@keyframes t3d-ayuda-pulso {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(200,255,0,.35); }
+  50% { box-shadow: 0 0 0 7px rgba(200,255,0,0); }
+}
+.t3d-ayuda-panel {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%);
+  z-index: 12; width: min(310px, 86vw); padding: 18px;
+  border-radius: 18px; border: 1px solid rgba(255,255,255,.14);
+  background: rgba(8,10,12,.94);
+  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+  box-shadow: 0 30px 60px -30px rgba(0,0,0,.9);
+}
+.t3d-ayuda-panel[hidden] { display: none; }
+.t3d-ayuda-panel > b { display: block; font-size: 13px; margin-bottom: 10px; letter-spacing: .04em; }
+.t3d-ayuda-panel ul { list-style: none; margin: 0 0 14px; padding: 0; display: grid; gap: 7px; }
+.t3d-ayuda-panel li { font-size: 12px; line-height: 1.45; color: var(--tx2); }
+.t3d-ayuda-panel li b { color: var(--accent); font-weight: 750; }
+.t3d-ayuda-panel button {
+  width: 100%; padding: 10px; border-radius: 11px; cursor: pointer;
+  border: 0; background: var(--accent); color: var(--on-accent);
+  font: inherit; font-size: 12.5px; font-weight: 800;
+}
+
+/* ── Modo oculto: sólo sticks, mira, tirita y ayuda ─────────────────────── */
+.t3d.ui-off .t3d-hud,
+.t3d.ui-off .t3d-tools,
+.t3d.ui-off .t3d-map,
+.t3d.ui-off .t3d-run { display: none; }
+
+/* ── Modo cámaras: se apaga todo lo demás ───────────────────────────────── */
+.t3d.cctv .t3d-hud,
+.t3d.cctv .t3d-tools,
+.t3d.cctv .t3d-map,
+.t3d.cctv .t3d-run,
+.t3d.cctv .t3d-precio,
+.t3d.cctv .t3d-mira,
+.t3d.cctv .t3d-joystick,
+.t3d.cctv .t3d-tira,
+.t3d.cctv .t3d-ayuda { display: none; }
+
+/* ══════════════════════════════════════════════════════════════════════
+   MERCADO · segunda pasada de diseño (tarjetas, carrito y sumador)
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── Tarjeta: caja de producto + precio héroe ─────────────────────────── */
+.merc-media-precio {
+  position: absolute; left: 8px; bottom: 8px; z-index: 2;
+  padding: 4px 9px 5px; border-radius: 9px;
+  background: rgba(6,7,8,.82);
+  border: 1px solid rgba(232,200,122,.45);
+  color: #e8c87a; font-size: 14.5px; font-weight: 820; letter-spacing: -.02em;
+  box-shadow: 0 12px 24px -14px #000;
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+}
+.merc-caja {
+  position: relative; z-index: 1;
+  width: 76px; height: 66px; border-radius: 11px;
+  display: grid; place-items: center; overflow: hidden;
+  background: linear-gradient(168deg,
+    color-mix(in srgb, var(--tinte) 62%, #171a1d), #0e1012 84%);
+  border: 1px solid color-mix(in srgb, var(--tinte) 48%, rgba(255,255,255,.14));
+  box-shadow:
+    0 16px 30px -16px color-mix(in srgb, var(--tinte) 70%, transparent),
+    inset 0 1px 0 rgba(255,255,255,.22);
+}
+.merc-caja-tapa {
+  position: absolute; top: 0; left: 0; right: 0; height: 24%;
+  background: linear-gradient(180deg, rgba(255,255,255,.26), rgba(255,255,255,.05));
+  border-bottom: 1px solid rgba(0,0,0,.35);
+}
+.merc-caja-letra {
+  margin-top: 7px;
+  font-size: 30px; font-weight: 850; letter-spacing: -.05em; color: #fff;
+  text-shadow: 0 4px 14px rgba(0,0,0,.55);
+}
+.merc-cuerpo { gap: 6px; }
+.merc-titulo { font-size: 13.5px; font-weight: 720; }
+.merc-desc2 { font-size: 11px; line-height: 1.45; -webkit-line-clamp: 3; }
+.merc-pie { padding-top: 9px; }
+.merc-add.block { width: 100%; padding: 9px 12px; border-radius: 11px; font-size: 12px; }
+.merc-cant.ancho {
+  width: 100%; justify-content: space-between;
+  padding: 5px 8px; border-radius: 11px;
+  background: rgba(200,255,0,.08); border: 1px solid rgba(200,255,0,.35);
+}
+.merc-cant.ancho b { font-size: 11.5px; color: var(--accent); font-weight: 750; }
+
+/* ── Ficha: precio héroe y sumador de la línea ────────────────────────── */
+.merc-ficha-precio {
+  position: absolute; left: 12px; bottom: 10px; z-index: 1;
+  padding: 6px 12px 7px; border-radius: 11px;
+  background: rgba(6,7,8,.84); border: 1px solid rgba(232,200,122,.5);
+  color: #e8c87a; font-size: 20px; font-weight: 850; letter-spacing: -.03em;
+  box-shadow: 0 14px 28px -16px #000;
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+}
+.merc-ficha-sum {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+  margin: 10px 2px 0; padding: 10px 13px; border-radius: 12px;
+  background: rgba(200,255,0,.07); border: 1px solid rgba(200,255,0,.28);
+}
+.merc-ficha-sum span { font-family: var(--mono); font-size: 12px; color: var(--tx2); }
+.merc-ficha-sum b { font-size: 16px; font-weight: 840; color: #e8c87a; letter-spacing: -.02em; }
+
+/* ── Filas del carrito: nombre, descripción, precio y controles ───────── */
+.mc-linea { align-items: flex-start; gap: 11px; padding: 12px 0; }
+.mc-ico { margin-top: 2px; }
+.mc-txt { gap: 4px; }
+.mc-head { display: flex; align-items: baseline; gap: 8px; }
+.mc-head b { font-size: 13px; font-weight: 680; letter-spacing: -.01em; }
+.mc-sub {
+  margin-left: auto; white-space: nowrap;
+  font-size: 13.5px; font-weight: 840; letter-spacing: -.02em; color: #e8c87a;
+  font-variant-numeric: tabular-nums;
+}
+.mc-desc {
+  margin: 0; font-size: 10.5px; line-height: 1.42; color: var(--tx4);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.mc-pie { display: flex; align-items: center; gap: 8px; }
+.mc-cu {
+  font-family: var(--mono); font-size: 10.5px; color: var(--tx3);
+  letter-spacing: .01em;
+}
+.mc-pie .mc-cant { margin-left: auto; }
+.mc-quit {
+  width: 26px; height: 26px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--line-2); background: transparent;
+  color: var(--tx4); font-size: 10.5px; display: grid; place-items: center;
+}
+.mc-quit:hover { color: #ff7a6b; border-color: rgba(255,122,107,.45); }
+
+/* ── Sumador de totales ────────────────────────────────────────────────── */
+.mp-resumen {
+  display: grid; gap: 7px;
+  padding: 13px 14px; margin-bottom: 12px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.018));
+  border: 1px solid var(--mp-line);
+  box-shadow: var(--mp-sh-inset);
+}
+.mp-res-fila {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+  font-size: 12px; color: var(--mp-tx2);
+}
+.mp-res-fila b { font-weight: 720; color: var(--mp-tx); font-variant-numeric: tabular-nums; }
+.mp-res-fila small { font-size: 10.5px; color: var(--mp-tx4); }
+.mp-res-total {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding-top: 10px; margin-top: 2px;
+  border-top: 1px dashed rgba(255,255,255,.16);
+}
+.mp-res-total span {
+  font-size: 12px; font-weight: 780; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--mp-tx3);
+}
+.mp-res-total b {
+  font-size: 25px; font-weight: 860; letter-spacing: -.03em;
+  color: var(--mp-oro); font-variant-numeric: tabular-nums;
+}
+.mp-res-nota {
+  margin: 9px 0 0; text-align: center;
+  font-size: 9.5px; line-height: 1.45; color: var(--mp-tx4);
+}
+
+/* ── Estante: etiqueta de precio más legible ──────────────────────────── */
+.mm-tag {
+  padding: 2px 7px; border-radius: 5px;
+  font-size: 10px; font-weight: 850; letter-spacing: -.01em;
+  border: 1px solid rgba(32,26,6,.25);
+}
+
+
+/* ── Tienda 3D: al entrar se oculta la navegación y solo queda el
+      logo de marca centrado arriba (la F exacta del SVG) ─────────────── */
+body.en-tienda .nav,
+body.en-tienda .topbar { display: none !important; }
+/* Al ocultar el menú, `main` pasaba a ocupar la PRIMERA columna de la grilla
+   de escritorio (la del menú, 252 px) y el visor quedaba en una franja
+   angosta en tablet y apaisado. Ahora la grilla se colapsa a una sola
+   columna y el visor ocupa toda la pantalla. */
+body.en-tienda .app { grid-template-columns: minmax(0, 1fr); }
+body.en-tienda main { padding: 0; grid-column: 1 / -1; max-width: none; width: 100%; }
+/* `main` ya no tiene padding: el margen lateral negativo de #s-tienda la
+   sacaría 16 px fuera de la pantalla (desborde horizontal en móvil). */
+body.en-tienda #s-tienda { margin-left: 0; margin-right: 0; }
+body.en-tienda .t3d { height: 100dvh; }
+
+.t3d-marca {
+  flex: 1 1 auto; min-width: 0;
+  display: flex; align-items: center; gap: 8px;
+  pointer-events: none;
+}
+.t3d-marca img {
+  width: 42px; height: 42px; display: block; flex: none;
+  filter: drop-shadow(0 6px 18px rgba(0,0,0,.65));
+}
+.t3d-marca-txt {
+  font-size: 10.5px; font-weight: 800; letter-spacing: .17em;
+  color: rgba(255,255,255,.88); white-space: nowrap;
+}
+.t3d-marca-txt b { color: var(--accent); font-weight: 800; }
+
+/* Viñeta cálida: da sensación de encuadre real sin gastar rendimiento */
+.t3d-vineta {
+  position: absolute; inset: 0; z-index: 2; pointer-events: none;
+  background: radial-gradient(ellipse at 50% 44%,
+    rgba(0,0,0,0) 54%, rgba(7,6,3,.36) 100%);
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   TIENDA 3D · HUD de mundo abierto: navegación, pedido y minimapa
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── Navegación de la barra superior ────────────────────────────────────── */
+.t3d-nav {
+  position: absolute; left: 10px; top: calc(var(--t3d-barra) + 6px); z-index: 7;
+  display: grid; gap: 5px; padding: 7px;
+  min-width: 168px;
+  border-radius: 16px; pointer-events: auto;
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(8,10,12,.94);
+  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+  box-shadow: 0 28px 56px -26px #000;
+  animation: t3d-nav-in .16s cubic-bezier(.2,0,.2,1) both;
+}
+.t3d-nav[hidden] { display: none; }
+@keyframes t3d-nav-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+.t3d-nav button {
+  padding: 9px 13px; border-radius: 11px; cursor: pointer; text-align: left;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.035);
+  color: var(--tx2); font: inherit; font-size: 12px; font-weight: 700;
+  letter-spacing: .04em; white-space: nowrap;
+}
+.t3d-nav button.on {
+  border-color: rgba(200,255,0,.55);
+  background: rgba(200,255,0,.14);
+  color: var(--accent);
+  box-shadow: 0 0 18px -8px rgba(200,255,0,.9);
+}
+.t3d-nav button:active { transform: translateY(1px); }
+
+/* ── Estado del pedido (siempre desde el carrito comercial) ─────────────── */
+.t3d-compra {
+  flex: none; margin-left: auto;
+  display: flex; align-items: center; gap: 9px;
+  pointer-events: auto;
+}
+.t3d-compra-datos {
+  display: grid; gap: 0; justify-items: end;
+  padding: 4px 10px; border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.1);
+  background: rgba(10,12,14,.72);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+}
+.t3d-compra-k {
+  font-family: var(--mono); font-size: 8.5px; letter-spacing: .1em;
+  color: var(--tx3); white-space: nowrap;
+}
+.t3d-compra-k b { color: var(--tx); font-weight: 700; }
+.t3d-compra-datos strong {
+  font-size: 14px; font-weight: 850; letter-spacing: -.02em;
+  color: var(--accent); font-variant-numeric: tabular-nums;
+}
+
+/* ── Minimapa real (plano + posición y rumbo del jugador) ───────────────── */
+.t3d-map {
+  position: absolute; right: 12px; top: calc(var(--t3d-barra) + 10px); z-index: 5;
+  width: 118px; padding: 0; cursor: pointer; display: block;
+  appearance: none; -webkit-appearance: none;
+  border-radius: 16px; overflow: hidden;
+  border: 1px solid rgba(255,255,255,.16);
+  background: rgba(8,10,12,.86);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 20px 44px -24px #000;
+}
+.t3d-map canvas { display: block; width: 118px; height: 118px; }
+.t3d-map-lab {
+  position: absolute; left: 7px; bottom: 6px;
+  font-family: var(--mono); font-size: 8px; letter-spacing: .16em;
+  color: rgba(255,255,255,.8); background: rgba(0,0,0,.6);
+  padding: 2px 6px; border-radius: 5px;
+}
+.t3d-map:active { border-color: rgba(200,255,0,.5); }
+/* el panel de luces ocupa la misma esquina: el mapa se aparta mientras abierto */
+.t3d-luces:not([hidden]) ~ .t3d-map { display: none; }
+.t3d:has(.t3d-luces:not([hidden])) .t3d-tools { display: none; }
+/* con el panel abierto, «Correr» quedaba debajo: se aparta también */
+.t3d:has(.t3d-luces:not([hidden])) .t3d-run { display: none; }
+
+/* ── Plano completo del local ───────────────────────────────────────────── */
+.t3d-map-full {
+  position: absolute; inset: 0; z-index: 11;
+  background: rgba(5,6,7,.95);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+}
+.t3d-map-full[hidden] { display: none; }
+.t3d-map-cuerpo {
+  position: absolute; top: 56px; left: 0; right: 0; bottom: 0;
+  display: grid; gap: 11px; justify-items: center; align-content: start;
+  padding: 14px 12px calc(18px + env(safe-area-inset-bottom));
+  overflow-y: auto; overscroll-behavior: contain;
+}
+.t3d-map-cuerpo canvas {
+  display: block; width: min(76vw, 320px); height: auto;
+  border-radius: 14px; border: 1px solid rgba(255,255,255,.14);
+  background: #0b0d0f; touch-action: manipulation; cursor: crosshair;
+}
+.t3d-map-ley {
+  list-style: none; margin: 0; padding: 0; max-width: min(76vw, 320px);
+  display: flex; flex-wrap: wrap; gap: 6px; justify-content: center;
+}
+.t3d-map-ley li {
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: .06em;
+  color: var(--tx2); padding: 3px 8px; border-radius: 99px;
+  border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.05);
+}
+.t3d-map-ley li.on {
+  border-color: var(--accent); color: var(--accent); background: var(--accent-soft);
+}
+.t3d-map-acc { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+
+/* ── Móvil: la barra baja a dos filas y todo lo demás baja con ella ────── */
+@media (max-width: 760px) {
+  /* La barra ya no lleva una fila de pestañas: mide una sola línea (45 px)
+     y todo el HUD cuelga de ahí. Antes reservaba 106 px para dos filas. */
+  .t3d { --t3d-barra: 56px; }
+  .t3d-hud { flex-wrap: nowrap; gap: 6px; }
+  /* el logo va centrado respecto de la pantalla, no empujado por los botones */
+  .t3d-marca {
+    position: absolute; left: 50%; top: 0;
+    transform: translateX(-50%); justify-content: center;
+    pointer-events: none;
+  }
+  .t3d-marca-txt { display: none; }
+  .t3d-nav {
+    position: absolute; left: 10px; right: 10px; top: calc(var(--t3d-barra) + 4px);
+    gap: 4px; padding: 8px;
+  }
+  .t3d-nav button { padding: 10px 12px; font-size: 12px; text-align: left; }
+  .t3d-compra-datos { padding: 3px 8px; }
+  .t3d-compra-k { font-size: 8px; }
+  .t3d-compra-datos strong { font-size: 12.5px; }
+  .t3d-map { width: 96px; right: 12px; }
+  .t3d-map canvas { width: 96px; height: 96px; }
+  .t3d-tools { top: calc(var(--t3d-barra) + 108px); grid-template-columns: 44px; }
+  .t3d-tool { width: 44px; height: 44px; }
+  .t3d-precio { width: 152px; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   VISITAS · panel del dueño (canal de origen: Instagram, Facebook, etc.)
+   ══════════════════════════════════════════════════════════════════════ */
+.visitas-card { margin-top: 18px; }
+.visitas-cab {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap;
+}
+.visitas-cab .k { font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--tx3); }
+.visitas-total {
+  font-size: 34px; font-weight: 850; letter-spacing: -.035em; line-height: 1.05;
+  color: var(--tx); font-variant-numeric: tabular-nums;
+}
+.visitas-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.visitas-pills .pill b { color: var(--accent); font-variant-numeric: tabular-nums; }
+
+.visitas-canales { display: grid; gap: 7px; margin: 16px 0 4px; }
+.visitas-canal { display: grid; grid-template-columns: 96px 1fr 46px; align-items: center; gap: 9px; }
+.visitas-canal-k {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11px; color: var(--tx2); text-transform: capitalize; white-space: nowrap;
+}
+.visitas-punto { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--tx3); }
+.visitas-canal-barra {
+  height: 9px; border-radius: 99px; overflow: hidden;
+  background: rgba(255,255,255,.07);
+}
+.visitas-canal-fill {
+  display: block; height: 100%; border-radius: 99px;
+  min-width: 3px; transition: width .5s var(--ease);
+}
+.visitas-canal-n {
+  font-family: var(--mono); font-size: 11px; color: var(--tx2);
+  text-align: right; font-variant-numeric: tabular-nums;
+}
+
+.visitas-pie {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; flex-wrap: wrap; margin-top: 12px;
+  padding-top: 11px; border-top: 1px solid var(--line);
+}
+.visitas-nota { margin: 0; font-size: 10.5px; line-height: 1.5; color: var(--tx4); flex: 1 1 210px; }
+.visitas-clave { display: flex; gap: 6px; flex: 0 1 320px; }
+.visitas-clave .field { margin: 0; font-size: 11px; padding: 7px 9px; }
+
+/* el visitante no ve el panel, pero si llega por hash no se le muestra vacío */
+body.visitante .visitas-card { display: none; }
+
+@media (max-width: 560px) {
+  .visitas-canal { grid-template-columns: 78px 1fr 38px; gap: 7px; }
+  .visitas-total { font-size: 28px; }
+  .visitas-clave { flex: 1 1 100%; }
+}
+
+/* ── Graduación cinematográfica del visor ────────────────────────────────
+   Un filtro a pantalla completa se paga en CADA frame: por eso sólo se
+   aplica en calidad ALTA. En media y baja se rinde sin él. */
+.t3d.cine-on #t3dCanvas { filter: saturate(1.06) contrast(1.04); }
+
+/* ── Grabación del recorrido: indicador REC ────────────────────────────────
+   Va arriba al centro, debajo de la barra, para que no lo tape el minimapa ni
+   la columna de herramientas. */
+.t3d-rec {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  top: calc(var(--t3d-barra) + 64px); z-index: 8;
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 6px 11px 6px 9px; border-radius: 999px;
+  border: 1px solid rgba(255,86,86,.45);
+  background: rgba(12,8,8,.86);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 10px 26px -14px rgba(0,0,0,.9);
+  font-size: 11.5px; letter-spacing: .04em; color: #fff;
+}
+.t3d-rec[hidden] { display: none; }
+.t3d-rec i {
+  width: 9px; height: 9px; border-radius: 50%; background: #ff4d4d;
+  box-shadow: 0 0 0 0 rgba(255,77,77,.7);
+  animation: t3dRecPulse 1.4s ease-out infinite;
+}
+.t3d-rec b { font-weight: 800; color: #ff6b6b; }
+.t3d-rec span { font-variant-numeric: tabular-nums; font-weight: 700; }
+.t3d-rec em {
+  font-style: normal; font-size: 10px; opacity: .75;
+  padding-left: 6px; border-left: 1px solid rgba(255,255,255,.18);
+}
+@keyframes t3dRecPulse {
+  0% { box-shadow: 0 0 0 0 rgba(255,77,77,.65); }
+  70% { box-shadow: 0 0 0 9px rgba(255,77,77,0); }
+  100% { box-shadow: 0 0 0 0 rgba(255,77,77,0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .t3d-rec i { animation: none; }
+}
+/* El botón de grabar se marca en rojo cuando está activo (el resto de
+   herramientas se marca en lima, para no confundirlo con la luz). */
+#t3dGrabar.on {
+  color: #ff6b6b; border-color: rgba(255,107,107,.5);
+  background: rgba(255,86,86,.14);
+}
+#t3dGrabar.on svg circle { fill: #ff4d4d; }
+#t3dSonido[aria-pressed="true"] {
+  color: var(--accent); border-color: rgba(200,255,0,.45);
+  background: rgba(200,255,0,.12);
+}
+/* En pantallas muy bajas la columna de 6 herramientas se acorta. */
+@media (max-height: 620px) {
+  .t3d-tools { gap: 5px; }
+  .t3d-tool { width: 40px; height: 40px; border-radius: 12px; }
+}
+
+/* Nota del nivel de grabación, debajo de los tres botones. */
+.t3d-grab-nota {
+  display: block; margin-top: 6px;
+  font-size: 10px; line-height: 1.35; color: var(--tx4);
+}
+
+/* ── Viñeta cinematográfica sobre la escena ────────────────────────────────
+   Va encima del canvas y debajo del HUD: cierra los bordes de la imagen y da
+   la sensación de lente. No captura toques. */
+.t3d::after {
+  content: ""; position: absolute; inset: 0; z-index: 3; pointer-events: none;
+  background:
+    radial-gradient(132% 96% at 50% 42%,
+      rgba(0,0,0,0) 50%, rgba(0,0,0,.22) 82%, rgba(0,0,0,.46) 100%);
+}
+/* El modo cine ya no sólo satura: sube un poco el contraste y hunde los
+   negros, como un grade de película. */
+.t3d.cine-on #t3dCanvas { filter: saturate(1.12) contrast(1.07) brightness(.99); }
+
+
+/* ── Adaptación a MercaFabrick ─────────────────────────────────────────── */
+/* El visor ocupa toda la pantalla y esconde la interfaz de la app. */
+body.en-tienda { padding:0 !important; background:#000; overflow:hidden; }
+body.en-tienda .mf-top,
+body.en-tienda .mf-tabbar,
+body.en-tienda .mf-main { display:none !important; }
+body.en-tienda .t3d {
+  position: fixed;
+  inset: 0;
+  height: 100dvh;
+  min-height: 100dvh;
+  z-index: 500;
+}
+/* La marca del visor es la de MercaFabrick, no la de FORGE. */
+.t3d-marca img { display:none; }
+.t3d-marca-txt { color:#fff; font-size:13px; letter-spacing:.08em; }
+.t3d-marca-txt b { color:var(--accent); }

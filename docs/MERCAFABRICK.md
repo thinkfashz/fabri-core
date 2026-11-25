@@ -5,7 +5,7 @@
 > en efectivo o por transferencia y avisa el pedido al local por WhatsApp con
 > una boleta PDF. No reemplaza ni toca `cl.fabrick.core`.
 
-Estado: **1.2.0** (`versionCode` 5). Fuente en `fast/merca/`.
+Estado: **1.3.0** (`versionCode` 6). Fuente en `fast/merca/`.
 
 ## 1. Qué hace (y qué no)
 
@@ -26,8 +26,10 @@ Estado: **1.2.0** (`versionCode` 5). Fuente en `fast/merca/`.
 | `fast/merca/www/merca.css` | Sistema visual (tokens `--mf-*`), capas de login y app |
 | `fast/merca/www/merca.js` | `window.MercaUI`: `esc`, `clp`, iconos SVG, tarjetas de tienda y producto, estados, toast |
 | `fast/merca/www/mapa.js` | `window.MercaMapa`: mapa interactivo en canvas (teselas OSM, pines, arrastre, pinch) |
-| `fast/merca/www/mercado3d.js` | `window.Merca3D`: supermercado en 3D con Three.js (góndolas, productos, caja) |
+| `fast/merca/www/tienda3d.js` | Visor 3D de la nube: supermercado caminable (Three.js) con texturas y carrito |
 | `fast/merca/www/vendor/three.min.js` | Three.js r149 (608 KB) servido desde el APK |
+| `fast/merca/www/texturas/` | Texturas HD del visor (muro y metal, CC0) para que funcione sin red |
+| `fast/merca/www/tienda3d.css` | Estilos del visor (extraídos de la nube) + adaptación a la APK |
 | `fast/merca/www/merca-app.js` | Estado, API, carrito por tienda, catálogo, checkout, éxito, WhatsApp y generador PDF |
 | `fast/merca/www/auth.js` | Login/registro real, sesión `fcore.nube`, canvas de fondo, `mostrarPantalla`/`cerrarPantalla` |
 | `fast/merca/java/cl/fabrick/merca/MercaActivity.kt` | WebView a pantalla completa, manejador de crash, geolocalización, puente |
@@ -87,20 +89,32 @@ Inicio / Mapa ──► Catálogo (tienda) ──► Carrito ──► Compra
 - Toca un pin → ficha con nombre, rubro, dirección y botón «Ver productos».
 - Debajo del mapa, la lista completa de locales.
 
-## 6. Visor 3D del mercado
+## 6. Visor 3D del mercado (el de la nube)
 
-`mercado3d.js` arma un supermercado con Three.js (r149, incluido en el APK):
+Se copió **tal cual** el visor de la nube (`web/app/tienda3d.js`, 244 KB) con
+sus texturas HD y su CSS, para que la APK dé la misma experiencia:
 
-- Piso con cuadrícula, pared de fondo y letrero con el nombre del local.
-- Cuatro góndolas con tres repisas; los productos son cajas con el color de su
-  categoría (máximo 84 cajas, se reciclan si el catálogo es más grande).
-- Caja de pago con lector luminoso.
-- Giro con el dedo, pinch para acercar, y **toca un producto para agregarlo al
-  carrito** (con aviso).
-- Si el equipo no tiene WebGL o pierde el contexto, se explica y se ofrece
-  volver a la vista Lista (nunca queda un rectángulo negro).
+- Supermercado **caminable en primera persona**: local luminoso (piso cerámico
+  blanco, muros claros), seis góndolas con cuatro niveles, letreros en relieve,
+  televisor con ofertas, congeladores con puerta de vidrio que se corre con el
+  dedo y caja.
+- **Productos reales** del local: se instancian cientos de cajas (un
+  `InstancedMesh`) con el color de su categoría; al tocar uno se abre su ficha
+  con precio, stock y código de barras.
+- **Carrito compartido**: `tienda3d.js` llama a `window.Placer`, y la APK
+  implementa ese puente (`agregarDesdeVisor`, `resumenDeLocal`) sobre el mismo
+  carrito de la app. Lo que agregas en 3D aparece en Carrito y se compra igual.
+- **Controles táctiles**: dos joysticks (mover / mirar), botón de correr,
+  interacción con lo que miras, mapa del local, cámaras y grabación.
+- **Offline**: Three.js y las texturas viven en `assets/merca/www/`, así que el
+  visor no necesita red para dibujarse (los datos del local sí vienen de la
+  nube).
+- Si el equipo pierde el contexto gráfico, el visor lo dice y se puede
+  reintentar; nunca queda un rectángulo negro.
 
-Se entra desde el catálogo, con el selector **Lista / 3D**.
+Se entra desde el catálogo con el selector **Lista / 3D**. La barra del visor
+muestra el total del carrito y el botón «Ver pedido» cierra el 3D y abre el
+carrito de la app.
 
 ## 7. Boleta PDF
 
