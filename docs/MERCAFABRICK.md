@@ -5,7 +5,7 @@
 > en efectivo o por transferencia y avisa el pedido al local por WhatsApp con
 > una boleta PDF. No reemplaza ni toca `cl.fabrick.core`.
 
-Estado: **1.4.1** (`versionCode` 8). Fuente en `fast/merca/`.
+Estado: **1.4.2** (`versionCode` 9). Fuente en `fast/merca/`.
 
 ## 1. Qué hace (y qué no)
 
@@ -132,7 +132,15 @@ Canal directo cliente ↔ local, sobre la misma API (HTTPS + sesión + dispositi
   tras el pedido. Hilo con burbujas, envío y **polling cada 5 s**.
 - El dueño responde desde el panel/FORGE con la clave del local (misma API).
 
-## 8. Boleta PDF
+## 8. Mi tienda y reseñas del local
+
+- **Mi tienda** (Cuenta → `local_mio`): tus locales con estado, pedidos por
+  despachar y botones **Mensajes** (chat como dueño) y **Abrir/Cerrar**
+  (`local_estado`).
+- **Reseñas del local** en la ficha del catálogo (`resenas_listar`): promedio,
+  cantidad y las últimas opiniones.
+
+## 9. Boleta PDF
 
 Generador propio de **PDF 1.4** en JavaScript (Helvetica, multipágina, 46
 líneas por página), sin librerías. Estructura válida verificada: cabecera
@@ -143,7 +151,7 @@ líneas por página), sin librerías. Estructura válida verificada: cabecera
 - **Navegador**: descarga con `Blob`.
 - El documento dice «Documento de pedido. No es boleta ni factura fiscal».
 
-## 9. Pantalla negra: qué pasaba (y la causa real)
+## 10. Pantalla negra: qué pasaba (y la causa real)
 
 Hubo dos cosas, y la segunda tapaba a la primera:
 
@@ -170,7 +178,7 @@ Arreglo de (1):
 Arreglo de (2): `build-merca.sh` pasa `$KSTD` (kotlin-stdlib) a `d8`, así que
 el stdlib queda **dentro** del APK. El archivo pasó de 60 KB a 732 KB.
 
-## 10. Arranque a prueba de pantalla negra
+## 11. Arranque a prueba de pantalla negra
 
 El WebView puede quedar en negro sin dar un solo mensaje (por ejemplo, si la
 página principal responde 404, `onReceivedError` no se dispara). Para que eso
@@ -191,7 +199,7 @@ no vuelva a pasar:
 La versión también se ve en el login (`MercaFabrick v1.1.1`), para confirmar
 que la APK instalada es la nueva.
 
-## 11. Compilar y entregar
+## 12. Compilar y entregar
 
 ```sh
 bash build-merca.sh            # ~2-4 min (d8 es lo más lento)
@@ -203,7 +211,7 @@ bash build-merca.sh            # ~2-4 min (d8 es lo más lento)
 - Entrega fuera de Termux: copiar a `/storage/emulated/0/Download/`.
 - Prueba final en el teléfono del usuario: aquí no hay Android para ejecutar.
 
-## 12. Pendiente / límites
+## 13. Pendiente / límites
 
 - La boleta PDF y el permiso de ubicación solo se validan en dispositivo.
 - El pago es efectivo o transferencia; no hay pasarela.

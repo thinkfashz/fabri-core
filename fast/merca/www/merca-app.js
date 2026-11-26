@@ -550,6 +550,9 @@
       return html + UI.vacio("Sin productos", "Este local todavía no publicó su catálogo.");
     }
 
+    html += '<div class="mf-seccion"><h2>Reseñas</h2><span id="mfResLocal">·</span></div>' +
+      '<div class="mf-lista" id="mfResLocalLista"><p class="mf-nota">Cargando…</p></div>';
+
     html += '<div class="mf-seg" id="mfVista" role="tablist" aria-label="Vista del catálogo">' +
       '<button type="button" data-vista="lista" aria-pressed="true">Lista</button>' +
       '<button type="button" data-vista="3d">3D</button>' +
@@ -643,6 +646,8 @@
         '<div class="mf-stat"><b id="mfStatResenas">·</b><span>Reseñas</span></div>' +
         "</div>" +
 
+        '<div class="mf-seccion"><h2>Mi tienda</h2></div>' +
+        '<div class="mf-lista" id="mfMiTienda"><p class="mf-nota">Cargando…</p></div>' +
         '<div class="mf-seccion"><h2>Tu actividad</h2></div>' +
         '<div class="mf-lista">' +
         '<button class="mf-item" type="button" id="mfIrFavoritos"><span><b>Favoritos</b>' +
@@ -934,6 +939,64 @@
     };
     var ot = document.getElementById("mfOtraTienda");
     if (ot) ot.onclick = function () { ir("nueva-tienda"); };
+  }
+
+  function cargarMiTienda() {
+    var caja = document.getElementById("mfMiTienda");
+    if (!caja || !sesion()) { if (caja) caja.innerHTML = ""; return; }
+    api({ accion: "local_mio" }).then(function (r) {
+      if (!r.ok) { caja.innerHTML = ""; return; }
+      var ls = r.d.locales || [];
+      if (!ls.length) {
+        caja.innerHTML = '<p class="mf-nota">Todavía no tienes un local. ' +
+          '<button class="mf-btn mf-btn--sm" type="button" id="mfCrearDesdeCuenta" style="margin-top:8px">Crear mi tienda</button></p>';
+        var c = document.getElementById("mfCrearDesdeCuenta");
+        if (c) c.onclick = function () { ir("nueva-tienda"); };
+        return;
+      }
+      caja.innerHTML = ls.map(function (l) {
+        return '<div class="mf-item"><span><b>' + esc(l.nombre) + "</b>" +
+          "<small>" + esc(l.comuna || "") + " · " + (l.abierto === false ? "Cerrado" : "Abierto") +
+          " · " + (r.d.pendientes && r.d.pendientes[l.id] ? r.d.pendientes[l.id] + " pedidos por despachar" : "sin pendientes") + "</small></span>" +
+          '<span class="mf-paso">' +
+          '<button class="mf-btn mf-btn--sm" type="button" data-chat="' + esc(l.id) + '">Mensajes</button>' +
+          '<button class="mf-btn mf-btn--sm" type="button" data-estado="' + esc(l.id) + "|" + (l.abierto === false ? "1" : "0") + '">' +
+          (l.abierto === false ? "Abrir" : "Cerrar") + "</button></span></div>";
+      }).join("");
+      caja.querySelectorAll("[data-chat]").forEach(function (b) {
+        b.onclick = function () {
+          var l = ls.filter(function (x) { return x.id === b.dataset.chat; })[0];
+          if (l) abrirChat(l);
+        };
+      });
+      caja.querySelectorAll("[data-estado]").forEach(function (b) {
+        b.onclick = function () {
+          var p = b.dataset.estado.split("|");
+          api({ accion: "local_estado", local_id: p[0], abierto: p[1] === "1" }).then(function (rr) {
+            if (UI.toast) UI.toast(rr.ok ? "Local actualizado" : motivo(rr));
+            cargarMiTienda();
+          });
+        };
+      });
+    });
+  }
+
+  function cargarResenasLocal() {
+    var caja = document.getElementById("mfResLocalLista");
+    if (!caja || !S.tienda) return;
+    api({ accion: "resenas_listar", local_id: S.tienda.id, limite: 5 }).then(function (r) {
+      if (!r.ok) { caja.innerHTML = ""; return; }
+      var cal = r.d.calificacion || {};
+      var span = document.getElementById("mfResLocal");
+      if (span) span.textContent = cal.n ? (Number(cal.promedio).toFixed(1) + " ★ · " + cal.n) : "sin reseñas";
+      var rs = r.d.resenas || [];
+      caja.innerHTML = rs.length
+        ? rs.slice(0, 3).map(function (x) {
+            return '<div class="mf-item"><span><b>' + "★".repeat(Math.max(0, Math.min(5, Number(x.estrellas) || 0))) + "</b>" +
+              "<small>" + esc((x.texto || "").slice(0, 110)) + " · " + esc(x.autor || "") + "</small></span></div>";
+          }).join("")
+        : '<p class="mf-nota">Aún no hay reseñas de este local.</p>';
+    });
   }
 
   /* ── chat con el local ───────────────────────────────────────────── */
@@ -1440,9 +1503,10 @@
     var volverT = document.getElementById("mfTVolver");
     if (volverT) volverT.onclick = function () { ir("cuenta"); };
 
-    if (S.tab === "cuenta" && sesion()) cargarPedidos();
+    if (S.tab === "cuenta" && sesion()) { cargarPedidos(); cargarMiTienda(); }
     if (S.tab === "favoritos" && sesion()) cargarFavoritos();
     if (S.tab === "resenas" && sesion()) cargarResenas();
+    if (S.tab === "catalogo") cargarResenasLocal();
     if (S.tab === "chat") arrancarChat();
     else if (chatTimer) { clearTimeout(chatTimer); chatTimer = null; }
   }

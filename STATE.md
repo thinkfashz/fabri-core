@@ -8,6 +8,19 @@
 
 Última actualización: 2026-11-26
 
+## Sesión 2026-11-26 · MercaFabrick 1.4.2: Mi tienda y reseñas del local
+
+- **Mi tienda** en Cuenta (`local_mio`): lista de locales del dueño con estado,
+  pedidos por despachar y botones **Mensajes** (abre el chat como dueño, la API
+  lo autoriza por `dueno_id`) y **Abrir/Cerrar** (`local_estado`).
+- **Reseñas del local** en la ficha del catálogo (`resenas_listar`): promedio,
+  cantidad y últimas opiniones.
+- Con esto el chat queda en ambos sentidos desde la misma APK: el cliente
+  escribe y el dueño responde.
+- **Verificado** en headless: Mi tienda con botones y reseñas 4.5 ★.
+- **Pendiente**: UI de chat del dueño en el panel web (opcional), push en la
+  APK, y editar logo/descripción de la tienda.
+
 ## Sesión 2026-11-26 · MercaFabrick 1.4.1: chat cliente↔local
 
 - **API desplegada** en `fabri-api` (producción): tabla `mercado_mensajes` +
