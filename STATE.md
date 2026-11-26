@@ -6,7 +6,47 @@
 > `cl.fabrick.core`, crate `fabrick-core`, dominio `forge-core-stock.vercel.app`,
 > repo `thinkfashz/fabri-core`.
 
-Última actualización: 2026-11-25
+Última actualización: 2026-11-26
+
+## Sesión 2026-11-26 · MercaFabrick 1.4.1: chat cliente↔local
+
+- **API desplegada** en `fabri-api` (producción): tabla `mercado_mensajes` +
+  acciones `mensaje_enviar` y `mensajes_listar` (cliente con sesión, dueño con
+  clave). Verificado: sin sesión → 401 `SIN_CUENTA`; `locales` sigue 200; el
+  estado publica las dos acciones.
+- **Chat en la APK**: botón «Chat con el local» en el catálogo y «Escribir al
+  local» tras el pedido; hilo con burbujas, envío y polling cada 5 s.
+- **Seguridad**: HTTPS, Bearer de cuenta + `x-dispositivo`, o clave del local
+  (hash SHA-256 en la base). El dueño responde desde el panel con la misma API.
+- **Pendiente**: interfaz de respuesta para el dueño en el panel (la API ya la
+  soporta) y probar el chat real entre dos teléfonos.
+
+## Sesión 2026-11-26 · MercaFabrick 1.4.0: mapa oscuro 3D y panel del usuario
+
+- **Mapa nuevo** (`mapa.js` + Leaflet + CARTO dark_all): oscuro y elegante,
+  con capas (locales / mi ubicación / ruta), zoom, **modo 3D** (perspectiva),
+  GPS en vivo (`watchPosition`), coordenadas al día, y **tiempo de recorrido**
+  (distancia + minutos a pie y auto) con ruta punteada. Ficha del local con
+  «Ver productos» y «Ruta». Si las teselas no cargan, los pines y la lista
+  siguen funcionando (ya no queda cargando).
+- **Catálogo**: destacados primero, ofertas arriba con su sección, chips de
+  categoría con conteo, orden por relevancia.
+- **Panel del usuario**: avatar, estadísticas (pedidos / favoritos / reseñas),
+  accesos a Favoritos, Mis reseñas y **Crear mi tienda**, e historial con
+  botón «Reseñar» en pedidos entregados sin opinión.
+- **Crear tienda desde la APK**: formulario con rubro, dirección, comuna,
+  teléfono, horario, mínimo, envío y ubicación (GPS o manual). Usa
+  `local_crear` (requiere cuenta) y muestra la **clave de dueño** una sola vez,
+  con «Copiar clave» y «Ver en el mapa».
+- **Favoritos**: `favoritos_listar` + `favorito_alternar` (quitar).
+- **Reseñas**: `resenas_mias` (pendientes + hechas) y `resena_crear` con
+  estrellas y texto.
+- **Verificado** en headless (360×780): mapa con 14 teselas CARTO, 6 pines,
+  capas, coordenadas y ficha; cuenta con perfil/estadísticas; formulario de
+  tienda; favoritos; reseñas; catálogo con ofertas. Sin errores de consola.
+- **Pendiente**: chat cliente↔local (la API aún no tiene mensajería; hay que
+  agregar tabla `mercado_mensajes` + acciones y desplegar), y probar en el
+  teléfono el 3D con GPU y el mapa con GPS real.
 
 ## Sesión 2026-11-25 · MercaFabrick 1.3.0: el visor 3D de la nube, en la APK
 

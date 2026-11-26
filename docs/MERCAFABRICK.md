@@ -5,7 +5,7 @@
 > en efectivo o por transferencia y avisa el pedido al local por WhatsApp con
 > una boleta PDF. No reemplaza ni toca `cl.fabrick.core`.
 
-Estado: **1.3.0** (`versionCode` 6). Fuente en `fast/merca/`.
+Estado: **1.4.1** (`versionCode` 8). Fuente en `fast/merca/`.
 
 ## 1. Qué hace (y qué no)
 
@@ -78,16 +78,21 @@ Inicio / Mapa ──► Catálogo (tienda) ──► Carrito ──► Compra
   código y clave) y el usuario toca «Enviar por WhatsApp». Evita cierres raros
   y deja ver la boleta antes de salir de la app.
 
-## 5. Mapa interactivo
+## 5. Mapa oscuro interactivo
 
-`mapa.js` dibuja un mapa "slippy" en canvas, sin Leaflet ni claves de API:
+Leaflet + teselas **CARTO dark_all** (oscuro, elegante), sin claves:
 
-- Teselas de `tile.openstreetmap.org` (atribución visible), con caché en memoria.
-- Pines de los locales con `lat/lon`: lima si está abierto, rojo si está cerrado.
-- Punto azul de la ubicación del usuario (botón «Mi ubicación» de la topbar).
-- Arrastre para desplazar, rueda/pinza para acercar, botones + / − / centrar.
-- Toca un pin → ficha con nombre, rubro, dirección y botón «Ver productos».
-- Debajo del mapa, la lista completa de locales.
+- **Capas**: locales, mi ubicación y ruta (checkboxes en el mapa).
+- **Zoom**: botones + / − y rueda; **modo 3D** que inclina el mapa en
+  perspectiva (botón con el cubo).
+- **GPS en vivo**: `watchPosition` actualiza el punto azul y las coordenadas.
+- **Coordenadas** al pie, actualizadas al mover el mapa.
+- **Tiempo de recorrido**: al elegir un local se muestra distancia y minutos
+  estimados a pie y en auto, y se puede trazar la ruta punteada.
+- **Selección**: pin → ficha con nombre, rubro, dirección, apertura, tiempos y
+  botones «Ver productos» / «Ruta». Debajo, la lista completa.
+- Si las teselas no cargan (sin red), el mapa sigue mostrando los pines sobre
+  el fondo oscuro y la lista funciona igual.
 
 ## 6. Visor 3D del mercado (el de la nube)
 
@@ -116,7 +121,18 @@ Se entra desde el catálogo con el selector **Lista / 3D**. La barra del visor
 muestra el total del carrito y el botón «Ver pedido» cierra el 3D y abre el
 carrito de la app.
 
-## 7. Boleta PDF
+## 7. Chat con el local
+
+Canal directo cliente ↔ local, sobre la misma API (HTTPS + sesión + dispositivo):
+
+- Tabla `mercado_mensajes` (local, pedido opcional, autor, texto, fecha).
+- Acciones `mensaje_enviar` y `mensajes_listar`. El cliente entra con su
+  sesión; el dueño, con la clave del local.
+- En la APK: botón «Chat con el local» en el catálogo y «Escribir al local»
+  tras el pedido. Hilo con burbujas, envío y **polling cada 5 s**.
+- El dueño responde desde el panel/FORGE con la clave del local (misma API).
+
+## 8. Boleta PDF
 
 Generador propio de **PDF 1.4** en JavaScript (Helvetica, multipágina, 46
 líneas por página), sin librerías. Estructura válida verificada: cabecera
@@ -127,7 +143,7 @@ líneas por página), sin librerías. Estructura válida verificada: cabecera
 - **Navegador**: descarga con `Blob`.
 - El documento dice «Documento de pedido. No es boleta ni factura fiscal».
 
-## 8. Pantalla negra: qué pasaba (y la causa real)
+## 9. Pantalla negra: qué pasaba (y la causa real)
 
 Hubo dos cosas, y la segunda tapaba a la primera:
 
@@ -154,7 +170,7 @@ Arreglo de (1):
 Arreglo de (2): `build-merca.sh` pasa `$KSTD` (kotlin-stdlib) a `d8`, así que
 el stdlib queda **dentro** del APK. El archivo pasó de 60 KB a 732 KB.
 
-## 9. Arranque a prueba de pantalla negra
+## 10. Arranque a prueba de pantalla negra
 
 El WebView puede quedar en negro sin dar un solo mensaje (por ejemplo, si la
 página principal responde 404, `onReceivedError` no se dispara). Para que eso
@@ -175,7 +191,7 @@ no vuelva a pasar:
 La versión también se ve en el login (`MercaFabrick v1.1.1`), para confirmar
 que la APK instalada es la nueva.
 
-## 10. Compilar y entregar
+## 11. Compilar y entregar
 
 ```sh
 bash build-merca.sh            # ~2-4 min (d8 es lo más lento)
@@ -187,7 +203,7 @@ bash build-merca.sh            # ~2-4 min (d8 es lo más lento)
 - Entrega fuera de Termux: copiar a `/storage/emulated/0/Download/`.
 - Prueba final en el teléfono del usuario: aquí no hay Android para ejecutar.
 
-## 11. Pendiente / límites
+## 12. Pendiente / límites
 
 - La boleta PDF y el permiso de ubicación solo se validan en dispositivo.
 - El pago es efectivo o transferencia; no hay pasarela.

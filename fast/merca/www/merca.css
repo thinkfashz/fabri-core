@@ -860,3 +860,299 @@ body.mf-auth-bloqueado .mf-main {
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+/* ── 16. Mapa oscuro (Leaflet + CARTO) ─────────────────────────────────── */
+.mf-mapa {
+  position: relative;
+  height: 60vh;
+  min-height: 360px;
+  border-radius: var(--mf-r);
+  overflow: hidden;
+  border: 1px solid var(--mf-line);
+  background: #0B0E11;
+  isolation: isolate;
+}
+.mf-mapa__lienzo {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  transition: transform 0.5s var(--mf-ease), filter 0.5s var(--mf-ease);
+  transform-origin: 50% 62%;
+}
+.mf-mapa--3d .mf-mapa__lienzo {
+  transform: rotateX(34deg) scale(1.16);
+  filter: saturate(1.05) contrast(1.04);
+}
+.mf-mapa .leaflet-container {
+  background: #0B0E11;
+  font-family: var(--mf-fuente);
+}
+.mf-mapa .leaflet-tile-pane {
+  filter: brightness(1.02) contrast(1.06) saturate(0.85);
+}
+.mf-mapa .leaflet-control-attribution {
+  background: rgba(0, 0, 0, 0.55) !important;
+  color: rgba(255, 255, 255, 0.55) !important;
+  font-size: 9px !important;
+  padding: 2px 6px !important;
+  border-radius: 6px 0 0 0;
+}
+.mf-mapa .leaflet-control-attribution a { color: rgba(200, 255, 0, 0.75) !important; }
+
+/* Pines */
+.mf-pin-wrap { background: transparent; border: 0; }
+.mf-pin {
+  position: relative;
+  display: block;
+  width: 26px; height: 26px;
+  margin: 0 auto;
+  border-radius: 50% 50% 50% 4px;
+  transform: rotate(-45deg);
+  background: var(--mf-lima);
+  border: 2px solid rgba(0, 0, 0, 0.55);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.55), 0 0 0 4px rgba(200, 255, 0, 0.18);
+}
+.mf-pin i {
+  position: absolute;
+  inset: 7px;
+  border-radius: 50%;
+  background: #0A1000;
+}
+.mf-pin--cerrado {
+  background: var(--mf-rojo);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.55), 0 0 0 4px rgba(255, 69, 58, 0.18);
+}
+
+/* Controles */
+.mf-mapa__controles {
+  position: absolute;
+  right: 10px; top: 10px;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mf-mapa__btn {
+  width: 40px; height: 40px;
+  border-radius: 13px;
+  border: 1px solid var(--mf-line-2);
+  background: rgba(16, 18, 22, 0.86);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  color: var(--mf-txt);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  box-shadow: var(--mf-sombra-sm);
+}
+.mf-mapa__btn:active { background: rgba(40, 44, 52, 0.92); }
+.mf-mapa__btn svg { width: 19px; height: 19px; }
+.mf-mapa__btn--3d[aria-pressed="true"] {
+  background: var(--mf-lima);
+  border-color: var(--mf-lima);
+  color: var(--mf-lima-ink);
+}
+
+/* Capas */
+.mf-mapa__capas {
+  position: absolute;
+  left: 10px; top: 10px;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 9px 11px;
+  border-radius: 14px;
+  background: rgba(16, 18, 22, 0.86);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  border: 1px solid var(--mf-line-2);
+  box-shadow: var(--mf-sombra-sm);
+}
+.mf-mapa__capas label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--mf-txt-2);
+  cursor: pointer;
+}
+.mf-mapa__capas input { accent-color: var(--mf-lima); width: 15px; height: 15px; }
+
+/* Coordenadas */
+.mf-mapa__coords {
+  position: absolute;
+  left: 10px; bottom: 8px;
+  z-index: 6;
+  padding: 4px 9px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.6);
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+}
+
+/* Ficha del local */
+.mf-mapa__ficha {
+  position: absolute;
+  left: 10px; right: 10px; bottom: 34px;
+  z-index: 7;
+  padding: 13px 14px;
+  border-radius: var(--mf-r-sm);
+  background: rgba(16, 18, 22, 0.94);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+  border: 1px solid var(--mf-line-2);
+  box-shadow: var(--mf-sombra);
+}
+.mf-mapa__ficha b { display: block; font-size: 15.5px; letter-spacing: -0.01em; }
+.mf-mapa__ficha small { display: block; margin-top: 2px; color: var(--mf-txt-2); font-size: 12.5px; }
+.mf-mapa__tiempos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 9px;
+}
+.mf-mapa__tiempos span {
+  padding: 4px 9px;
+  border-radius: var(--mf-r-pill);
+  background: rgba(200, 255, 0, 0.12);
+  color: var(--mf-lima);
+  font-size: 11px;
+  font-weight: 700;
+}
+.mf-mapa__acciones { display: flex; gap: 8px; margin-top: 11px; }
+.mf-mapa__acciones .mf-btn { flex: 1 1 0; }
+
+/* ── 17. Perfil, estadísticas y reseñas ────────────────────────────────── */
+.mf-perfil { display: flex; align-items: center; gap: 14px; }
+.mf-perfil__avatar {
+  width: 56px; height: 56px;
+  border-radius: 18px;
+  display: grid; place-items: center;
+  background: linear-gradient(150deg, var(--mf-lima), var(--mf-lima-2));
+  color: var(--mf-lima-ink);
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  flex: 0 0 auto;
+  box-shadow: 0 10px 30px rgba(200, 255, 0, 0.22);
+}
+.mf-perfil h1 { margin: 0; font-size: 24px; }
+.mf-perfil p { margin: 2px 0 0; font-size: 13px; }
+
+.mf-grid--3 { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.mf-stat {
+  background: var(--mf-card);
+  border: 1px solid var(--mf-line);
+  border-radius: var(--mf-r-sm);
+  padding: 14px 8px;
+  text-align: center;
+}
+.mf-stat b {
+  display: block;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--mf-lima);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+.mf-stat span { font-size: 11px; color: var(--mf-txt-2); font-weight: 600; }
+
+.mf-resena {
+  background: var(--mf-card);
+  border: 1px solid var(--mf-line);
+  border-radius: var(--mf-r-sm);
+  padding: 12px;
+  margin-top: 8px;
+}
+.mf-estrellas { display: flex; gap: 6px; margin-bottom: 10px; }
+.mf-estrella {
+  width: 38px; height: 38px;
+  border-radius: 12px;
+  border: 1px solid var(--mf-line);
+  background: var(--mf-card-2);
+  color: var(--mf-txt-3);
+  font-size: 19px;
+  line-height: 1;
+  cursor: pointer;
+}
+.mf-estrella.on { color: var(--mf-lima); border-color: rgba(200, 255, 0, 0.5); background: rgba(200, 255, 0, 0.10); }
+.mf-textarea {
+  width: 100%;
+  min-height: 74px;
+  padding: 11px 13px;
+  border-radius: var(--mf-r-sm);
+  border: 1px solid var(--mf-line);
+  background: var(--mf-bg-2);
+  color: var(--mf-txt);
+  font-size: 15px;
+  font-family: inherit;
+  resize: vertical;
+  box-sizing: border-box;
+}
+.mf-textarea:focus { outline: none; border-color: rgba(200, 255, 0, 0.5); }
+
+/* ── 18. Chat con el local ─────────────────────────────────────────────── */
+body.mf-chat-open { padding-bottom: 0; }
+body.mf-chat-open .mf-tabbar { display: none; }
+.mf-chat {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 52vh;
+  padding: 4px 0 90px;
+}
+.mf-burbuja {
+  max-width: 82%;
+  align-self: flex-start;
+  padding: 9px 13px;
+  border-radius: 18px 18px 18px 6px;
+  background: var(--mf-card);
+  border: 1px solid var(--mf-line);
+}
+.mf-burbuja--mia {
+  align-self: flex-end;
+  background: rgba(200, 255, 0, 0.14);
+  border-color: rgba(200, 255, 0, 0.32);
+  border-radius: 18px 18px 6px 18px;
+}
+.mf-burbuja small {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--mf-txt-3);
+  margin-bottom: 2px;
+}
+.mf-burbuja p { margin: 0; font-size: 14.5px; line-height: 1.4; }
+
+.mf-chat__form {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  z-index: 80;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+  background: var(--mf-glass);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  border-top: 1px solid var(--mf-line);
+}
+.mf-chat__form input {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 46px;
+  padding: 0 16px;
+  border-radius: var(--mf-r-pill);
+  border: 1px solid var(--mf-line);
+  background: var(--mf-card);
+  color: var(--mf-txt);
+  font-size: 16px;
+}
+.mf-chat__form input:focus { outline: none; border-color: rgba(200, 255, 0, 0.5); }
+.mf-chat__form .mf-btn { width: auto; min-height: 46px; padding: 0 18px; flex: 0 0 auto; }

@@ -34,6 +34,7 @@
     enviando: false,
     vistaCatalogo: "lista",
     vista3d: false,
+    chatLocal: null,
     ubicacion: null,
   };
 
@@ -212,14 +213,27 @@
     ir("catalogo");
   }
 
+  function esOferta(p) {
+    return Number(p.precio) > Number(p.precio_efectivo != null ? p.precio_efectivo : p.precio);
+  }
+
   function filtrados() {
     var q = S.q.trim().toLowerCase();
-    return S.productos.filter(function (p) {
+    var lista = S.productos.filter(function (p) {
       var okQ = !q || String(p.nombre || "").toLowerCase().indexOf(q) >= 0 ||
         String(p.sku || "").toLowerCase() === q;
       var okC = !S.cat || String(p.categoria || "") === S.cat;
       return okQ && okC;
     });
+    /* Destacados primero, después ofertas, después por nombre. */
+    lista.sort(function (a, b) {
+      var da = a.destacado ? 1 : 0, db = b.destacado ? 1 : 0;
+      if (da !== db) return db - da;
+      var oa = esOferta(a) ? 1 : 0, ob = esOferta(b) ? 1 : 0;
+      if (oa !== ob) return ob - oa;
+      return String(a.nombre || "").localeCompare(String(b.nombre || ""));
+    });
+    return lista;
   }
 
   /* ── pedido ───────────────────────────────────────────────────────── */
@@ -421,6 +435,10 @@
     mapa: ["MercaFabrick", "mapa del barrio"],
     carrito: ["MercaFabrick", "tu pedido"],
     cuenta: ["MercaFabrick", "cuenta"],
+    "nueva-tienda": ["MercaFabrick", "crear mi tienda"],
+    favoritos: ["MercaFabrick", "favoritos"],
+    resenas: ["MercaFabrick", "mis reseñas"],
+    chat: ["MercaFabrick", "chat"],
   };
 
   function pintarTabs() {
@@ -441,6 +459,7 @@
     destruirVisores();
     pintarTabs();
     pintarBadge();
+    document.body.classList.toggle("mf-chat-open", S.tab === "chat");
 
     var html = "";
     if (S.error) html += '<p class="mf-error" role="alert">' + esc(S.error) + "</p>";
@@ -450,6 +469,10 @@
     else if (S.tab === "mapa") html += vistaMapa();
     else if (S.tab === "catalogo") html += vistaCatalogo();
     else if (S.tab === "carrito") html += vistaCarrito();
+    else if (S.tab === "nueva-tienda") html += vistaNuevaTienda();
+    else if (S.tab === "favoritos") html += vistaFavoritos();
+    else if (S.tab === "resenas") html += vistaResenas();
+    else if (S.tab === "chat") html += vistaChat();
     else html += vistaCuenta();
 
     main.innerHTML = html || UI.vacio("Sin datos", "Todavía no hay nada que mostrar.");
@@ -516,6 +539,8 @@
       "<p>" + (t.abierto ? "Abierto" : "Cerrado") +
       (t.horario ? " · " + esc(t.horario) : "") +
       (t.direccion ? " · " + esc(t.direccion) : "") + "</p>" +
+      '<div class="mf-acciones" style="margin-top:12px">' +
+      '<button class="mf-btn mf-btn--sm" type="button" id="mfChatLocal">Chat con el local</button></div>' +
       "<p>" + t.catalogo.length + " productos" +
       (t.minimo ? " · mínimo " + clp(t.minimo) : "") +
       (t.entrega.indexOf("delivery") >= 0 ? " · delivery " + clp(t.envio) : " · sólo retiro") + "</p>" +
@@ -531,11 +556,19 @@
       "</div>";
 
     var cats = {};
-    S.productos.forEach(function (p) { if (p.categoria) cats[p.categoria] = 1; });
+    S.productos.forEach(function (p) { if (p.categoria) cats[p.categoria] = (cats[p.categoria] || 0) + 1; });
     var chips = Object.keys(cats).slice(0, 8).map(function (c) {
       return '<button class="mf-chip-f" type="button" data-cat="' + esc(c) + '"' +
-        (S.cat === c ? ' aria-pressed="true"' : "") + ">" + esc(c) + "</button>";
+        (S.cat === c ? ' aria-pressed="true"' : "") + ">" + esc(c) + " · " + cats[c] + "</button>";
     }).join("");
+
+    var ofertas = S.productos.filter(esOferta);
+    if (ofertas.length) {
+      html += '<div class="mf-seccion"><h2>Ofertas</h2><span>' + ofertas.length + " con descuento</span></div>";
+      html += '<div class="mf-grid">' + ofertas.slice(0, 4).map(function (p) {
+        return UI.tarjetaProducto(p);
+      }).join("") + "</div>";
+    }
 
     html += '<div class="mf-buscador">' +
       '<input id="mfQ" type="search" inputmode="search" placeholder="Buscar en ' + esc(t.nombre) + '" value="' + esc(S.q) + '" aria-label="Buscar productos">' +
@@ -597,36 +630,382 @@
     var s = sesion();
     if (s) {
       var u = s.usuario || {};
-      return '<section class="mf-hero"><p class="mf-kicker">Cuenta</p><h1>' +
-        esc(u.nombre || u.email || "Tu cuenta") + "</h1><p>" + esc(u.email || "") +
-        " · sesión activa en este dispositivo.</p></section>" +
+      var inicial = (u.nombre || u.email || "M").trim().charAt(0).toUpperCase();
+      return '<section class="mf-hero">' +
+        '<div class="mf-perfil">' +
+        '<span class="mf-perfil__avatar">' + esc(inicial) + "</span>" +
+        "<div><h1>" + esc(u.nombre || u.email || "Tu cuenta") + "</h1>" +
+        "<p>" + esc(u.email || "") + "</p></div></div></section>" +
+
+        '<div class="mf-grid mf-grid--3">' +
+        '<div class="mf-stat"><b id="mfStatPedidos">·</b><span>Pedidos</span></div>' +
+        '<div class="mf-stat"><b id="mfStatFavs">·</b><span>Favoritos</span></div>' +
+        '<div class="mf-stat"><b id="mfStatResenas">·</b><span>Reseñas</span></div>' +
+        "</div>" +
+
+        '<div class="mf-seccion"><h2>Tu actividad</h2></div>' +
+        '<div class="mf-lista">' +
+        '<button class="mf-item" type="button" id="mfIrFavoritos"><span><b>Favoritos</b>' +
+        "<small>Productos y tiendas que guardaste</small></span><em>Ver</em></button>" +
+        '<button class="mf-item" type="button" id="mfIrResenas"><span><b>Mis reseñas</b>' +
+        "<small>Opiniones y pedidos por calificar</small></span><em>Ver</em></button>" +
+        '<button class="mf-item" type="button" id="mfIrTienda"><span><b>Crear mi tienda</b>' +
+        "<small>Publícala en la nube y aparece en el mapa</small></span><em>Crear</em></button>" +
+        "</div>" +
+
+        '<div class="mf-seccion"><h2>Pedidos</h2><span id="mfPedidosTotal"></span></div>' +
         '<div class="mf-lista" id="mfPedidos"><div class="mf-cargando">Buscando tus pedidos…</div></div>' +
-        '<div class="mf-acciones"><button class="mf-btn" id="mfSalir" type="button">Cerrar sesión</button></div>';
+        '<div class="mf-acciones"><button class="mf-btn mf-btn--texto" id="mfSalir" type="button">Cerrar sesión</button></div>';
     }
     return '<section class="mf-hero"><p class="mf-kicker">Cuenta</p><h1>Entra para comprar</h1>' +
       "<p>Puedes mirar los locales sin cuenta. Para confirmar un pedido y verlo después, entra con tu correo.</p></section>" +
       '<div class="mf-acciones"><button class="mf-btn mf-btn--pri" id="mfEntrar" type="button">Entrar o crear cuenta</button></div>';
   }
 
+  /* ── alta de tienda desde la APK ─────────────────────────────────── */
+  function vistaNuevaTienda() {
+    if (!sesion()) {
+      return '<section class="mf-hero"><p class="mf-kicker">Mi tienda</p><h1>Entra primero</h1>' +
+        "<p>Necesitas una cuenta para publicar tu local.</p></section>" +
+        '<div class="mf-acciones"><button class="mf-btn mf-btn--pri" id="mfEntrar" type="button">Entrar</button></div>';
+    }
+    return '<section class="mf-hero"><p class="mf-kicker">Mi tienda</p><h1>Publica tu local</h1>' +
+      "<p>Se guarda en la nube y aparece en el mapa de MercaFabrick al instante.</p></section>" +
+
+      '<form id="mfFormTienda" novalidate>' +
+      '<div class="mf-grupo">' +
+      '<label class="mf-campo"><span>Nombre del local</span>' +
+      '<input id="mfTNombre" type="text" placeholder="Minimarket Sol" required></label>' +
+      '<label class="mf-campo"><span>Rubro</span>' +
+      '<input id="mfTRubro" type="text" placeholder="Minimarket, Feria, Almacén…" value="Minimarket"></label>' +
+      '<label class="mf-campo"><span>Dirección</span>' +
+      '<input id="mfTDir" type="text" placeholder="Av. Siempre Viva 836"></label>' +
+      '<label class="mf-campo"><span>Comuna</span>' +
+      '<input id="mfTComuna" type="text" placeholder="Santiago"></label>' +
+      '<label class="mf-campo"><span>Teléfono (WhatsApp)</span>' +
+      '<input id="mfTTel" type="tel" inputmode="tel" placeholder="+56 9 1234 5678"></label>' +
+      '<label class="mf-campo"><span>Horario</span>' +
+      '<input id="mfTHorario" type="text" placeholder="Lun a Sáb 9:00-21:00"></label>' +
+      "</div>" +
+
+      '<div class="mf-grupo">' +
+      '<label class="mf-campo"><span>Mínimo de compra</span>' +
+      '<input id="mfTMin" type="number" inputmode="numeric" min="0" step="1000" placeholder="5000"></label>' +
+      '<label class="mf-campo"><span>Envío delivery</span>' +
+      '<input id="mfTEnvio" type="number" inputmode="numeric" min="0" step="500" placeholder="1990"></label>' +
+      "</div>" +
+
+      '<div class="mf-grupo">' +
+      '<label class="mf-campo"><span>Ubicación</span>' +
+      '<input id="mfTLat" type="text" placeholder="Latitud" inputmode="decimal"></label>' +
+      '<label class="mf-campo"><span>Longitud</span>' +
+      '<input id="mfTLon" type="text" placeholder="Longitud" inputmode="decimal"></label>' +
+      "</div>" +
+      '<button class="mf-btn mf-btn--sm" id="mfTGps" type="button" style="margin-bottom:14px">Usar mi ubicación</button>' +
+
+      '<p class="mf-error" id="mfTFallo" role="alert" style="display:none"></p>' +
+      '<div class="mf-acciones">' +
+      '<button class="mf-btn mf-btn--pri" id="mfTCrear" type="submit">Publicar mi tienda</button>' +
+      '<button class="mf-btn mf-btn--texto" id="mfTVolver" type="button">Volver</button>' +
+      "</div></form>";
+  }
+
+  function vistaFavoritos() {
+    return '<section class="mf-hero"><p class="mf-kicker">Favoritos</p><h1>Lo que guardaste</h1>' +
+      "<p>Productos y tiendas que marcaste para después.</p></section>" +
+      '<div class="mf-lista" id="mfFavs"><div class="mf-cargando">Cargando…</div></div>';
+  }
+
+  function vistaResenas() {
+    return '<section class="mf-hero"><p class="mf-kicker">Reseñas</p><h1>Tu opinión</h1>' +
+      "<p>Califica tus compras y mira lo que ya opinaste.</p></section>" +
+      '<div class="mf-seccion"><h2>Por calificar</h2></div>' +
+      '<div class="mf-lista" id="mfPend"><p class="mf-nota">Cargando…</p></div>' +
+      '<div class="mf-seccion"><h2>Tus reseñas</h2></div>' +
+      '<div class="mf-lista" id="mfMisRes"><p class="mf-nota">Cargando…</p></div>';
+  }
+
   function cargarPedidos() {
     var caja = document.getElementById("mfPedidos");
     if (!caja) return;
     api({ accion: "mis_pedidos" }).then(function (r) {
+      var stat = document.getElementById("mfStatPedidos");
       if (!r.ok) {
-        caja.innerHTML = '<p class="mf-nota">No se pudieron traer tus pedidos: ' + esc(motivo(r)) + "</p>";
+        caja.innerHTML = '<p class="mf-nota">' + esc(motivo(r)) + "</p>";
+        if (stat) stat.textContent = "·";
         return;
       }
-      var lista = r.d.pedidos || r.d.items || [];
+      var lista = r.d.pedidos || [];
+      if (stat) stat.textContent = String(lista.length);
+      var tot = document.getElementById("mfPedidosTotal");
+      if (tot) tot.textContent = lista.length ? lista.length + " pedidos" : "";
       if (!lista.length) {
         caja.innerHTML = UI.vacio("Sin pedidos", "Cuando compres, tus pedidos aparecen acá.");
         return;
       }
       caja.innerHTML = lista.slice(0, 20).map(function (p) {
+        var puede = !p.resenado && (p.estado === "entregado" || p.estado === "lista");
         return '<div class="mf-item"><span><b>' + esc(p.codigo || p.id) + "</b>" +
-          "<small>" + esc(p.local_nombre || "") + " · " + clp(p.total) + "</small></span>" +
-          "<em>" + esc(p.estado || "") + "</em></div>";
+          "<small>" + esc(p.local_nombre || "") + " · " + clp(p.total) + " · " + esc(p.estado || "") + "</small></span>" +
+          (puede
+            ? '<button class="mf-btn mf-btn--sm" type="button" data-resena="' + esc(p.seguimiento || "") + '">Reseñar</button>'
+            : "<em>" + (p.resenado ? "Reseñado" : "") + "</em>") + "</div>";
       }).join("");
+      document.querySelectorAll("[data-resena]").forEach(function (b) {
+        if (!b.dataset.resena) return;
+        b.onclick = function () { abrirFormResena(b.dataset.resena, b.closest(".mf-item")); };
+      });
     });
+    /* Favoritos y reseñas alimentan los contadores. */
+    api({ accion: "favoritos_listar" }).then(function (r) {
+      var f = document.getElementById("mfStatFavs");
+      if (f && r.ok) f.textContent = String((r.d.favoritos || []).length);
+    });
+    api({ accion: "resenas_mias" }).then(function (r) {
+      var e = document.getElementById("mfStatResenas");
+      if (e && r.ok) e.textContent = String((r.d.resenas || []).length);
+    });
+  }
+
+  /* ── reseñas: formulario de estrellas ────────────────────────────── */
+  function abrirFormResena(token, cont) {
+    if (!cont) return;
+    var estrellas = 0;
+    cont.innerHTML = '<div class="mf-resena">' +
+      '<div class="mf-estrellas" role="radiogroup" aria-label="Estrellas">' +
+      [1, 2, 3, 4, 5].map(function (n) {
+        return '<button type="button" class="mf-estrella" data-n="' + n + '" aria-label="' + n + ' estrellas">★</button>';
+      }).join("") + "</div>" +
+      '<textarea id="mfResenaTxt" class="mf-textarea" maxlength="500" placeholder="¿Cómo fue tu compra?"></textarea>' +
+      '<button class="mf-btn mf-btn--pri mf-btn--sm" type="button" id="mfResenaEnviar">Enviar reseña</button>' +
+      "</div>";
+    var cont2 = cont;
+    cont2.querySelectorAll("[data-n]").forEach(function (b) {
+      b.onclick = function () {
+        estrellas = Number(b.dataset.n);
+        cont2.querySelectorAll("[data-n]").forEach(function (x) {
+          x.classList.toggle("on", Number(x.dataset.n) <= estrellas);
+        });
+      };
+    });
+    cont2.querySelector("#mfResenaEnviar").onclick = function () {
+      if (!estrellas) { if (UI.toast) UI.toast("Elige de 1 a 5 estrellas"); return; };
+      var txt = (cont2.querySelector("#mfResenaTxt") || {}).value || "";
+      api({ accion: "resena_crear", token: token, estrellas: estrellas, texto: txt }).then(function (r) {
+        if (!r.ok) { if (UI.toast) UI.toast(motivo(r)); return; }
+        if (UI.toast) UI.toast("Reseña enviada");
+        pintar();
+      });
+    };
+  }
+
+  function cargarFavoritos() {
+    var caja = document.getElementById("mfFavs");
+    if (!caja) return;
+    api({ accion: "favoritos_listar" }).then(function (r) {
+      if (!r.ok) { caja.innerHTML = '<p class="mf-nota">' + esc(motivo(r)) + "</p>"; return; }
+      var fs = r.d.favoritos || [];
+      if (!fs.length) {
+        caja.innerHTML = UI.vacio("Sin favoritos", "Guarda productos o tiendas y aparecen acá.");
+        return;
+      }
+      caja.innerHTML = fs.map(function (f) {
+        var esTienda = f.tipo === "tienda";
+        return '<div class="mf-item"><span><b>' + esc(f.nombre || f.nombre_guardado || "Local") + "</b>" +
+          "<small>" + (esTienda ? "Tienda · " : clp(f.precio) + " · ") + esc(f.local_nombre || "") + "</small></span>" +
+          '<button class="mf-btn mf-btn--sm" type="button" data-quitafav="' + esc(f.tipo) + "|" + esc(f.favorito_local_id || f.local_id || "") + "|" + esc(f.favorito_sku || f.sku || "") + '">Quitar</button></div>';
+      }).join("");
+      caja.querySelectorAll("[data-quitafav]").forEach(function (b) {
+        b.onclick = function () {
+          var p = b.dataset.quitafav.split("|");
+          api({ accion: "favorito_alternar", tipo: p[0], local_id: p[1], sku: p[2] }).then(function () {
+            if (UI.toast) UI.toast("Quitado de favoritos");
+            cargarFavoritos();
+          });
+        };
+      });
+    });
+  }
+
+  function cargarResenas() {
+    var mis = document.getElementById("mfMisRes");
+    var pen = document.getElementById("mfPend");
+    if (!mis && !pen) return;
+    api({ accion: "resenas_mias" }).then(function (r) {
+      if (!r.ok) {
+        if (mis) mis.innerHTML = '<p class="mf-nota">' + esc(motivo(r)) + "</p>";
+        return;
+      }
+      var d = r.d || {};
+      if (pen) {
+        var ps = d.pendientes || [];
+        pen.innerHTML = ps.length
+          ? ps.map(function (p) {
+              return '<div class="mf-item"><span><b>' + esc(p.local_nombre || "Tu compra") + "</b>" +
+                "<small>" + esc(p.codigo || "") + " · " + clp(p.total) + "</small></span>" +
+                '<button class="mf-btn mf-btn--sm" type="button" data-pend="' + esc(p.seguimiento || "") + '">Calificar</button></div>';
+            }).join("")
+          : '<p class="mf-nota">No tienes compras pendientes de calificar.</p>';
+        pen.querySelectorAll("[data-pend]").forEach(function (b) {
+          if (!b.dataset.pend) return;
+          b.onclick = function () { abrirFormResena(b.dataset.pend, b.closest(".mf-item")); };
+        });
+      }
+      if (mis) {
+        var rs = d.resenas || [];
+        mis.innerHTML = rs.length
+          ? rs.map(function (x) {
+              return '<div class="mf-item"><span><b>' + esc(x.local_nombre || "Local") + "</b>" +
+                "<small>" + "★".repeat(Math.max(0, Math.min(5, Number(x.estrellas) || 0))) + " · " +
+                esc((x.texto || "").slice(0, 90)) + "</small></span></div>";
+            }).join("")
+          : '<p class="mf-nota">Todavía no opinaste.</p>';
+      }
+    });
+  }
+
+  /* ── crear tienda ────────────────────────────────────────────────── */
+  function crearTienda(ev) {
+    if (ev) ev.preventDefault();
+    var fallo = document.getElementById("mfTFallo");
+    function dios(m) { if (fallo) { fallo.textContent = m; fallo.style.display = "block"; } }
+    var nombre = (document.getElementById("mfTNombre") || {}).value || "";
+    var rubro = (document.getElementById("mfTRubro") || {}).value || "Minimarket";
+    var direccion = (document.getElementById("mfTDir") || {}).value || "";
+    var comuna = (document.getElementById("mfTComuna") || {}).value || "";
+    var telefono = (document.getElementById("mfTTel") || {}).value || "";
+    var horario = (document.getElementById("mfTHorario") || {}).value || "";
+    var minimo = Number((document.getElementById("mfTMin") || {}).value) || 0;
+    var envio = Number((document.getElementById("mfTEnvio") || {}).value) || 0;
+    var lat = Number((document.getElementById("mfTLat") || {}).value) || 0;
+    var lon = Number((document.getElementById("mfTLon") || {}).value) || 0;
+
+    nombre = nombre.trim();
+    if (nombre.length < 2) return dios("Escribe el nombre del local.");
+    if (!lat || !lon || lat < -56 || lat > -17 || lon < -76 || lon > -66) {
+      return dios("Falta la ubicación: usa «Usar mi ubicación» o escribe latitud y longitud.");
+    }
+
+    api({
+      accion: "local_crear",
+      local: {
+        nombre: nombre, rubro: rubro, direccion: direccion, comuna: comuna,
+        telefono: telefono, horario: horario, minimo: minimo, envio: envio,
+        entrega: envio > 0 ? ["retiro", "delivery"] : ["retiro"],
+        lat: lat, lon: lon, abierto: true,
+      },
+    }).then(function (r) {
+      if (!r.ok) return dios(motivo(r));
+      var d = r.d || {};
+      S.localNuevo = d;
+      pintarExitoTienda(d);
+    });
+  }
+
+  function pintarExitoTienda(d) {
+    var main = document.getElementById("mfMain");
+    if (!main) return;
+    main.innerHTML =
+      '<section class="mf-hero mf-hero--exito"><p class="mf-kicker">Tienda publicada</p>' +
+      "<h1>" + esc(d.nombre || "Tu tienda") + "</h1>" +
+      "<p>Ya está en la nube y aparece en el mapa.</p></section>" +
+      '<div class="mf-card">' +
+      '<div class="mf-resumen" style="border:0;padding:0 0 12px">' +
+      '<div><span>ID del local</span><b>' + esc(d.id || "") + "</b></div>" +
+      '<div><span>Clave de dueño</span><b style="letter-spacing:.14em;color:var(--mf-lima)">' + esc(d.clave || "") + "</b></div>" +
+      "</div>" +
+      '<p class="mf-nota">Guarda la clave: es la única vez que se muestra. La necesitas para editar tu tienda.</p>' +
+      '<div class="mf-acciones">' +
+      '<button class="mf-btn mf-btn--pri" id="mfVerMapa" type="button">Ver en el mapa</button>' +
+      '<button class="mf-btn" id="mfCopiarClave" type="button">Copiar clave</button>' +
+      '<button class="mf-btn mf-btn--texto" id="mfOtraTienda" type="button">Crear otra</button>' +
+      "</div></div>";
+
+    var vm = document.getElementById("mfVerMapa");
+    if (vm) vm.onclick = function () {
+      cargarLocales().then(function () { ir("mapa"); });
+    };
+    var cp = document.getElementById("mfCopiarClave");
+    if (cp) cp.onclick = function () {
+      try {
+        navigator.clipboard.writeText(d.clave || "");
+        if (UI.toast) UI.toast("Clave copiada");
+      } catch (e) { if (UI.toast) UI.toast("No se pudo copiar"); }
+    };
+    var ot = document.getElementById("mfOtraTienda");
+    if (ot) ot.onclick = function () { ir("nueva-tienda"); };
+  }
+
+  /* ── chat con el local ───────────────────────────────────────────── */
+  var chatTimer = null;
+
+  function vistaChat() {
+    var t = S.chatLocal;
+    if (!t) {
+      return '<section class="mf-hero"><p class="mf-kicker">Chat</p><h1>Sin conversación</h1>' +
+        "<p>Entra a un local y toca «Chat».</p></section>";
+    }
+    return '<section class="mf-hero"><p class="mf-kicker">Chat</p><h1>' + esc(t.nombre) + "</h1>" +
+      "<p>Mensaje directo con el local. Te responde por acá.</p></section>" +
+      '<div class="mf-chat" id="mfChat"><div class="mf-cargando">Cargando…</div></div>' +
+      '<form class="mf-chat__form" id="mfChatForm">' +
+      '<input id="mfChatTxt" type="text" placeholder="Escribe un mensaje…" maxlength="1000" autocomplete="off">' +
+      '<button class="mf-btn mf-btn--pri" type="submit" aria-label="Enviar">Enviar</button>' +
+      "</form>";
+  }
+
+  function pintarChat() {
+    var caja = document.getElementById("mfChat");
+    if (!caja || !S.chatLocal) return;
+    api({ accion: "mensajes_listar", local_id: S.chatLocal.id, limite: 60 }).then(function (r) {
+      if (!r.ok) {
+        caja.innerHTML = '<p class="mf-nota">El chat no está disponible: ' + esc(motivo(r)) + "</p>";
+        return;
+      }
+      var ms = r.d.mensajes || [];
+      if (!ms.length) {
+        caja.innerHTML = '<p class="mf-nota">Aún no hay mensajes. Saluda al local.</p>';
+        return;
+      }
+      var yo = (sesion() || {}).usuario || {};
+      caja.innerHTML = ms.map(function (m) {
+        var mio = m.autor === "cliente";
+        return '<div class="mf-burbuja' + (mio ? " mf-burbuja--mia" : "") + '">' +
+          "<small>" + esc(mio ? "Tú" : (m.nombre || "Local")) + "</small>" +
+          "<p>" + esc(m.texto) + "</p></div>";
+      }).join("");
+      caja.scrollTop = caja.scrollHeight;
+    });
+  }
+
+  function enviarChat(ev) {
+    if (ev) ev.preventDefault();
+    var inp = document.getElementById("mfChatTxt");
+    var txt = inp ? inp.value.trim() : "";
+    if (!txt || !S.chatLocal) return;
+    if (inp) inp.value = "";
+    api({ accion: "mensaje_enviar", local_id: S.chatLocal.id, texto: txt }).then(function (r) {
+      if (!r.ok) { if (UI.toast) UI.toast(motivo(r)); return; }
+      pintarChat();
+    });
+  }
+
+  function abrirChat(t) {
+    S.chatLocal = { id: t.id, nombre: t.nombre || "Local" };
+    ir("chat");
+  }
+
+  function arrancarChat() {
+    if (chatTimer) { clearTimeout(chatTimer); chatTimer = null; }
+    pintarChat();
+    var latir = function () {
+      chatTimer = setTimeout(function () {
+        if (S.tab !== "chat") return;
+        pintarChat();
+        latir();
+      }, 5000);
+    };
+    latir();
   }
 
   /* ── mapa y 3D ────────────────────────────────────────────────────── */
@@ -924,11 +1303,14 @@
       '<div class="mf-acciones">' +
       '<button class="mf-btn mf-btn--pri" id="mfWa" type="button">Enviar por WhatsApp</button>' +
       '<button class="mf-btn" id="mfPdf" type="button">Boleta PDF</button>' +
+      '<button class="mf-btn" id="mfWaLocal" type="button">Escribir al local</button>' +
       '<button class="mf-btn mf-btn--texto" id="mfOtra" type="button">Volver a la tienda</button>' +
       "</div>";
 
     var wa = document.getElementById("mfWa");
     if (wa) wa.onclick = function () { abrirWhatsApp(d); };
+    var wl = document.getElementById("mfWaLocal");
+    if (wl && S.tienda) wl.onclick = function () { abrirChat(S.tienda); };
     var pdf = document.getElementById("mfPdf");
     if (pdf) pdf.onclick = function () { compartirBoleta(d); };
     var otra = document.getElementById("mfOtra");
@@ -1026,7 +1408,43 @@
       }
     };
 
+    var chatLocal = document.getElementById("mfChatLocal");
+    if (chatLocal && S.tienda) chatLocal.onclick = function () { abrirChat(S.tienda); };
+
+    var irFav = document.getElementById("mfIrFavoritos");
+    if (irFav) irFav.onclick = function () { ir("favoritos"); };
+    var irRes = document.getElementById("mfIrResenas");
+    if (irRes) irRes.onclick = function () { ir("resenas"); };
+    var irT = document.getElementById("mfIrTienda");
+    if (irT) irT.onclick = function () { ir("nueva-tienda"); };
+
+    var gps = document.getElementById("mfTGps");
+    if (gps) gps.onclick = function () {
+      if (!navigator.geolocation) { if (UI.toast) UI.toast("Sin GPS en este equipo"); return; }
+      if (UI.toast) UI.toast("Buscando tu ubicación…");
+      navigator.geolocation.getCurrentPosition(function (pos) {
+        var la = document.getElementById("mfTLat");
+        var lo = document.getElementById("mfTLon");
+        if (la) la.value = pos.coords.latitude.toFixed(6);
+        if (lo) lo.value = pos.coords.longitude.toFixed(6);
+        if (UI.toast) UI.toast("Ubicación lista");
+      }, function () { if (UI.toast) UI.toast("No pudimos obtener tu ubicación"); },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 });
+    };
+
+    var formChat = document.getElementById("mfChatForm");
+    if (formChat) formChat.onsubmit = enviarChat;
+
+    var formT = document.getElementById("mfFormTienda");
+    if (formT) formT.onsubmit = crearTienda;
+    var volverT = document.getElementById("mfTVolver");
+    if (volverT) volverT.onclick = function () { ir("cuenta"); };
+
     if (S.tab === "cuenta" && sesion()) cargarPedidos();
+    if (S.tab === "favoritos" && sesion()) cargarFavoritos();
+    if (S.tab === "resenas" && sesion()) cargarResenas();
+    if (S.tab === "chat") arrancarChat();
+    else if (chatTimer) { clearTimeout(chatTimer); chatTimer = null; }
   }
 
   function engancharLista() {

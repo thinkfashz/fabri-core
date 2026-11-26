@@ -686,6 +686,24 @@ async function asegurar(pool: any) {
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_mercado_favoritos_usuario
                       ON ${T_FAVORITOS} (usuario_id, creado DESC)`);
 
+
+  /* C12 · Mensajería directa cliente ↔ local (chat de compra). Un hilo por
+     local; `pedido_id` es opcional y permite atar la conversación a un pedido.
+     El cliente entra con su sesión; el dueño, con la clave del local. */
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS mercado_mensajes (
+      id          BIGSERIAL PRIMARY KEY,
+      local_id    TEXT NOT NULL,
+      pedido_id   TEXT NOT NULL DEFAULT '',
+      autor       TEXT NOT NULL,
+      usuario_id  TEXT NOT NULL DEFAULT '',
+      nombre      TEXT NOT NULL DEFAULT '',
+      texto       TEXT NOT NULL,
+      creado      TIMESTAMPTZ NOT NULL DEFAULT now()
+    )`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_mercado_mensajes_local
+                    ON mercado_mensajes (local_id, creado DESC)`);
+
   /* C11 · Direcciones del comprador. `alias` es lo que ve primero («casa»,
      «trabajo»); lat/lon son el pin del mapa y 0 significa «sin punto». Una
      sola predeterminada por cuenta: se limpia antes de marcar otra. */
@@ -1720,6 +1738,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         'push_local_suscribir', 'push_local_baja',
         'pedidos_listar', 'pedido_estado',
         'mis_pedidos', 'favoritos_listar', 'favorito_alternar',
+        'mensaje_enviar', 'mensajes_listar',
         'direcciones_listar', 'direccion_guardar', 'direccion_borrar',
         'resenas_listar', 'resena_crear', 'resenas_mias', 'resenas_panel', 'resena_moderar',
         'ventas_serie', 'resumen',
@@ -3991,6 +4010,76 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         stock_critico: criticos.rows,
         ofertas: ofertas.rows,
         tope_plan: TOPE_PLAN,
+      });
+    }
+
+    /* ── C12 · Chat cliente ↔ local ─────────────────────────────────── */
+    if (accion === 'mensaje_enviar') {
+      const localId = idLocal(cuerpo.local_id);
+      const msg = texto(cuerpo.texto, 1000).trim();
+      if (!localId) return json(res, { ok: false, error: 'falta el local' }, 400);
+      if (!msg) return json(res, { ok: false, error: 'el mensaje va vacío' }, 400);
+      const rl = await pool.query(
+        `SELECT id,nombre,activo FROM ${T_LOCALES} WHERE id = $1`, [localId]
+      );
+      const local = rl.rows[0];
+      if (!local || !local.activo) return json(res, { ok: false, error: 'local no encontrado' }, 404);
+
+      const acceso = await cuentaDe(pool, req);
+      const dueno = await autorizarLocal(pool, req, localId, texto(cuerpo.clave, 60));
+      let autor = 'cliente';
+      let usuarioId = '';
+      let nombre = '';
+      if (dueno.motivo === null && dueno.local) {
+        autor = 'local';
+        nombre = String(dueno.local.nombre || 'Local');
+      } else if (acceso.usuario) {
+        usuarioId = String(acceso.usuario.id || '');
+        nombre = String(acceso.usuario.nombre || acceso.usuario.email || '');
+      } else {
+        return json(res, {
+          ok: false, error: 'no autorizado',
+          codigo: dueno.motivo === 'local_inexistente' ? 'NO_LOCAL' : 'SIN_CUENTA',
+        }, 401);
+      }
+
+      const ins = await pool.query(
+        `INSERT INTO mercado_mensajes (local_id,pedido_id,autor,usuario_id,nombre,texto)
+         VALUES ($1,$2,$3,$4,$5,$6) RETURNING id,creado`,
+        [localId, texto(cuerpo.pedido_id, 60).trim(), autor, usuarioId, nombre, msg]
+      );
+      return json(res, {
+        ok: true,
+        mensaje: {
+          id: ins.rows[0].id, local_id: localId, pedido_id: texto(cuerpo.pedido_id, 60).trim(),
+          autor, nombre, texto: msg, creado: ins.rows[0].creado,
+        },
+      });
+    }
+
+    if (accion === 'mensajes_listar') {
+      const localId = idLocal(cuerpo.local_id);
+      if (!localId) return json(res, { ok: false, error: 'falta el local' }, 400);
+      const rl = await pool.query(
+        `SELECT id,nombre FROM ${T_LOCALES} WHERE id = $1`, [localId]
+      );
+      if (!rl.rows[0]) return json(res, { ok: false, error: 'local no encontrado' }, 404);
+
+      const acceso = await cuentaDe(pool, req);
+      const dueno = await autorizarLocal(pool, req, localId, texto(cuerpo.clave, 60));
+      if (!dueno.local && !acceso.usuario) {
+        return json(res, { ok: false, error: 'no autorizado', codigo: 'SIN_CUENTA' }, 401);
+      }
+      const limite = Math.max(1, Math.min(100, entero(cuerpo.limite, 50)));
+      const m = await pool.query(
+        `SELECT id,local_id,pedido_id,autor,usuario_id,nombre,texto,creado
+           FROM mercado_mensajes WHERE local_id = $1 ORDER BY creado DESC LIMIT $2`,
+        [localId, limite]
+      );
+      return json(res, {
+        ok: true,
+        local: { id: localId, nombre: rl.rows[0].nombre },
+        mensajes: m.rows.reverse(),
       });
     }
 
