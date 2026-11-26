@@ -8,6 +8,20 @@
 
 Última actualización: 2026-11-26
 
+## Sesión 2026-11-26 · Panel Negocio: módulo Mensajes
+
+- Nueva página `/panel/negocio/mensajes/` (web): hilo del local con burbujas
+  cliente/local, envío y polling cada 5 s; enlace «Mensajes» en el nav.
+- **Autenticación sin clave**: usa la sesión de la nube (`fcore.nube`,
+  Bearer + x-dispositivo); la API autoriza al dueño por `dueno_id`
+  (`autorizarLocal`). La clave del local no se usa ni se guarda en el panel.
+- **API revisada**: `locales`/`local_mio` no devuelven `clave` ni
+  `clave_hash` (verificado en producción). La clave sólo se entrega una vez
+  al crear el local (`local_crear`).
+- **APK**: usa la API real (`https://fabri-api.vercel.app/api/mercado` y
+  `/api/auth`); no hay mocks en el código entregado.
+- Desplegado en `forge-core-stock` (verificado 200 y presencia del módulo).
+
 ## Sesión 2026-11-26 · MercaFabrick 1.4.2: Mi tienda y reseñas del local
 
 - **Mi tienda** en Cuenta (`local_mio`): lista de locales del dueño con estado,
