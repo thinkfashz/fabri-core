@@ -1,0 +1,87 @@
+/* Mensajes · chat del panel Negocio con los clientes de la APK.
+   La API ya autoriza por sesión (dueno_id); acá no se usa la clave. */
+
+.msg-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.msg-head h1 { margin: 0; font-size: 26px; letter-spacing: -0.02em; }
+.msg-head p { margin: 4px 0 0; color: var(--tx3, #8a8a8a); font-size: 14px; }
+
+.msg-caja {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line, #1e1e1e);
+  border-radius: 18px;
+  background: var(--bg-2, #0b0b0b);
+  overflow: hidden;
+  min-height: 420px;
+}
+.msg-hilo {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  max-height: 58vh;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+}
+.msg-vacio { padding: 40px 20px; text-align: center; color: var(--tx3, #8a8a8a); font-size: 14px; }
+
+.msg {
+  max-width: 76%;
+  padding: 10px 14px;
+  border-radius: 16px 16px 16px 6px;
+  background: var(--surf-2, rgba(255,255,255,.06));
+  border: 1px solid var(--line, #1e1e1e);
+  align-self: flex-start;
+}
+.msg--local {
+  align-self: flex-end;
+  border-radius: 16px 16px 6px 16px;
+  background: rgba(200, 255, 0, 0.12);
+  border-color: rgba(200, 255, 0, 0.32);
+}
+.msg small {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--tx3, #8a8a8a);
+  margin-bottom: 3px;
+}
+.msg p { margin: 0; font-size: 14.5px; line-height: 1.45; white-space: pre-wrap; word-break: break-word; }
+.msg time { display: block; margin-top: 4px; font-size: 10.5px; color: var(--tx4, #5e5e5e); }
+
+.msg-form {
+  display: flex;
+  gap: 8px;
+  padding: 12px;
+  border-top: 1px solid var(--line, #1e1e1e);
+  background: var(--bg, #050505);
+}
+.msg-form input {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line, #1e1e1e);
+  background: var(--surf, rgba(255,255,255,.035));
+  color: var(--tx, #fff);
+  font-size: 15px;
+  font-family: inherit;
+}
+.msg-form input:focus { outline: none; border-color: rgba(200,255,0,.5); box-shadow: 0 0 0 3px rgba(200,255,0,.10); }
+.msg-form .btn { flex: 0 0 auto; min-height: 44px; }
+
+@media (max-width: 560px) {
+  .msg { max-width: 88%; }
+  .msg-hilo { max-height: 50vh; }
+}

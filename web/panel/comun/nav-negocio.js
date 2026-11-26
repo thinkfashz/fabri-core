@@ -11,6 +11,7 @@ export const NAV = [
       { ruta: '/panel/negocio/resumen/', texto: 'Resumen', icono: 'inicio' },
       { ruta: '/panel/negocio/pedidos/', texto: 'Pedidos', icono: 'pedidos' },
       { ruta: '/panel/negocio/notificaciones/', texto: 'Notificaciones', icono: 'campana' },
+      { ruta: '/panel/negocio/mensajes/', texto: 'Mensajes', icono: 'chat' },
     ],
   },
   {
